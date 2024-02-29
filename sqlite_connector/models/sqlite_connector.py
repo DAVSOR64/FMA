@@ -220,7 +220,7 @@ class SqliteConnector(models.Model):
                     "type": "consu",
                     "purchase_ok": "no",
                     "sale_ok": "yes",
-                    # 'product_delay': 0
+                    'produce_delay': 0
                 })
 
         # To handle if BPA
@@ -247,7 +247,7 @@ class SqliteConnector(models.Model):
                     "purchase_ok": "no",
                     "sale_ok": "yes",
                     "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto')), (4, self.env.ref('mrp.route_warehouse0_manufacture'))],
-                    # 'product_delay': delaifab
+                    'produce_delay': delaifab
                 })
 
         # We come to find the address for supplier deliveries
@@ -343,12 +343,10 @@ class SqliteConnector(models.Model):
 
                 for product in product_products:
                     refartodoo = product.default_code
-                    # delai = product.product_delay
+                    delai = product.produce_delay
                     if delai is None :
                         delay = 1
                     consoaff = product.x_studio_conso_laffaire
-                    # consoaff = str(consoaff)
-                    # if we got product in odoo
                     if refartodoo == refart:
                         trouve = 0
                         if product.orderpoint_ids:
@@ -674,7 +672,7 @@ class SqliteConnector(models.Model):
                             for product in product_products.filtered(lambda p: p.default_code == refart):
                                 data2 = product.default_code
                                 delai = product.seller_ids[0].delay if product.seller_ids else 1
-                                # delai = product.product_delay
+                                delai = product.produce_delay
                                 trouve = 0
                                 order_point = self.env['stock.warehouse.orderpoint'].search([('name', 'ilike', refart)])
                                 if order_point:
@@ -1519,13 +1517,13 @@ class SqliteConnector(models.Model):
                     if data1[10]:
                         warehouse = self.env.ref(data1[10]).id
                     so_data.append({
-                        "partner_id": part.id,
-                        "partner_shipping_id": part_ship.id,
+                        # "partner_id": part.id,
+                        # "partner_shipping_id": part_ship.id,
                         "date_order": fields.Date.today(),
                         # "analytic_order_id": data1[4],
-                        # "activity_ids": data1[5],
-                        # "activity_ids/summary": data1[6],
-                        # "activity_ids/res_model_id/name": data1[7], 
+                        "activity_ids": data1[5],
+                        "activity_ids/summary": data1[6],
+                        "activity_ids/res_model_id/name": data1[7], 
                         "x_studio_deviseur": data1[8],
                         "x_studio_bureau_etude": data1[9],
                         "warehouse_id": warehouse,
@@ -1538,9 +1536,9 @@ class SqliteConnector(models.Model):
                             'product_uom_qty': row[6],
                             'name': dimension,
                             'discount': PourRem,
-                            'product_uom': pro.uom_id.id
+                            'product_uom': pro.uom_id.id,
+                            "anaytic_tag_ids": entrepot,
                             })]
-                        # "anaytic_tag_ids": entrepot,
                         })
 
                     if NbrLig == 1:
@@ -1644,6 +1642,7 @@ class SqliteConnector(models.Model):
             datanom=[]
             cpt = 0
             elevID = ''
+            nomenclatures_data = []
             
             resultarticles=cursor.execute("Select ArticleCode, Description, Color, Units_Output, Units_Unit, Units,ArticleCode_Supplier, PUSize, ArticleCode_BaseNumber, ColorInfoInternal, ArticleCode_Number from AllArticles")
 
@@ -1731,6 +1730,7 @@ class SqliteConnector(models.Model):
                                 'product_qty': Qte,
                                 'product_uom_id': pro.uom_id.id
                             })],
+                            'operation_ids': []
                         })
             
             # For profies
@@ -1796,6 +1796,7 @@ class SqliteConnector(models.Model):
                         'product_qty': Qte,
                         'product_uom_id': pro.uom_id.id
                     })],
+                    'operation_ids': []
                 })
 
             # For operations
@@ -1826,15 +1827,21 @@ class SqliteConnector(models.Model):
                         if dataope:
                             pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + proj)
                             workcenter = self.env['mrp.workcenter'].search([('name', '=', name)])
-                            operations_data.append({
-                                "product_tmpl_id": pro_temp[0].id,
-                                'operation_ids': [(0, 0, {
-                                    'name': ope,
-                                    'time_cycle_manual': dataope[2],
-                                    'name': dataope[4],
-                                    'workcenter_id': workcenter.id
-                                })]
-                            })
+                            nomenclatures_data[0]['operation_ids'].append((0, 0, {
+                                'name': ope,
+                                'time_cycle_manual': dataope[2],
+                                'name': dataope[4],
+                                'workcenter_id': workcenter.id
+                            }))
+                            # operations_data.append({
+                            #     "product_tmpl_id": pro_temp[0].id,
+                            #     'operation_ids': [(0, 0, {
+                            #         'name': ope,
+                            #         'time_cycle_manual': dataope[2],
+                            #         'name': dataope[4],
+                            #         'workcenter_id': workcenter.id
+                            #     })]
+                            # })
                     else :
                         name = row[2]
                         name = name.strip()
@@ -1848,15 +1855,13 @@ class SqliteConnector(models.Model):
                 if dataope:
                     pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + proj)
                     workcenter = self.env['mrp.workcenter'].search([('name', '=', name)])
-                    operations_data.append({
-                        "product_tmpl_id": pro_temp[0].id,
-                        'operation_ids': [(0, 0, {
+                    if nomenclatures_data:
+                        nomenclatures_data[0]['operation_ids'].append((0, 0, {
                             'name': ope,
                             'time_cycle_manual': dataope[2],
                             'name': dataope[4],
                             'workcenter_id': workcenter.id
-                        })],
-                    })
+                    }))
 
         cursor.close()
         temp_file.close()
@@ -1867,10 +1872,8 @@ class SqliteConnector(models.Model):
         # _logger.info("=========po_vals %s" % po_vals)
         _logger.info("=========so_data %s \n" % (so_data))
         self.env['sale.order'].create(so_data[0])
-        # _logger.info("=========so_data %s" % so_data)
-        # _logger.info("=========nomenclatures_data %s" % nomenclatures_data)
-        # self.env['mrp.bom'].create(nomenclatures_data)
-        # _logger.info("=========operations_data %s" % operations_data)
+        _logger.info("=========nomenclatures_data %s" % nomenclatures_data)
+        self.env['mrp.bom'].create(nomenclatures_data)
 
 
 
