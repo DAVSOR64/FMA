@@ -1522,7 +1522,7 @@ class SqliteConnector(models.Model):
                         "date_order": fields.Date.today(),
                         # "analytic_order_id": data1[4],
                         "activity_ids": data1[5],
-                        "activity_ids/summary": data1[6],
+                        # "activity_ids/summary": data1[6],
                         "activity_ids/res_model_id/name": data1[7], 
                         "x_studio_deviseur": data1[8],
                         "x_studio_bureau_etude": data1[9],
@@ -1833,15 +1833,6 @@ class SqliteConnector(models.Model):
                                 'name': dataope[4],
                                 'workcenter_id': workcenter.id
                             }))
-                            # operations_data.append({
-                            #     "product_tmpl_id": pro_temp[0].id,
-                            #     'operation_ids': [(0, 0, {
-                            #         'name': ope,
-                            #         'time_cycle_manual': dataope[2],
-                            #         'name': dataope[4],
-                            #         'workcenter_id': workcenter.id
-                            #     })]
-                            # })
                     else :
                         name = row[2]
                         name = name.strip()
@@ -1874,8 +1865,3 @@ class SqliteConnector(models.Model):
         self.env['sale.order'].create(so_data[0])
         _logger.info("=========nomenclatures_data %s" % nomenclatures_data)
         self.env['mrp.bom'].create(nomenclatures_data)
-
-
-
-
-
