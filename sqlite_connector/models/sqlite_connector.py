@@ -33,10 +33,11 @@ class SqliteConnector(models.Model):
         articlesm = []
         articles_data = []
         po_vals = []
-        so_data = []
+        so_data = {}
         nomenclatures_data = []
         operations_data = []
 
+        articleslibre = []
         product_products = self.env['product.product'].search([])
         product_categories = self.env['product.category'].search([])
         uom_uoms = self.env['uom.uom'].search([])
@@ -47,6 +48,7 @@ class SqliteConnector(models.Model):
         mrp_workstations = self.env['mrp.workcenter'].search([])
         res_partners = self.env['res.partner'].search([])
         product_templates = self.env['product.template'].search([])
+        res_users = self.env['res.users'].search([])
 
         temp_file = tempfile.NamedTemporaryFile('wb', suffix='.sqlite', prefix='edi.mx.tmp.')
         temp_file.write(base64.b64decode(self.file))
@@ -111,8 +113,7 @@ class SqliteConnector(models.Model):
                 projet = project.split('/')[0]
                 Tranche = project.split('/')[1]
             proj = ['', projet]
-
-        user_id = res_partners.filtered(lambda p: p.name == PersonBE)
+        user_id = res_users.filtered(lambda p: p.name == PersonBE)
         user_id = user_id.id if user_id else False
 
         account_analytic_id = account_analytics.filtered(lambda a: a.name == projet)
@@ -264,7 +265,7 @@ class SqliteConnector(models.Model):
         warehouse, operation = entrepot.split(":")
         warehouse = stock_warehouse.filtered(lambda w: w.name == warehouse)
         if warehouse:
-            stock_picking_type_id = stock_picking_type.filtered(lambda p: p.name == operation and warehouse_id == warehouse.id)
+            stock_picking_type_id = stock_picking_type.filtered(lambda p: p.name == operation and p.warehouse_id.id == warehouse.id)
             if stock_picking_type_id:
                 stock_picking_type_id = stock_picking_type_id.id
 
@@ -315,7 +316,7 @@ class SqliteConnector(models.Model):
             regle = 0
             condi = ''
             consoaff = ''
-            po_vals = []
+            datejourd = fields.Date.today()
             # to get price
             for article in articles:
                 if row[0] == article['item']:
@@ -344,7 +345,7 @@ class SqliteConnector(models.Model):
                 for product in product_products:
                     refartodoo = product.default_code
                     delai = product.produce_delay
-                    if delai is None :
+                    if delai == None :
                         delay = 1
                     consoaff = product.x_studio_conso_laffaire
                     if refartodoo == refart:
@@ -355,10 +356,9 @@ class SqliteConnector(models.Model):
                             idfrs = ''
                             unnom = product.uom_id
                             idun = product.uom_id.id
-
-                            resultat = res_parters.filtered(lambda p: fournisseur.startswith(p.x_studio_ref_logikal))
+                            resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
                             if resultat:
-                                idfrs = resultat.id
+                                idfrs = resultat[0].id
                             # If the article is already in ODOO (in the article is in the BaseArticle.xlsx file) we look if it has
                             # a replenishment rule or if the article has the boolean “consumer on the deal”. IF so, we will
                             # create a purchase order for this item.
@@ -379,22 +379,22 @@ class SqliteConnector(models.Model):
 
                                     product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
                                     account_analytic_id = account_analytics.filtered(lambda a: a.name == projet)
-
+                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                     po_vals.append({
-                                        'x_studio_many2one_field_LCOZX': projet,
+                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
                                         'picking_type_id': stock_picking_type_id,
                                         'x_studio_commentaire_livraison_vitrage_': "",
                                         'date_order': datetime.now(),
                                         'user_id': user_id,
                                         'order_line': [(0, 0, {
-                                                'product_id': product_id.id,
+                                                'product_id': product_id[0].id if product_id else False,
                                                 'account_analytic_id': account_analytic_id,
                                                 'date_planned': datetime.now(),
                                                 'price_unit': 0,
                                                 'product_qty': 1,
-                                                'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                'analytic_tag_id': account_analytic_tag_id,
+                                                'product_uom': product_id.uom_id.id,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                 'date_planned': datejourd,
                                             })],                       
                                         })
@@ -404,7 +404,7 @@ class SqliteConnector(models.Model):
                                 QteStk = 0
                                 Qte = float(row[6])
                                 if (QteStk < 0) or (consoaff == 'True') :
-                                    Qte = (float(row[6])) / float(UV)
+                                    Qte = (float(row[6])) / float(UV) if UV else float(row[6])
                                     x = Qte
                                     n = 0
                                     resultat = math.ceil(x * 10**n)/ 10**n
@@ -416,29 +416,30 @@ class SqliteConnector(models.Model):
                                     dateliv = datejourd + timedelta(days=delai)
 
                                     product_id = product_products.filtered(lambda p: p.default_code == art)
-
+                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                     po_vals.append({
-                                        'x_studio_many2one_field_LCOZX': projet,
+                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
                                         'picking_type_id': stock_picking_type_id,
                                         'x_studio_commentaire_livraison_vitrage_': "",
                                         'date_order': datetime.now(),
                                         'user_id': user_id,
                                         'order_line':[(0, 0, {
-                                                'product_id': product_id.id,
+                                                'product_id': product_id[0].id if product_id else False,
                                                 'account_analytic_id': "",
                                                 'date_planned': datetime.now(),
                                                 'x_studio_posit': "",
                                                 'price_unit': prix,
                                                 'product_qty': Qte,
-                                                'product_uom': idun,
-                                                'analytic_tag_id': account_analytic_tag_id,
+                                                'product_uom': product_id.uom_id.id,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                 'date_planned': dateliv,
                                             })]                      
                                         })
                                 else :
                                     if QteStk < Qte :
-                                        Qte = (float(row[6]) - QteStk) / float(UV)
+                                        Qte = (float(row[6]) - QteStk)
+                                        Qte = (float(row[6]) - QteStk) / float(UV) if UV else Qte
                                         x = Qte
                                         n = 0
                                         resultat = math.ceil(x * 10**n)/ 10**n
@@ -450,21 +451,21 @@ class SqliteConnector(models.Model):
                                         dateliv = datejourd + timedelta(days=delai)
 
                                         product_id = product_products.filtered(lambda p: p.default_code == art)
-
+                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                         po_vals.append({
-                                            'x_studio_many2one_field_LCOZX': projet,
+                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': idfrs,
                                             'picking_type_id': stock_picking_type_id,
                                             'x_studio_commentaire_livraison_vitrage_': "",
                                             'date_order': datetime.now(),
                                             'user_id': user_id,
                                             'order_line':[(0, 0, {
-                                                    'product_id': product_id.id,
+                                                    'product_id': product_id[0].id if product_id else False,
                                                     'date_planned': datetime.now(),
                                                     'price_unit': prix,
                                                     'product_qty': Qte,
-                                                    'product_uom': idun,
-                                                    'analytic_tag_id': account_analytic_tag_id,
+                                                    'product_uom': product_id.uom_id.id,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                     'date_planned': dateliv,
                                                 })]
                                             })
@@ -473,9 +474,9 @@ class SqliteConnector(models.Model):
                         # we are looking for the ID of UnMe
                         unnom = product.uom_id
                         idun = product.uom_id.id
-                        resultat = fournisseur.startswith(new_field in odoo)
-                        if resultat == True :
-                            idfrs = product.seller_id
+                        resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
+                        if resultat:
+                            idfrs = resultat[0].id
                         if idfrs == '':
                             ida = refart.replace(" ","_")
                             if ida == '' :
@@ -506,21 +507,22 @@ class SqliteConnector(models.Model):
 
                                 account_analytic_id = account_analytics.filtered(lambda a: a.name == projet)
                                 product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                 po_vals.append({
-                                    'x_studio_many2one_field_LCOZX': projet,
+                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                     'partner_id': idfrs,
                                     'picking_type_id': stock_picking_type_id,
                                     'date_order': datetime.now(),
                                     'user_id': user_id,
                                     'order_line':[(0, 0,
                                         {
-                                            'product_id': product_id.id,
+                                            'product_id': product_id[0].id if product_id else False,
                                             'account_analytic_id': account_analytic_id,
                                             'date_planned': datetime.now(),
                                             'price_unit': 0,
                                             'product_qty': 1,
-                                            'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                            'analytic_tag_id': account_analytic_tag_id,
+                                            'product_uom': product_id.uom_id.id,
+                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                             'date_planned': datejourd,
                                         })]                        
                                     })
@@ -528,7 +530,7 @@ class SqliteConnector(models.Model):
                                 LstFrs = idfrs
                             else :
                                 data22 = ['','','','','','','']
-                            Qte = float(row[6]) / float(UV)
+                            Qte = float(row[6]) / float(UV) if UV else float(row[6])
                             x = Qte
                             n = 0
                             resultat = math.ceil(x * 10**n)/ 10**n
@@ -536,7 +538,7 @@ class SqliteConnector(models.Model):
                             art = refart
                             ida = refart.replace(" ","_")
                             projet = projet.strip()
-                            prixV = prix * 1.5
+                            prixV = float(prix) * 1.5
                             delai = 14
                             dateliv = datejourd + timedelta(days=delai)
                             categ_id = product_categories.filtered(lambda c: c.name == 'All / Accessoire')
@@ -565,21 +567,21 @@ class SqliteConnector(models.Model):
                             
                             p = res_partners.filtered(lambda p: p.name == data22[2])
                             pro = product_products.filtered(lambda pro: pro.default_code == art)
-                            
+                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                             po_vals.append({
-                                'x_studio_many2one_field_LCOZX': data22[1],
+                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                 'partner_id': p.id,
                                 'picking_type_id': stock_picking_type_id,
                                 'x_studio_commentaire_livraison_vitrage_': data22[4],
                                 'date_order': datetime.now(),
                                 'user_id': user_id,
                                 'order_line':[(0, 0, {
-                                        'product_id': pro.id,
+                                        'product_id': pro[0].id if pro else False,
                                         'date_planned': datetime.now(),
                                         'price_unit': prix,
                                         'product_qty': Qte,
-                                        'product_uom': idun,
-                                        'analytic_tag_id': account_analytic_tag_id,
+                                        'product_uom': pro.uom_id.id,
+                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                         'date_planned': dateliv,
                                     })]
                                })
@@ -642,7 +644,7 @@ class SqliteConnector(models.Model):
                             for profile in profiles:
                                 if row[0] == profile['article']:
                                     prix = profile['prix']
-                                    prixB = prix * float(row[6])
+                                    prixB = float(prix) * float(row[6])
                             refart = refart.replace("RYN","REY")
                             refart = refart.replace("SC  ","SCH ")
                             if couleur != '' :
@@ -680,7 +682,7 @@ class SqliteConnector(models.Model):
                                 if regle == 0:
                                     unnom = product.uom_id
                                     if unit == unnom:
-                                        idun = uom_id.id
+                                        idun = product.uom_id
 
                                 # Now we are looking for supplier ID
                                 iduna = ''
@@ -691,9 +693,12 @@ class SqliteConnector(models.Model):
                                     iduna = uom_uom.id
 
                                 # To get suppliers
-                                for seller in product.seller_ids:
-                                    if fournisseur.startswith(seller.partner_id.x_studio_ref_logikal):
-                                        idfrs = seller.partner_id.id
+                                # for seller in product.seller_ids:
+                                #     if fournisseur.startswith(seller.partner_id.x_studio_ref_logikal):
+                                #         idfrs = seller.partner_id.id
+                                resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
+                                if resultat:
+                                    idfrs = resultat[0].id
 
                                 # Now we come to create profiles
                                 QteStk =  0
@@ -709,23 +714,24 @@ class SqliteConnector(models.Model):
                                         LstFrs = idfrs
                                         projet = projet.strip()
                                         data22 = ['', projet, idfrs, stock_picking_type_id, '', datetime.now(), user_id]
-                                        
+
                                         pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                         po_vals.append({
-                                            'x_studio_many2one_field_LCOZX': projet,
+                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': idfrs,
                                             'picking_type_id': stock_picking_type_id,
                                             'date_order': datetime.now(),
                                             'user_id': user_id,
                                             'order_line': [(0, 0,
                                                 {
-                                                    'product_id': pro.id,
+                                                    'product_id': pro[0].id if pro else False,
                                                     'account_analytic_id': account_analytic_id,
-                                                    'date_planned': datetime.now(),
+                                                    # 'date_planned': datetime.now(),
                                                     'price_unit': 0,
                                                     'product_qty': 1,
-                                                    'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                    'analytic_tag_id': account_analytic_tag_id,
+                                                    'product_uom': pro.uom_id.id,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                     'date_planned': datejourd,
                                                 })]
                                             })
@@ -741,21 +747,21 @@ class SqliteConnector(models.Model):
                                     dateliv = datejourd + timedelta(days=delai)
                                     part = res_partners.filtered(lambda p: p.name == data22[2])
                                     pro = product_products.filtered(lambda p: p.default_code == art)
-
+                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                     po_vals.append({
-                                        'x_studio_many2one_field_LCOZX': data22[1],
+                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': part.id,
                                         'picking_type_id': stock_picking_type_id,
                                         'x_studio_commentaire_livraison_vitrage_': data22[4],
                                         'date_order': datetime.now(),
                                         'user_id': user_id,
                                         'order_line': [(0, 0, {
-                                                'product_id': pro,
-                                                'date_planned': datetime.now(),
+                                                'product_id': pro[0].id if pro else False,
+                                                # 'date_planned': datetime.now(),
                                                 'price_unit': prixB,
                                                 'product_qty': Qte,
-                                                'product_uom': idun,
-                                                'analytic_tag_id': account_analytic_tag_id,
+                                                'product_uom': pro.uom_id.id,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                 'date_planned': dateliv,
                                             })]
                                         })
@@ -767,21 +773,22 @@ class SqliteConnector(models.Model):
                                             projet = projet.strip()
                                             data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                                             pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                             po_vals.append({
-                                                'x_studio_many2one_field_LCOZX': projet,
+                                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                 'partner_id': idfrs,
                                                 'picking_type_id': stock_picking_type_id,
                                                 'x_studio_commentaire_livraison_vitrage_': "",
                                                 'date_order': datetime.now(),
                                                 'user_id': user_id,
                                                 'order_line': [(0, 0, {
-                                                        'product_id': pro.id,
+                                                        'product_id': pro[0].id if pro else False,
                                                         'account_analytic_id': account_analytic_id,
-                                                        'date_planned': datetime.now(),
+                                                        # 'date_planned': datetime.now(),
                                                         'price_unit': 0,
                                                         'product_qty': 1,
-                                                        'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                        'analytic_tag_id': account_analytic_tag_id,
+                                                        'product_uom': pro.uom_id.id,
+                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                         'date_planned': datejourd,
                                                     })]
                                                 })
@@ -795,21 +802,21 @@ class SqliteConnector(models.Model):
                                     
                                     part = res_partners.filtered(lambda p: p.name == data22[2])
                                     prod = product_products.filtered(lambda pro: pro.default_code == art)
-                                    
+                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                     po_vals.append({
-                                        'x_studio_many2one_field_LCOZX': data22[1],
+                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': part.id,
                                         'picking_type_id': stock_picking_type_id,
                                         'x_studio_commentaire_livraison_vitrage_': data22[4],
                                         'date_order': datetime.now(),
                                         'user_id': user_id,
                                         'order_line': [(0, 0, {
-                                                'product_id': prod.id,
-                                                'date_planned': datetime.now(),
+                                                'product_id': prod[0].id if prod else False,
+                                                # 'date_planned': datetime.now(),
                                                 'price_unit': prixB,
                                                 'product_qty': Qte,
-                                                'product_uom': idun,
-                                                'analytic_tag_id': account_analytic_tag_id,
+                                                'product_uom': prod.uom_id.id,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                 'date_planned': dateliv,
                                             })]
                                         })
@@ -862,14 +869,17 @@ class SqliteConnector(models.Model):
                                         if uom_uom:
                                             iduna = uom_uom.id
 
-                                        for seller in product.seller_ids:
-                                            if fournisseur.startswith(seller.partner_id.x_studio_ref_logikal):
-                                                idfrs = seller.partner_id.id
+                                        # for seller in product.seller_ids:
+                                        #     if fournisseur.startswith(seller.partner_id.x_studio_ref_logikal):
+                                        #         idfrs = seller.partner_id.id
+                                        resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
+                                        if resultat:
+                                            idfrs = resultat[0].id
 
                                         art = refart
                                         Qte = row[7]
                                         prixV = prixB * 1.5
-                                        data10 = [id,art, nom, prixV ,prixB, idun, 'All / Profile', '56', idfrs, nom, prixB, '1', art, 'yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy,purchase_stock.route_warehouse0_buy', '0','0','']
+                                        data10 = [art, nom, prixV ,prixB, idun, 'All / Profile', '56', idfrs, nom, prixB, '1', art, 'yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy,purchase_stock.route_warehouse0_buy', '0','0','']
                                         categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
                                         articles_data.append({
                                             'default_code': art,
@@ -901,21 +911,22 @@ class SqliteConnector(models.Model):
                                             projet = projet.strip()
                                             data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                                             pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                             po_vals.append({
-                                                'x_studio_many2one_field_LCOZX': projet,
+                                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                 'partner_id': idfrs,
                                                 'picking_type_id': stock_picking_type_id,
                                                 'x_studio_commentaire_livraison_vitrage_': "",
                                                 'date_order': datetime.now(),
                                                 'user_id': user_id,
                                                 'order_line': [(0, 0, {
-                                                        'product_id': pro.id,
+                                                        'product_id': pro[0].id if pro else False,
                                                         'account_analytic_id': account_analytic_id,
                                                         'date_planned': datetime.now(),
                                                         'price_unit': 0,
                                                         'product_qty': 1,
-                                                        'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                        'analytic_tag_id': account_analytic_tag_id,
+                                                        'product_uom': pro.uom_id.id,
+                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                         'date_planned': datejourd,
                                                     })]
                                                 })
@@ -927,21 +938,21 @@ class SqliteConnector(models.Model):
                                             
                                             part = res_partners.filtered(lambda p: p.name == data22[2])
                                             pro = product_products.filtered(lambda p: p.default_code == art)
-                                            
+                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                             po_vals.append({
-                                                'x_studio_many2one_field_LCOZX': data22[1],
+                                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                 'partner_id': part.id,
                                                 'picking_type_id': stock_picking_type_id,
                                                 'x_studio_commentaire_livraison_vitrage_': data22[4],
                                                 'date_order': data22[5],
                                                 'user_id': user_id,
                                                 'order_line': [(0, 0, {
-                                                        'product_id': pro.id,
+                                                        'product_id': pro[0].id if pro else False,
                                                         'date_planned': datetime.now(),
                                                         'price_unit': prixB,
                                                         'product_qty': Qte,
-                                                        'product_uom': idun,
-                                                        'analytic_tag_id': account_analytic_tag_id,
+                                                        'product_uom': pro.uom_id.id,
+                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                         'date_planned': dateliv,
                                                     })]
                                                 })
@@ -991,10 +1002,16 @@ class SqliteConnector(models.Model):
                             spacer = row[14]
                             nomvit = row[15]
                             Frsid = row[17]
+                            Qte = float(row[10])
+                            largNum = float(row[4])
+                            HautNum = float(row[5])
+                            largNum = round(largNum)
+                            HautNum = round(HautNum)
 
-                            res_partner = self.env['res.partner'].search([('LK_SupplierId', '=', row[17])])
+                            # res_partner = self.env['res.partner'].search([('LK_SupplierId', '=', row[17])])
+                            res_partner = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
                             if res_partner:
-                                frsnomf = res_partner.x_studio_ref_logikal
+                                frsnomf = res_partner[0].x_studio_ref_logikal
                             delay =  14
 
                             if row[13] != 'Glass':
@@ -1002,7 +1019,7 @@ class SqliteConnector(models.Model):
                                 spacer = ''
                                 delai = 21
                                 trouve = '1'
-                            if (row[9] is None) :
+                            if (row[9] == None) :
                                 name = 'X'
                             else :
                                 name = str(row[9])
@@ -1011,7 +1028,7 @@ class SqliteConnector(models.Model):
 
                             if nomvit != 'Sans vitrage' :
                                 if PosNew == Posint :
-                                    if (row[10] is None) :
+                                    if (row[10] == None) :
                                         qtech = '1'
                                     else :
                                         qtech = str(row[10])
@@ -1023,8 +1040,9 @@ class SqliteConnector(models.Model):
                                             projet = projet.strip()
                                             
                                             pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                             po_vals.append({
-                                                'x_studio_many2one_field_LCOZX': projet,
+                                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                 'partner_id': idfrs,
                                                 'picking_type_id': stock_picking_type_id,
                                                 'x_studio_commentaire_livraison_vitrage_': Info2,
@@ -1032,13 +1050,13 @@ class SqliteConnector(models.Model):
                                                 'user_id': user_id,
                                                 'order_line':
                                                     [(0, 0, {
-                                                        'product_id': pro.id,
+                                                        'product_id': pro[0].id if pro else False,
                                                         'account_analytic_id': account_analytic_id,
                                                         'date_planned': datetime.now(),
                                                         'price_unit': 0,
                                                         'product_qty': 1,
-                                                        'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                        'analytic_tag_id': account_analytic_tag_id,
+                                                        'product_uom': pro.uom_id.id,
+                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                         'date_planned': datejourd,
                                                     })]
                                                 })
@@ -1046,18 +1064,19 @@ class SqliteConnector(models.Model):
                                         else :
                                             if LstInfo2 != Info2:
                                                 LstInfo2 = Info2
-                                                data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id.id]
+                                                data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                             else:
                                                 if cpt1 != 2 :
                                                     data22 = ['','','','','','','']
                                                 else :
-                                                    data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id.id]
+                                                    data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
 
                                         dateliv = datejourd + timedelta(days=delai)
                                         part = res_partners.filtered(lambda p: p.name == data22[2])
                                         pro = product_products.filtered(lambda p: p.default_code == refinterne)
+                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                         po_vals.append({
-                                            'x_studio_many2one_field_LCOZX': data22[1],
+                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': part.id,
                                             'picking_type_id': stock_picking_type_id,
                                             'x_studio_commentaire_livraison_vitrage_': data22[4],
@@ -1065,35 +1084,36 @@ class SqliteConnector(models.Model):
                                             'user_id': user_id,
                                             'order_line':
                                                 [(0, 0, {
-                                                    'product_id': pro.id,
+                                                    'product_id': pro[0].id if pro else False,
                                                     'date_planned': datetime.now(),
                                                     'x_studio_posit': Posint,
                                                     'price_unit': prix,
                                                     'product_qty': Qte,
-                                                    'product_uom': idun,
-                                                    'x_studio_hauteur_1': HautNum,
+                                                    'product_uom': pro.uom_id.id,
+                                                    'x_studio_hauteur': HautNum,
                                                     'x_studio_largeur': largNum,
                                                     'x_studio_spacer': spacer,
-                                                    'analytic_tag_id': account_analytic_tag_id,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                     'date_planned': dateliv,
                                                 })]
                                             })
                                     else:
                                         if PosNew != '':
-                                            uom_uom = self.search['uom.uom'].search([('name', '=', unnomf)])
+                                            uom_uom = self.env['uom.uom'].search([('name', '=', unnomf)])
                                             if uom_uom:
                                                 idun = uom_uom.id
-                                            part = res_partners.filtered(lambda p: p.name == frsnom)
+                                            part = res_partners.filtered(lambda p: p.name == frsnomf)
                 
                                             if part:
-                                                idfrs = part.id
+                                                idfrs = part[0].id if part else ''
 
                                             if cpt1 != nbr:
                                                 dateliv = datejourd + timedelta(days=delai)
                                                 part = res_partners.filtered(lambda p: p.name == data22[2])
                                                 prod = product_products.filtered(lambda pro: pro.default_code == refinterne)
+                                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                                 po_vals.append({
-                                                    'x_studio_many2one_field_LCOZX': data22[1],
+                                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                     'partner_id': part.id,
                                                     'picking_type_id': stock_picking_type_id,
                                                     'x_studio_commentaire_livraison_vitrage_': data22[4],
@@ -1101,27 +1121,27 @@ class SqliteConnector(models.Model):
                                                     'user_id': user_id,
                                                     'order_line':
                                                         [(0, 0, {
-                                                            'product_id': prod.id,
+                                                            'product_id': prod[0].id if prod else False,
                                                             'date_planned': datetime.now(),
                                                             'x_studio_posit': Posint,
                                                             'price_unit': prix,
                                                             'product_qty': Qte,
-                                                            'product_uom': idun,
-                                                            'x_studio_hauteur_1': HautNum,
+                                                            'product_uom': prod.uom_id.id,
+                                                            'x_studio_hauteur': HautNum,
                                                             'x_studio_largeur': largNum,
                                                             'x_studio_spacer': spacer,
-                                                            'analytic_tag_id': account_analytic_tag_id,
+                                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                             'date_planned': dateliv,
                                                         })]
                                                     })
-                                                
                                                 if LstFrs != idfrs :
                                                     LstFrs = idfrs
                                                     LstInfo2 = Info2
                                                     projet = projet.strip()
                                                     prod = product_products.filtered(lambda pro: pro.default_code == 'affaire')
+                                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                                     po_vals.append({
-                                                        'x_studio_many2one_field_LCOZX': projet,
+                                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                         'partner_id': idfrs,
                                                         'picking_type_id': stock_picking_type_id,
                                                         'x_studio_commentaire_livraison_vitrage_': Info2,
@@ -1129,13 +1149,13 @@ class SqliteConnector(models.Model):
                                                         'user_id': user_id,
                                                         'order_line':
                                                             [(0, 0, {
-                                                                'product_id': prod.id,
+                                                                'product_id': prod[0].id if prod else False,
                                                                 'account_analytic_id': account_analytic_id,
-                                                                'date_planned': datetime.now(),
+                                                                # 'date_planned': datetime.now(),
                                                                 'price_unit': 0,
                                                                 'product_qty': 1,
-                                                                'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                                'analytic_tag_id': account_analytic_tag_id,
+                                                                'product_uom': prod.uom_id.id,
+                                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                                 'date_planned': datejourd,
                                                             })]
                                                         })
@@ -1143,15 +1163,15 @@ class SqliteConnector(models.Model):
                                                 else :
                                                     if LstInfo2 != Info2:
                                                         LstInfo2 = Info2
-                                                        data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id.id]
+                                                        data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                                     else:
                                                         data22 = ['','','','','','','']
 
                                                 prix = row[3]
-                                                largNum = float(row[4])
-                                                HautNum = float(row[5])
-                                                largNum = round(largNum)
-                                                HautNum = round(HautNum)
+                                                # largNum = float(row[4])
+                                                # HautNum = float(row[5])
+                                                # largNum = round(largNum)
+                                                # HautNum = round(HautNum)
                                                 projet = projet.strip()
                                                 refinterne = proj + '_' + str(cpt1)
 
@@ -1161,35 +1181,36 @@ class SqliteConnector(models.Model):
                                                 part = res_partners.filtered(lambda p: p.name == data22[2])
                                                 prod = product_products.filtered(lambda p: p.default_code == refinterne)
 
+                                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                                 po_vals.append({
-                                                    'x_studio_many2one_field_LCOZX': data22[1],
+                                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                     'partner_id': part.id,
                                                     'picking_type_id': stock_picking_type_id,
                                                     'x_studio_commentaire_livraison_vitrage_': data22[4],
                                                     'date_order': datetime.now(),
                                                     'user_id': user_id,
                                                     'order_line':
-                                                        {
-                                                            'product_id': prod.id,
+                                                        [(0, 0, {
+                                                            'product_id': prod[0].id if prod else False,
                                                             'date_planned': datetime.now(),
                                                             'x_studio_posit': PosNew,
                                                             'price_unit': prix,
                                                             'product_qty': Qte,
-                                                            'product_uom': idun,
-                                                            'x_studio_hauteur_1': HautNum,
+                                                            'product_uom': prod.uom_id.id,
+                                                            'x_studio_hauteur': HautNum,
                                                             'x_studio_largeur': largNum,
                                                             'x_studio_spacer': spacer,
-                                                            'analytic_tag_id': account_analytic_tag_id,
+                                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                             'date_planned': dateliv,
-                                                        }
+                                                        })]
                                                     })
 
                                                 prix = row[3]
-                                                Qte = float(row[10])
-                                                largNum = float(row[4])
-                                                HautNum = float(row[5])
-                                                largNum = round(largNum)
-                                                HautNum = round(HautNum)
+                                                # Qte = float(row[10])
+                                                # largNum = float(row[4])
+                                                # HautNum = float(row[5])
+                                                # largNum = round(largNum)
+                                                # HautNum = round(HautNum)
                                                 refinterne = proj + '_' + str(cpt1)
                                                 projet = projet.strip()
 
@@ -1200,8 +1221,9 @@ class SqliteConnector(models.Model):
                                                     data22 = ['',projet,idfrs,entrepot,Info2,datetime.now(),PersonBE]
                                                     
                                                     prod = product_products.filtered(lambda p: p.default_code == 'affaire',)
+                                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                                     po_vals.append({
-                                                        'x_studio_many2one_field_LCOZX': projet,
+                                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                         'partner_id': idfrs,
                                                         'picking_type_id': stock_picking_type_id,
                                                         'x_studio_commentaire_livraison_vitrage_': Info2,
@@ -1209,13 +1231,13 @@ class SqliteConnector(models.Model):
                                                         'user_id': user_id,
                                                         'order_line':
                                                             [(0, 0, {
-                                                                'product_id': prod.id,
+                                                                'product_id': prod[0].id if prod else False,
                                                                 'account_analytic_id': account_analytic_id,
                                                                 'date_planned': datetime.now(),
                                                                 'price_unit': 0,
                                                                 'product_qty': 1,
-                                                                'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                                'analytic_tag_id': account_analytic_tag_id,
+                                                                'product_uom': prod.uom_id.id,
+                                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                                 'date_planned': datejourd,
                                                             })]
                                                         })
@@ -1223,27 +1245,26 @@ class SqliteConnector(models.Model):
                                                 else :
                                                     if LstInfo2 != Info2:
                                                         LstInfo2 = Info2
-                                                        data22 = ['',account_analytic_id.id,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id.id]
+                                                        data22 = ['',account_analytic_id.id,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                                         # createion of article in order to link to the project
                                                         part = res_partners.filtered(lambda p: p.name == data22[2])
                                                         prod = product_products.filtered(lambda p: p.default_code == 'affaire')
-
+                                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                                         po_vals.append({
-                                                            'x_studio_many2one_field_LCOZX': data22[1],
-                                                            'partner_id': part.id,
+                                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                                            'partner_id': 3,
                                                             'picking_type_id': stock_picking_type_id,
                                                             'x_studio_commentaire_livraison_vitrage_': data22[4],
                                                             'date_order': datetime.now(),
                                                             'user_id': user_id,
                                                             'order_line':
                                                                 [(0, 0, {
-                                                                    'product_id': prod.id,
+                                                                    'product_id': prod[0].id if prod else False,
                                                                     'account_analytic_id': account_analytic_id,
-                                                                    'date_planned': datetime.now(),
                                                                     'price_unit': 0,
                                                                     'product_qty': 1,
-                                                                    'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                                    'analytic_tag_id': account_analytic_tag_id,
+                                                                    'product_uom': prod.uom_id.id,
+                                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                                     'date_planned': datejourd,
                                                                 })]
                                                             })
@@ -1253,9 +1274,9 @@ class SqliteConnector(models.Model):
                                                 dateliv = datejourd + timedelta(days=delai)
                                                 part = res_partners.filtered(lambda p: p.name == data22[2])
                                                 prod = product_product.filtered(lambda p: p.default_code == refinterne)
-
+                                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                                 po_vals.append({
-                                                    'x_studio_many2one_field_LCOZX': data22[1],
+                                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                     'partner_id': part.id,
                                                     'picking_type_id': stock_picking_type_id,
                                                     'x_studio_commentaire_livraison_vitrage_': data22[4],
@@ -1263,16 +1284,16 @@ class SqliteConnector(models.Model):
                                                     'user_id': user_id,
                                                     'order_line':
                                                         [(0, 0, {
-                                                            'product_id': prod.id,
+                                                            'product_id': prod[0].id if prod else False,
                                                             'date_planned': datetime.now(),
                                                             'x_studio_posit': Posint,
                                                             'price_unit': prix,
                                                             'product_qty': Qte,
-                                                            'product_uom': idun,
-                                                            'x_studio_hauteur_1': HautNum,
+                                                            'product_uom': prod.uom_id.id,
+                                                            'x_studio_hauteur': HautNum,
                                                             'x_studio_largeur': largNum,
                                                             'x_studio_spacer': spacer,
-                                                            'analytic_tag_id': account_analytic_tag_id,
+                                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                             'date_planned': dateliv,
                                                         })]
                                                     })
@@ -1335,7 +1356,7 @@ class SqliteConnector(models.Model):
                                             uom_uom = uom_uoms.filetered(lambda u: u.name == unnomf)
                                             if uom_uom:
                                                 idun = uom_uom.id
-                                            res_partner = res_partners.filetered(lambda p: p.name == frsnom)
+                                            res_partner = res_partners.filetered(lambda p: p.name == frsnomf)
                                             if res_partner:
                                                 idfrs = res_partner.id
 
@@ -1368,11 +1389,12 @@ class SqliteConnector(models.Model):
                                                 LstFrs = idfrs
                                                 LstInfo2 = Info2
                                                 projet = projet.strip()
-                                                data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id.id]
+                                                data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                                 
                                                 prod = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                                 po_vals.append({
-                                                    'x_studio_many2one_field_LCOZX': projet,
+                                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                     'partner_id': idfrs,
                                                     'picking_type_id': stock_picking_type_id,
                                                     'x_studio_commentaire_livraison_vitrage_': Info2,
@@ -1380,13 +1402,13 @@ class SqliteConnector(models.Model):
                                                     'user_id': user_id,
                                                     'order_line':
                                                         [(0, 0, {
-                                                            'product_id': prod.id,
+                                                            'product_id': prod[0].id if prod else False,
                                                             'account_analytic_id': account_analytic_id,
                                                             'date_planned': datetime.now(),
                                                             'price_unit': 0,
                                                             'product_qty': 1,
-                                                            'product_uom': [(4, self.env.ref('uom.product_uom_unit'))],
-                                                            'analytic_tag_id': account_analytic_tag_id,
+                                                            'product_uom': prod.uom_id.id,
+                                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                             'date_planned': datejourd,
                                                         })]
                                                     })
@@ -1394,15 +1416,16 @@ class SqliteConnector(models.Model):
                                             else :
                                                 if LstInfo2 != Info2:
                                                     LstInfo2 = Info2
-                                                    data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id.id]
+                                                    data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                                 else:
                                                     data22 = ['','','','','','','']
                                                 if cpt1 == nbr :
                                                     dateliv = datejourd + timedelta(days=delai)
                                                     prod = product_products.filtered(lambda p: p.default_code == refinterne)
                                                     part = res_partners.filtered(lambda p: p.name == data22[2])
+                                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                                     po_vals.append({
-                                                        'x_studio_many2one_field_LCOZX': data22[1],
+                                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                         'partner_id': part.id,
                                                         'picking_type_id': stock_picking_type_id,
                                                         'x_studio_commentaire_livraison_vitrage_': data22[4],
@@ -1410,17 +1433,17 @@ class SqliteConnector(models.Model):
                                                         'user_id': user_id,
                                                         'order_line':
                                                             [(0, 0, {
-                                                                'product_id': prod.id,
+                                                                'product_id': prod[0].id if prod else False,
                                                                 'account_analytic_id': "",
                                                                 'date_planned': datetime.now(),
                                                                 'x_studio_posit': Posint,
                                                                 'price_unit': prix,
                                                                 'product_qty': Qte,
-                                                                'product_uom': idun,
-                                                                'x_studio_hauteur_1': HautNum,
+                                                                'product_uom': prod.uom_id.id,
+                                                                'x_studio_hauteur': HautNum,
                                                                 'x_studio_largeur': largNum,
                                                                 'x_studio_spacer': spacer,
-                                                                'analytic_tag_id': account_analytic_tag_id,
+                                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                                 'date_planned': dateliv,
                                                             })]
                                                         })
@@ -1516,31 +1539,38 @@ class SqliteConnector(models.Model):
                     _logger.info("=========== partner %s" % data1[1])
                     if data1[10]:
                         warehouse = self.env.ref(data1[10]).id
-                    so_data.append({
-                        # "partner_id": part.id,
-                        # "partner_shipping_id": part_ship.id,
-                        "date_order": fields.Date.today(),
-                        # "analytic_order_id": data1[4],
-                        "activity_ids": data1[5],
-                        # "activity_ids/summary": data1[6],
-                        "activity_ids/res_model_id/name": data1[7], 
-                        "x_studio_deviseur": data1[8],
-                        "x_studio_bureau_etude": data1[9],
-                        "warehouse_id": warehouse,
-                        "tag_ids": [(6, 0, [account_analytic_tag_id])],
-                        # "commitment_date": data1[12],
-                        "commitment_date": fields.Date.today(),
-                        "order_line": [(0, 0, {
-                            'product_id': pro[0].id if pro else False,
-                            'price_unit': row[8],
-                            'product_uom_qty': row[6],
-                            'name': dimension,
-                            'discount': PourRem,
-                            'product_uom': pro.uom_id.id,
-                            "anaytic_tag_ids": entrepot,
-                            })]
-                        })
-
+                    sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
+                    if sale_order:
+                        so_data[sale_order.id] = {
+                            # "partner_id": part.id,
+                            # "partner_shipping_id": part_ship.id,
+                            "date_order": fields.Date.today(),
+                            # "analytic_order_id": data1[4],
+                            # "activity_ids": [(0, 0, {
+                            #     'summary': data1[6],
+                            #     "activity_ids/res_model_id/name": data1[7],
+                            #     'res_model_id': sale_order.id,
+                            # })],
+                            # "activity_ids/summary": data1[6],
+                            # "activity_ids/res_model_id/name": data1[7],
+                            "x_studio_deviseur": data1[8],
+                            "x_studio_bureau_etude": data1[9],
+                            "warehouse_id": warehouse,
+                            "tag_ids": [(6, 0, [account_analytic_tag_id])],
+                            # "commitment_date": data1[12],
+                            "commitment_date": fields.Date.today(),
+                        }
+                        if pro:
+                            so_data[sale_order.id].update({"order_line": [(0, 0, {
+                                'product_id': pro[0].id if pro else False,
+                                'price_unit': row[8],
+                                'product_uom_qty': row[6],
+                                'name': dimension,
+                                'discount': PourRem,
+                                'product_uom': pro.uom_id.id,
+                                "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])],
+                                })]
+                            })
                     if NbrLig == 1:
                         data1 =['','','','','','','','','','','','','']
                         proj = ''
@@ -1558,33 +1588,36 @@ class SqliteConnector(models.Model):
                         warehouse = False
                         if data1[10]:
                             warehouse = self.env.ref(data1[10]).id
-                        so_data.append({
-                            "partner_id": part.id,
-                            "partner_shipping_id": part_ship,
-                            "date_order": fields.Date.today(),
-                            # "analytic_order_id": data1[4],
-                            "activity_ids": [(0, 0, {
-                                'summary': data1[6],
-                                # "activity_ids/res_model_id/name": data1[7], 
-                                'res_model_id': data1[7],
-                            })],
-                            "x_studio_deviseur": data1[8],
-                            "x_studio_bureau_etude": data1[9],
-                            "warehouse_id": warehouse,
-                            "tag_ids": [(6, 0, [account_analytic_tag_id])],
-                            # "commitment_date": data1[12],
-                            "commitment_date": fields.Date.today(),
-                            "order_line":
-                                [(0, 0, {
+                        sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
+                        if sale_order:
+                            so_data[sale_order.id] = {
+                                # "partner_id": part.id,
+                                # "partner_shipping_id": part_ship,
+                                "date_order": fields.Date.today(),
+                                # "analytic_order_id": data1[4],
+                                # "activity_ids": [(0, 0, {
+                                #     'summary': data1[6],
+                                #     # "activity_ids/res_model_id/name": data1[7],
+                                #     'res_model_id': sale_order.id,
+                                # })],
+                                "x_studio_deviseur": data1[8],
+                                "x_studio_bureau_etude": data1[9],
+                                "warehouse_id": warehouse,
+                                "tag_ids": [(6, 0, [account_analytic_tag_id])],
+                                # "commitment_date": data1[12],
+                                "commitment_date": fields.Date.today(),
+                            }
+                            if pro:
+                                so_data[sale_order.id].update({"order_line": [(0, 0, {
                                     'product_id': pro[0].id if pro else False,
-                                    'price_unit': 0,
-                                    'product_uom_qty': 1,
-                                    'name': proj,
+                                    'price_unit': row[8],
+                                    'product_uom_qty': row[6],
+                                    'name': dimension,
                                     'discount': PourRem,
-                                    'product_uom': pro.uom_id.id
-                            })],
-                            # "anaytic_tag_ids": [(6, 0, [account_analytic_tag_id])],
-                        })
+                                    'product_uom': pro.uom_id.id,
+                                    "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])],
+                                    })]
+                                })
                 else:
                     for row in resultp:
                         deviseur = row[13]
@@ -1603,7 +1636,6 @@ class SqliteConnector(models.Model):
                             if BP == 'BPA':
                                 proj = proj + '_BPA'
                             data = data1 + [proj,0, 1,proj,etiana]
-                            
                             part = res_partners.filtered(lambda p: p.name == data1[1])
                             part_ship = res_partners.filtered(lambda p: p.name == data1[2])
                             pro = product_products.filtered(lambda p: "[" + p.default_code + "]" + p.name == refart if p.default_code else p.name == proj)
@@ -1612,32 +1644,37 @@ class SqliteConnector(models.Model):
                             warehouse = False
                             if data1[10]:
                                 warehouse = self.env.ref(data1[10]).id
-                            so_data.append({
-                                "partner_id": part.id,
-                                "partner_shipping_id": part_ship.id,
-                                "date_order": fields.Date.today(),
-                                # "analytic_order_id": data1[4],
-                                "activity_ids": [(0, 0, {
-                                    'summary': data1[6],
-                                    # "activity_ids/res_model_id/name": data1[7], 
-                                    'res_model_id': data1[7],
-                                })],
-                                "x_studio_deviseur": data1[8],
-                                "x_studio_bureau_etude": data1[9],
-                                "warehouse_id": warehouse,
-                                "tag_ids": [(6, 0, data1[11])],
-                                # "commitment_date": data1[12],
-                                "commitment_date": fields.Date.today(),
-                                "order_line":
-                                    [(0, 0, {
+                            sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
+                            if sale_order:
+                                so_data.append({
+                                    # "partner_id": part.id,
+                                    # "partner_shipping_id": part_ship.id,
+                                    "date_order": fields.Date.today(),
+                                    # "analytic_order_id": data1[4],
+                                    # "activity_ids": [(0, 0, {
+                                    #     'summary': data1[6],
+                                    #     # "activity_ids/res_model_id/name": data1[7],
+                                    #     'res_model_id': sale_order.id,
+                                    # })],
+                                    "x_studio_deviseur": data1[8],
+                                    "x_studio_bureau_etude": data1[9],
+                                    "warehouse_id": warehouse,
+                                    "tag_ids": [(6, 0, data1[11])],
+                                    # "commitment_date": data1[12],
+                                    "commitment_date": fields.Date.today(),
+                                    # "anaytic_tag_ids": [(6, 0, [account_analytic_tag_id])],
+                                })
+                                if pro:
+                                    so_data[sale_order.id].update({"order_line": [(0, 0, {
                                         'product_id': pro[0].id if pro else False,
-                                        'price_unit': 0,
-                                        'product_uom_qty': 1,
-                                        'name': proj,
-                                        'product_uom': pro.uom_id.id
-                                    })],
-                                # "anaytic_tag_ids": [(6, 0, [account_analytic_tag_id])],
-                            })
+                                        'price_unit': row[8],
+                                        'product_uom_qty': row[6],
+                                        'name': dimension,
+                                        'discount': PourRem,
+                                        'product_uom': pro.uom_id.id,
+                                        "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])],
+                                        })]
+                                    })
             # Now we will create nomenclatures
             datanom=[]
             cpt = 0
@@ -1866,11 +1903,14 @@ class SqliteConnector(models.Model):
         cursor.close()
         temp_file.close()
 
+        for so in so_data:
+            self.env['sale.order'].browse(so).write(so_data[so])
         product_products.create(articlesm)
         _logger.info("=========articlesm %s \n" % (articlesm))
         self.env.cr.commit()
+        self.env['purchase.order'].create(po_vals)
         # _logger.info("=========po_vals %s" % po_vals)
         _logger.info("=========so_data %s \n" % (so_data))
-        self.env['sale.order'].create(so_data[0])
+        # self.env['sale.order'].create(so_data[0])
         _logger.info("=========nomenclatures_data %s" % nomenclatures_data)
         self.env['mrp.bom'].create(nomenclatures_data)
