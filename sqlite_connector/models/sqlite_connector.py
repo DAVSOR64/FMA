@@ -1833,6 +1833,15 @@ class SqliteConnector(models.Model):
                                 'name': dataope[4],
                                 'workcenter_id': workcenter.id
                             }))
+                            # operations_data.append({
+                            #     "product_tmpl_id": pro_temp[0].id,
+                            #     'operation_ids': [(0, 0, {
+                            #         'name': ope,
+                            #         'time_cycle_manual': dataope[2],
+                            #         'name': dataope[4],
+                            #         'workcenter_id': workcenter.id
+                            #     })]
+                            # })
                     else :
                         name = row[2]
                         name = name.strip()
