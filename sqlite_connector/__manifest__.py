@@ -8,7 +8,7 @@
     'description': """
         
     """,
-    'depends': [],
+    'depends': ['mail'],
     'data': [
         'views/sqlite_connector.xml',
         'security/ir.model.access.csv',
