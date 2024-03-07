@@ -1894,10 +1894,10 @@ class SqliteConnector(models.Model):
         #     message = _("Product has been Created: %s") % ','.join(refs)
         #     self.message_post(body=message)
         
-        for product in product_products.create(articles_data):
-            refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-            message = _("Product has been Created: %s") % ','.join(refs)
-            self.message_post(body=message)
+        # for product in product_products.create(articles_data):
+        #     refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+        #     message = _("Product has been Created: %s") % ','.join(refs)
+        #     self.message_post(body=message)
 
         self.env.cr.commit()
 
