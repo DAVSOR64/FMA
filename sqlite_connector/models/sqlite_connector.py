@@ -1854,12 +1854,13 @@ class SqliteConnector(models.Model):
                     if dataope:
                         pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + proj)
                         workcenter = self.env['mrp.workcenter'].search([('name', '=', name)])
-                        nomenclatures_data[0]['operation_ids'].append((0, 0, {
-                            'name': ope,
-                            'time_cycle_manual': dataope[2],
-                            'name': dataope[4],
-                            'workcenter_id': workcenter.id
-                        }))
+                        if nomenclatures_data:
+                            nomenclatures_data[0]['operation_ids'].append((0, 0, {
+                                'name': ope,
+                                'time_cycle_manual': dataope[2],
+                                'name': dataope[4],
+                                'workcenter_id': workcenter.id
+                            }))
                 else :
                     name = row[2]
                     name = name.strip()
