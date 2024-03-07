@@ -19,6 +19,7 @@ class SqliteConnector(models.Model):
     _name = 'sqlite.connector'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'SQLite Connector'
+    _rec_name = 'description'
 
     description = fields.Char(string='Description')
     date = fields.Date(string='Date', default=fields.Date.context_today)
@@ -288,7 +289,6 @@ class SqliteConnector(models.Model):
         resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number from AllArticles order by AllArticles.ArticleCode_Supplier limit 1")
 
         for row in resart :
-            _logger.info("========")
             refart = row[0]
             refartini = row[0]
             unit = row[2]
@@ -329,7 +329,7 @@ class SqliteConnector(models.Model):
                 refart = refart.replace("RYN","REY")
                 refart = refart.replace("SC  ","SCH ")
 
-                uom = uom_uom.filtered(lambda u: u.x_studio_uom_logical == unit)
+                uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
                 if uom:
                     unit = uom.name
                 # Need to ask
@@ -472,7 +472,7 @@ class SqliteConnector(models.Model):
                 if trouve == 1:
                     idfrs = ''
                     # we are looking for the ID of UnMe
-                    uom = uom_uom.filtered(lambda u: u.name == unit)
+                    uom = uom_uoms.filtered(lambda u: u.name == unit)
                     if uom:
                         unnom = uom.name
                         idun = uom.id
@@ -489,18 +489,20 @@ class SqliteConnector(models.Model):
                             LstArt = refart
                         else :
                             LstArt = LstArt + ',' + refart
-                        categ_id = product_categories.filtered(lambda c: c.name == 'All / Accessoire')    
+                        # categ_id = product_categories.filtered(lambda c: c.name == 'All / Accessoire') 
+                        categ_id = self.env.ref('__export__.product_category_14_a5d33274')
+
                         articleslibre.append({
                             "default_code": refart,
                             "name": nom,
                             "lst_price": 10,
                             "standard_price": prix,
-                            "uom_id": idun,
+                            "uom_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
                             "categ_id": categ_id.id,
                             "purchase_ok": "yes",
                             "sale_ok": "yes",
                             "type": "product",
-                            "uom_po_id": idun,
+                            "uom_po_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
                             "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
                             })
                     else :
@@ -543,13 +545,14 @@ class SqliteConnector(models.Model):
                         prixV = float(prix) * 1.5
                         delai = 14
                         dateliv = datejourd + timedelta(days=delai)
-                        categ_id = product_categories.filtered(lambda c: c.name == 'All / Accessoire')
+                        # categ_id = product_categories.filtered(lambda c: c.name == 'All / Accessoire')
+                        categ_id = self.env.ref('__export__.product_category_14_a5d33274')
                         articles_data.append({
                             'default_code': art,
                             'name': nom,
                             'lst_price': prixV,
                             'standard_price': prix,
-                            'uom_id': idun,
+                            'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                             'categ_id': categ_id.id,
                             'seller_ids': [
                                 (0, 0, {
@@ -563,7 +566,7 @@ class SqliteConnector(models.Model):
                             'purchase_ok': 'yes',
                             'sale_ok': 'yes',
                             'type': 'product',
-                            'uom_po_id': idun,
+                            'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                             'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
                         })
                         
@@ -588,142 +591,198 @@ class SqliteConnector(models.Model):
                                 })]
                            })
 
-                # Process data for profile
-                resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-                BP = ''
+            # Process data for profile
+            resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
+            BP = ''
 
-                for row in resultBP:
-                    if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
-                        if (row[2] == '1')  :
-                            BP = 'BPA'
-                        if (row[2] == '3') :
-                            BP = 'BPE'
-                        if (row[2] == '2') :
-                            BP = 'BPA-BPE'
+            for row in resultBP:
+                if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
+                    if (row[2] == '1')  :
+                        BP = 'BPA'
+                    if (row[2] == '3') :
+                        BP = 'BPE'
+                    if (row[2] == '2') :
+                        BP = 'BPA-BPE'
 
-                if BP == 'BPA' or BP == 'BPE':
-                    resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
-                    idun =''
-                    idfrs = ''
-                    UV = 0
-                    LstFrs = ''
+            if BP == 'BPA' or BP == 'BPE':
+                resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
+                idun =''
+                idfrs = ''
+                UV = 0
+                LstFrs = ''
 
-                    for row in resultpf:
-                        refart = row[0]
-                        refartini = row[0]
-                        name = row[1]
-                        unit = str(row[6])
-                        unita = ''
-                        prixB = float(0)
-                        nom = row[3]
-                        IsManual = row[8]
-                        fournisseur = row[2]
-                        fournisseur = fournisseur.upper()
-                        if fournisseur == 'TECHNAL' :
-                            refart = 'TEC' + ' ' + row[12]
-                        if fournisseur == 'WICONA' :
-                            refart = 'WIC' + ' ' + row[13][1:]
-                        if fournisseur == 'SAPA' :
-                            refart = refart.replace("RC  ","SAP ")
-                        if fournisseur == 'Jansen' :
-                            refart = 'JAN' + ' ' + row[9]
-                        if fournisseur == 'RP-Technik' :
-                            refart = 'RP' + ' ' + row[9]
-                        if fournisseur == 'Forster' :
-                            refart = 'FRS' + ' ' + row[9]
-                            refart = refart.replace('.','')
-                        couleurext = str(row[9])
-                        couleurint = str(row[10])
+                for row in resultpf:
+                    refart = row[0]
+                    refartini = row[0]
+                    name = row[1]
+                    unit = str(row[6])
+                    unita = ''
+                    prixB = float(0)
+                    nom = row[3]
+                    IsManual = row[8]
+                    fournisseur = row[2]
+                    fournisseur = fournisseur.upper()
+                    if fournisseur == 'TECHNAL' :
+                        refart = 'TEC' + ' ' + row[12]
+                    if fournisseur == 'WICONA' :
+                        refart = 'WIC' + ' ' + row[13][1:]
+                    if fournisseur == 'SAPA' :
+                        refart = refart.replace("RC  ","SAP ")
+                    if fournisseur == 'Jansen' :
+                        refart = 'JAN' + ' ' + row[9]
+                    if fournisseur == 'RP-Technik' :
+                        refart = 'RP' + ' ' + row[9]
+                    if fournisseur == 'Forster' :
+                        refart = 'FRS' + ' ' + row[9]
+                        refart = refart.replace('.','')
+                    couleurext = str(row[9])
+                    couleurint = str(row[10])
 
-                        if couleurext != '' and couleurint != '' :
-                            couleur = couleurext + '/' + couleurint
-                        else :
-                            couleur = str(row[11])
-                            if couleur == '' or couleur == ' ' :
-                                couleur = str(row[4])
-                                if couleur == 'Sans' or couleur == 'sans':
-                                    couleur = ''
-                        for profile in profiles:
-                            if row[0] == profile['article']:
-                                prix = profile['prix']
-                                prixB = float(prix) * float(row[6])
-                        refart = refart.replace("RYN","REY")
-                        refart = refart.replace("SC  ","SCH ")
-                        if couleur != '' :
-                            refart = refart + '.' + couleur
-                            refartfic = ''
+                    if couleurext != '' and couleurint != '' :
+                        couleur = couleurext + '/' + couleurint
+                    else :
+                        couleur = str(row[11])
+                        if couleur == '' or couleur == ' ' :
+                            couleur = str(row[4])
+                            if couleur == 'Sans' or couleur == 'sans':
+                                couleur = ''
+                    for profile in profiles:
+                        if row[0] == profile['article']:
+                            prix = profile['prix']
+                            prixB = float(prix) * float(row[6])
+                    refart = refart.replace("RYN","REY")
+                    refart = refart.replace("SC  ","SCH ")
+                    if couleur != '' :
+                        refart = refart + '.' + couleur
+                        refartfic = ''
 
-                        product_product = product_products.filtered(lambda p: p.default_code == refart)   
-                        unme = product_product.uom_id if product_product.uom_id else ""
-                        unit = unme.name
+                    product_product = product_products.filtered(lambda p: p.default_code == refart)   
+                    unme = product_product.uom_id if product_product.uom_id else ""
+                    unit = unme.name if product_product.uom_id else ""
 
-                        unitcor = ''
-                      
+                    unitcor = ''
+                  
+                    # Need to ask
+                    # for W in range(2,row_count7) :
+                    #     unitcor = sheet7.cell(row=W,column=1).value
+                    #     unitcor = str(unitcor)
+                    #     unitcor = unitcor.replace('.0','')
+                    #     #print ('unitcor ' , unitcor)
+                    #     #print ('unit ', unit)
+                    # if unit == unitcor :
+                    #     #print ('dans le if des unités')
+                    #     unit = sheet7.cell(row=W,column=2).value
+
+                    trouve = 1
+                    tache = 0
+                    regle = 0
+
+                    for product in product_products.filtered(lambda p: p.default_code == refart):
+                        data2 = product.default_code
+                        delai = product.seller_ids[0].delay if product.seller_ids else 1
+                        delai = product.produce_delay
+                        trouve = 0
+                        order_point = self.env['stock.warehouse.orderpoint'].search([('name', 'ilike', refart)])
+                        if order_point:
+                            regle =  1
+                        if regle == 0:
+                            unnom = product.uom_id
+                            idun = product.uom_id
+
+                        # Now we are looking for supplier ID
+                        iduna = ''
+                        unita ='ML'
+
+                        uom = uom_uoms.filtered(lambda u: u.name == unita)
+                        if uom:
+                            iduna = uom.id
+
+                        resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
+                        if resultat:
+                            idfrs = resultat[0].id
+
+                        # Now we come to create profiles
+                        QteStk =  0
                         # Need to ask
-                        # for W in range(2,row_count7) :
-                        #     unitcor = sheet7.cell(row=W,column=1).value
-                        #     unitcor = str(unitcor)
-                        #     unitcor = unitcor.replace('.0','')
-                        #     #print ('unitcor ' , unitcor)
-                        #     #print ('unit ', unit)
-                        # if unit == unitcor :
-                        #     #print ('dans le if des unités')
-                        #     unit = sheet7.cell(row=W,column=2).value
+                        # for n in range (2,row_count15+1):
+                        #     refstk = '[' + str(sheet15.cell(row=n,column=1).value) + ']'
+                        # if refart in refstk :
+                        #     QteStk = float(sheet15.cell(row=n,column=4).value)
+                        Qte = float(row[7])
+                        if (QteStk <= 0):
+                            Qte = float(Qte)
+                            if LstFrs != idfrs :
+                                LstFrs = idfrs
+                                projet = projet.strip()
+                                data22 = ['', projet, idfrs, stock_picking_type_id, '', datetime.now(), user_id]
 
-                        trouve = 1
-                        tache = 0
-                        regle = 0
+                                pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                po_vals.append({
+                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                    'partner_id': idfrs,
+                                    'picking_type_id': stock_picking_type_id,
+                                    'date_order': datetime.now(),
+                                    'user_id': user_id,
+                                    'order_line': [(0, 0,
+                                        {
+                                            'product_id': pro[0].id if pro else False,
+                                            'account_analytic_id': account_analytic_id,
+                                            # 'date_planned': datetime.now(),
+                                            'price_unit': 0,
+                                            'product_qty': 1,
+                                            'product_uom': pro.uom_id.id,
+                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                            'date_planned': datejourd,
+                                        })]
+                                    })
+                                data22 = ['','','','','','','']
+                            else:
+                                data22 = ['','','','','','','']
 
-                        for product in product_products.filtered(lambda p: p.default_code == refart):
-                            data2 = product.default_code
-                            delai = product.seller_ids[0].delay if product.seller_ids else 1
-                            delai = product.produce_delay
-                            trouve = 0
-                            order_point = self.env['stock.warehouse.orderpoint'].search([('name', 'ilike', refart)])
-                            if order_point:
-                                regle =  1
-                            if regle == 0:
-                                unnom = product.uom_id
-                                if unit == unnom:
-                                    idun = product.uom_id
-
-                            # Now we are looking for supplier ID
-                            iduna = ''
-                            unita ='ML'
-
-                            uom_uom = self.env['uom.uom'].search([('name', '=', unita)])
-                            if uom_uom:
-                                iduna = uom_uom.id
-
-                            resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
-                            if resultat:
-                                idfrs = resultat[0].id
-
-                            # Now we come to create profiles
-                            QteStk =  0
-                            # Need to ask
-                            # for n in range (2,row_count15+1):
-                            #     refstk = '[' + str(sheet15.cell(row=n,column=1).value) + ']'
-                            # if refart in refstk :
-                            #     QteStk = float(sheet15.cell(row=n,column=4).value)
-                            Qte = float(row[7])
-                            if (QteStk <= 0):
-                                Qte = float(Qte)
+                            id = refart.replace(" ","_")
+                            idcolor = couleur.replace(" ","_")
+                            art = data2
+                            projet = projet.strip()
+                            delai = int(delai)
+                            dateliv = datejourd + timedelta(days=delai)
+                            part = res_partners.filtered(lambda p: p.name == data22[2])
+                            pro = product_products.filtered(lambda p: p.default_code == art)
+                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                            po_vals.append({
+                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                'partner_id': part.id,
+                                'picking_type_id': stock_picking_type_id,
+                                'x_studio_commentaire_livraison_vitrage_': data22[4],
+                                'date_order': datetime.now(),
+                                'user_id': user_id,
+                                'order_line': [(0, 0, {
+                                        'product_id': pro[0].id if pro else False,
+                                        # 'date_planned': datetime.now(),
+                                        'price_unit': prixB,
+                                        'product_qty': Qte,
+                                        'product_uom': pro.uom_id.id,
+                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                        'date_planned': dateliv,
+                                    })]
+                                })
+                        else:
+                            if (QteStk < Qte) :
+                                Qte = float(Qte) - QteStk
                                 if LstFrs != idfrs :
                                     LstFrs = idfrs
                                     projet = projet.strip()
-                                    data22 = ['', projet, idfrs, stock_picking_type_id, '', datetime.now(), user_id]
-
+                                    data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                                     pro = product_products.filtered(lambda p: p.default_code == 'affaire')
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                     po_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
                                         'picking_type_id': stock_picking_type_id,
+                                        'x_studio_commentaire_livraison_vitrage_': "",
                                         'date_order': datetime.now(),
                                         'user_id': user_id,
-                                        'order_line': [(0, 0,
-                                            {
+                                        'order_line': [(0, 0, {
                                                 'product_id': pro[0].id if pro else False,
                                                 'account_analytic_id': account_analytic_id,
                                                 # 'date_planned': datetime.now(),
@@ -735,15 +794,144 @@ class SqliteConnector(models.Model):
                                             })]
                                         })
                                     data22 = ['','','','','','','']
-                                else:
-                                    data22 = ['','','','','','','']
+                            else :
+                                data22 = ['','','','','','','']
+                            idcolor = couleur.replace(" ","_")
+                            art = data2
+                            projet = projet.strip()
+                            dateliv = datejourd + timedelta(days=delai)
+                            
+                            part = res_partners.filtered(lambda p: p.name == data22[2])
+                            prod = product_products.filtered(lambda pro: pro.default_code == art)
+                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                            po_vals.append({
+                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                'partner_id': part.id,
+                                'picking_type_id': stock_picking_type_id,
+                                'x_studio_commentaire_livraison_vitrage_': data22[4],
+                                'date_order': datetime.now(),
+                                'user_id': user_id,
+                                'order_line': [(0, 0, {
+                                        'product_id': prod[0].id if prod else False,
+                                        # 'date_planned': datetime.now(),
+                                        'price_unit': prixB,
+                                        'product_qty': Qte,
+                                        'product_uom': prod.uom_id.id,
+                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                        'date_planned': dateliv,
+                                    })]
+                                })
+                    if trouve == 1 :
+                        if IsManual == 'True' :
+                            refart = row[1]
+                            tache = 1
+                            if LstArt == '':
+                                LstArt = refart
+                            else :
+                                LstArt = LstArt + ',' + refart
+ 
+                            uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
+                            if uom:
+                                idun = uom.id
 
-                                id = refart.replace(" ","_")
-                                idcolor = couleur.replace(" ","_")
-                                art = data2
+                            unita = 'ML'
+                            uom = uom_uoms.filtered(lambda u: u.name == unita)
+                            if uom:
+                                iduna = uom.id
+                            prixV = prixB * 1.5
+
+                            data1 = ['',refart,refart, prixV ,prixB, idun, 'All / Profile','yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy,purchase_stock.route_warehouse0_buy', '0', '0']
+                            # categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
+                            categ_id =  self.env.ref('__export__.product_category_19_b8423373')  
+
+                            articleslibre.append({
+                                "default_code": refart,
+                                "name": refart,
+                                "lst_price": prixV,
+                                "standard_price": prixB,
+                                "uom_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                "categ_id": categ_id.id,
+                                "purchase_ok": "yes",
+                                "sale_ok": "yes",
+                                "type": "product",
+                                "uom_po_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy')), (4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
+                            })
+                        else:
+                            # unnom = product.uom_id
+                            # if unit == unnom:
+                            #     idun = unnom.id
+                            unita = 'ML'
+
+                            uom = uom_uoms.filtered(lambda u: u.name == unita)
+                            if uom:
+                                iduna = uom.id
+
+                            resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
+                            if resultat:
+                                idfrs = resultat[0].id
+
+                            art = refart
+                            Qte = row[7]
+                            prixV = prixB * 1.5
+                            data10 = [art, nom, prixV ,prixB, idun, 'All / Profile', '56', idfrs, nom, prixB, '1', art, 'yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy,purchase_stock.route_warehouse0_buy', '0','0','']
+                            # categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
+                            categ_id =  self.env.ref('__export__.product_category_19_b8423373') 
+                            articles_data.append({
+                                'default_code': art,
+                                'name': nom,
+                                'lst_price': prixV,
+                                'standard_price': prixB,
+                                'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                'categ_id': categ_id.id,
+                                'seller_ids': [(0, 0, {
+                                    'delay': 56,
+                                    'name': idfrs if idfrs else 1,
+                                    'product_name': nom,
+                                    'price': prixB,
+                                    'min_qty': 1,
+                                    'product_code': art
+                                    })
+                                ],
+                                'purchase_ok': 'yes',
+                                'sale_ok': 'yes',
+                                'type': 'product',
+                                'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy')), (4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
+                                'x_studio_hauteur_mm': 0,
+                                'x_studio_largeur_mm': 0,
+                                # 'x_studio_positionn': ''
+                            })
+                            if LstFrs != idfrs :
+                                LstFrs = idfrs
                                 projet = projet.strip()
-                                delai = int(delai)
+                                data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
+                                pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                po_vals.append({
+                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                    'partner_id': idfrs,
+                                    'picking_type_id': stock_picking_type_id,
+                                    'x_studio_commentaire_livraison_vitrage_': "",
+                                    'date_order': datetime.now(),
+                                    'user_id': user_id,
+                                    'order_line': [(0, 0, {
+                                            'product_id': pro[0].id if pro else False,
+                                            'account_analytic_id': account_analytic_id,
+                                            'date_planned': datetime.now(),
+                                            'price_unit': 0,
+                                            'product_qty': 1,
+                                            'product_uom': pro.uom_id.id,
+                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                            'date_planned': datejourd,
+                                        })]
+                                    })
+                                data22 = ['','','','','','','']
+                            else :
+                                data22 = ['','','','','','','']
+                                delai = 35
                                 dateliv = datejourd + timedelta(days=delai)
+                                
                                 part = res_partners.filtered(lambda p: p.name == data22[2])
                                 pro = product_products.filtered(lambda p: p.default_code == art)
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
@@ -752,11 +940,11 @@ class SqliteConnector(models.Model):
                                     'partner_id': part.id,
                                     'picking_type_id': stock_picking_type_id,
                                     'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                    'date_order': datetime.now(),
+                                    'date_order': data22[5],
                                     'user_id': user_id,
                                     'order_line': [(0, 0, {
                                             'product_id': pro[0].id if pro else False,
-                                            # 'date_planned': datetime.now(),
+                                            'date_planned': datetime.now(),
                                             'price_unit': prixB,
                                             'product_qty': Qte,
                                             'product_uom': pro.uom_id.id,
@@ -764,306 +952,161 @@ class SqliteConnector(models.Model):
                                             'date_planned': dateliv,
                                         })]
                                     })
-                            else:
-                                if (QteStk < Qte) :
-                                    Qte = float(Qte) - QteStk
-                                    if LstFrs != idfrs :
-                                        LstFrs = idfrs
-                                        projet = projet.strip()
-                                        data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
-                                        pro = product_products.filtered(lambda p: p.default_code == 'affaire')
-                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                        po_vals.append({
-                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                            'partner_id': idfrs,
-                                            'picking_type_id': stock_picking_type_id,
-                                            'x_studio_commentaire_livraison_vitrage_': "",
-                                            'date_order': datetime.now(),
-                                            'user_id': user_id,
-                                            'order_line': [(0, 0, {
-                                                    'product_id': pro[0].id if pro else False,
-                                                    'account_analytic_id': account_analytic_id,
-                                                    # 'date_planned': datetime.now(),
-                                                    'price_unit': 0,
-                                                    'product_qty': 1,
-                                                    'product_uom': pro.uom_id.id,
-                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                    'date_planned': datejourd,
-                                                })]
-                                            })
-                                        data22 = ['','','','','','','']
-                                else :
-                                    data22 = ['','','','','','','']
-                                idcolor = couleur.replace(" ","_")
-                                art = data2
+        # To process glass data
+        BP = ''
+        resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
+        for row in resultBP :
+            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
+                if (row[2] == '1')  :
+                    BP = 'BPA'
+            if (row[2] == '3') :
+                BP = 'BPE'
+            if (row[2] == '2') :
+                BP = 'BPA-BPE'
+
+        if BP != 'BPA':
+            datagnum=[]
+            proj = ''
+            if Tranche != '0' :
+                proj = projet + '/' + str(Tranche)
+            else :
+                proj = projet
+
+
+            resultg = cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId, Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.Info2, Elevations.Name ,Glass.FieldNo")
+            nbr = 0
+
+            for row in resultg:
+                nbr = nbr + 1
+
+            resultg = cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId, Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.Info2, Elevations.Name ,Glass.FieldNo, Glass.LK_SupplierId")
+
+            cpt1 = 0
+            PosNew = ''
+            Qte = 0
+            LstInfo2 = ''
+            LstFrs = ''
+            idfrs = ''
+            refinterne= ''
+            Frsid = ''
+            name = ''
+
+            for row in resultg:
+                Info2 = row[7]
+                cpt1 = cpt1 + 1
+                unnomf = 'Piece'
+                spacer = row[14]
+                nomvit = row[15]
+                Frsid = row[17]
+                Qte = float(row[10])
+                largNum = float(row[4])
+                HautNum = float(row[5])
+                largNum = round(largNum)
+                HautNum = round(HautNum)
+
+                # res_partner = self.env['res.partner'].search([('LK_SupplierId', '=', row[17])])
+                res_partner = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
+                if res_partner:
+                    frsnomf = res_partner[0].x_studio_ref_logikal
+                delay =  14
+
+                if row[13] != 'Glass':
+                    Info2 = ''
+                    spacer = ''
+                    delai = 21
+                    trouve = '1'
+                if (row[9] == None) :
+                    name = 'X'
+                else :
+                    name = str(row[9])
+                Posint = name + ' / ' + row[8]
+                refart = row[1]
+
+                if nomvit != 'Sans vitrage' :
+                    if PosNew == Posint :
+                        if (row[10] == None) :
+                            qtech = '1'
+                        else :
+                            qtech = str(row[10])
+                        Qte = Qte + float(qtech)
+                        if cpt1 == nbr :
+                            if LstFrs != idfrs :
+                                LstFrs = idfrs
+                                LstInfo2 = Info2
                                 projet = projet.strip()
-                                dateliv = datejourd + timedelta(days=delai)
                                 
-                                part = res_partners.filtered(lambda p: p.name == data22[2])
-                                prod = product_products.filtered(lambda pro: pro.default_code == art)
-                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                                pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                 po_vals.append({
                                     'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                    'partner_id': part.id,
+                                    'partner_id': idfrs,
                                     'picking_type_id': stock_picking_type_id,
-                                    'x_studio_commentaire_livraison_vitrage_': data22[4],
+                                    'x_studio_commentaire_livraison_vitrage_': Info2,
                                     'date_order': datetime.now(),
                                     'user_id': user_id,
-                                    'order_line': [(0, 0, {
-                                            'product_id': prod[0].id if prod else False,
-                                            # 'date_planned': datetime.now(),
-                                            'price_unit': prixB,
-                                            'product_qty': Qte,
-                                            'product_uom': prod.uom_id.id,
+                                    'order_line':
+                                        [(0, 0, {
+                                            'product_id': pro[0].id if pro else False,
+                                            'account_analytic_id': account_analytic_id,
+                                            'date_planned': datetime.now(),
+                                            'price_unit': 0,
+                                            'product_qty': 1,
+                                            'product_uom': pro.uom_id.id,
                                             'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                            'date_planned': dateliv,
+                                            'date_planned': datejourd,
                                         })]
                                     })
-                            if trouve == 1 :
-                                if IsManual == 'True' :
-                                    refart = row[1]
-                                    tache = 1
-                                    if LstArt == '':
-                                        LstArt = refart
-                                    else :
-                                        LstArt = LstArt + ',' + refart
-         
-                                    uom = uom_uom.filtered(lambda u: u.x_studio_uom_logical == unit)
-                                    if uom:
-                                        idun = uom.id
-
-                                    unita = 'ML'
-                                    uom_uom = uom_uoms.filtered(lambda u: u.name == unita)
-                                    if uom_uom:
-                                        iduna = uom_uom.id
-                                    prixV = prixB * 1.5
-
-                                    data1 = ['',refart,refart, prixV ,prixB, idun, 'All / Profile','yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy,purchase_stock.route_warehouse0_buy', '0', '0']
-                                    categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
-                                    articleslibre.append({
-                                        "default_code": refart,
-                                        "name": refart,
-                                        "lst_price": prixV,
-                                        "standard_price": prixB,
-                                        "uom_id": idun,
-                                        "categ_id": categ_id.id,
-                                        "purchase_ok": "yes",
-                                        "sale_ok": "yes",
-                                        "type": "product",
-                                        "uom_po_id": idun,
-                                        "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy')), (4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
-                                    })
+                                data22 = ['','','','','','','']
+                            else :
+                                if LstInfo2 != Info2:
+                                    LstInfo2 = Info2
+                                    data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                 else:
-                                    # unnom = product.uom_id
-                                    # if unit == unnom:
-                                    #     idun = unnom.id
-                                    unita = 'ML'
-                                    uom_uom = self.env['uom.uom'].search([('name', '=', unita)])
-                                    if uom_uom:
-                                        iduna = uom_uom.id
-
-                                    resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
-                                    if resultat:
-                                        idfrs = resultat[0].id
-
-                                    art = refart
-                                    Qte = row[7]
-                                    prixV = prixB * 1.5
-                                    data10 = [art, nom, prixV ,prixB, idun, 'All / Profile', '56', idfrs, nom, prixB, '1', art, 'yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy,purchase_stock.route_warehouse0_buy', '0','0','']
-                                    categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
-                                    articles_data.append({
-                                        'default_code': art,
-                                        'name': nom,
-                                        'lst_price': prixV,
-                                        'standard_price': prixB,
-                                        'uom_id': idun,
-                                        'categ_id': categ_id.id,
-                                        'seller_ids': [(0, 0, {
-                                            'delay': 56,
-                                            'partner_id': idfrs,
-                                            'product_name': nom,
-                                            'price': prixB,
-                                            'min_qty': 1,
-                                            'product_code': art
-                                            })
-                                        ],
-                                        'purchase_ok': 'yes',
-                                        'sale_ok': 'yes',
-                                        'type': 'product',
-                                        'uom_po_id': idun,
-                                        'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy')), (4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
-                                        'x_studio_hauteur_1': 0,
-                                        'x_studio_largeur': 0,
-                                        'x_studio_positionn': ''
-                                    })
-                                    if LstFrs != idfrs :
-                                        LstFrs = idfrs
-                                        projet = projet.strip()
-                                        data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
-                                        pro = product_products.filtered(lambda p: p.default_code == 'affaire')
-                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                        po_vals.append({
-                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                            'partner_id': idfrs,
-                                            'picking_type_id': stock_picking_type_id,
-                                            'x_studio_commentaire_livraison_vitrage_': "",
-                                            'date_order': datetime.now(),
-                                            'user_id': user_id,
-                                            'order_line': [(0, 0, {
-                                                    'product_id': pro[0].id if pro else False,
-                                                    'account_analytic_id': account_analytic_id,
-                                                    'date_planned': datetime.now(),
-                                                    'price_unit': 0,
-                                                    'product_qty': 1,
-                                                    'product_uom': pro.uom_id.id,
-                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                    'date_planned': datejourd,
-                                                })]
-                                            })
+                                    if cpt1 != 2 :
                                         data22 = ['','','','','','','']
                                     else :
-                                        data22 = ['','','','','','','']
-                                        delai = 35
-                                        dateliv = datejourd + timedelta(days=delai)
-                                        
-                                        part = res_partners.filtered(lambda p: p.name == data22[2])
-                                        pro = product_products.filtered(lambda p: p.default_code == art)
-                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                        po_vals.append({
-                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                            'partner_id': part.id,
-                                            'picking_type_id': stock_picking_type_id,
-                                            'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                            'date_order': data22[5],
-                                            'user_id': user_id,
-                                            'order_line': [(0, 0, {
-                                                    'product_id': pro[0].id if pro else False,
-                                                    'date_planned': datetime.now(),
-                                                    'price_unit': prixB,
-                                                    'product_qty': Qte,
-                                                    'product_uom': pro.uom_id.id,
-                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                    'date_planned': dateliv,
-                                                })]
-                                            })
-                # To process glass data
-                BP = ''
-                resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-                for row in resultBP :
-                    if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
-                        if (row[2] == '1')  :
-                            BP = 'BPA'
-                    if (row[2] == '3') :
-                        BP = 'BPE'
-                    if (row[2] == '2') :
-                        BP = 'BPA-BPE'
+                                        data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
 
-                if BP != 'BPA':
-                    datagnum=[]
-                    proj = ''
-                    if Tranche != '0' :
-                        proj = projet + '/' + str(Tranche)
-                    else :
-                        proj = projet
+                            dateliv = datejourd + timedelta(days=delai)
+                            part = res_partners.filtered(lambda p: p.name == data22[2])
+                            pro = product_products.filtered(lambda p: p.default_code == refinterne)
+                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                            po_vals.append({
+                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                'partner_id': part.id,
+                                'picking_type_id': stock_picking_type_id,
+                                'x_studio_commentaire_livraison_vitrage_': data22[4],
+                                'date_order': datetime.now(),
+                                'user_id': user_id,
+                                'order_line':
+                                    [(0, 0, {
+                                        'product_id': pro[0].id if pro else False,
+                                        'date_planned': datetime.now(),
+                                        'x_studio_posit': Posint,
+                                        'price_unit': prix,
+                                        'product_qty': Qte,
+                                        'product_uom': pro.uom_id.id,
+                                        'x_studio_hauteur_mm': HautNum,
+                                        'x_studio_largeur_mm': largNum,
+                                        'x_studio_spacer': spacer,
+                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                        'date_planned': dateliv,
+                                    })]
+                                })
+                        else:
+                            if PosNew != '':
+                                uom = uom_uoms.filtered(lambda u: u.name == unnomf)
+                                if uom:
+                                    idun = uom.id
+                                part = res_partners.filtered(lambda p: p.name == frsnomf)
+    
+                                if part:
+                                    idfrs = part[0].id if part else ''
 
-
-                    resultg = cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId, Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.Info2, Elevations.Name ,Glass.FieldNo")
-                    nbr = 0
-
-                    for row in resultg:
-                        nbr = nbr + 1
-
-                    resultg = cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId, Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.Info2, Elevations.Name ,Glass.FieldNo, Glass.LK_SupplierId")
-
-                    cpt1 = 0
-                    PosNew = ''
-                    Qte = 0
-                    LstInfo2 = ''
-                    LstFrs = ''
-                    idfrs = ''
-                    refinterne= ''
-                    Frsid = ''
-                    name = ''
-
-                    for row in resultg:
-                        Info2 = row[7]
-                        cpt1 = cpt1 + 1
-                        unnomf = 'Piece'
-                        spacer = row[14]
-                        nomvit = row[15]
-                        Frsid = row[17]
-                        Qte = float(row[10])
-                        largNum = float(row[4])
-                        HautNum = float(row[5])
-                        largNum = round(largNum)
-                        HautNum = round(HautNum)
-
-                        # res_partner = self.env['res.partner'].search([('LK_SupplierId', '=', row[17])])
-                        res_partner = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
-                        if res_partner:
-                            frsnomf = res_partner[0].x_studio_ref_logikal
-                        delay =  14
-
-                        if row[13] != 'Glass':
-                            Info2 = ''
-                            spacer = ''
-                            delai = 21
-                            trouve = '1'
-                        if (row[9] == None) :
-                            name = 'X'
-                        else :
-                            name = str(row[9])
-                        Posint = name + ' / ' + row[8]
-                        refart = row[1]
-
-                        if nomvit != 'Sans vitrage' :
-                            if PosNew == Posint :
-                                if (row[10] == None) :
-                                    qtech = '1'
-                                else :
-                                    qtech = str(row[10])
-                                Qte = Qte + float(qtech)
-                                if cpt1 == nbr :
-                                    if LstFrs != idfrs :
-                                        LstFrs = idfrs
-                                        LstInfo2 = Info2
-                                        projet = projet.strip()
-                                        
-                                        pro = product_products.filtered(lambda p: p.default_code == 'affaire')
-                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                        po_vals.append({
-                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                            'partner_id': idfrs,
-                                            'picking_type_id': stock_picking_type_id,
-                                            'x_studio_commentaire_livraison_vitrage_': Info2,
-                                            'date_order': datetime.now(),
-                                            'user_id': user_id,
-                                            'order_line':
-                                                [(0, 0, {
-                                                    'product_id': pro[0].id if pro else False,
-                                                    'account_analytic_id': account_analytic_id,
-                                                    'date_planned': datetime.now(),
-                                                    'price_unit': 0,
-                                                    'product_qty': 1,
-                                                    'product_uom': pro.uom_id.id,
-                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                    'date_planned': datejourd,
-                                                })]
-                                            })
-                                        data22 = ['','','','','','','']
-                                    else :
-                                        if LstInfo2 != Info2:
-                                            LstInfo2 = Info2
-                                            data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
-                                        else:
-                                            if cpt1 != 2 :
-                                                data22 = ['','','','','','','']
-                                            else :
-                                                data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
-
+                                if cpt1 != nbr:
                                     dateliv = datejourd + timedelta(days=delai)
                                     part = res_partners.filtered(lambda p: p.name == data22[2])
-                                    pro = product_products.filtered(lambda p: p.default_code == refinterne)
+                                    prod = product_products.filtered(lambda pro: pro.default_code == refinterne)
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                     po_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
@@ -1074,319 +1117,138 @@ class SqliteConnector(models.Model):
                                         'user_id': user_id,
                                         'order_line':
                                             [(0, 0, {
-                                                'product_id': pro[0].id if pro else False,
+                                                'product_id': prod[0].id if prod else False,
                                                 'date_planned': datetime.now(),
                                                 'x_studio_posit': Posint,
                                                 'price_unit': prix,
                                                 'product_qty': Qte,
-                                                'product_uom': pro.uom_id.id,
-                                                'x_studio_hauteur': HautNum,
-                                                'x_studio_largeur': largNum,
+                                                'product_uom': prod.uom_id.id,
+                                                'x_studio_hauteur_mm': HautNum,
+                                                'x_studio_largeur_mm': largNum,
                                                 'x_studio_spacer': spacer,
                                                 'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
                                                 'date_planned': dateliv,
                                             })]
                                         })
-                                else:
-                                    if PosNew != '':
-                                        uom_uom = self.env['uom.uom'].search([('name', '=', unnomf)])
-                                        if uom_uom:
-                                            idun = uom_uom.id
-                                        part = res_partners.filtered(lambda p: p.name == frsnomf)
-            
-                                        if part:
-                                            idfrs = part[0].id if part else ''
-
-                                        if cpt1 != nbr:
-                                            dateliv = datejourd + timedelta(days=delai)
-                                            part = res_partners.filtered(lambda p: p.name == data22[2])
-                                            prod = product_products.filtered(lambda pro: pro.default_code == refinterne)
-                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                            po_vals.append({
-                                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                'partner_id': part.id,
-                                                'picking_type_id': stock_picking_type_id,
-                                                'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                                'date_order': datetime.now(),
-                                                'user_id': user_id,
-                                                'order_line':
-                                                    [(0, 0, {
-                                                        'product_id': prod[0].id if prod else False,
-                                                        'date_planned': datetime.now(),
-                                                        'x_studio_posit': Posint,
-                                                        'price_unit': prix,
-                                                        'product_qty': Qte,
-                                                        'product_uom': prod.uom_id.id,
-                                                        'x_studio_hauteur': HautNum,
-                                                        'x_studio_largeur': largNum,
-                                                        'x_studio_spacer': spacer,
-                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                        'date_planned': dateliv,
-                                                    })]
-                                                })
-                                            if LstFrs != idfrs :
-                                                LstFrs = idfrs
-                                                LstInfo2 = Info2
-                                                projet = projet.strip()
-                                                prod = product_products.filtered(lambda pro: pro.default_code == 'affaire')
-                                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                                po_vals.append({
-                                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                    'partner_id': idfrs,
-                                                    'picking_type_id': stock_picking_type_id,
-                                                    'x_studio_commentaire_livraison_vitrage_': Info2,
-                                                    'date_order': datetime.now(),
-                                                    'user_id': user_id,
-                                                    'order_line':
-                                                        [(0, 0, {
-                                                            'product_id': prod[0].id if prod else False,
-                                                            'account_analytic_id': account_analytic_id,
-                                                            # 'date_planned': datetime.now(),
-                                                            'price_unit': 0,
-                                                            'product_qty': 1,
-                                                            'product_uom': prod.uom_id.id,
-                                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                            'date_planned': datejourd,
-                                                        })]
-                                                    })
-                                                data22 = ['','','','','','','']
-                                            else :
-                                                if LstInfo2 != Info2:
-                                                    LstInfo2 = Info2
-                                                    data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
-                                                else:
-                                                    data22 = ['','','','','','','']
-
-                                            prix = row[3]
-                                            projet = projet.strip()
-                                            refinterne = proj + '_' + str(cpt1)
-
-                                        if cpt1 == nbr:
-                                            dateliv = datejourd + timedelta(days=delai)
-                                            
-                                            part = res_partners.filtered(lambda p: p.name == data22[2])
-                                            prod = product_products.filtered(lambda p: p.default_code == refinterne)
-
-                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                            po_vals.append({
-                                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                'partner_id': part.id,
-                                                'picking_type_id': stock_picking_type_id,
-                                                'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                                'date_order': datetime.now(),
-                                                'user_id': user_id,
-                                                'order_line':
-                                                    [(0, 0, {
-                                                        'product_id': prod[0].id if prod else False,
-                                                        'date_planned': datetime.now(),
-                                                        'x_studio_posit': PosNew,
-                                                        'price_unit': prix,
-                                                        'product_qty': Qte,
-                                                        'product_uom': prod.uom_id.id,
-                                                        'x_studio_hauteur': HautNum,
-                                                        'x_studio_largeur': largNum,
-                                                        'x_studio_spacer': spacer,
-                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                        'date_planned': dateliv,
-                                                    })]
-                                                })
-
-                                            prix = row[3]
-                                            Qte = float(row[10])
-                                            refinterne = proj + '_' + str(cpt1)
-                                            projet = projet.strip()
-
-                                            if LstFrs != idfrs :
-                                                LstFrs = idfrs
-                                                LstInfo2 = Info2
-                                                projet = projet.strip()
-                                                data22 = ['',projet,idfrs,entrepot,Info2,datetime.now(),PersonBE]
-                                                
-                                                prod = product_products.filtered(lambda p: p.default_code == 'affaire',)
-                                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                                po_vals.append({
-                                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                    'partner_id': idfrs,
-                                                    'picking_type_id': stock_picking_type_id,
-                                                    'x_studio_commentaire_livraison_vitrage_': Info2,
-                                                    'date_order': datetime.now(),
-                                                    'user_id': user_id,
-                                                    'order_line':
-                                                        [(0, 0, {
-                                                            'product_id': prod[0].id if prod else False,
-                                                            'account_analytic_id': account_analytic_id,
-                                                            'date_planned': datetime.now(),
-                                                            'price_unit': 0,
-                                                            'product_qty': 1,
-                                                            'product_uom': prod.uom_id.id,
-                                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                            'date_planned': datejourd,
-                                                        })]
-                                                    })
-                                                data22 = ['','','','','','','']
-                                            else :
-                                                if LstInfo2 != Info2:
-                                                    LstInfo2 = Info2
-                                                    data22 = ['',account_analytic_id.id,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
-                                                    # createion of article in order to link to the project
-                                                    part = res_partners.filtered(lambda p: p.name == data22[2])
-                                                    prod = product_products.filtered(lambda p: p.default_code == 'affaire')
-                                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                                    po_vals.append({
-                                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                        'partner_id': part.id,
-                                                        'picking_type_id': stock_picking_type_id,
-                                                        'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                                        'date_order': datetime.now(),
-                                                        'user_id': user_id,
-                                                        'order_line':
-                                                            [(0, 0, {
-                                                                'product_id': prod[0].id if prod else False,
-                                                                'account_analytic_id': account_analytic_id,
-                                                                'price_unit': 0,
-                                                                'product_qty': 1,
-                                                                'product_uom': prod.uom_id.id,
-                                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                                'date_planned': datejourd,
-                                                            })]
-                                                        })
-                                                    data22 = ['','','','','','','']
-                                                else:
-                                                    data22 = ['','','','','','','']
-                                            dateliv = datejourd + timedelta(days=delai)
-                                            part = res_partners.filtered(lambda p: p.name == data22[2])
-                                            prod = product_product.filtered(lambda p: p.default_code == refinterne)
-                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                            po_vals.append({
-                                                'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                'partner_id': part.id,
-                                                'picking_type_id': stock_picking_type_id,
-                                                'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                                'date_order': datetime.now(),
-                                                'user_id': user_id,
-                                                'order_line':
-                                                    [(0, 0, {
-                                                        'product_id': prod[0].id if prod else False,
-                                                        'date_planned': datetime.now(),
-                                                        'x_studio_posit': Posint,
-                                                        'price_unit': prix,
-                                                        'product_qty': Qte,
-                                                        'product_uom': prod.uom_id.id,
-                                                        'x_studio_hauteur': HautNum,
-                                                        'x_studio_largeur': largNum,
-                                                        'x_studio_spacer': spacer,
-                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                        'date_planned': dateliv,
-                                                    })]
-                                                })
-                                            
-                                        prix = row[3]
-                                        if (row[10] is None):
-                                            qtech = '1'
-                                        else:
-                                            qtech = str(row[10])
-                                        Qte = float(qtech)
-                                        largNum = float(row[4])
-                                        HautNum = float(row[5])
-                                        largNum = round(largNum)
-                                        HautNum = round(HautNum)
-                                        refinterne = proj + '_' + str(cpt1)
-                                        idrefvit = refinterne.replace(" ","_")
-
-                                        categ_id = product_categories.filtered(lambda c: c.name == 'All / Vitrage')
-                                        articles_data.append({
-                                            'default_code': refinterne,
-                                            'name': refart,
-                                            'lst_price': 1,
-                                            'standard_price': prix,
-                                            'uom_id': idun,
-                                            'categ_id': categ_id.id,
-                                            'seller_ids': [(0, 0, {
-                                                'delay': 3,
-                                                'partner_id': idfrs,
-                                                'product_name': row[1],
-                                                'price': prix,
-                                                'min_qty': 1,
-                                                'product_code': row[0],
-                                            })],
-                                            'purchase_ok': 'yes',
-                                            'sale_ok': 'yes',
-                                            'type': 'product',
-                                            'uom_po_id': idun,
-                                            'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
-                                            'x_studio_hauteur_1': HautNum,
-                                            'x_studio_largeur': largNum,
-                                            'x_studio_positionn': Posint,
-                                        })
-                                    else:
-                                        prix = row[3]
-                                        PosNew = Posint
-                                        largNum = float(row[4])
-                                        HautNum = float(row[5])
-                                        largNum = round(largNum)
-                                        HautNum = round(HautNum)
-
-                                        if (row[10] is None ) :
-                                            qtech = '1'
-                                        else :
-                                            qtech = str(row[10])
-
-                                        Qte = float(qtech)
-                                        refinterne = proj + '_' + str(cpt1)
-                                        idrefvit = refinterne.replace(" ","_")
-
-                                        uom_uom = uom_uoms.filetered(lambda u: u.name == unnomf)
-                                        if uom_uom:
-                                            idun = uom_uom.id
-                                        res_partner = res_partners.filetered(lambda p: p.name == frsnomf)
-                                        if res_partner:
-                                            idfrs = res_partner.id
-
-                                        categ_id = product_categories.filtered(lambda c: c.name == 'All / Vitrage')
-                                        articles_data.append({
-                                            'default_code': refinterne,
-                                            'name': refart,
-                                            'lst_price': 1,
-                                            'standard_price': prix,
-                                            'uom_id': idun,
-                                            'categ_id': categ_id.id,
-                                            'seller_ids': [(0, 0, {
-                                                'delay': 3,
-                                                'partner_id': idfrs,
-                                                'product_name': row[1],
-                                                'price': row[3],
-                                                'min_qty': 1,
-                                                'product_code': row[0],
-                                            })],
-                                            'purchase_ok': 'yes',
-                                            'sale_ok': 'yes',
-                                            'type': 'product',
-                                            'uom_po_id': idun,
-                                            'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
-                                            'x_studio_hauteur_1': HautNum,
-                                            'x_studio_largeur': largNum,
-                                            'x_studio_positionn': Posint,
-                                        })
-                                        if LstFrs != idfrs :
-                                            LstFrs = idfrs
+                                    if LstFrs != idfrs :
+                                        LstFrs = idfrs
+                                        LstInfo2 = Info2
+                                        projet = projet.strip()
+                                        prod = product_products.filtered(lambda pro: pro.default_code == 'affaire')
+                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                        po_vals.append({
+                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                            'partner_id': idfrs,
+                                            'picking_type_id': stock_picking_type_id,
+                                            'x_studio_commentaire_livraison_vitrage_': Info2,
+                                            'date_order': datetime.now(),
+                                            'user_id': user_id,
+                                            'order_line':
+                                                [(0, 0, {
+                                                    'product_id': prod[0].id if prod else False,
+                                                    'account_analytic_id': account_analytic_id,
+                                                    # 'date_planned': datetime.now(),
+                                                    'price_unit': 0,
+                                                    'product_qty': 1,
+                                                    'product_uom': prod.uom_id.id,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                                    'date_planned': datejourd,
+                                                })]
+                                            })
+                                        data22 = ['','','','','','','']
+                                    else :
+                                        if LstInfo2 != Info2:
                                             LstInfo2 = Info2
-                                            projet = projet.strip()
                                             data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
-                                            
+                                        else:
+                                            data22 = ['','','','','','','']
+
+                                    prix = row[3]
+                                    projet = projet.strip()
+                                    refinterne = proj + '_' + str(cpt1)
+
+                                if cpt1 == nbr:
+                                    dateliv = datejourd + timedelta(days=delai)
+                                    
+                                    part = res_partners.filtered(lambda p: p.name == data22[2])
+                                    prod = product_products.filtered(lambda p: p.default_code == refinterne)
+
+                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                                    po_vals.append({
+                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                        'partner_id': part.id,
+                                        'picking_type_id': stock_picking_type_id,
+                                        'x_studio_commentaire_livraison_vitrage_': data22[4],
+                                        'date_order': datetime.now(),
+                                        'user_id': user_id,
+                                        'order_line':
+                                            [(0, 0, {
+                                                'product_id': prod[0].id if prod else False,
+                                                'date_planned': datetime.now(),
+                                                'x_studio_posit': PosNew,
+                                                'price_unit': prix,
+                                                'product_qty': Qte,
+                                                'product_uom': prod.uom_id.id,
+                                                'x_studio_hauteur_mm': HautNum,
+                                                'x_studio_largeur_mm': largNum,
+                                                'x_studio_spacer': spacer,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                                'date_planned': dateliv,
+                                            })]
+                                        })
+
+                                    prix = row[3]
+                                    Qte = float(row[10])
+                                    refinterne = proj + '_' + str(cpt1)
+                                    projet = projet.strip()
+
+                                    if LstFrs != idfrs :
+                                        LstFrs = idfrs
+                                        LstInfo2 = Info2
+                                        projet = projet.strip()
+                                        data22 = ['',projet,idfrs,entrepot,Info2,datetime.now(),PersonBE]
+                                        
+                                        prod = product_products.filtered(lambda p: p.default_code == 'affaire',)
+                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                        po_vals.append({
+                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                            'partner_id': idfrs,
+                                            'picking_type_id': stock_picking_type_id,
+                                            'x_studio_commentaire_livraison_vitrage_': Info2,
+                                            'date_order': datetime.now(),
+                                            'user_id': user_id,
+                                            'order_line':
+                                                [(0, 0, {
+                                                    'product_id': prod[0].id if prod else False,
+                                                    'account_analytic_id': account_analytic_id,
+                                                    'date_planned': datetime.now(),
+                                                    'price_unit': 0,
+                                                    'product_qty': 1,
+                                                    'product_uom': prod.uom_id.id,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                                    'date_planned': datejourd,
+                                                })]
+                                            })
+                                        data22 = ['','','','','','','']
+                                    else :
+                                        if LstInfo2 != Info2:
+                                            LstInfo2 = Info2
+                                            data22 = ['',account_analytic_id.id,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
+                                            # createion of article in order to link to the project
+                                            part = res_partners.filtered(lambda p: p.name == data22[2])
                                             prod = product_products.filtered(lambda p: p.default_code == 'affaire')
-                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                             po_vals.append({
                                                 'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                'partner_id': idfrs,
+                                                'partner_id': part.id,
                                                 'picking_type_id': stock_picking_type_id,
-                                                'x_studio_commentaire_livraison_vitrage_': Info2,
+                                                'x_studio_commentaire_livraison_vitrage_': data22[4],
                                                 'date_order': datetime.now(),
                                                 'user_id': user_id,
                                                 'order_line':
                                                     [(0, 0, {
                                                         'product_id': prod[0].id if prod else False,
                                                         'account_analytic_id': account_analytic_id,
-                                                        'date_planned': datetime.now(),
                                                         'price_unit': 0,
                                                         'product_qty': 1,
                                                         'product_uom': prod.uom_id.id,
@@ -1395,40 +1257,185 @@ class SqliteConnector(models.Model):
                                                     })]
                                                 })
                                             data22 = ['','','','','','','']
-                                        else :
-                                            if LstInfo2 != Info2:
-                                                LstInfo2 = Info2
-                                                data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
-                                            else:
-                                                data22 = ['','','','','','','']
-                                            if cpt1 == nbr :
-                                                dateliv = datejourd + timedelta(days=delai)
-                                                prod = product_products.filtered(lambda p: p.default_code == refinterne)
-                                                part = res_partners.filtered(lambda p: p.name == data22[2])
-                                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                                po_vals.append({
-                                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                    'partner_id': part.id,
-                                                    'picking_type_id': stock_picking_type_id,
-                                                    'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                                    'date_order': datetime.now(),
-                                                    'user_id': user_id,
-                                                    'order_line':
-                                                        [(0, 0, {
-                                                            'product_id': prod[0].id if prod else False,
-                                                            'account_analytic_id': "",
-                                                            'date_planned': datetime.now(),
-                                                            'x_studio_posit': Posint,
-                                                            'price_unit': prix,
-                                                            'product_qty': Qte,
-                                                            'product_uom': prod.uom_id.id,
-                                                            'x_studio_hauteur': HautNum,
-                                                            'x_studio_largeur': largNum,
-                                                            'x_studio_spacer': spacer,
-                                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
-                                                            'date_planned': dateliv,
-                                                        })]
-                                                    })
+                                        else:
+                                            data22 = ['','','','','','','']
+                                    dateliv = datejourd + timedelta(days=delai)
+                                    part = res_partners.filtered(lambda p: p.name == data22[2])
+                                    prod = product_product.filtered(lambda p: p.default_code == refinterne)
+                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                                    po_vals.append({
+                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                        'partner_id': part.id,
+                                        'picking_type_id': stock_picking_type_id,
+                                        'x_studio_commentaire_livraison_vitrage_': data22[4],
+                                        'date_order': datetime.now(),
+                                        'user_id': user_id,
+                                        'order_line':
+                                            [(0, 0, {
+                                                'product_id': prod[0].id if prod else False,
+                                                'date_planned': datetime.now(),
+                                                'x_studio_posit': Posint,
+                                                'price_unit': prix,
+                                                'product_qty': Qte,
+                                                'product_uom': prod.uom_id.id,
+                                                'x_studio_hauteur_mm': HautNum,
+                                                'x_studio_largeur_mm': largNum,
+                                                'x_studio_spacer': spacer,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                                'date_planned': dateliv,
+                                            })]
+                                        })
+                                    
+                                prix = row[3]
+                                if (row[10] is None):
+                                    qtech = '1'
+                                else:
+                                    qtech = str(row[10])
+                                Qte = float(qtech)
+                                largNum = float(row[4])
+                                HautNum = float(row[5])
+                                largNum = round(largNum)
+                                HautNum = round(HautNum)
+                                refinterne = proj + '_' + str(cpt1)
+                                idrefvit = refinterne.replace(" ","_")
+
+                                categ_id = product_categories.filtered(lambda c: c.name == 'All / Vitrage')
+                                articles_data.append({
+                                    'default_code': refinterne,
+                                    'name': refart,
+                                    'lst_price': 1,
+                                    'standard_price': prix,
+                                    'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                    'categ_id': categ_id.id,
+                                    'seller_ids': [(0, 0, {
+                                        'delay': 3,
+                                        # 'partner_id': idfrs,
+                                        'name': idfrs if idfrs else 1,
+                                        'product_name': row[1],
+                                        'price': prix,
+                                        'min_qty': 1,
+                                        'product_code': row[0],
+                                    })],
+                                    'purchase_ok': 'yes',
+                                    'sale_ok': 'yes',
+                                    'type': 'product',
+                                    'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                    'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
+                                    'x_studio_hauteur_mm': HautNum,
+                                    'x_studio_largeur_mm': largNum,
+                                    # 'x_studio_positionn': Posint,
+                                })
+                            else:
+                                prix = row[3]
+                                PosNew = Posint
+                                largNum = float(row[4])
+                                HautNum = float(row[5])
+                                largNum = round(largNum)
+                                HautNum = round(HautNum)
+
+                                if (row[10] is None ) :
+                                    qtech = '1'
+                                else :
+                                    qtech = str(row[10])
+
+                                Qte = float(qtech)
+                                refinterne = proj + '_' + str(cpt1)
+                                idrefvit = refinterne.replace(" ","_")
+
+                                uom_uom = uom_uoms.filetered(lambda u: u.name == unnomf)
+                                if uom_uom:
+                                    idun = uom_uom.id
+                                res_partner = res_partners.filetered(lambda p: p.name == frsnomf)
+                                if res_partner:
+                                    idfrs = res_partner.id
+
+                                categ_id = product_categories.filtered(lambda c: c.name == 'All / Vitrage')
+                                articles_data.append({
+                                    'default_code': refinterne,
+                                    'name': refart,
+                                    'lst_price': 1,
+                                    'standard_price': prix,
+                                    'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                    'categ_id': categ_id.id,
+                                    'seller_ids': [(0, 0, {
+                                        'delay': 3,
+                                        'name': idfrs if idfrs else 1,
+                                        'product_name': row[1],
+                                        'price': row[3],
+                                        'min_qty': 1,
+                                        'product_code': row[0],
+                                    })],
+                                    'purchase_ok': 'yes',
+                                    'sale_ok': 'yes',
+                                    'type': 'product',
+                                    'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                    'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy'))],
+                                    'x_studio_hauteur_mm': HautNum,
+                                    'x_studio_largeur_mm': largNum,
+                                    # 'x_studio_positionn': Posint,
+                                })
+                                if LstFrs != idfrs :
+                                    LstFrs = idfrs
+                                    LstInfo2 = Info2
+                                    projet = projet.strip()
+                                    data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
+                                    
+                                    prod = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                    x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                    po_vals.append({
+                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                        'partner_id': idfrs,
+                                        'picking_type_id': stock_picking_type_id,
+                                        'x_studio_commentaire_livraison_vitrage_': Info2,
+                                        'date_order': datetime.now(),
+                                        'user_id': user_id,
+                                        'order_line':
+                                            [(0, 0, {
+                                                'product_id': prod[0].id if prod else False,
+                                                'account_analytic_id': account_analytic_id,
+                                                'date_planned': datetime.now(),
+                                                'price_unit': 0,
+                                                'product_qty': 1,
+                                                'product_uom': prod.uom_id.id,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                                'date_planned': datejourd,
+                                            })]
+                                        })
+                                    data22 = ['','','','','','','']
+                                else :
+                                    if LstInfo2 != Info2:
+                                        LstInfo2 = Info2
+                                        data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
+                                    else:
+                                        data22 = ['','','','','','','']
+                                    if cpt1 == nbr :
+                                        dateliv = datejourd + timedelta(days=delai)
+                                        prod = product_products.filtered(lambda p: p.default_code == refinterne)
+                                        part = res_partners.filtered(lambda p: p.name == data22[2])
+                                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                                        po_vals.append({
+                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                            'partner_id': part.id,
+                                            'picking_type_id': stock_picking_type_id,
+                                            'x_studio_commentaire_livraison_vitrage_': data22[4],
+                                            'date_order': datetime.now(),
+                                            'user_id': user_id,
+                                            'order_line':
+                                                [(0, 0, {
+                                                    'product_id': prod[0].id if prod else False,
+                                                    'account_analytic_id': "",
+                                                    'date_planned': datetime.now(),
+                                                    'x_studio_posit': Posint,
+                                                    'price_unit': prix,
+                                                    'product_qty': Qte,
+                                                    'product_uom': prod.uom_id.id,
+                                                    'x_studio_hauteur_mm': HautNum,
+                                                    'x_studio_largeur_mm': largNum,
+                                                    'x_studio_spacer': spacer,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])],
+                                                    'date_planned': dateliv,
+                                                })]
+                                            })
 
         # We then create the customer quote with delivery dates and possible discounts.
         # We come to create the quote
@@ -1519,7 +1526,7 @@ class SqliteConnector(models.Model):
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
                 # sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
-                sale_order = self.env['sale.order'].search([('name', 'ilike', "A24-03-00444"), ('state', 'not in', ['done', 'cancel'])])
+                sale_order = self.env['sale.order'].search([('name', 'ilike', "A24-03-00446"), ('state', 'not in', ['done', 'cancel'])])
                     
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
                 if sale_order:
@@ -1795,9 +1802,9 @@ class SqliteConnector(models.Model):
             unme = product.uom_id.display_name
             unitcor = unme
         # if unitcor == '' :
-        uom_uom = self.env['uom.uom'].search([('name', '=', unme)])
-        if uom_uom:
-            idun = uom_uom[0].id
+        uom = uom_uoms.filtered(lambda u: u.name == unme)
+        if uom:
+            idun = uom[0].id
         Qte = row[3]
         datanom1= ['',proj ,'normal', '1',projet,'uom.product_uom_unit']
         # else :
@@ -1882,10 +1889,10 @@ class SqliteConnector(models.Model):
             message = _("Product has been Created: %s") % ','.join(refs)
             self.message_post(body=message)
 
-        for product in product_products.create(articleslibre):
-            refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-            message = _("Product has been Created: %s") % ','.join(refs)
-            self.message_post(body=message)
+        # for product in product_products.create(articleslibre):
+        #     refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+        #     message = _("Product has been Created: %s") % ','.join(refs)
+        #     self.message_post(body=message)
         
         for product in product_products.create(articles_data):
             refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
@@ -1906,9 +1913,9 @@ class SqliteConnector(models.Model):
             refs = ["<a href=# data-oe-model=mrp.bom data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in bom.name_get()]
             message = _("Bill Of Material has been Created: %s") % ','.join(refs)
             self.message_post(body=message)
-
-        for purchase in self.env['purchase.order'].create(po_vals):
-            refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-            message = _("Purchase Order has been created: %s") % ','.join(refs)
-            self.message_post(body=message)
+        _logger.info("============ PO vals %s" % po_vals)
+        # for purchase in self.env['purchase.order'].create(po_vals):
+        #     refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
+        #     message = _("Purchase Order has been created: %s") % ','.join(refs)
+        #     self.message_post(body=message)
         self.state = 'done'
