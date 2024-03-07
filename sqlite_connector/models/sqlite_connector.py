@@ -285,7 +285,7 @@ class SqliteConnector(models.Model):
         UV = 0
         prix = 0
 
-        resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number from AllArticles order by AllArticles.ArticleCode_Supplier ")
+        resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number from AllArticles order by AllArticles.ArticleCode_Supplier limit 1")
 
         for row in resart :
             _logger.info("========")
@@ -329,13 +329,10 @@ class SqliteConnector(models.Model):
                 refart = refart.replace("RYN","REY")
                 refart = refart.replace("SC  ","SCH ")
 
+                uom = uom_uom.filtered(lambda u: u.x_studio_uom_logical == unit)
+                if uom:
+                    unit = uom.name
                 # Need to ask
-
-                # for W in range(2,row_count7) :
-                #     unitcor = sheet7.cell(row=W,column=1).value
-                #     unitcor = str(unitcor)
-                #     if unit == unitcor :
-                #         unit = sheet7.cell(row=W,column=2).value
 
                 couleur = str(row[10])
                 if couleur == '' :
@@ -472,13 +469,13 @@ class SqliteConnector(models.Model):
                                                     'date_planned': dateliv,
                                                 })]
                                             })
-                _logger.info("=========%s" % po_vals)
                 if trouve == 1:
                     idfrs = ''
                     # we are looking for the ID of UnMe
-                    uom = uom_uom.filtered(lambda u: u.x_studio_uom_logical == unit)
-                    unnom = uom
-                    idun = uom.id
+                    uom = uom_uom.filtered(lambda u: u.name == unit)
+                    if uom:
+                        unnom = uom.name
+                        idun = uom.id
                     resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
                     if resultat:
                         idfrs = resultat[0].id
@@ -658,9 +655,10 @@ class SqliteConnector(models.Model):
 
                         product_product = product_products.filtered(lambda p: p.default_code == refart)   
                         unme = product_product.uom_id if product_product.uom_id else ""
-                        unit = unme
+                        unit = unme.name
 
                         unitcor = ''
+                      
                         # Need to ask
                         # for W in range(2,row_count7) :
                         #     unitcor = sheet7.cell(row=W,column=1).value
@@ -697,10 +695,6 @@ class SqliteConnector(models.Model):
                             if uom_uom:
                                 iduna = uom_uom.id
 
-                            # To get suppliers
-                            # for seller in product.seller_ids:
-                            #     if fournisseur.startswith(seller.partner_id.x_studio_ref_logikal):
-                            #         idfrs = seller.partner_id.id
                             resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
                             if resultat:
                                 idfrs = resultat[0].id
@@ -839,7 +833,7 @@ class SqliteConnector(models.Model):
                                         idun = uom.id
 
                                     unita = 'ML'
-                                    uom_uom = uom_uoms.search([('name', '=', unita)])
+                                    uom_uom = uom_uoms.filtered(lambda u: u.name == unita)
                                     if uom_uom:
                                         iduna = uom_uom.id
                                     prixV = prixB * 1.5
@@ -868,9 +862,6 @@ class SqliteConnector(models.Model):
                                     if uom_uom:
                                         iduna = uom_uom.id
 
-                                    # for seller in product.seller_ids:
-                                    #     if fournisseur.startswith(seller.partner_id.x_studio_ref_logikal):
-                                    #         idfrs = seller.partner_id.id
                                     resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and fournisseur.startswith(p.x_studio_ref_logikal))
                                     if resultat:
                                         idfrs = resultat[0].id
@@ -1528,23 +1519,27 @@ class SqliteConnector(models.Model):
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
                 # sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
-                sale_order = self.env['sale.order'].search([('name', 'ilike', "A24-03-00442"), ('state', 'not in', ['done', 'cancel'])])
+                sale_order = self.env['sale.order'].search([('name', 'ilike', "A24-03-00444"), ('state', 'not in', ['done', 'cancel'])])
+                    
+                ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
                 if sale_order:
                     if so_data.get(sale_order.id, 0) == 0:
                         so_data[sale_order.id] = {
                         "date_order": fields.Date.today(),
-                        # "analytic_order_id": data1[4],
-                        # "activity_ids": [(0, 0, {
-                        #     'summary': data1[6],
-                        #     "activity_ids/res_model_id/name": data1[7],
-                        #     'res_model_id': sale_order.id,
-                        # })],
-                        # "activity_ids/summary": data1[6],
-                        # "activity_ids/res_model_id/name": data1[7],
+                        "analytic_account_id": ana_acc.id if ana_acc else False ,
+                        "activity_ids": [(0, 0, {
+                            'summary': data1[6],
+                            "res_model": 'sale.order',
+                            'res_model_id': sale_order.id,
+                            'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
+                            'res_model_id': self.env['ir.model']._get_id('sale.order'),
+                            'user_id': user_id,
+                            'date_deadline': datetime.now(),
+                        })],
                         "x_studio_deviseur": data1[8],
                         "x_studio_bureau_etude": data1[9],
                         "tag_ids": [(6, 0, [account_analytic_tag_id])],
-                        # "commitment_date": data1[12],
+                        "commitment_date": dateliv,
                         "commitment_date": fields.Date.today(),
                         "order_line": [],
                     }
@@ -1577,20 +1572,24 @@ class SqliteConnector(models.Model):
                     if data1[10]:
                         warehouse = self.env.ref(data1[10]).id
                     sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
+                    ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
                     if sale_order:
                         so_data[sale_order.id] = {
                             "date_order": fields.Date.today(),
-                            # "analytic_order_id": data1[4],
-                            # "activity_ids": [(0, 0, {
-                            #     'summary': data1[6],
-                            #     # "activity_ids/res_model_id/name": data1[7],
-                            #     'res_model_id': sale_order.id,
-                            # })],
+                            "analytic_account_id": ana_acc.id if ana_acc else False ,
+                            "activity_ids": [(0, 0, {
+                                'summary': data1[6],
+                                "res_model": 'sale.order',
+                                'res_model_id': sale_order.id,
+                                'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
+                                'res_model_id': self.env['ir.model']._get_id('sale.order'),
+                                'user_id': user_id,
+                                'date_deadline': datetime.now(),
+                                })],
                             "x_studio_deviseur": data1[8],
                             "x_studio_bureau_etude": data1[9],
                             "tag_ids": [(6, 0, [account_analytic_tag_id])],
-                            # "commitment_date": data1[12],
-                            "commitment_date": fields.Date.today(),
+                            "commitment_date": dateliv,
                         }
                         if pro:
                             so_data[sale_order.id].update({"order_line": [(0, 0, {
@@ -1631,21 +1630,24 @@ class SqliteConnector(models.Model):
                         if data1[10]:
                             warehouse = self.env.ref(data1[10]).id
                         sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
+                        ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
                         if sale_order:
                             so_data.append({
                                 "date_order": fields.Date.today(),
-                                # "analytic_order_id": data1[4],
-                                # "activity_ids": [(0, 0, {
-                                #     'summary': data1[6],
-                                #     # "activity_ids/res_model_id/name": data1[7],
-                                #     'res_model_id': sale_order.id,
-                                # })],
+                                "analytic_account_id": ana_acc.id if ana_acc else False ,
+                                "activity_ids": [(0, 0, {
+                                    'summary': data1[6],
+                                    "res_model": 'sale.order',
+                                    'res_model_id': sale_order.id,
+                                    'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
+                                    'res_model_id': self.env['ir.model']._get_id('sale.order'),
+                                    'user_id': user_id,
+                                    'date_deadline': datetime.now(),
+                                })],
                                 "x_studio_deviseur": data1[8],
                                 "x_studio_bureau_etude": data1[9],
-                                # "warehouse_id": warehouse,
                                 "tag_ids": [(6, 0, data1[11])],
-                                # "commitment_date": data1[12],
-                                "commitment_date": fields.Date.today(),
+                                "commitment_date": dateliv,
                             })
                             if pro:
                                 so_data[sale_order.id].update({"order_line": [(0, 0, {
@@ -1879,27 +1881,34 @@ class SqliteConnector(models.Model):
             refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
             message = _("Product has been Created: %s") % ','.join(refs)
             self.message_post(body=message)
+
+        for product in product_products.create(articleslibre):
+            refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+            message = _("Product has been Created: %s") % ','.join(refs)
+            self.message_post(body=message)
+        
+        for product in product_products.create(articles_data):
+            refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+            message = _("Product has been Created: %s") % ','.join(refs)
+            self.message_post(body=message)
+
         self.env.cr.commit()
+
         for so in so_data:
             for so_to_update in self.env['sale.order'].browse(so):
                 so_to_update.write(so_data[so])
                 refs = ["<a href=# data-oe-model=sale.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in so_to_update.name_get()]
                 message = _("Sales Order Updated: %s") % ','.join(refs)
                 self.message_post(body=message)
-        # product_products.create(articles_data)
-        for product in product_products.create(articles_data):
-            refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-            message = _("Product has been Created: %s") % ','.join(refs)
-            self.message_post(body=message)
+
         for bom in self.env['mrp.bom'].create(nomenclatures_data):
             note = "Bill Of Material Created > %s" % (bom.display_name)
             refs = ["<a href=# data-oe-model=mrp.bom data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in bom.name_get()]
             message = _("Bill Of Material has been Created: %s") % ','.join(refs)
             self.message_post(body=message)
-        # _logger.info("=========po_vals %s" % po_vals)
-        # self.env['purchase.order'].create(po_vals)
-        # for purchase in self.env['purchase.order'].create(po_vals):
-        #     refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-        #     message = _("Purchase Order has been created: %s") % ','.join(refs)
-        #     self.message_post(body=message)
+
+        for purchase in self.env['purchase.order'].create(po_vals):
+            refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
+            message = _("Purchase Order has been created: %s") % ','.join(refs)
+            self.message_post(body=message)
         self.state = 'done'
