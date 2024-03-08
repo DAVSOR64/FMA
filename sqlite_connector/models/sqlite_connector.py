@@ -288,7 +288,7 @@ class SqliteConnector(models.Model):
         UV = 0
         prix = 0
 
-        resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number from AllArticles order by AllArticles.ArticleCode_Supplier limit 1")
+        resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number from AllArticles order by AllArticles.ArticleCode_Supplier")
 
         for row in resart :
             refart = row[0]
@@ -344,6 +344,7 @@ class SqliteConnector(models.Model):
                 if couleur != '':
                     refart = refart + '.' + couleur
 
+                print("===============", refart)
                 for product in product_products.filtered(lambda p: p.default_code == refart):
                     refartodoo = product.default_code
                     delai = product.produce_delay
@@ -382,7 +383,7 @@ class SqliteConnector(models.Model):
                                     product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
                                     account_analytic_id = account_analytics.filtered(lambda a: a.name == projet)
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                    if idfrs is not False and stock_picking_type_id and product_id:
+                                    if idfrs and stock_picking_type_id and product_id:
                                         po_vals.append({
                                             'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': idfrs,
@@ -420,7 +421,7 @@ class SqliteConnector(models.Model):
 
                                     product_id = product_products.filtered(lambda p: p.default_code == art)
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                    if idfrs is not False and stock_picking_type_id and product_id:
+                                    if idfrs and stock_picking_type_id and product_id:
                                         po_vals.append({
                                             'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': idfrs,
@@ -456,7 +457,7 @@ class SqliteConnector(models.Model):
 
                                         product_id = product_products.filtered(lambda p: p.default_code == art)
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                        if idfrs is not False and stock_picking_type_id and product_id:
+                                        if idfrs and stock_picking_type_id and product_id:
                                             po_vals.append({
                                                 'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                 'partner_id': idfrs,
@@ -518,7 +519,7 @@ class SqliteConnector(models.Model):
                         product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                     
-                        if idfrs is not False and stock_picking_type_id and product_id:
+                        if idfrs and stock_picking_type_id and product_id:
                             po_vals.append({
                                 'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                 'partner_id': idfrs,
@@ -726,7 +727,7 @@ class SqliteConnector(models.Model):
 
                                 pro = product_products.filtered(lambda p: p.default_code == 'affaire')
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                if idfrs is not False and stock_picking_type_id and pro:
+                                if idfrs and stock_picking_type_id and pro:
                                     po_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
@@ -785,7 +786,7 @@ class SqliteConnector(models.Model):
                                     data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                                     pro = product_products.filtered(lambda p: p.default_code == 'affaire')
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                    if idfrs is not False and stock_picking_type_id and prod:
+                                    if idfrs and stock_picking_type_id and prod:
                                         po_vals.append({
                                             'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': idfrs,
@@ -920,7 +921,7 @@ class SqliteConnector(models.Model):
                                 data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                                 pro = product_products.filtered(lambda p: p.default_code == 'affaire')
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                if idfrs is not False and stock_picking_type_id and prod:
+                                if idfrs and stock_picking_type_id and prod:
                                     po_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
@@ -1051,7 +1052,7 @@ class SqliteConnector(models.Model):
                                 
                                 pro = product_products.filtered(lambda p: p.default_code == 'affaire')
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                if idfrs is not False and stock_picking_type_id and prod:
+                                if idfrs and stock_picking_type_id and prod:
                                     po_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
@@ -1153,7 +1154,7 @@ class SqliteConnector(models.Model):
                                         projet = projet.strip()
                                         prod = product_products.filtered(lambda pro: pro.default_code == 'affaire')
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                        if idfrs is not False and stock_picking_type_id and prod:
+                                        if idfrs and stock_picking_type_id and prod:
                                             po_vals.append({
                                                 'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                 'partner_id': idfrs,
@@ -1229,7 +1230,7 @@ class SqliteConnector(models.Model):
                                         
                                         prod = product_products.filtered(lambda p: p.default_code == 'affaire',)
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                        if idfrs is not False and stock_picking_type_id and prod:
+                                        if idfrs and stock_picking_type_id and prod:
                                             po_vals.append({
                                                 'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                 'partner_id': idfrs,
@@ -1258,7 +1259,7 @@ class SqliteConnector(models.Model):
                                             part = res_partners.filtered(lambda p: p.name == data22[2])
                                             prod = product_products.filtered(lambda p: p.default_code == 'affaire')
                                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                            if part is not False and stock_picking_type_id and prod:
+                                            if part and stock_picking_type_id and prod:
                                                 po_vals.append({
                                                     'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                                     'partner_id': part.id,
@@ -1309,7 +1310,7 @@ class SqliteConnector(models.Model):
                                             })
                                     
                                 prix = row[3]
-                                if (row[10] is None):
+                                if (row[10] == None):
                                     qtech = '1'
                                 else:
                                     qtech = str(row[10])
@@ -1355,7 +1356,7 @@ class SqliteConnector(models.Model):
                                 largNum = round(largNum)
                                 HautNum = round(HautNum)
 
-                                if (row[10] is None ) :
+                                if (row[10] == None ) :
                                     qtech = '1'
                                 else :
                                     qtech = str(row[10])
@@ -1404,7 +1405,7 @@ class SqliteConnector(models.Model):
                                     
                                     prod = product_products.filtered(lambda p: p.default_code == 'affaire')
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                    if idfrs is not False and stock_picking_type_id and prod:
+                                    if idfrs and stock_picking_type_id and prod:
                                         po_vals.append({
                                             'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': idfrs,
@@ -1517,11 +1518,11 @@ class SqliteConnector(models.Model):
                         data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
                 else :
                     data1 =['','','','','','','','','','','','','']
-                if ( row[8] is None ) :
+                if ( row[8] == None ) :
                     PrixTot = PrixTot + 0
                 else :
                     PrixTot = float(row[8]) + PrixTot
-                if ( row[6] is None ) :
+                if ( row[6] == None ) :
                     QteTot = QteTot + 0
                 else :
                     QteTot = float(row[6]) + QteTot
@@ -1534,7 +1535,7 @@ class SqliteConnector(models.Model):
                         refart = 'Frais de livraison'
                         dimension = 'Frais de livraison'
                 else :
-                    if (row[9] is None or row[7] is None) :
+                    if (row[9] == None or row[7] == None) :
                         dimension = ''
                     else:
                         dimension = row[9] + 'mm * ' + row[7] + 'mm'
