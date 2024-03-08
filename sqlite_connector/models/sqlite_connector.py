@@ -352,7 +352,7 @@ class SqliteConnector(models.Model):
                         trouve = 0
                         if product.orderpoint_ids:
                             regle = 1
-                        if (regle == 0) or ((regle == 1) and (consoaff == 'True')) :
+                        if (regle == 0) or ((regle == 1) and (consoaff == True)) :
                             idfrs = ''
                             unnom = product.uom_id
                             idun = product.uom_id.id
