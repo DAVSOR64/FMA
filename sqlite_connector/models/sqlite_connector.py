@@ -435,6 +435,7 @@ class SqliteConnector(models.Model):
                                         if po.get('partner_id') == idfrs and product_id:
                                             po.get('order_line').append((0, 0, {
                                                 'product_id': product_id[0].id if product_id else False,
+                                                'name': product_id[0].name,
                                                 'account_analytic_id': "",
                                                 'date_planned': datetime.now(),
                                                 'x_studio_posit': "",
@@ -1747,6 +1748,7 @@ class SqliteConnector(models.Model):
                             "x_studio_bureau_etude": data1[9],
                             "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                             "commitment_date": dateliv,
+                            "order_line": []
                         }
                         if pro:
                             so_data[sale_order.id].update({"order_line": [(0, 0, {
