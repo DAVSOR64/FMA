@@ -62,6 +62,7 @@ class SqliteConnector(models.Model):
         con = sqlite3.connect(str(temp_file.name))
         cursor = con.cursor()
         cursor1 = con.cursor()
+        date_time = datetime.now()
 
         article_data = cursor.execute("select ArticleCode, Price, PUSize, Units_Unit from Articles")
         for row in article_data:
@@ -1095,9 +1096,9 @@ class SqliteConnector(models.Model):
                 largNum = round(largNum)
                 HautNum = round(HautNum)
 
-                res_partner = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
+                res_partner = res_partners.filtered(lambda p: p.x_studio_lk_supplier_id_1 == Frsid)
                 if res_partner:
-                    frsnomf = res_partner[0].x_studio_ref_logikal
+                    frsnomf = res_partner[0].name
                 delay =  14
 
                 if row[13] != 'Glass':
@@ -1676,7 +1677,6 @@ class SqliteConnector(models.Model):
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
                 sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
-                # sale_order = self.env['sale.order'].search([('name', 'ilike', "A24-03-00446"), ('state', 'not in', ['done', 'cancel'])])
                     
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
                 if sale_order:
