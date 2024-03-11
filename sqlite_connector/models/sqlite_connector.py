@@ -1675,8 +1675,8 @@ class SqliteConnector(models.Model):
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
-                # sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
-                sale_order = self.env['sale.order'].search([('name', 'ilike', "A24-03-00446"), ('state', 'not in', ['done', 'cancel'])])
+                sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
+                # sale_order = self.env['sale.order'].search([('name', 'ilike', "A24-03-00446"), ('state', 'not in', ['done', 'cancel'])])
                     
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
                 if sale_order:
