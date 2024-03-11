@@ -432,9 +432,10 @@ class SqliteConnector(models.Model):
                                     product_id = product_products.filtered(lambda p: p.default_code == art)
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                     for po in po_article_vals:
-                                        if po.get('partner_id') == idfrs:
+                                        if po.get('partner_id') == idfrs and product_id:
                                             po.get('order_line').append((0, 0, {
                                                 'product_id': product_id[0].id if product_id else False,
+                                                'name': product_id[0].name,
                                                 'account_analytic_id': "",
                                                 'date_planned': datetime.now(),
                                                 'x_studio_posit': "",
@@ -481,7 +482,7 @@ class SqliteConnector(models.Model):
                                         product_id = product_products.filtered(lambda p: p.default_code == art)
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                         for po in po_article_vals:
-                                            if po.get('partner_id') == idfrs:
+                                            if po.get('partner_id') == idfrs and product_id:
                                                 po.get('order_line').append((0, 0, {
                                                         'product_id': product_id[0].id if product_id else False,
                                                         'date_planned': datetime.now(),
@@ -615,7 +616,7 @@ class SqliteConnector(models.Model):
                         pro = product_products.filtered(lambda pro: pro.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                         for po in po_article_vals:
-                            if po.get('partner_id') == idfrs:
+                            if po.get('partner_id') == idfrs and pro:
                                 po.get('order_line').append((0, 0, {
                                         'product_id': pro[0].id if pro else False,
                                         'date_planned': datetime.now(),
@@ -804,7 +805,7 @@ class SqliteConnector(models.Model):
                         pro = product_products.filtered(lambda p: p.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                         for po in po_profile_vals:
-                            if po.get('partner_id') == idfrs:
+                            if po.get('partner_id') == idfrs and pro:
                                 po.get('order_line').append((0, 0, {
                                         'product_id': pro[0].id if pro else False,
                                         # 'date_planned': datetime.now(),
@@ -841,7 +842,7 @@ class SqliteConnector(models.Model):
                                 data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                                 pro = product_products.filtered(lambda p: p.default_code == 'affaire')
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                if idfrs and stock_picking_type_id and prod:
+                                if idfrs and stock_picking_type_id and pro:
                                     po_profile_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
@@ -872,7 +873,7 @@ class SqliteConnector(models.Model):
                         prod = product_products.filtered(lambda pro: pro.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                         for po in po_profile_vals:
-                            if po.get('partner_id') == idfrs:
+                            if po.get('partner_id') == idfrs and prod:
                                 po.get('order_line').append((0, 0, {
                                         'product_id': prod[0].id if prod else False,
                                         # 'date_planned': datetime.now(),
@@ -987,7 +988,7 @@ class SqliteConnector(models.Model):
                             data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                             pro = product_products.filtered(lambda p: p.default_code == 'affaire')
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                            if idfrs and stock_picking_type_id and prod:
+                            if idfrs and stock_picking_type_id and pro:
                                 po_profile_vals.append({
                                     'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                     'partner_id': idfrs,
@@ -1015,7 +1016,7 @@ class SqliteConnector(models.Model):
                         part = res_partners.filtered(lambda p: p.name == data22[2])
                         pro = product_products.filtered(lambda p: p.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                        for po in po_profile_vals:
+                        for po in po_profile_vals and pro:
                             if po.get('partner_id') == idfrs:
                                 po.get('order_line').append((0, 0, {
                                         'product_id': pro[0].id if pro else False,
@@ -1164,7 +1165,7 @@ class SqliteConnector(models.Model):
                             pro = product_products.filtered(lambda p: p.default_code == refinterne)
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                             for po in po_glass_vals:
-                                if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2:
+                                if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2 and pro:
                                     po.get('order_line').append((0, 0, {
                                             'product_id': pro[0].id if pro else False,
                                             'date_planned': datetime.now(),
@@ -1377,7 +1378,7 @@ class SqliteConnector(models.Model):
                                     prod = product_product.filtered(lambda p: p.default_code == refinterne)
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                     for po in po_glass_vals:
-                                        if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2:
+                                        if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2 and prod:
                                             po.get('order_line').append((0, 0, {
                                                     'product_id': prod[0].id if prod else False,
                                                     'date_planned': datetime.now(),
@@ -1549,7 +1550,7 @@ class SqliteConnector(models.Model):
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                         for po in po_article_vitrage_vals:
                                         # if part and stock_picking_type_id and prod:
-                                            if po.get('partner_id') == idfrs:
+                                            if po.get('partner_id') == idfrs and prod:
                                                 po.get('order_line').append((0, 0, {
                                                         'product_id': prod[0].id if prod else False,
                                                         'account_analytic_id': "",
