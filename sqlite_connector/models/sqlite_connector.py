@@ -130,7 +130,7 @@ class SqliteConnector(models.Model):
         user_id = user_id.id if user_id else False
 
         account_analytic_id = account_analytics.filtered(lambda a: a.name in projet)
-        account_analytic_id = account_analytic_id.id if account_analytic_id else False
+        account_analytic_id = account_analytic_id[0].id if account_analytic_id else False
 
         # In a parameter of the MDB database, I retrieve information which will allow me to give
         # the manufacturing address, the manufacturing time and the customer delivery time for
@@ -736,7 +736,7 @@ class SqliteConnector(models.Model):
                     delai = product.seller_ids[0].delay if product.seller_ids else 1
                     delai = product.produce_delay
                     trouve = 0
-                    order_point = self.env['stock.warehouse.orderpoint'].search([('name', 'ilike', refart)])
+                    order_point = self.env['stock.warehouse.orderpoint'].search([('name', 'ilike', refart)], limit=1)
                     if order_point:
                         regle =  1
                     if regle == 0:
@@ -1605,10 +1605,13 @@ class SqliteConnector(models.Model):
             if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
                 date_time = row[2]
                 def convert(date_time):
-                    format = '%d/%m/%Y'  # The format
-                    datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
-                    return datetime_str
-                    dateliv = convert(date_time)
+                    if date_time:
+                        format = '%d/%m/%Y'  # The format
+                        datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
+                        return datetime_str
+                    else:
+                        return datetime.now()
+                dateliv = convert(date_time)
 
         PourRem = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
@@ -1677,9 +1680,9 @@ class SqliteConnector(models.Model):
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
-                sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
+                sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
                     
-                ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
+                ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                 if sale_order:
                     if so_data.get(sale_order.id, 0) == 0:
                         so_data[sale_order.id] = {
@@ -1698,12 +1701,11 @@ class SqliteConnector(models.Model):
                         "x_studio_bureau_etude": data1[9],
                         "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         "commitment_date": dateliv,
-                        "commitment_date": fields.Date.today(),
                         "order_line": [],
                     }
                     if pro:
-                        if so_data[sale_order.id]:
-                            so_data[sale_order.id]['order_line'].append((0, 0, {
+                        if so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+                            so_data[sale_order.id].get('order_line').append((0, 0, {
                                 'product_id': pro[0].id if pro else False,
                                 'price_unit': row[8],
                                 'product_uom_qty': row[6],
@@ -1729,29 +1731,30 @@ class SqliteConnector(models.Model):
                     warehouse = False
                     if data1[10]:
                         warehouse = self.env.ref(data1[10]).id
-                    sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
-                    ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
+                    sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                    ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                     if sale_order:
-                        so_data[sale_order.id] = {
-                            "date_order": fields.Date.today(),
-                            "analytic_account_id": ana_acc.id if ana_acc else False ,
-                            "activity_ids": [(0, 0, {
-                                'summary': data1[6],
-                                "res_model": 'sale.order',
-                                'res_model_id': sale_order.id,
-                                'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
-                                'res_model_id': self.env['ir.model']._get_id('sale.order'),
-                                'user_id': user_id,
-                                'date_deadline': datetime.now(),
-                                })],
-                            "x_studio_deviseur": data1[8],
-                            "x_studio_bureau_etude": data1[9],
-                            "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                            "commitment_date": dateliv,
-                            "order_line": []
-                        }
-                        if pro:
-                            so_data[sale_order.id].update({"order_line": [(0, 0, {
+                        if so_data.get(sale_order.id, 0) == 0:
+                            so_data[sale_order.id] = {
+                                "date_order": fields.Date.today(),
+                                "analytic_account_id": ana_acc.id if ana_acc else False ,
+                                "activity_ids": [(0, 0, {
+                                    'summary': data1[6],
+                                    "res_model": 'sale.order',
+                                    'res_model_id': sale_order.id,
+                                    'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
+                                    'res_model_id': self.env['ir.model']._get_id('sale.order'),
+                                    'user_id': user_id,
+                                    'date_deadline': datetime.now(),
+                                    })],
+                                "x_studio_deviseur": data1[8],
+                                "x_studio_bureau_etude": data1[9],
+                                "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                "commitment_date": dateliv,
+                                "order_line": [],
+                            }
+                        if pro and so_data[sale_order.id].get('order_line'):
+                            so_data[sale_order.id].get('order_line').append((0, 0, {
                                 'product_id': pro[0].id if pro else False,
                                 'price_unit': row[8],
                                 'product_uom_qty': row[6],
@@ -1759,8 +1762,8 @@ class SqliteConnector(models.Model):
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
                                 "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                })]
-                            })
+                                })
+                            )
                         
             else:
                 for row in resultp:
@@ -1788,28 +1791,30 @@ class SqliteConnector(models.Model):
                         
                         if data1[10]:
                             warehouse = self.env.ref(data1[10]).id
-                        sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])])
-                        ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)])
+                        sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                        ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                         if sale_order:
-                            so_data.append({
-                                "date_order": fields.Date.today(),
-                                "analytic_account_id": ana_acc.id if ana_acc else False ,
-                                "activity_ids": [(0, 0, {
-                                    'summary': data1[6],
-                                    "res_model": 'sale.order',
-                                    'res_model_id': sale_order.id,
-                                    'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id ,
-                                    'res_model_id': self.env['ir.model']._get_id('sale.order'),
-                                    'user_id': user_id,
-                                    'date_deadline': datetime.now(),
-                                })],
-                                "x_studio_deviseur": data1[8],
-                                "x_studio_bureau_etude": data1[9],
-                                "tag_ids": [(6, 0, data1[11])],
-                                "commitment_date": dateliv,
-                            })
-                            if pro:
-                                so_data[sale_order.id].update({"order_line": [(0, 0, {
+                            if so_data.get(sale_order.id, 0) == 0:
+                                so_data.append({
+                                    "date_order": fields.Date.today(),
+                                    "analytic_account_id": ana_acc.id if ana_acc else False ,
+                                    "activity_ids": [(0, 0, {
+                                        'summary': data1[6],
+                                        "res_model": 'sale.order',
+                                        'res_model_id': sale_order.id,
+                                        'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id ,
+                                        'res_model_id': self.env['ir.model']._get_id('sale.order'),
+                                        'user_id': user_id,
+                                        'date_deadline': datetime.now(),
+                                    })],
+                                    "x_studio_deviseur": data1[8],
+                                    "x_studio_bureau_etude": data1[9],
+                                    "tag_ids": [(6, 0, data1[11])],
+                                    "commitment_date": dateliv,
+                                    "order_line": [],
+                                })
+                            if pro and so_data[sale_order.id].get('order_line'):
+                                so_data[sale_order.id].get('order_line').append((0, 0, {
                                     'product_id': pro[0].id if pro else False,
                                     'price_unit': row[8],
                                     'product_uom_qty': row[6],
@@ -1817,8 +1822,8 @@ class SqliteConnector(models.Model):
                                     'discount': PourRem,
                                     'product_uom': pro.uom_id.id,
                                     "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                    })]
-                                })
+                                    })
+                                )
         # Now we will create nomenclatures
         datanom=[]
         cpt = 0
@@ -2005,7 +2010,7 @@ class SqliteConnector(models.Model):
                             dataope = ['','',temps,ope,name]
                     if dataope:
                         pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + proj)
-                        workcenter = self.env['mrp.workcenter'].search([('name', '=', name)])
+                        workcenter = self.env['mrp.workcenter'].search([('name', '=', name)], limit=1)
                         if nomenclatures_data:
                             nomenclatures_data[0]['operation_ids'].append((0, 0, {
                             'name': ope,
@@ -2024,7 +2029,7 @@ class SqliteConnector(models.Model):
                     dataope = ['','',temps,ope,name]
             if dataope:
                 pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + proj)
-                workcenter = self.env['mrp.workcenter'].search([('name', '=', name)])
+                workcenter = self.env['mrp.workcenter'].search([('name', '=', name)], limit=1)
                 if nomenclatures_data:
                     nomenclatures_data[0]['operation_ids'].append((0, 0, {
                         'name': ope,
