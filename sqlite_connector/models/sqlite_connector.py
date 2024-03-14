@@ -973,6 +973,7 @@ class SqliteConnector(models.Model):
             refinterne= ''
             Frsid = ''
             name = ''
+            frsnomf = ''
 
             for row in resultg:
                 Info2 = row[7]
@@ -990,6 +991,8 @@ class SqliteConnector(models.Model):
                 res_partner = res_partners.filtered(lambda p: p.x_studio_lk_supplier_id_1 == int(Frsid))
                 if res_partner:
                     frsnomf = res_partner[0].name
+                else:
+                    _logger.warning(('Unable to find customer with LK Supplier ID - %s' % Frsid))
                 delay =  14
 
                 if row[13] != 'Glass':
