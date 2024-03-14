@@ -1056,9 +1056,16 @@ class SqliteConnector(models.Model):
                             part = res_partners.filtered(lambda p: p.name == data22[2])
                             pro = product_products.filtered(lambda p: p.default_code == refinterne)
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                            for po in po_glass_vals:
-                                if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2 and pro:
-                                    po.get('order_line').append((0, 0, {
+                            if part:
+                                po_glass_vals.append({
+                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                    'partner_id': idfrs,
+                                    'picking_type_id': stock_picking_type_id,
+                                    'x_studio_commentaire_livraison_vitrage_': Info2,
+                                    'date_order': datetime.now(),
+                                    'user_id': user_id,
+                                    'order_line':
+                                        [(0, 0, {
                                             'product_id': pro[0].id if pro else False,
                                             'date_planned': datetime.now(),
                                             'x_studio_posit': Posint,
@@ -1070,7 +1077,24 @@ class SqliteConnector(models.Model):
                                             'x_studio_spacer': spacer,
                                             'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                             'date_planned': dateliv,
-                                        }))
+                                        })]
+                                    })
+                            else:
+                                for po in po_glass_vals:
+                                    if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2 and pro:
+                                        po.get('order_line').append((0, 0, {
+                                                'product_id': pro[0].id if pro else False,
+                                                'date_planned': datetime.now(),
+                                                'x_studio_posit': Posint,
+                                                'price_unit': prix,
+                                                'product_qty': Qte,
+                                                'product_uom': pro.uom_id.id,
+                                                'x_studio_hauteur': HautNum,
+                                                'x_studio_largeur': largNum,
+                                                'x_studio_spacer': spacer,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                'date_planned': dateliv,
+                                            }))
                     else:
                         if PosNew != '':
                             uom = uom_uoms.filtered(lambda u: u.name == unnomf)
@@ -1086,29 +1110,46 @@ class SqliteConnector(models.Model):
                                 part = res_partners.filtered(lambda p: p.id == data22[2])
                                 prod = product_products.filtered(lambda pro: pro.default_code == refinterne)
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                if part and stock_picking_type_id and prod:
-                                    po_glass_vals.append({
-                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                        'partner_id': part.id,
-                                        'picking_type_id': stock_picking_type_id,
-                                        'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                        'date_order': datetime.now(),
-                                        'user_id': user_id,
-                                        'order_line':
-                                            [(0, 0, {
-                                                'product_id': prod[0].id if prod else False,
-                                                'date_planned': datetime.now(),
-                                                'x_studio_posit': Posint,
-                                                'price_unit': prix,
-                                                'product_qty': Qte,
-                                                'product_uom': prod.uom_id.id,
-                                                'x_studio_hauteur': HautNum,
-                                                'x_studio_largeur': largNum,
-                                                'x_studio_spacer': spacer,
-                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                                'date_planned': dateliv,
-                                            })]
-                                        })
+                                if stock_picking_type_id and prod:
+                                    if part:
+                                        po_glass_vals.append({
+                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                            'partner_id': part.id,
+                                            'picking_type_id': stock_picking_type_id,
+                                            'x_studio_commentaire_livraison_vitrage_': data22[4],
+                                            'date_order': datetime.now(),
+                                            'user_id': user_id,
+                                            'order_line':
+                                                [(0, 0, {
+                                                    'product_id': prod[0].id if prod else False,
+                                                    'date_planned': datetime.now(),
+                                                    'x_studio_posit': Posint,
+                                                    'price_unit': prix,
+                                                    'product_qty': Qte,
+                                                    'product_uom': prod.uom_id.id,
+                                                    'x_studio_hauteur': HautNum,
+                                                    'x_studio_largeur': largNum,
+                                                    'x_studio_spacer': spacer,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                    'date_planned': dateliv,
+                                                })]
+                                            })
+                                    else:
+                                        for po in po_glass_vals:
+                                            if po.get('partner_id') == idfrs:
+                                                po.get('order_line').append((0, 0, {
+                                                    'product_id': prod[0].id if prod else False,
+                                                    'date_planned': datetime.now(),
+                                                    'x_studio_posit': Posint,
+                                                    'price_unit': prix,
+                                                    'product_qty': Qte,
+                                                    'product_uom': prod.uom_id.id,
+                                                    'x_studio_hauteur': HautNum,
+                                                    'x_studio_largeur': largNum,
+                                                    'x_studio_spacer': spacer,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                    'date_planned': dateliv,
+                                                }))
                                 if LstFrs != idfrs :
                                     LstFrs = idfrs
                                     LstInfo2 = Info2
@@ -1149,34 +1190,49 @@ class SqliteConnector(models.Model):
 
                             if cpt1 == nbr:
                                 dateliv = datejourd + timedelta(days=delai)
-                                
                                 part = res_partners.filtered(lambda p: p.id == data22[2])
                                 prod = product_products.filtered(lambda p: p.default_code == refinterne)
-
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                if part and stock_picking_type_id and prod:
-                                    po_vals.append({
-                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                        'partner_id': part.id,
-                                        'picking_type_id': stock_picking_type_id,
-                                        'x_studio_commentaire_livraison_vitrage_': data22[4],
-                                        'date_order': datetime.now(),
-                                        'user_id': user_id,
-                                        'order_line':
-                                            [(0, 0, {
-                                                'product_id': prod[0].id if prod else False,
-                                                'date_planned': datetime.now(),
-                                                'x_studio_posit': PosNew,
-                                                'price_unit': prix,
-                                                'product_qty': Qte,
-                                                'product_uom': prod.uom_id.id,
-                                                'x_studio_hauteur': HautNum,
-                                                'x_studio_largeur': largNum,
-                                                'x_studio_spacer': spacer,
-                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                                'date_planned': dateliv,
-                                            })]
-                                        })
+                                if stock_picking_type_id and prod:
+                                    if part:
+                                        po_glass_vals.append({
+                                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                            'partner_id': idfrs,
+                                            'picking_type_id': stock_picking_type_id,
+                                            'x_studio_commentaire_livraison_vitrage_': Info2,
+                                            'date_order': datetime.now(),
+                                            'user_id': user_id,
+                                            'order_line':
+                                                [(0, 0, {
+                                                    'product_id': prod[0].id if prod else False,
+                                                    'date_planned': datetime.now(),
+                                                    'x_studio_posit': PosNew,
+                                                    'price_unit': prix,
+                                                    'product_qty': Qte,
+                                                    'product_uom': prod.uom_id.id,
+                                                    'x_studio_hauteur': HautNum,
+                                                    'x_studio_largeur': largNum,
+                                                    'x_studio_spacer': spacer,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                    'date_planned': dateliv,
+                                                })]
+                                            })
+                                    else:
+                                        for po in po_glass_vals:
+                                            if po.get('partner_id') == idfrs:
+                                                po.get('order_line').append((0, 0, {
+                                                        'product_id': prod[0].id if prod else False,
+                                                        'date_planned': datetime.now(),
+                                                        'x_studio_posit': PosNew,
+                                                        'price_unit': prix,
+                                                        'product_qty': Qte,
+                                                        'product_uom': prod.uom_id.id,
+                                                        'x_studio_hauteur': HautNum,
+                                                        'x_studio_largeur': largNum,
+                                                        'x_studio_spacer': spacer,
+                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                        'date_planned': dateliv,
+                                                    }))
 
                                 prix = row[3]
                                 Qte = float(row[10])
@@ -1192,7 +1248,7 @@ class SqliteConnector(models.Model):
                                     prod = product_products.filtered(lambda p: p.default_code == 'affaire',)
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                     if idfrs and stock_picking_type_id and prod:
-                                        po_vals.append({
+                                        po_glass_vals.append({
                                             'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': idfrs,
                                             'picking_type_id': stock_picking_type_id,
@@ -1217,13 +1273,13 @@ class SqliteConnector(models.Model):
                                         LstInfo2 = Info2
                                         data22 = ['',account_analytic_id.id,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                         # createion of article in order to link to the project
-                                        part = res_partners.filtered(lambda p: p.id == data22[2])
+                                        # part = res_partners.filtered(lambda p: p.id == data22[2])
                                         prod = product_products.filtered(lambda p: p.default_code == 'affaire')
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                        if part and stock_picking_type_id and prod:
-                                            po_vals.append({
+                                        if idfrs and stock_picking_type_id and prod:
+                                            po_glass_vals.append({
                                                 'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                                'partner_id': part.id,
+                                                'partner_id': idfrs,
                                                 'picking_type_id': stock_picking_type_id,
                                                 'x_studio_commentaire_livraison_vitrage_': data22[4],
                                                 'date_order': datetime.now(),
@@ -1247,7 +1303,8 @@ class SqliteConnector(models.Model):
                                 prod = product_product.filtered(lambda p: p.default_code == refinterne)
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                 for po in po_glass_vals:
-                                    if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2 and prod:
+                                    # if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2 and prod:
+                                    if po.get('partner_id') == idfrs and prod:
                                         po.get('order_line').append((0, 0, {
                                                 'product_id': prod[0].id if prod else False,
                                                 'date_planned': datetime.now(),
@@ -1362,7 +1419,7 @@ class SqliteConnector(models.Model):
                                 prod = product_products.filtered(lambda p: p.default_code == 'affaire')
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                 if idfrs and stock_picking_type_id and prod:
-                                    po_article_vitrage_vals.append({
+                                    po_glass_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
                                         'picking_type_id': stock_picking_type_id,
@@ -1393,7 +1450,7 @@ class SqliteConnector(models.Model):
                                     prod = product_products.filtered(lambda p: p.default_code == refinterne)
                                     part = res_partners.filtered(lambda p: p.id == data22[2])
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
-                                    for po in po_article_vitrage_vals:
+                                    for po in po_glass_vals:
                                     # if part and stock_picking_type_id and prod:
                                         if po.get('partner_id') == idfrs and prod:
                                             po.get('order_line').append((0, 0, {
@@ -1909,7 +1966,7 @@ class SqliteConnector(models.Model):
             message = _("Purchase Order has been created: %s") % ','.join(refs)
             self.message_post(body=message)
 
-        
+        print("===", po_glass_vals)
         for purchase in self.env['purchase.order'].create(po_glass_vals):
             refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
             message = _("Purchase Order has been created: %s") % ','.join(refs)
