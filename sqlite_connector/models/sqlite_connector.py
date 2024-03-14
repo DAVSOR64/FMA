@@ -1888,6 +1888,7 @@ class SqliteConnector(models.Model):
         for so in so_data:
             for so_to_update in self.env['sale.order'].browse(so):
                 so_to_update.write(so_data[so])
+                so_to_update.action_confirm()
                 refs = ["<a href=# data-oe-model=sale.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in so_to_update.name_get()]
                 message = _("Sales Order Updated: %s") % ','.join(refs)
                 self.message_post(body=message)
