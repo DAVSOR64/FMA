@@ -973,6 +973,7 @@ class SqliteConnector(models.Model):
             refinterne= ''
             Frsid = ''
             name = ''
+            frsnomf = ''
 
             for row in resultg:
                 Info2 = row[7]
@@ -990,6 +991,8 @@ class SqliteConnector(models.Model):
                 res_partner = res_partners.filtered(lambda p: p.x_studio_lk_supplier_id_1 == int(Frsid))
                 if res_partner:
                     frsnomf = res_partner[0].name
+                else:
+                    _logger.warning(('Unable to find customer with LK Supplier ID - %s' % Frsid))
                 delay =  14
 
                 if row[13] != 'Glass':
@@ -1062,8 +1065,8 @@ class SqliteConnector(models.Model):
                                             'price_unit': prix,
                                             'product_qty': Qte,
                                             'product_uom': pro.uom_id.id,
-                                            'x_studio_hauteur_mm': HautNum,
-                                            'x_studio_largeur_mm': largNum,
+                                            'x_studio_hauteur': HautNum,
+                                            'x_studio_largeur': largNum,
                                             'x_studio_spacer': spacer,
                                             'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                             'date_planned': dateliv,
@@ -1080,7 +1083,7 @@ class SqliteConnector(models.Model):
 
                             if cpt1 != nbr:
                                 dateliv = datejourd + timedelta(days=delai)
-                                part = res_partners.filtered(lambda p: p.name == data22[2])
+                                part = res_partners.filtered(lambda p: p.id == data22[2])
                                 prod = product_products.filtered(lambda pro: pro.default_code == refinterne)
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                 if part and stock_picking_type_id and prod:
@@ -1099,8 +1102,8 @@ class SqliteConnector(models.Model):
                                                 'price_unit': prix,
                                                 'product_qty': Qte,
                                                 'product_uom': prod.uom_id.id,
-                                                'x_studio_hauteur_mm': HautNum,
-                                                'x_studio_largeur_mm': largNum,
+                                                'x_studio_hauteur': HautNum,
+                                                'x_studio_largeur': largNum,
                                                 'x_studio_spacer': spacer,
                                                 'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                                 'date_planned': dateliv,
@@ -1147,7 +1150,7 @@ class SqliteConnector(models.Model):
                             if cpt1 == nbr:
                                 dateliv = datejourd + timedelta(days=delai)
                                 
-                                part = res_partners.filtered(lambda p: p.name == data22[2])
+                                part = res_partners.filtered(lambda p: p.id == data22[2])
                                 prod = product_products.filtered(lambda p: p.default_code == refinterne)
 
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
@@ -1167,8 +1170,8 @@ class SqliteConnector(models.Model):
                                                 'price_unit': prix,
                                                 'product_qty': Qte,
                                                 'product_uom': prod.uom_id.id,
-                                                'x_studio_hauteur_mm': HautNum,
-                                                'x_studio_largeur_mm': largNum,
+                                                'x_studio_hauteur': HautNum,
+                                                'x_studio_largeur': largNum,
                                                 'x_studio_spacer': spacer,
                                                 'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                                 'date_planned': dateliv,
@@ -1214,7 +1217,7 @@ class SqliteConnector(models.Model):
                                         LstInfo2 = Info2
                                         data22 = ['',account_analytic_id.id,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                         # createion of article in order to link to the project
-                                        part = res_partners.filtered(lambda p: p.name == data22[2])
+                                        part = res_partners.filtered(lambda p: p.id == data22[2])
                                         prod = product_products.filtered(lambda p: p.default_code == 'affaire')
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                         if part and stock_picking_type_id and prod:
@@ -1240,7 +1243,7 @@ class SqliteConnector(models.Model):
                                     else:
                                         data22 = ['','','','','','','']
                                 dateliv = datejourd + timedelta(days=delai)
-                                part = res_partners.filtered(lambda p: p.name == data22[2])
+                                part = res_partners.filtered(lambda p: p.id == data22[2])
                                 prod = product_product.filtered(lambda p: p.default_code == refinterne)
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                 for po in po_glass_vals:
@@ -1252,8 +1255,8 @@ class SqliteConnector(models.Model):
                                                 'price_unit': prix,
                                                 'product_qty': Qte,
                                                 'product_uom': prod.uom_id.id,
-                                                'x_studio_hauteur_mm': HautNum,
-                                                'x_studio_largeur_mm': largNum,
+                                                'x_studio_hauteur': HautNum,
+                                                'x_studio_largeur': largNum,
                                                 'x_studio_spacer': spacer,
                                                 'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                                 'date_planned': dateliv,
@@ -1350,7 +1353,6 @@ class SqliteConnector(models.Model):
                                 'x_studio_largeur_mm': largNum,
                                 # 'x_studio_positionn': Posint,
                             })
-                    
                             if LstFrs != idfrs :
                                 LstFrs = idfrs
                                 LstInfo2 = Info2
@@ -1389,7 +1391,7 @@ class SqliteConnector(models.Model):
                                 if cpt1 == nbr :
                                     dateliv = datejourd + timedelta(days=delai)
                                     prod = product_products.filtered(lambda p: p.default_code == refinterne)
-                                    part = res_partners.filtered(lambda p: p.name == data22[2])
+                                    part = res_partners.filtered(lambda p: p.id == data22[2])
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                     for po in po_article_vitrage_vals:
                                     # if part and stock_picking_type_id and prod:
@@ -1402,12 +1404,16 @@ class SqliteConnector(models.Model):
                                                     'price_unit': prix,
                                                     'product_qty': Qte,
                                                     'product_uom': prod.uom_id.id,
-                                                    'x_studio_hauteur_mm': HautNum,
-                                                    'x_studio_largeur_mm': largNum,
+                                                    'x_studio_hauteur': HautNum,
+                                                    'x_studio_largeur': largNum,
                                                     'x_studio_spacer': spacer,
                                                     'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                                     'date_planned': dateliv,
                                                 }))
+                    PosNew = Posint
+                    prixint = prix
+                    largNumint = largNum
+                    HautNumint = HautNum
 
         # We then create the customer quote with delivery dates and possible discounts.
         # We come to create the quote
