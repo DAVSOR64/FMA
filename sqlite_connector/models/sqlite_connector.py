@@ -391,7 +391,8 @@ class SqliteConnector(models.Model):
                                     data22 = ['', projet, idfrs, stock_picking_type_id, '', datetime.now(), user_id]
 
                                     product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
-                                    account_analytic_id = account_analytics.filtered(lambda a: a.name == projet)
+                                    acc = account_analytics.filtered(lambda a: a.name == projet)
+                                    account_analytic_id = acc[0].id if acc else False
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                     if idfrs and stock_picking_type_id and product_id:
                                         po_article_vals.append({
@@ -436,7 +437,6 @@ class SqliteConnector(models.Model):
                                             po.get('order_line').append((0, 0, {
                                                 'product_id': product_id[0].id if product_id else False,
                                                 'name': product_id[0].name,
-                                                'account_analytic_id': "",
                                                 'date_planned': datetime.now(),
                                                 'x_studio_posit': "",
                                                 'price_unit': prix,
@@ -511,8 +511,8 @@ class SqliteConnector(models.Model):
                     else :
                         if LstFrs != idfrs :
                             data22 = ['',projet, idfrs, stock_picking_type_id,'', datetime.now(),user_id]
-
-                            account_analytic_id = account_analytics.filtered(lambda a: a.name == projet)
+                            acc = account_analytics.filtered(lambda a: a.name == projet)
+                            account_analytic_id = acc[0].id if acc else False
                             product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                         
@@ -1271,7 +1271,7 @@ class SqliteConnector(models.Model):
                                 else :
                                     if LstInfo2 != Info2:
                                         LstInfo2 = Info2
-                                        data22 = ['',account_analytic_id.id,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
+                                        data22 = ['',account_analytic_id,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
                                         # createion of article in order to link to the project
                                         # part = res_partners.filtered(lambda p: p.id == data22[2])
                                         prod = product_products.filtered(lambda p: p.default_code == 'affaire')
@@ -1455,7 +1455,6 @@ class SqliteConnector(models.Model):
                                         if po.get('partner_id') == idfrs and prod:
                                             po.get('order_line').append((0, 0, {
                                                     'product_id': prod[0].id if prod else False,
-                                                    'account_analytic_id': "",
                                                     'date_planned': datetime.now(),
                                                     'x_studio_posit': Posint,
                                                     'price_unit': prix,
