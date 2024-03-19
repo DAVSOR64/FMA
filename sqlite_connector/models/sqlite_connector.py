@@ -4,14 +4,12 @@ import logging
 import math
 import tempfile
 import base64
-import pprint
 import re
+import psycopg2
 
 from odoo.exceptions import UserError
-from odoo import models, fields, _
-from ast import literal_eval
+from odoo import models, fields, registry, SUPERUSER_ID, api, _
 from datetime import datetime, timedelta
-
 
 _logger = logging.getLogger(__name__)
 
@@ -27,11 +25,9 @@ class SqliteConnector(models.Model):
     state = fields.Selection([('new', 'New'), ('done', 'Exported'), ('error', 'Errors')], string='Status', readonly=True, default='new')
     file = fields.Binary(string='SQLite file')
 
-
     def export_data_from_db(self):
         articles = []
         profiles = []
-        suppliers = []
     
         articlesm = []
         articles_data = []
@@ -39,12 +35,12 @@ class SqliteConnector(models.Model):
         po_article_vals = []
         po_profile_vals = []
         po_glass_vals = []
-        po_article_vitrage_vals = []
         so_data = {}
         nomenclatures_data = []
         operations_data = []
-
         articleslibre = []
+        messages = []
+
         product_products = self.env['product.product'].search([])
         product_categories = self.env['product.category'].search([])
         uom_uoms = self.env['uom.uom'].search([])
@@ -80,13 +76,6 @@ class SqliteConnector(models.Model):
                 'prix': row[1]
             })
 
-        supplier_data = cursor.execute("select SupplierID, Address2 from Suppliers")
-        for row in supplier_data:
-            suppliers.append({
-                'supplier_id': row[0],
-                'address': row[1]
-            })
-
         # To check if product already exists in odoo from articles
         for article in articles:
             product = product_products.filtered(lambda p: p.default_code == article['item'] and round(float(article['price']), 4) != float(p.standard_price))
@@ -94,7 +83,7 @@ class SqliteConnector(models.Model):
                 product.standard_price = article['price']
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                 message = _("Standard Price is updated for product: %s") % ','.join(refs)
-                self.message_post(body=message)
+                messages.append(message)
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
@@ -103,7 +92,7 @@ class SqliteConnector(models.Model):
                 product.standard_price = profile['prix']
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                 message = _("Standard Price is updated for product: %s") % ','.join(refs)
-                self.message_post(body=message)
+                messages.append(message)
 
         # At FMA, they have a concept of tranches, that is to say that the project is divided into
         # several phases (they call it tranches). So I come to see if it is a project with installments or
@@ -127,10 +116,18 @@ class SqliteConnector(models.Model):
                 Tranche = project.split('/')[1]
             proj = ['', projet]
         user_id = res_users.filtered(lambda p: p.name == re.sub(' +', ' ', PersonBE.strip()))
-        user_id = user_id.id if user_id else False
+        if user_id:
+            user_id = user_id.id
+        else:
+            user_id = False
+            self.log_request("Unable to find user Id.", PersonBE, 'Project Data')
 
         account_analytic_id = account_analytics.filtered(lambda a: a.name in projet)
-        account_analytic_id = account_analytic_id[0].id if account_analytic_id else False
+        if account_analytic_id:
+            account_analytic_id = account_analytic_id[0].id
+        else:
+            account_analytic_id = False
+            self.log_request("Unable to find analytic account.", projet, 'Project Data')
 
         # In a parameter of the MDB database, I retrieve information which will allow me to give
         # the manufacturing address, the manufacturing time and the customer delivery time for
@@ -184,7 +181,11 @@ class SqliteConnector(models.Model):
                 project = project
 
         account_analytic_tag_id = account_analytic_tags.filtered(lambda t: t.name == etiana)
-        account_analytic_tag_id = account_analytic_tag_id.id if account_analytic_tag_id else False
+        if account_analytic_tag_id:
+            account_analytic_tag_id = account_analytic_tag_id.id
+        else:
+            account_analytic_tag_id = False
+            self.log_request("Unable to find analytic account.", etiana, 'Projects Data')
 
         # We come to create the item which is sold
 
@@ -225,6 +226,8 @@ class SqliteConnector(models.Model):
                 idrefart = ''
                 
                 categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
+                if not categ:
+                    self.log_request("Unable to find product category.", categorie, 'Elevations data')
                 articlesm.append({
                     "name": refart,
                     "default_code": refint,
@@ -284,7 +287,10 @@ class SqliteConnector(models.Model):
             stock_picking_type_id = stock_picking_type.filtered(lambda p: p.name == operation.strip() and p.warehouse_id.id == warehouse.id)
             if stock_picking_type_id:
                 stock_picking_type_id = stock_picking_type_id.id
-
+            else:
+                self.log_request("Unable to find stock picking type.", operation.strip(), 'Project Data')
+        else:
+            self.log_request("Unable to find warehouse.", warehouse, 'Project Data')
         # Now to collect final data of articles
 
         idun =''
@@ -372,6 +378,8 @@ class SqliteConnector(models.Model):
                             resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal == fournisseur)
                             if resultat:
                                 idfrs = resultat[0].id
+                            else:
+                                self.log_request("Unable to find customer (x_studio_ref_logikal).", fournisseur, 'Articles Data')
                             # If the article is already in ODOO (in the article is in the BaseArticle.xlsx file) we look if it has
                             # a replenishment rule or if the article has the boolean “consumer on the deal”. IF so, we will
                             # create a purchase order for this item.
@@ -391,6 +399,8 @@ class SqliteConnector(models.Model):
                                     data22 = ['', projet, idfrs, stock_picking_type_id, '', datetime.now(), user_id]
 
                                     product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                    if not product_id:
+                                        self.log_request("Unable to find product.", 'affaire', 'Articles Data')
                                     acc = account_analytics.filtered(lambda a: a.name == projet)
                                     account_analytic_id = acc[0].id if acc else False
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
@@ -432,6 +442,8 @@ class SqliteConnector(models.Model):
 
                                     product_id = product_products.filtered(lambda p: p.default_code == art)
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                    if not product_id:
+                                        self.log_request('Unable to find product.', art, 'Articles Data')
                                     for po in po_article_vals:
                                         if po.get('partner_id') == idfrs and product_id:
                                             po.get('order_line').append((0, 0, {
@@ -460,6 +472,8 @@ class SqliteConnector(models.Model):
                                         dateliv = datejourd + timedelta(days=delai)
 
                                         product_id = product_products.filtered(lambda p: p.default_code == art)
+                                        if not product_id:
+                                            self.log_request('Unable to find product.', art, 'Articles Data')
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                         for po in po_article_vals:
                                             if po.get('partner_id') == idfrs and product_id:
@@ -482,6 +496,8 @@ class SqliteConnector(models.Model):
                     resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
                     if resultat:
                         idfrs = resultat[0].id
+                    else:
+                        self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
                     if idfrs == '':
                         ida = refart.replace(" ","_")
                         if ida == '' :
@@ -512,10 +528,15 @@ class SqliteConnector(models.Model):
                         if LstFrs != idfrs :
                             data22 = ['',projet, idfrs, stock_picking_type_id,'', datetime.now(),user_id]
                             acc = account_analytics.filtered(lambda a: a.name == projet)
-                            account_analytic_id = acc[0].id if acc else False
+                            if acc:
+                                account_analytic_id = acc[0].id
+                            else:
+                                account_analytic_id = False
+                                self.log('Unable to find analytic account.', projet)
                             product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                        
+                            if not product_id:
+                                self.log_request('Unable to find Product.', 'affaire', 'Articles Data')
                             if idfrs and stock_picking_type_id and product_id:
                                 po_article_vals.append({
                                     'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
@@ -525,7 +546,7 @@ class SqliteConnector(models.Model):
                                     'user_id': user_id,
                                     'order_line':[(0, 0,
                                         {
-                                            'product_id': product_id[0].id if product_id else False,
+                                            'product_id': product_id[0].id,
                                             'account_analytic_id': account_analytic_id,
                                             'date_planned': datetime.now(),
                                             'price_unit': 0,
@@ -574,9 +595,10 @@ class SqliteConnector(models.Model):
                             'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                             'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
                         })
-                        p = res_partners.filtered(lambda p: p.name == data22[2])
                         pro = product_products.filtered(lambda pro: pro.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                        if not pro:
+                            self.log_request('Unable to find product.', pro, 'Articles Data')
                         for po in po_article_vals:
                             if po.get('partner_id') == idfrs and pro:
                                 po.get('order_line').append((0, 0, {
@@ -698,6 +720,8 @@ class SqliteConnector(models.Model):
                     resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
                     if resultat:
                         idfrs = resultat[0].id
+                    else:
+                        self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
 
                     # Now we come to create profiles
                     QteStk =  0
@@ -748,6 +772,8 @@ class SqliteConnector(models.Model):
                         part = res_partners.filtered(lambda p: p.name == data22[2])
                         pro = product_products.filtered(lambda p: p.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                        if not pro:
+                            self.log_request('Unable to find product (default_code)', art, 'Articles Data')
                         for po in po_profile_vals:
                             if po.get('partner_id') == idfrs and pro:
                                 po.get('order_line').append((0, 0, {
@@ -767,6 +793,8 @@ class SqliteConnector(models.Model):
                                 projet = projet.strip()
                                 data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                                 pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                                if not pro:
+                                    self.log_request('Unable to find product (default_code)', 'affaire', 'Articles Data')
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                 if idfrs and stock_picking_type_id and pro:
                                     po_profile_vals.append({
@@ -846,11 +874,7 @@ class SqliteConnector(models.Model):
                             "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id), (4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
                         })
                     else:
-                        # unnom = product.uom_id
-                        # if unit == unnom:
-                        #     idun = unnom.id
                         unita = 'ML'
-
                         uom = uom_uoms.filtered(lambda u: u.name == unita)
                         if uom:
                             iduna = uom.id
@@ -858,6 +882,8 @@ class SqliteConnector(models.Model):
                         resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
                         if resultat:
                             idfrs = resultat[0].id
+                        else:
+                            self.log_request('Unabe to find customer (x_studio_ref_logikal)', fournisseur, 'Article Data')
 
                         art = refart
                         Qte = row[7]
@@ -895,6 +921,8 @@ class SqliteConnector(models.Model):
                             projet = projet.strip()
                             data22 = ['',projet,idfrs,stock_picking_type_id,'',datetime.now(),user_id]
                             pro = product_products.filtered(lambda p: p.default_code == 'affaire')
+                            if not pro:
+                                self.log_request('Unable to find product', 'affaire', 'Article Data')
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                             if idfrs and stock_picking_type_id and pro:
                                 po_profile_vals.append({
@@ -905,7 +933,7 @@ class SqliteConnector(models.Model):
                                     'date_order': datetime.now(),
                                     'user_id': user_id,
                                     'order_line': [(0, 0, {
-                                            'product_id': pro[0].id if pro else False,
+                                            'product_id': pro[0].id,
                                             'account_analytic_id': account_analytic_id,
                                             'date_planned': datetime.now(),
                                             'price_unit': 0,
@@ -924,10 +952,12 @@ class SqliteConnector(models.Model):
                         part = res_partners.filtered(lambda p: p.name == data22[2])
                         pro = product_products.filtered(lambda p: p.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
+                        if not pro:
+                            self.log_request('Unable to find product', art, 'Article Data')
                         for po in po_profile_vals and pro:
                             if po.get('partner_id') == idfrs:
                                 po.get('order_line').append((0, 0, {
-                                        'product_id': pro[0].id if pro else False,
+                                        'product_id': pro[0].id,
                                         'date_planned': datetime.now(),
                                         'price_unit': prixB,
                                         'product_qty': Qte,
@@ -992,7 +1022,7 @@ class SqliteConnector(models.Model):
                 if res_partner:
                     frsnomf = res_partner[0].name
                 else:
-                    _logger.warning(('Unable to find customer with LK Supplier ID - %s' % Frsid))
+                    self.log_request('Unable to find customer with LK Supplier ID', str(Frsid), 'Glass Data')
                 delay =  14
 
                 if row[13] != 'Glass':
@@ -1021,6 +1051,8 @@ class SqliteConnector(models.Model):
                                 
                                 pro = product_products.filtered(lambda p: p.default_code == 'affaire')
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                if not pro:
+                                    self.log_request('Unable to find product.', 'affaire', 'Glass Data')
                                 if idfrs and stock_picking_type_id and pro:
                                     po_glass_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
@@ -1055,35 +1087,38 @@ class SqliteConnector(models.Model):
                             dateliv = datejourd + timedelta(days=delai)
                             part = res_partners.filtered(lambda p: p.name == data22[2])
                             pro = product_products.filtered(lambda p: p.default_code == refinterne)
+                            if not pro:
+                                self.log_request('Unable to find product.', refinterne, 'Glass Data')
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                             if part:
-                                po_glass_vals.append({
-                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                    'partner_id': idfrs,
-                                    'picking_type_id': stock_picking_type_id,
-                                    'x_studio_commentaire_livraison_vitrage_': Info2,
-                                    'date_order': datetime.now(),
-                                    'user_id': user_id,
-                                    'order_line':
-                                        [(0, 0, {
-                                            'product_id': pro[0].id if pro else False,
-                                            'date_planned': datetime.now(),
-                                            'x_studio_posit': Posint,
-                                            'price_unit': prix,
-                                            'product_qty': Qte,
-                                            'product_uom': pro.uom_id.id,
-                                            'x_studio_hauteur': HautNum,
-                                            'x_studio_largeur': largNum,
-                                            'x_studio_spacer': spacer,
-                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                            'date_planned': dateliv,
-                                        })]
-                                    })
+                                if pro:
+                                    po_glass_vals.append({
+                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                                        'partner_id': idfrs,
+                                        'picking_type_id': stock_picking_type_id,
+                                        'x_studio_commentaire_livraison_vitrage_': Info2,
+                                        'date_order': datetime.now(),
+                                        'user_id': user_id,
+                                        'order_line':
+                                            [(0, 0, {
+                                                'product_id': pro[0].id,
+                                                'date_planned': datetime.now(),
+                                                'x_studio_posit': Posint,
+                                                'price_unit': prix,
+                                                'product_qty': Qte,
+                                                'product_uom': pro.uom_id.id,
+                                                'x_studio_hauteur': HautNum,
+                                                'x_studio_largeur': largNum,
+                                                'x_studio_spacer': spacer,
+                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                'date_planned': dateliv,
+                                            })]
+                                        })
                             else:
                                 for po in po_glass_vals:
                                     if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2 and pro:
                                         po.get('order_line').append((0, 0, {
-                                                'product_id': pro[0].id if pro else False,
+                                                'product_id': pro[0].id,
                                                 'date_planned': datetime.now(),
                                                 'x_studio_posit': Posint,
                                                 'price_unit': prix,
@@ -1104,11 +1139,14 @@ class SqliteConnector(models.Model):
 
                             if part:
                                 idfrs = part[0].id if part else ''
-
+                            else:
+                                self.log_request('Unable to find customer with name', frsnomf, 'Glass Data')
                             if cpt1 != nbr:
                                 dateliv = datejourd + timedelta(days=delai)
                                 part = res_partners.filtered(lambda p: p.id == data22[2])
                                 prod = product_products.filtered(lambda pro: pro.default_code == refinterne)
+                                if not prod:
+                                    self.log_request('Unable to find product', refinterne, 'Glass Data')
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                 if stock_picking_type_id and prod:
                                     if part:
@@ -1303,7 +1341,6 @@ class SqliteConnector(models.Model):
                                 prod = product_product.filtered(lambda p: p.default_code == refinterne)
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                 for po in po_glass_vals:
-                                    # if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == Info2 and prod:
                                     if po.get('partner_id') == idfrs and prod:
                                         po.get('order_line').append((0, 0, {
                                                 'product_id': prod[0].id if prod else False,
@@ -1344,7 +1381,6 @@ class SqliteConnector(models.Model):
                                 'categ_id': categ_id,
                                 'seller_ids': [(0, 0, {
                                     'delay': 3,
-                                    # 'partner_id': idfrs,
                                     'name': idfrs if idfrs else 1,
                                     'product_name': row[1],
                                     'price': prix,
@@ -1646,6 +1682,8 @@ class SqliteConnector(models.Model):
                                 "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 })
                             )
+                    else:
+                        self.log_request("Unable to find Sale Order", projet, 'Elevations Data')
                         
             else:
                 for row in resultp:
@@ -1755,17 +1793,6 @@ class SqliteConnector(models.Model):
                 else :
                     datanom1 = ['','','','','','']
                 unme = row[4]
-                # Need to ask
-                # for W in range(1,row_count7) :
-                # unitcor = sheet7.cell(row=W,column=1).value
-                # unitcor = str(unitcor)
-                # if unme == unitcor :
-                # unme = sheet7.cell(row=W,column=2).value
-                # for K in range(2, row_count2+1):
-                # unnom = sheet2.cell(row=K,column=2).value
-                # # print ('data2 : ',data2)
-                # if unme == unnom :
-                # idun = sheet2.cell(row=K,column=3).value
                 refarticle = refarticle.replace("RYN","REY")
                 refarticle = refarticle.replace("SC  ","SCH ")
                 if refarticle == '' :
@@ -1923,56 +1950,78 @@ class SqliteConnector(models.Model):
         cursor.close()
         temp_file.close()
         cursor1.close()
+        self.state = 'error'
+        try:
+            for product in product_products.create(articlesm):
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Product has been Created: %s") % ','.join(refs)
+                messages.append(message)
 
-        for product in product_products.create(articlesm):
-            refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-            message = _("Product has been Created: %s") % ','.join(refs)
-            self.message_post(body=message)
-
-        for product in product_products.create(articleslibre):
-            refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-            message = _("Product has been Created: %s") % ','.join(refs)
-            self.message_post(body=message)
-        
-        for product in product_products.create(articles_data):
-            refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-            message = _("Product has been Created: %s") % ','.join(refs)
-            self.message_post(body=message)
+            for product in product_products.create(articleslibre):
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Product has been Created: %s") % ','.join(refs)
+                messages.append(message)
+                
+            for product in product_products.create(articles_data):
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Product has been Created: %s") % ','.join(refs)
+                messages.append(message)
+                
+        except Exception as e:
+            return self.log_request('Unable to create products.', str(e), 'Whole Articles Data')
 
         self.env.cr.commit()
+        try:
+            for so in so_data:
+                for so_to_update in self.env['sale.order'].browse(so):
+                    so_to_update.write(so_data[so])
+                    so_to_update.action_confirm()
+                    refs = ["<a href=# data-oe-model=sale.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in so_to_update.name_get()]
+                    message = _("Sales Order Updated: %s") % ','.join(refs)
+                    messages.append(message)
 
-        for so in so_data:
-            for so_to_update in self.env['sale.order'].browse(so):
-                so_to_update.write(so_data[so])
-                so_to_update.action_confirm()
-                refs = ["<a href=# data-oe-model=sale.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in so_to_update.name_get()]
-                message = _("Sales Order Updated: %s") % ','.join(refs)
-                self.message_post(body=message)
+            for bom in self.env['mrp.bom'].create(nomenclatures_data):
+                note = "Bill Of Material Created > %s" % (bom.display_name)
+                refs = ["<a href=# data-oe-model=mrp.bom data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in bom.name_get()]
+                message = _("Bill Of Material has been Created: %s") % ','.join(refs)
+                messages.append(message)
 
-        for bom in self.env['mrp.bom'].create(nomenclatures_data):
-            note = "Bill Of Material Created > %s" % (bom.display_name)
-            refs = ["<a href=# data-oe-model=mrp.bom data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in bom.name_get()]
-            message = _("Bill Of Material has been Created: %s") % ','.join(refs)
-            self.message_post(body=message)
+            for purchase in self.env['purchase.order'].create(po_article_vals):
+                refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
+                message = _("Purchase Order has been created: %s") % ','.join(refs)
+                messages.append(message)
+                
+            for purchase in self.env['purchase.order'].create(po_profile_vals):
+                refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
+                message = _("Purchase Order has been created: %s") % ','.join(refs)
+                messages.append(message)
 
-        for purchase in self.env['purchase.order'].create(po_article_vals):
-            refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-            message = _("Purchase Order has been created: %s") % ','.join(refs)
-            self.message_post(body=message)
+            for purchase in self.env['purchase.order'].create(po_glass_vals):
+                refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
+                message = _("Purchase Order has been created: %s") % ','.join(refs)
+                messages.append(message)
 
-        for purchase in self.env['purchase.order'].create(po_profile_vals):
-            refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-            message = _("Purchase Order has been created: %s") % ','.join(refs)
-            self.message_post(body=message)
+        except Exception as e:
+            return self.log_request('Unable to create/update SO, PO or nomenclatures', str(e), 'Whole Creation')
 
-        print("===", po_glass_vals)
-        for purchase in self.env['purchase.order'].create(po_glass_vals):
-            refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-            message = _("Purchase Order has been created: %s") % ','.join(refs)
-            self.message_post(body=message)
-
-        for purchase in self.env['purchase.order'].create(po_article_vitrage_vals):
-            refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-            message = _("Purchase Order has been created: %s") % ','.join(refs)
-            self.message_post(body=message)
         self.state = 'done'
+        for msg in messages:
+            self.message_post(body=msg)
+    
+    def log_request(self, operation, ref, path, level=None):
+        db_name = self.env.cr.dbname
+        try:
+            db_registry = registry(db_name)
+            with db_registry.cursor() as cr:
+                env = api.Environment(cr, SUPERUSER_ID, {})
+                IrLogging = env['ir.logging']
+                IrLogging.sudo().create({'name': operation,
+                                         'type': 'server',
+                                         'dbname': db_name,
+                                         'level': level,
+                                         'message': "%s" % (ref),
+                                         'path': path,
+                                         'func': operation,
+                                         'line': 1})
+        except psycopg2.Error:
+            pass
