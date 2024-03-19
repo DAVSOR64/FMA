@@ -24,6 +24,7 @@ class SqliteConnector(models.Model):
     date = fields.Date(string='Date', default=fields.Date.context_today)
     state = fields.Selection([('new', 'New'), ('done', 'Exported'), ('error', 'Errors')], string='Status', readonly=True, default='new')
     file = fields.Binary(string='SQLite file')
+    ir_log_ids = fields.One2many('ir.logging', 'connector_id')
 
     def export_data_from_db(self):
         articles = []
@@ -532,7 +533,7 @@ class SqliteConnector(models.Model):
                                 account_analytic_id = acc[0].id
                             else:
                                 account_analytic_id = False
-                                self.log('Unable to find analytic account.', projet)
+                                self.log_request('Unable to find analytic account.', projet, "Article Data")
                             product_id = product_products.filtered(lambda p: p.default_code == 'affaire')
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                             if not product_id:
@@ -598,7 +599,7 @@ class SqliteConnector(models.Model):
                         pro = product_products.filtered(lambda pro: pro.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                         if not pro:
-                            self.log_request('Unable to find product.', pro, 'Articles Data')
+                            self.log_request('Unable to find product.', art, 'Articles Data')
                         for po in po_article_vals:
                             if po.get('partner_id') == idfrs and pro:
                                 po.get('order_line').append((0, 0, {
@@ -1139,8 +1140,6 @@ class SqliteConnector(models.Model):
 
                             if part:
                                 idfrs = part[0].id if part else ''
-                            else:
-                                self.log_request('Unable to find customer with name', frsnomf, 'Glass Data')
                             if cpt1 != nbr:
                                 dateliv = datejourd + timedelta(days=delai)
                                 part = res_partners.filtered(lambda p: p.id == data22[2])
@@ -2022,6 +2021,7 @@ class SqliteConnector(models.Model):
                                          'message': "%s" % (ref),
                                          'path': "%s - %s " % (path, self.description),
                                          'func': operation,
-                                         'line': 1})
+                                         'line': 1,
+                                         'connector_id': self.id})
         except psycopg2.Error:
             pass
