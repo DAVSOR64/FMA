@@ -375,7 +375,7 @@ class SqliteConnector(models.Model):
                             idfrs = ''
                             unnom = product.uom_id
                             idun = product.uom_id.id
-                            resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal == fournisseur)
+                            resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
                             if resultat:
                                 idfrs = resultat[0].id
                             else:
