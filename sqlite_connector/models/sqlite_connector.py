@@ -2020,7 +2020,7 @@ class SqliteConnector(models.Model):
                                          'dbname': db_name,
                                          'level': level,
                                          'message': "%s" % (ref),
-                                         'path': path,
+                                         'path': "%s - %s " % (path, self.description),
                                          'func': operation,
                                          'line': 1})
         except psycopg2.Error:
