@@ -31,7 +31,18 @@
                             <group>
                                 <field name="file" options="{'accepted_file_extensions': '.sqlite'}"/>
                             </group>
-                        </group>  
+                        </group>
+                        <notebook>
+                            <page name="Error Logs" string="Logs">
+                                <field name="ir_log_ids" readonly="1">
+                                    <tree create="false" edit="false">
+                                        <field name="name"/>
+                                        <field name="path"/>
+                                        <field name="message"/>
+                                    </tree>
+                                </field>
+                            </page>
+                        </notebook>
                     </sheet>
                     <div class="oe_chatter">
                         <field name="message_follower_ids" widget="mail_followers"/>
