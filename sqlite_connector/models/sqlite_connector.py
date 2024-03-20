@@ -77,6 +77,13 @@ class SqliteConnector(models.Model):
                 'prix': row[1]
             })
 
+        suppliers = []
+        rfrs = cursor.execute("select SupplierID,Address2 from Suppliers")
+        for row in rfrs:
+            s = {}
+            s[int(row[0])] = row[1]
+            suppliers.append(s)
+
         # To check if product already exists in odoo from articles
         for article in articles:
             product = product_products.filtered(lambda p: p.default_code == article['item'] and round(float(article['price']), 4) != float(p.standard_price))
@@ -1019,7 +1026,13 @@ class SqliteConnector(models.Model):
                 largNum = round(largNum)
                 HautNum = round(HautNum)
 
-                res_partner = res_partners.filtered(lambda p: p.x_studio_lk_supplier_id_1 == int(Frsid))
+                res_partner = False
+                for sup in suppliers:
+                    if sup.get(int(Frsid)):
+                        sname = sup[int(Frsid)]
+                for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
+                    if sname.startswith(part.x_studio_ref_logikal):
+                        res_partner = part
                 if res_partner:
                     frsnomf = res_partner[0].name
                 else:
@@ -1592,8 +1605,8 @@ class SqliteConnector(models.Model):
                 part_ship = res_partners.filtered(lambda p: p.name == data1[2])
                 if refart == 'ECO-CONTRIBUTION':
                     pro = product_products.filtered(lambda p: p.name == refart or p.default_code == refart)
-                else:
-                    pro = product_products.filtered(lambda p: "[" + p.default_code + "]" + p.name == refart if p.default_code else p.name == refart)
+                # else:
+                    # pro = product_products.filtered(lambda p: "[" + p.default_code + "]" + p.name == refart if p.default_code else p.name == refart)
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
