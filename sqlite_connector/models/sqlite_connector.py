@@ -1750,7 +1750,6 @@ class SqliteConnector(models.Model):
         nomenclatures_data = []
         
         resultarticles=cursor.execute("Select ArticleCode, Description, Color, Units_Output, Units_Unit, Units,ArticleCode_Supplier, PUSize, ArticleCode_BaseNumber, ColorInfoInternal, ArticleCode_Number from AllArticles")
-
         UV = 0
         Cpt = 0
         consoaff = ''
@@ -1799,7 +1798,7 @@ class SqliteConnector(models.Model):
                 product = self.env['product.product'].search([('default_code', '=', refarticle)], limit=1)
                 if product:
                     consoaff = product.x_studio_conso_laffaire
-                if consoaff == 'True' :
+                if consoaff:
                     Qte = (float(row[5])) / float(UV)
                     x = Qte
                     n = 0
@@ -1810,22 +1809,29 @@ class SqliteConnector(models.Model):
                 ArtOK = '1'
                 datanom2 = [refarticle, Qte,idun]
                 datanom = datanom1 + datanom2
-                pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + datanom1[1])
                 pro = product_products.filtered(lambda p: p.default_code == refarticle)
-                if pro_temp:
+                if datanom1[1] != '':
+                    pro_temp = self.env['product.template'].search([('default_code', 'ilike', datanom1[1])], limit=1)
                     nomenclatures_data.append({
                         "product_tmpl_id": pro_temp[0].id,
                         "type": "normal",
-                        "product_qty": datanom1[3],
+                        "product_qty": int(datanom1[3]),
                         "analytic_account_id": account_analytic_id,
                         "product_uom_id": self.env.ref('uom.product_uom_unit').id,
                         "bom_line_ids": [(0, 0, {
-                            'product_id': pro.id,
+                            'product_id': pro[0].id,
                             'product_qty': Qte,
                             'product_uom_id': pro.uom_id.id
                         })],
                         'operation_ids': []
                     })
+                else:
+                    if nomenclatures_data:
+                        nomenclatures_data[0].get('bom_line_ids').append((0, 0, {
+                        'product_id': pro[0].id,
+                        'product_qty': Qte,
+                        'product_uom_id': pro.uom_id.id
+                    }))
         
         # For profies
         resultprofiles=cursor.execute("Select ArticleCode, Description, Color, Amount, Units, OuterColorInfoInternal, InnerColorInfoInternal, ColorInfoInternal, ArticleCode_BaseNumber,ArticleCode_Supplier, ArticleCode_Number Amount from AllProfiles")
@@ -1858,38 +1864,47 @@ class SqliteConnector(models.Model):
             refart = refart.replace("SC  ","SCH ")
             refart = refart.replace("SC","SCH ")
             unme = str(row[4])
-        unitcor = ''
-        if refart == '' :
-            refart = row[1]
+            unitcor = ''
+            if refart == '' :
+                refart = row[1]
 
-        product = self.env['product.product'].search([('default_code', "=", refart)], limit=1)
-        if product:
-            unme = product.uom_id.display_name
-            unitcor = unme
-        # if unitcor == '' :
-        uom = uom_uoms.filtered(lambda u: u.name == unme)
-        if uom:
-            idun = uom[0].id
-        Qte = row[3]
-        datanom1= ['',proj ,'normal', '1',projet,'uom.product_uom_unit']
-        # else :
-        ArtOK = '1'
-        pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + datanom1[1])
-        pro = product_products.filtered(lambda p: p.default_code == refart)
-        if pro_temp:
-            nomenclatures_data.append({
-                "product_tmpl_id": pro_temp[0].id,
-                "type": "normal",
-                "product_qty": datanom1[3],
-                "analytic_account_id": account_analytic_id,
-                "product_uom_id": self.env.ref('uom.product_uom_unit').id,
-                "bom_line_ids": [(0, 0, {
-                    'product_id': pro.id,
+            product = self.env['product.product'].search([('default_code', "=", refart)], limit=1)
+            if product:
+                unme = product.uom_id.display_name
+                unitcor = unme
+            # if unitcor == '' :
+            uom = uom_uoms.filtered(lambda u: u.name == unme)
+            if uom:
+                idun = uom[0].id
+            Qte = row[3]
+            if ArtOK == '0' :
+                datanom1= ['',proj ,'normal', '1',projet,'uom.product_uom_unit']
+            else :
+                datanom1 = ['','','','','','']
+            ArtOK = '1'
+            pro = product_products.filtered(lambda p: p.default_code == refart)
+            if datanom1[1] != '':
+                pro_temp = self.env['product.template'].search([('default_code', 'ilike', datanom1[1])], limit=1)
+                nomenclatures_data.append({
+                    "product_tmpl_id": pro_temp[0].id,
+                    "type": "normal",
+                    "product_qty": int(datanom1[3]),
+                    "analytic_account_id": account_analytic_id,
+                    "product_uom_id": self.env.ref('uom.product_uom_unit').id,
+                    "bom_line_ids": [(0, 0, {
+                        'product_id': pro[0].id,
+                        'product_qty': Qte,
+                        'product_uom_id': pro.uom_id.id
+                    })],
+                    'operation_ids': []
+                })
+            else:
+                if nomenclatures_data:
+                    nomenclatures_data[0].get('bom_line_ids').append((0, 0, {
+                    'product_id': pro[0].id,
                     'product_qty': Qte,
                     'product_uom_id': pro.uom_id.id
-                })],
-                'operation_ids': []
-            })
+                }))
 
         # For operations
         resu=cursor.execute("select LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name from LabourTimes")
@@ -1916,8 +1931,6 @@ class SqliteConnector(models.Model):
                             dataope = ['',proj,temps,ope,name]
                         else :
                             dataope = ['','',temps,ope,name]
-                    if dataope:
-                        pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + proj)
                         workcenter = self.env['mrp.workcenter'].search([('name', '=', name)], limit=1)
                         if nomenclatures_data:
                             nomenclatures_data[0]['operation_ids'].append((0, 0, {
@@ -1936,7 +1949,6 @@ class SqliteConnector(models.Model):
                 else :
                     dataope = ['','',temps,ope,name]
             if dataope:
-                pro_temp = product_templates.filtered(lambda pt: pt.default_code == '002_' + proj)
                 workcenter = self.env['mrp.workcenter'].search([('name', '=', name)], limit=1)
                 if nomenclatures_data:
                     nomenclatures_data[0]['operation_ids'].append((0, 0, {
