@@ -86,18 +86,22 @@ class SqliteConnector(models.Model):
 
         # To check if product already exists in odoo from articles
         for article in articles:
-            product = product_products.filtered(lambda p: p.default_code == article['item'] and round(float(article['price']), 4) != float(p.standard_price))
+            product = product_products.filtered(lambda p: p.default_code == article['item'])
             if product:
-                product.standard_price = article['price']
+                product = product[0]
+            if product and round(float(article['price']), 4) != round(product.standard_price, 4):
+                product.standard_price = float(article['price'])
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                 message = _("Standard Price is updated for product: %s") % ','.join(refs)
                 messages.append(message)
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
-            product = product_products.filtered(lambda p: p.default_code == profile['article'] and round(float(profile['prix']), 4) != float(p.standard_price))
+            product = product_products.filtered(lambda p: p.default_code == profile['article'])
             if product:
-                product.standard_price = profile['prix']
+                product = product[0]
+            if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
+                product.standard_price = float(profile['prix'])
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                 message = _("Standard Price is updated for product: %s") % ','.join(refs)
                 messages.append(message)
@@ -236,19 +240,20 @@ class SqliteConnector(models.Model):
                 categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
                 if not categ:
                     self.log_request("Unable to find product category.", categorie, 'Elevations data')
-                articlesm.append({
-                    "name": refart,
-                    "default_code": refint,
-                    "list_price": 0,
-                    "standard_price": row[7],
-                    'categ_id': categ.id if categ else self.env.ref('product.product_category_all').id,
-                    "uom_id": self.env.ref('uom.product_uom_unit').id,
-                    "uom_po_id": self.env.ref('uom.product_uom_unit').id,
-                    "type": "consu",
-                    "purchase_ok": "no",
-                    "sale_ok": "yes",
-                    'produce_delay': 0
-                })
+                if row[1] != 'ECO-CONTRIBUTION' and not product_products.filtered(lambda p: p.default_code == refint):
+                    articlesm.append({
+                        "name": refart,
+                        "default_code": refint,
+                        "list_price": 0,
+                        "standard_price": row[7],
+                        'categ_id': categ.id if categ else self.env.ref('product.product_category_all').id,
+                        "uom_id": self.env.ref('uom.product_uom_unit').id,
+                        "uom_po_id": self.env.ref('uom.product_uom_unit').id,
+                        "type": "consu",
+                        "purchase_ok": "no",
+                        "sale_ok": "yes",
+                        'produce_delay': 0
+                    })
 
         # To handle if BPA
         # We also create a final item which will be sold and on which we will put the nomenclature
@@ -260,23 +265,22 @@ class SqliteConnector(models.Model):
                 refart = refart + '_BPA'
                 refart = refart.strip()
                 idrefart = ''
-                # categ = product_categories.filtered(lambda c: c.name == 'ALL')
                 categ = self.env.ref('product.product_category_all')
-
-                articlesm.append({
-                    "name": refart,
-                    "default_code": refart,
-                    "list_price": 0,
-                    "standard_price": 0,
-                    'categ_id': categ.id,
-                    "uom_id": self.env.ref('uom.product_uom_unit').id,
-                    "uom_po_id": self.env.ref('uom.product_uom_unit').id,
-                    "type": "product",
-                    "purchase_ok": "no",
-                    "sale_ok": "yes",
-                    "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4, self.env.ref('mrp.route_warehouse0_manufacture').id)],
-                    'produce_delay': delaifab
-                })
+                if not product_products.filtered(lambda p: p.default_code == refart):
+                    articlesm.append({
+                        "name": refart,
+                        "default_code": refart,
+                        "list_price": 0,
+                        "standard_price": 0,
+                        'categ_id': categ.id,
+                        "uom_id": self.env.ref('uom.product_uom_unit').id,
+                        "uom_po_id": self.env.ref('uom.product_uom_unit').id,
+                        "type": "product",
+                        "purchase_ok": "no",
+                        "sale_ok": "yes",
+                        "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4, self.env.ref('mrp.route_warehouse0_manufacture').id)],
+                        'produce_delay': delaifab
+                    })
 
         # We come to find the address for supplier deliveries
         entrepot = ''
@@ -518,20 +522,20 @@ class SqliteConnector(models.Model):
                             LstArt = LstArt + ',' + refart
                         # categ_id = product_categories.filtered(lambda c: c.name == 'All / Accessoire') 
                         categ_id = self.env.ref('__export__.product_category_14_a5d33274')
-
-                        articleslibre.append({
-                            "default_code": refart,
-                            "name": nom,
-                            "lst_price": 10,
-                            "standard_price": prix,
-                            "uom_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            "categ_id": categ_id.id,
-                            "purchase_ok": "yes",
-                            "sale_ok": "yes",
-                            "detailed_type": "product",
-                            "uom_po_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
-                            })
+                        if not product_products.filtered(lambda p: p.default_code == refart):
+                            articleslibre.append({
+                                "default_code": refart,
+                                "name": nom,
+                                "lst_price": 10,
+                                "standard_price": prix,
+                                "uom_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                "categ_id": categ_id.id,
+                                "purchase_ok": "yes",
+                                "sale_ok": "yes",
+                                "detailed_type": "product",
+                                "uom_po_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                                })
                     else :
                         if LstFrs != idfrs :
                             data22 = ['',projet, idfrs, stock_picking_type_id,'', datetime.now(),user_id]
@@ -580,29 +584,29 @@ class SqliteConnector(models.Model):
                         delai = 14
                         dateliv = datejourd + timedelta(days=delai)
                         categ_id = self.env.ref('__export__.product_category_14_a5d33274')
-                        
-                        articles_data.append({
-                            'default_code': art,
-                            'name': nom,
-                            'lst_price': prixV,
-                            'standard_price': prix,
-                            'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'categ_id': categ_id.id,
-                            'seller_ids': [
-                                (0, 0, {
-                                    'name': idfrs,
-                                    'delay': 56,
-                                    'product_name': nom,
-                                    'price': prix,
-                                    'min_qty': 1,
-                                    'product_code': art
-                            })],
-                            'purchase_ok': 'yes',
-                            'sale_ok': 'yes',
-                            'detailed_type': 'product',
-                            'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
-                        })
+                        if not product_products.filtered(lambda p: p.default_code == art):
+                            articles_data.append({
+                                'default_code': art,
+                                'name': nom,
+                                'lst_price': prixV,
+                                'standard_price': prix,
+                                'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                'categ_id': categ_id.id,
+                                'seller_ids': [
+                                    (0, 0, {
+                                        'name': idfrs,
+                                        'delay': 56,
+                                        'product_name': nom,
+                                        'price': prix,
+                                        'min_qty': 1,
+                                        'product_code': art
+                                })],
+                                'purchase_ok': 'yes',
+                                'sale_ok': 'yes',
+                                'detailed_type': 'product',
+                                'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                            })
                         pro = product_products.filtered(lambda pro: pro.default_code == art)
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                         if not pro:
@@ -867,20 +871,20 @@ class SqliteConnector(models.Model):
                         data1 = ['',refart,refart, prixV ,prixB, idun, 'All / Profile','yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy,purchase_stock.route_warehouse0_buy', '0', '0']
                         # categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
                         categ_id =  self.env.ref('__export__.product_category_19_b8423373')  
-
-                        articleslibre.append({
-                            "default_code": refart,
-                            "name": refart,
-                            "lst_price": prixV,
-                            "standard_price": prixB,
-                            "uom_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            "categ_id": categ_id.id,
-                            "purchase_ok": "yes",
-                            "sale_ok": "yes",
-                            "detailed_type": "product",
-                            "uom_po_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id), (4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
-                        })
+                        if not product_products.filtered(lambda p: p.default_code == refart):
+                            articleslibre.append({
+                                "default_code": refart,
+                                "name": refart,
+                                "lst_price": prixV,
+                                "standard_price": prixB,
+                                "uom_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                "categ_id": categ_id.id,
+                                "purchase_ok": "yes",
+                                "sale_ok": "yes",
+                                "detailed_type": "product",
+                                "uom_po_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id), (4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                            })
                     else:
                         unita = 'ML'
                         uom = uom_uoms.filtered(lambda u: u.name == unita)
@@ -898,32 +902,33 @@ class SqliteConnector(models.Model):
                         prixV = prixB * 1.5
                         data10 = [art, nom, prixV ,prixB, idun, 'All / Profile', '56', idfrs, nom, prixB, '1', art, 'yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy,purchase_stock.route_warehouse0_buy', '0','0','']
                         # categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
-                        categ_id =  self.env.ref('__export__.product_category_19_b8423373') 
-                        articles_data.append({
-                            'default_code': art,
-                            'name': nom,
-                            'lst_price': prixV,
-                            'standard_price': prixB,
-                            'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'categ_id': categ_id.id,
-                            'seller_ids': [(0, 0, {
-                                'delay': 56,
-                                'name': idfrs if idfrs else 1,
-                                'product_name': nom,
-                                'price': prixB,
-                                'min_qty': 1,
-                                'product_code': art
-                                })
-                            ],
-                            'purchase_ok': 'yes',
-                            'sale_ok': 'yes',
-                            'detailed_type': 'product',
-                            'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id), (4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
-                            'x_studio_hauteur_mm': 0,
-                            'x_studio_largeur_mm': 0,
-                            # 'x_studio_positionn': ''
-                        })
+                        categ_id =  self.env.ref('__export__.product_category_19_b8423373')
+                        if not product_products.filtered(lambda p: p.default_code == art):
+                            articles_data.append({
+                                'default_code': art,
+                                'name': nom,
+                                'lst_price': prixV,
+                                'standard_price': prixB,
+                                'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                'categ_id': categ_id.id,
+                                'seller_ids': [(0, 0, {
+                                    'delay': 56,
+                                    'name': idfrs if idfrs else 1,
+                                    'product_name': nom,
+                                    'price': prixB,
+                                    'min_qty': 1,
+                                    'product_code': art
+                                    })
+                                ],
+                                'purchase_ok': 'yes',
+                                'sale_ok': 'yes',
+                                'detailed_type': 'product',
+                                'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id), (4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                                'x_studio_hauteur_mm': 0,
+                                'x_studio_largeur_mm': 0,
+                                # 'x_studio_positionn': ''
+                            })
                         if LstFrs != idfrs :
                             LstFrs = idfrs
                             projet = projet.strip()
@@ -1383,31 +1388,31 @@ class SqliteConnector(models.Model):
 
                             # categ_id = product_categories.filtered(lambda c: c.name == 'All / Vitrage')
                             categ_id = self.env.ref('__export__.product_category_23_31345211').id
-
-                            articles_data.append({
-                                'default_code': refinterne,
-                                'name': refart,
-                                'lst_price': 1,
-                                'standard_price': prix,
-                                'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                                'categ_id': categ_id,
-                                'seller_ids': [(0, 0, {
-                                    'delay': 3,
-                                    'name': idfrs if idfrs else 1,
-                                    'product_name': row[1],
-                                    'price': prix,
-                                    'min_qty': 1,
-                                    'product_code': row[0],
-                                })],
-                                'purchase_ok': 'yes',
-                                'sale_ok': 'yes',
-                                'detailed_type': 'product',
-                                'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                                'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
-                                'x_studio_hauteur_mm': HautNum,
-                                'x_studio_largeur_mm': largNum,
-                                # 'x_studio_positionn': Posint,
-                            })
+                            if not product_products.filtered(lambda p: p.default_code == refinterne):
+                                articles_data.append({
+                                    'default_code': refinterne,
+                                    'name': refart,
+                                    'lst_price': 1,
+                                    'standard_price': prix,
+                                    'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                    'categ_id': categ_id,
+                                    'seller_ids': [(0, 0, {
+                                        'delay': 3,
+                                        'name': idfrs if idfrs else 1,
+                                        'product_name': row[1],
+                                        'price': prix,
+                                        'min_qty': 1,
+                                        'product_code': row[0],
+                                    })],
+                                    'purchase_ok': 'yes',
+                                    'sale_ok': 'yes',
+                                    'detailed_type': 'product',
+                                    'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                    'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                                    'x_studio_hauteur_mm': HautNum,
+                                    'x_studio_largeur_mm': largNum,
+                                    # 'x_studio_positionn': Posint,
+                                })
                         else:
                             prix = row[3]
                             PosNew = Posint
@@ -1434,30 +1439,31 @@ class SqliteConnector(models.Model):
 
                             # categ_id = product_categories.filtered(lambda c: c.name == 'All / Vitrage')
                             categ_id = self.env.ref('__export__.product_category_23_31345211').id
-                            articles_data.append({
-                                'default_code': refinterne,
-                                'name': refart,
-                                'lst_price': 1,
-                                'standard_price': prix,
-                                'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                                'categ_id': categ_id,
-                                'seller_ids': [(0, 0, {
-                                    'delay': 3,
-                                    'name': idfrs if idfrs else 1,
-                                    'product_name': row[1],
-                                    'price': row[3],
-                                    'min_qty': 1,
-                                    'product_code': row[0],
-                                })],
-                                'purchase_ok': 'yes',
-                                'sale_ok': 'yes',
-                                'detailed_type': 'product',
-                                'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                                'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
-                                'x_studio_hauteur_mm': HautNum,
-                                'x_studio_largeur_mm': largNum,
-                                # 'x_studio_positionn': Posint,
-                            })
+                            if not product_products.filtered(lambda p: p.default_code == refinterne):
+                                articles_data.append({
+                                    'default_code': refinterne,
+                                    'name': refart,
+                                    'lst_price': 1,
+                                    'standard_price': prix,
+                                    'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                    'categ_id': categ_id,
+                                    'seller_ids': [(0, 0, {
+                                        'delay': 3,
+                                        'name': idfrs if idfrs else 1,
+                                        'product_name': row[1],
+                                        'price': row[3],
+                                        'min_qty': 1,
+                                        'product_code': row[0],
+                                    })],
+                                    'purchase_ok': 'yes',
+                                    'sale_ok': 'yes',
+                                    'detailed_type': 'product',
+                                    'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                                    'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                                    'x_studio_hauteur_mm': HautNum,
+                                    'x_studio_largeur_mm': largNum,
+                                    # 'x_studio_positionn': Posint,
+                                })
                             if LstFrs != idfrs :
                                 LstFrs = idfrs
                                 LstInfo2 = Info2
@@ -1824,8 +1830,11 @@ class SqliteConnector(models.Model):
                 datanom = datanom1 + datanom2
                 pro = product_products.filtered(lambda p: p.default_code == refarticle)
                 if datanom1[1] != '':
-                    pro_temp = self.env['product.template'].search([('default_code', 'ilike', datanom1[1])], limit=1)
-                    nomenclatures_data.append({
+                    pro_temp = self.env['product.template'].search([('default_code', '=', datanom1[1])], limit=1)
+                    if not pro_temp:
+                        self.log_request('Unable to find product template', datanom1[1], 'Nomenclatures Creation')
+                    else:
+                        nomenclatures_data.append({
                         "product_tmpl_id": pro_temp[0].id,
                         "type": "normal",
                         "product_qty": int(datanom1[3]),
@@ -1898,7 +1907,10 @@ class SqliteConnector(models.Model):
             pro = product_products.filtered(lambda p: p.default_code == refart)
             if datanom1[1] != '':
                 pro_temp = self.env['product.template'].search([('default_code', 'ilike', datanom1[1])], limit=1)
-                nomenclatures_data.append({
+                if not pro_temp:
+                    self.log_request('Unable to find product template', datanom1[1], 'nomenclatures')
+                else:
+                    nomenclatures_data.append({
                     "product_tmpl_id": pro_temp[0].id,
                     "type": "normal",
                     "product_qty": int(datanom1[3]),
