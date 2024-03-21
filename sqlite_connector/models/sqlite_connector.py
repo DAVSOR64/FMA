@@ -1885,7 +1885,7 @@ class SqliteConnector(models.Model):
                         'operation_ids': []
                     })
                 else:
-                    if nomenclatures_data:
+                    if nomenclatures_data and pro:
                         nomenclatures_data[0].get('bom_line_ids').append((0, 0, {
                         'product_id': pro[0].id,
                         'product_qty': Qte,
@@ -1961,7 +1961,7 @@ class SqliteConnector(models.Model):
                     'operation_ids': []
                 })
             else:
-                if nomenclatures_data:
+                if nomenclatures_data and pro:
                     nomenclatures_data[0].get('bom_line_ids').append((0, 0, {
                     'product_id': pro[0].id,
                     'product_qty': Qte,
