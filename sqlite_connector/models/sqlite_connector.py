@@ -1571,6 +1571,18 @@ class SqliteConnector(models.Model):
             if (row[0] == 'Report') and (row[1] == 'QuotationDiscount1') :
                 PourRem = row[2]
 
+        self.state = 'error'
+        try:
+            for product in product_products.create(articlesm):
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Product has been Created: %s") % ','.join(refs)
+                messages.append(message)
+                
+        except Exception as e:
+            return self.log_request('Unable to create products.', str(e), 'Whole Articles Data')
+
+        self.env.cr.commit()
+
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo , Address.Address2, Phases.Name, Phases.Info1, Elevations.AutoDescription, Elevations.Amount, Elevations.Height_Output, ReportOfferTexts.TotalPrice, Elevations.Width_Output,Elevations.AutoDescriptionShort, Elevations.Name,  Elevations.Description, Projects.PersonInCharge from Projects LEFT JOIN Address ON Projects.LK_CustomerAddressID = Address.AddressID LEFT JOIN Phases ON Projects.ProjectID = Phases.ProjectID LEFT JOIN ElevationGroups ON Phases.PhaseId = ElevationGroups.PhaseID LEFT JOIN Elevations ON ElevationGroups.ElevationGroupId = Elevations.ElevationID LEFT JOIN ReportOfferTexts ON ReportOfferTexts.ElevationId = Elevations.ElevationId order by Elevations.ElevationID")
 
         clientID = ''
@@ -1623,20 +1635,28 @@ class SqliteConnector(models.Model):
                         dimension = row[9] + 'mm * ' + row[7] + 'mm'
                         refart = '[' + row[11] + '_' + projet + ']' + row[12]
                 data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
+                if NbrLig == 1:
+                    data1 =['','','','','','','','','','','','','']
+                    proj = ''
+                    if Tranche != '0' :
+                        proj = projet + '/' + str(Tranche)
+                    else :
+                        proj = projet
+                    if BP == 'BPA':
+                        proj = proj + '_BPA'
+                    data = data1 + [proj,0, 1,proj,etiana,PourRem]
+                if refart != 'ECO-CONTRIBUTION':
+                    pro_name = row[11] + '_' + projet
                 part = res_partners.filtered(lambda p: p.name == data1[1])
-                part_ship = res_partners.filtered(lambda p: p.name == data1[2])
-                if refart == 'ECO-CONTRIBUTION':
-                    pro = product_products.filtered(lambda p: p.name == refart or p.default_code == refart)
-                # else:
-                    # pro = product_products.filtered(lambda p: "[" + p.default_code + "]" + p.name == refart if p.default_code else p.name == refart)
+                pro = product_products.filtered(lambda p: p.default_code == pro_name)
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
-                sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
-                    
+
+                sale_order = self.env['sale.order'].search([('name', '=', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                 if sale_order:
-                    if so_data.get(sale_order.id, 0) == 0:
+                    if so_data.get(sale_order.id, 0) == 0 and pro:
                         so_data[sale_order.id] = {
                         "date_order": fields.Date.today(),
                         "analytic_account_id": ana_acc.id if ana_acc else False ,
@@ -1653,22 +1673,38 @@ class SqliteConnector(models.Model):
                         "x_studio_bureau_etude": data1[9],
                         "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         "commitment_date": dateliv,
-                        "order_line": [],
+                        "order_line": [(0, 0, {
+                                'product_id': pro[0].id if pro else False,
+                                'price_unit': float(row[8]),
+                                'product_uom_qty': float(row[6]),
+                                'name': dimension,
+                                'discount': PourRem,
+                                'product_uom': pro.uom_id.id,
+                                "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                })],
                     }
-                    if pro:
-                        if so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+                    else:
+                        if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                             so_data[sale_order.id].get('order_line').append((0, 0, {
                                 'product_id': pro[0].id if pro else False,
-                                'price_unit': row[8],
-                                'product_uom_qty': row[6],
+                                'price_unit': float(row[8]),
+                                'product_uom_qty': float(row[6]),
                                 'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
                                 "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 }))
-                        
-                if NbrLig == 1:
-                    data1 =['','','','','','','','','','','','','']
+
+        else:
+            for row in resultp:
+                deviseur = row[13]
+                NbrLig = NbrLig + 1
+                if NbrLig == 1 :
+                    clientID = row[2]
+                    if LstArt != '' :
+                        data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom,dateliv]
+                    else :
+                        data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
                     proj = ''
                     if Tranche != '0' :
                         proj = projet + '/' + str(Tranche)
@@ -1676,102 +1712,50 @@ class SqliteConnector(models.Model):
                         proj = projet
                     if BP == 'BPA':
                         proj = proj + '_BPA'
-                    data = data1 + [proj,0, 1,proj,etiana,PourRem]
+                    data = data1 + [proj,0, 1,proj,etiana]
                     part = res_partners.filtered(lambda p: p.name == data1[1])
                     part_ship = res_partners.filtered(lambda p: p.name == data1[2])
-                    pro = product_products.filtered(lambda p: "[" + p.default_code + "]" + p.name == refart if p.default_code else p.name == proj)
+                    pro = product_products.filtered(lambda p: p.default_code == proj)
                     warehouse = False
                     if data1[10]:
                         warehouse = self.env.ref(data1[10]).id
-                    sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                    sale_order = self.env['sale.order'].search([('name', '=', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
                     ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                     if sale_order:
-                        if so_data.get(sale_order.id, 0) == 0:
-                            so_data[sale_order.id] = {
+                        if so_data.get(sale_order.id, 0) == 0 and pro:
+                            so_data.append({
                                 "date_order": fields.Date.today(),
                                 "analytic_account_id": ana_acc.id if ana_acc else False ,
                                 "activity_ids": [(0, 0, {
                                     'summary': data1[6],
                                     "res_model": 'sale.order',
                                     'res_model_id': sale_order.id,
-                                    'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
+                                    'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id ,
                                     'res_model_id': self.env['ir.model']._get_id('sale.order'),
                                     'user_id': user_id,
                                     'date_deadline': datetime.now(),
-                                    })],
+                                })],
                                 "x_studio_deviseur": data1[8],
                                 "x_studio_bureau_etude": data1[9],
-                                "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                "tag_ids": [(6, 0, data1[11])],
                                 "commitment_date": dateliv,
-                                "order_line": [],
-                            }
-                        if pro and so_data[sale_order.id].get('order_line'):
-                            so_data[sale_order.id].get('order_line').append((0, 0, {
-                                'product_id': pro[0].id if pro else False,
-                                'price_unit': row[8],
-                                'product_uom_qty': row[6],
-                                'name': dimension,
-                                'discount': PourRem,
-                                'product_uom': pro.uom_id.id,
-                                "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                })
-                            )
-                    else:
-                        self.log_request("Unable to find Sale Order", projet, 'Elevations Data')
-                        
-            else:
-                for row in resultp:
-                    deviseur = row[13]
-                    NbrLig = NbrLig + 1
-                    if NbrLig == 1 :
-                        clientID = row[2]
-                        if LstArt != '' :
-                            data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom,dateliv]
-                        else :
-                            data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
-                        proj = ''
-                        if Tranche != '0' :
-                            proj = projet + '/' + str(Tranche)
-                        else :
-                            proj = projet
-                        if BP == 'BPA':
-                            proj = proj + '_BPA'
-                        data = data1 + [proj,0, 1,proj,etiana]
-                        part = res_partners.filtered(lambda p: p.name == data1[1])
-                        part_ship = res_partners.filtered(lambda p: p.name == data1[2])
-                        pro = product_products.filtered(lambda p: "[" + p.default_code + "]" + p.name == refart if p.default_code else p.name == proj)
-
-                        warehouse = False
-                        
-                        if data1[10]:
-                            warehouse = self.env.ref(data1[10]).id
-                        sale_order = self.env['sale.order'].search([('name', 'ilike', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
-                        ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-                        if sale_order:
-                            if so_data.get(sale_order.id, 0) == 0:
-                                so_data.append({
-                                    "date_order": fields.Date.today(),
-                                    "analytic_account_id": ana_acc.id if ana_acc else False ,
-                                    "activity_ids": [(0, 0, {
-                                        'summary': data1[6],
-                                        "res_model": 'sale.order',
-                                        'res_model_id': sale_order.id,
-                                        'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id ,
-                                        'res_model_id': self.env['ir.model']._get_id('sale.order'),
-                                        'user_id': user_id,
-                                        'date_deadline': datetime.now(),
-                                    })],
-                                    "x_studio_deviseur": data1[8],
-                                    "x_studio_bureau_etude": data1[9],
-                                    "tag_ids": [(6, 0, data1[11])],
-                                    "commitment_date": dateliv,
-                                    "order_line": [],
-                                })
+                                "order_line": [(0, 0, {
+                                    'product_id': pro[0].id if pro else False,
+                                    'price_unit': float(row[8]),
+                                    'product_uom_qty': float(row[6]),
+                                    'name': dimension,
+                                    'discount': PourRem,
+                                    'product_uom': pro.uom_id.id,
+                                    "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                    })
+                                ],
+                            })
+                        else:
                             if pro and so_data[sale_order.id].get('order_line'):
                                 so_data[sale_order.id].get('order_line').append((0, 0, {
                                     'product_id': pro[0].id if pro else False,
-                                    'price_unit': row[8],
-                                    'product_uom_qty': row[6],
+                                    'price_unit': float(row[8]),
+                                    'product_uom_qty': float(row[6]),
                                     'name': dimension,
                                     'discount': PourRem,
                                     'product_uom': pro.uom_id.id,
