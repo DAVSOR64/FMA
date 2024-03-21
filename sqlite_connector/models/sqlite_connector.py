@@ -1830,12 +1830,12 @@ class SqliteConnector(models.Model):
                 datanom = datanom1 + datanom2
                 pro = product_products.filtered(lambda p: p.default_code == refarticle)
                 if datanom1[1] != '':
-                    pro_temp = self.env['product.template'].search([('default_code', '=', datanom1[1])], limit=1)
-                    if not pro_temp:
-                        self.log_request('Unable to find product template', datanom1[1], 'Nomenclatures Creation')
+                    pro_t = self.env['product.product'].search([('default_code', '=', datanom1[1])], limit=1)
+                    if not pro_t:
+                        self.log_request('Unable to find product', datanom1[1], 'Nomenclatures Creation')
                     else:
                         nomenclatures_data.append({
-                        "product_tmpl_id": pro_temp[0].id,
+                        "product_tmpl_id": pro_t[0].product_tmpl_id.id,
                         "type": "normal",
                         "product_qty": int(datanom1[3]),
                         "analytic_account_id": account_analytic_id,
@@ -1906,12 +1906,12 @@ class SqliteConnector(models.Model):
             ArtOK = '1'
             pro = product_products.filtered(lambda p: p.default_code == refart)
             if datanom1[1] != '':
-                pro_temp = self.env['product.template'].search([('default_code', 'ilike', datanom1[1])], limit=1)
-                if not pro_temp:
-                    self.log_request('Unable to find product template', datanom1[1], 'nomenclatures')
+                pro_t = self.env['product.product'].search([('default_code', 'ilike', datanom1[1])], limit=1)
+                if not pro_t:
+                    self.log_request('Unable to find product', datanom1[1], 'nomenclatures')
                 else:
                     nomenclatures_data.append({
-                    "product_tmpl_id": pro_temp[0].id,
+                    "product_tmpl_id": pro_t[0].product_tmpl_id.id,
                     "type": "normal",
                     "product_qty": int(datanom1[3]),
                     "analytic_account_id": account_analytic_id,
