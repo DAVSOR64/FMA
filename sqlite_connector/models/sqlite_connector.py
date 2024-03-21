@@ -249,7 +249,7 @@ class SqliteConnector(models.Model):
                         'categ_id': categ.id if categ else self.env.ref('product.product_category_all').id,
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
                         "uom_po_id": self.env.ref('uom.product_uom_unit').id,
-                        "type": "consu",
+                        "detailed_type": "consu",
                         "purchase_ok": "no",
                         "sale_ok": "yes",
                         'produce_delay': 0
@@ -261,11 +261,11 @@ class SqliteConnector(models.Model):
 
         for row in resultp:
             refart = row[1]
+            categ = self.env.ref('product.product_category_all')
             if BP == 'BPA':
                 refart = refart + '_BPA'
                 refart = refart.strip()
                 idrefart = ''
-                categ = self.env.ref('product.product_category_all')
                 if not product_products.filtered(lambda p: p.default_code == refart):
                     articlesm.append({
                         "name": refart,
@@ -275,7 +275,23 @@ class SqliteConnector(models.Model):
                         'categ_id': categ.id,
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
                         "uom_po_id": self.env.ref('uom.product_uom_unit').id,
-                        "type": "product",
+                        "detailed_type": "product",
+                        "purchase_ok": "no",
+                        "sale_ok": "yes",
+                        "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4, self.env.ref('mrp.route_warehouse0_manufacture').id)],
+                        'produce_delay': delaifab
+                    })
+            else:
+                if not product_products.filtered(lambda p: p.default_code == refart):
+                    articlesm.append({
+                        "name": refart,
+                        "default_code": refart,
+                        "list_price": 0,
+                        "standard_price": 0,
+                        'categ_id': categ.id,
+                        "uom_id": self.env.ref('uom.product_uom_unit').id,
+                        "uom_po_id": self.env.ref('uom.product_uom_unit').id,
+                        "detailed_type": "product",
                         "purchase_ok": "no",
                         "sale_ok": "yes",
                         "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4, self.env.ref('mrp.route_warehouse0_manufacture').id)],
@@ -1767,6 +1783,27 @@ class SqliteConnector(models.Model):
         cpt = 0
         elevID = ''
         nomenclatures_data = []
+        self.state = 'error'
+        try:
+            for product in product_products.create(articlesm):
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Product has been Created: %s") % ','.join(refs)
+                messages.append(message)
+
+            for product in product_products.create(articleslibre):
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Product has been Created: %s") % ','.join(refs)
+                messages.append(message)
+                
+            for product in product_products.create(articles_data):
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Product has been Created: %s") % ','.join(refs)
+                messages.append(message)
+                
+        except Exception as e:
+            return self.log_request('Unable to create products.', str(e), 'Whole Articles Data')
+
+        self.env.cr.commit()
         
         resultarticles=cursor.execute("Select ArticleCode, Description, Color, Units_Output, Units_Unit, Units,ArticleCode_Supplier, PUSize, ArticleCode_BaseNumber, ColorInfoInternal, ArticleCode_Number from AllArticles")
         UV = 0
@@ -1906,7 +1943,7 @@ class SqliteConnector(models.Model):
             ArtOK = '1'
             pro = product_products.filtered(lambda p: p.default_code == refart)
             if datanom1[1] != '':
-                pro_t = self.env['product.product'].search([('default_code', 'ilike', datanom1[1])], limit=1)
+                pro_t = self.env['product.product'].search([('default_code', '=', datanom1[1])], limit=1)
                 if not pro_t:
                     self.log_request('Unable to find product', datanom1[1], 'nomenclatures')
                 else:
@@ -1986,27 +2023,6 @@ class SqliteConnector(models.Model):
         cursor.close()
         temp_file.close()
         cursor1.close()
-        self.state = 'error'
-        try:
-            for product in product_products.create(articlesm):
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Product has been Created: %s") % ','.join(refs)
-                messages.append(message)
-
-            for product in product_products.create(articleslibre):
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Product has been Created: %s") % ','.join(refs)
-                messages.append(message)
-                
-            for product in product_products.create(articles_data):
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Product has been Created: %s") % ','.join(refs)
-                messages.append(message)
-                
-        except Exception as e:
-            return self.log_request('Unable to create products.', str(e), 'Whole Articles Data')
-
-        self.env.cr.commit()
         try:
             for so in so_data:
                 for so_to_update in self.env['sale.order'].browse(so):
