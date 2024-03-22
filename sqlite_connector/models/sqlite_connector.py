@@ -298,6 +298,17 @@ class SqliteConnector(models.Model):
                         'produce_delay': delaifab
                     })
 
+        self.state = 'error'
+        try:
+            for product in product_products.create(articlesm):
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Product has been Created: %s") % ','.join(refs)
+                messages.append(message)
+                
+        except Exception as e:
+            return self.log_request('Unable to create products.', str(e), 'Whole Articles Data')
+
+        self.env.cr.commit()
         # We come to find the address for supplier deliveries
         entrepot = ''
         stock_picking_type_id = False
@@ -1571,18 +1582,6 @@ class SqliteConnector(models.Model):
             if (row[0] == 'Report') and (row[1] == 'QuotationDiscount1') :
                 PourRem = row[2]
 
-        self.state = 'error'
-        try:
-            for product in product_products.create(articlesm):
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Product has been Created: %s") % ','.join(refs)
-                messages.append(message)
-                
-        except Exception as e:
-            return self.log_request('Unable to create products.', str(e), 'Whole Articles Data')
-
-        self.env.cr.commit()
-
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo , Address.Address2, Phases.Name, Phases.Info1, Elevations.AutoDescription, Elevations.Amount, Elevations.Height_Output, ReportOfferTexts.TotalPrice, Elevations.Width_Output,Elevations.AutoDescriptionShort, Elevations.Name,  Elevations.Description, Projects.PersonInCharge from Projects LEFT JOIN Address ON Projects.LK_CustomerAddressID = Address.AddressID LEFT JOIN Phases ON Projects.ProjectID = Phases.ProjectID LEFT JOIN ElevationGroups ON Phases.PhaseId = ElevationGroups.PhaseID LEFT JOIN Elevations ON ElevationGroups.ElevationGroupId = Elevations.ElevationID LEFT JOIN ReportOfferTexts ON ReportOfferTexts.ElevationId = Elevations.ElevationId order by Elevations.ElevationID")
 
         clientID = ''
@@ -1769,10 +1768,6 @@ class SqliteConnector(models.Model):
         nomenclatures_data = []
         self.state = 'error'
         try:
-            for product in product_products.create(articlesm):
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Product has been Created: %s") % ','.join(refs)
-                messages.append(message)
 
             for product in product_products.create(articleslibre):
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
