@@ -248,8 +248,8 @@ class SqliteConnector(models.Model):
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
                         "uom_po_id": self.env.ref('uom.product_uom_unit').id,
                         "detailed_type": "consu",
-                        "purchase_ok": "no",
-                        "sale_ok": "yes",
+                        "purchase_ok": False,
+                        "sale_ok": True,
                         'produce_delay': 0,
                     })
                     refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
@@ -278,8 +278,8 @@ class SqliteConnector(models.Model):
                     "uom_id": self.env.ref('uom.product_uom_unit').id,
                     "uom_po_id": self.env.ref('uom.product_uom_unit').id,
                     "detailed_type": "product",
-                    "purchase_ok": "no",
-                    "sale_ok": "yes",
+                    "purchase_ok": False,
+                    "sale_ok": True,
                     "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4, self.env.ref('mrp.route_warehouse0_manufacture').id)],
                     'produce_delay': delaifab
                 })
@@ -526,8 +526,8 @@ class SqliteConnector(models.Model):
                                 "standard_price": prix,
                                 "uom_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
                                 "categ_id": categ_id.id,
-                                "purchase_ok": "yes",
-                                "sale_ok": "yes",
+                                "purchase_ok": True,
+                                "sale_ok": True,
                                 "detailed_type": "product",
                                 "uom_po_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
                                 "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
@@ -598,8 +598,8 @@ class SqliteConnector(models.Model):
                                         'min_qty': 1,
                                         'product_code': art
                                 })],
-                                'purchase_ok': 'yes',
-                                'sale_ok': 'yes',
+                                'purchase_ok': True,
+                                'sale_ok': True,
                                 'detailed_type': 'product',
                                 'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                 'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
@@ -866,8 +866,8 @@ class SqliteConnector(models.Model):
                                 "standard_price": prixB,
                                 "uom_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
                                 "categ_id": categ_id.id,
-                                "purchase_ok": "yes",
-                                "sale_ok": "yes",
+                                "purchase_ok": True,
+                                "sale_ok": True,
                                 "detailed_type": "product",
                                 "uom_po_id": idun if idun else self.env.ref('uom.product_uom_unit').id,
                                 "route_ids": [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
@@ -891,6 +891,7 @@ class SqliteConnector(models.Model):
                         art = refart
                         Qte = row[7]
                         prixV = prixB * 1.5
+                        data10 = [art, nom, prixV ,prixB, idun, 'All / Profile', '56', idfrs, nom, prixB, '1', art, 'yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy', '0','0','']
                         # categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
                         seller = self.env['product.supplierinfo'].create({
                             'name': idfrs,
@@ -907,8 +908,8 @@ class SqliteConnector(models.Model):
                                 'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                 'categ_id': categ_id.id,
                                 'seller_ids': [(6, 0, [seller.id])],
-                                'purchase_ok': 'yes',
-                                'sale_ok': 'yes',
+                                'purchase_ok': True,
+                                'sale_ok': True,
                                 'detailed_type': 'product',
                                 'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                 'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
@@ -1370,8 +1371,8 @@ class SqliteConnector(models.Model):
                                     'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                     'categ_id': categ_id,
                                     'seller_ids': [(6, 0, [seller.id])],
-                                    'purchase_ok': 'yes',
-                                    'sale_ok': 'yes',
+                                    'purchase_ok': True,
+                                    'sale_ok': True,
                                     'detailed_type': 'product',
                                     'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                     'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
@@ -1423,8 +1424,8 @@ class SqliteConnector(models.Model):
                                     'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                     'categ_id': categ_id,
                                     'seller_ids': [(6, 0, [seller.id])],
-                                    'purchase_ok': 'yes',
-                                    'sale_ok': 'yes',
+                                    'purchase_ok': True,
+                                    'sale_ok': True,
                                     'detailed_type': 'product',
                                     'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                     'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
