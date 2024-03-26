@@ -1595,7 +1595,7 @@ class SqliteConnector(models.Model):
                     pro_name = row[11] + '_' + projet
                 else:
                     pro_name = 'ECO-CONTRIBUTION'
-                part = res_partners.filtered(lambda p: p.name == data1[1])
+                part = res_partners.filtered(lambda p: p.name == row[2])
                 pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
                 warehouse = False
                 if data1[10]:
@@ -1606,6 +1606,9 @@ class SqliteConnector(models.Model):
                 if sale_order:
                     if so_data.get(sale_order.id, 0) == 0 and pro:
                         so_data[sale_order.id] = {
+                        "partner_id": part.id if part else sale_order.partner_id.id,
+                        "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
+                        "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
                         "date_order": fields.Date.today(),
                         "analytic_account_id": ana_acc.id if ana_acc else False ,
                         "activity_ids": [(0, 0, {
@@ -1630,9 +1633,7 @@ class SqliteConnector(models.Model):
                                 'product_uom': pro.uom_id.id,
                                 "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 })],
-                        if so_data.get(sale_order.id) and part:
-                            so_data[sale_order.id].update('partner_id': part.id)
-                    }
+                        }
                     else:
                         if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                             so_data[sale_order.id].get('order_line').append((0, 0, {
@@ -1663,8 +1664,7 @@ class SqliteConnector(models.Model):
                     if BP == 'BPA':
                         proj = proj + '_BPA'
                     data = data1 + [proj,0, 1,proj,etiana]
-                    part = res_partners.filtered(lambda p: p.name == data1[1])
-                    part_ship = res_partners.filtered(lambda p: p.name == data1[2])
+                    part = res_partners.filtered(lambda p: p.name == row[2])
                     pro = self.env['product.product'].search([('default_code', '=', proj)], limit=1)
                     warehouse = False
                     if data1[10]:
@@ -1674,6 +1674,9 @@ class SqliteConnector(models.Model):
                     if sale_order:
                         if so_data.get(sale_order.id, 0) == 0 and pro:
                             so_data.append({
+                                "partner_id": part.id if part else sale_order.partner_id.id,
+                                "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
+                                "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
                                 "date_order": fields.Date.today(),
                                 "analytic_account_id": ana_acc.id if ana_acc else False ,
                                 "activity_ids": [(0, 0, {
@@ -1700,8 +1703,6 @@ class SqliteConnector(models.Model):
                                     })
                                 ],
                             })
-                        if so_data.get(sale_order.id) and part:
-                            so_data[sale_order.id].update('partner_id': part.id)
                         else:
                             if pro and so_data[sale_order.id].get('order_line'):
                                 so_data[sale_order.id].get('order_line').append((0, 0, {
@@ -1884,6 +1885,22 @@ class SqliteConnector(models.Model):
                     'product_qty': Qte,
                     'product_uom_id': pro.uom_id.id
                 }))
+
+        # To update nomenculture for PO items
+        resultprojet=cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
+        refinterne=''
+        Qte = ''
+        idun =''
+        for po in po_glass_vals:
+            for line in po.get('order_line'):
+                if proj in line[2].get('product_id'):
+                    product = self.env['product.product'].search([('default_code', '=', line[2].get('product_id'))], limit=1)
+                    if product:
+                        nomenclatures_data[0].get('bom_line_ids').append((0, 0, {
+                            'product_id': product.id,
+                            'product_qty': line[2].get('product_qty'),
+                            'product_uom_id': product.uom_id.id if product.uom_id else False
+                        }))
 
         # For operations
         resu=cursor.execute("select LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name from LabourTimes")
