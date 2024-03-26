@@ -1602,6 +1602,7 @@ class SqliteConnector(models.Model):
                     warehouse = self.env.ref(data1[10]).id
                 sale_order = self.env['sale.order'].search([('name', '=', projet), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
+                
                 if sale_order:
                     if so_data.get(sale_order.id, 0) == 0 and pro:
                         so_data[sale_order.id] = {
@@ -1616,7 +1617,7 @@ class SqliteConnector(models.Model):
                             'user_id': user_id,
                             'date_deadline': datetime.now(),
                         })],
-                        "x_studio_deviseur": data1[8],
+                        "x_studio_deviseur": row[13],
                         "x_studio_bureau_etude": data1[9],
                         "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         "commitment_date": dateliv,
@@ -1629,6 +1630,8 @@ class SqliteConnector(models.Model):
                                 'product_uom': pro.uom_id.id,
                                 "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 })],
+                        if so_data.get(sale_order.id) and part:
+                            so_data[sale_order.id].update('partner_id': part.id)
                     }
                     else:
                         if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
@@ -1682,7 +1685,7 @@ class SqliteConnector(models.Model):
                                     'user_id': user_id,
                                     'date_deadline': datetime.now(),
                                 })],
-                                "x_studio_deviseur": data1[8],
+                                "x_studio_deviseur": row[13],
                                 "x_studio_bureau_etude": data1[9],
                                 "tag_ids": [(6, 0, data1[11])],
                                 "commitment_date": dateliv,
@@ -1697,6 +1700,8 @@ class SqliteConnector(models.Model):
                                     })
                                 ],
                             })
+                        if so_data.get(sale_order.id) and part:
+                            so_data[sale_order.id].update('partner_id': part.id)
                         else:
                             if pro and so_data[sale_order.id].get('order_line'):
                                 so_data[sale_order.id].get('order_line').append((0, 0, {
