@@ -111,6 +111,7 @@ class SqliteConnector(models.Model):
         Tranche = '0'
         PersonBE = ''
         project = ''
+        delaifab = 1
 
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo, PersonInCharge from Projects")
 
