@@ -1004,6 +1004,7 @@ class SqliteConnector(models.Model):
             Frsid = ''
             name = ''
             frsnomf = ''
+            sname = ''
 
             for row in resultg:
                 Info2 = row[7]
