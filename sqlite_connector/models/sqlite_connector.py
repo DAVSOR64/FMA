@@ -284,7 +284,7 @@ class SqliteConnector(models.Model):
                     "detailed_type": "product",
                     "purchase_ok": False,
                     "sale_ok": True,
-                    "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('__export__.stock_location_route_99_adb9a7a8').id)],
+                    "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('mrp.route_warehouse0_manufacture').id)],
                     'produce_delay': delaifab
                 })
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
