@@ -1019,7 +1019,7 @@ class SqliteConnector(models.Model):
                 spacer = row[14]
                 nomvit = row[15]
                 Frsid = row[17]
-                Qte = float(row[10])
+                #Qte = float(row[10])
                 largNum = float(row[4])
                 HautNum = float(row[5])
                 largNum = round(largNum)
@@ -1047,9 +1047,13 @@ class SqliteConnector(models.Model):
                     name = 'X'
                 else :
                     name = str(row[9])
-                Posint = name + ' / ' + row[8]
+                Posint = row[0] + ' / ' + row[4] + ' ' + row[5] + ' ' + name
                 refart = row[1]
                 if nomvit != 'Sans vitrage' :
+                    #_logger.warning("DEBUT PosNew " % str(PosNew) )
+                    _logger.warning("Posint %s " % str(Posint) )
+                    _logger.warning("ARTICLE %s " % refart )
+                    _logger.warning("Qte %s " % str(Qte) )
                     if PosNew == Posint :
                         if (row[10] == None) :
                             qtech = '1'
@@ -1138,6 +1142,10 @@ class SqliteConnector(models.Model):
                                             }))
                     else:
                         if PosNew != '':
+                            _logger.warning("PosNew %s " % PosNew )
+                            _logger.warning("cpt1 %s " % str(cpt1) )
+                            _logger.warning("nbr %s " % str(nbr) )
+                            _logger.warning("Vitrage %s " % refinterne )
                             uom = uom_uoms.filtered(lambda u: u.name == unnomf)
                             if uom:
                                 idun = uom.id
@@ -1174,6 +1182,8 @@ class SqliteConnector(models.Model):
                                                 })]
                                             })
                                     else:
+                                        #_logger.warning("Vitrage %s " % refinterne )
+                                        #_logger.warning("Fournisseur %s " % LstFrs )
                                         for po in po_glass_vals:
                                             if po.get('partner_id') == LstFrs:
                                                 po.get('order_line').append((0, 0, {
@@ -1195,6 +1205,23 @@ class SqliteConnector(models.Model):
                                     projet = projet.strip()
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                     if idfrs and stock_picking_type_id:
+                                        _logger.warning("Vitrage %s " % refinterne )
+                                        _logger.warning("Fournisseur %s " % LstFrs )
+                                        for po in po_glass_vals:
+                                            if po.get('partner_id') == LstFrs:
+                                                po.get('order_line').append((0, 0, {
+                                                    'product_id': refinterne,
+                                                    'date_planned': datetime.now(),
+                                                    'x_studio_posit': Posint,
+                                                    'price_unit': prix,
+                                                    'product_qty': Qte,
+                                                    'product_uom': False,
+                                                    'x_studio_hauteur': HautNum,
+                                                    'x_studio_largeur': largNum,
+                                                    'x_studio_spacer': spacer,
+                                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                    'date_planned': dateliv,
+                                                }))
                                         po_glass_vals.append({
                                             'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                             'partner_id': idfrs,
@@ -1648,7 +1675,7 @@ class SqliteConnector(models.Model):
                             'user_id': user_id,
                             'date_deadline': datetime.now(),
                         })],
-                        "x_studio_deviseur": row[13],
+                        "x_studio_deviseur_1": row[13],
                         "x_studio_bureau_etude": data1[9],
                         "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         "commitment_date": dateliv,
@@ -1738,7 +1765,7 @@ class SqliteConnector(models.Model):
                                     'user_id': user_id,
                                     'date_deadline': datetime.now(),
                                 })],
-                                "x_studio_deviseur": row[13],
+                                "x_studio_deviseur_1": row[13],
                                 "x_studio_bureau_etude": data1[9],
                                 "tag_ids": [(6, 0, data1[11])],
                                 "commitment_date": dateliv,
