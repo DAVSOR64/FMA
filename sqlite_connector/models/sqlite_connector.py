@@ -900,21 +900,16 @@ class SqliteConnector(models.Model):
                         prixV = prixB * 1.5
                         data10 = [art, nom, prixV ,prixB, idun, 'All / Profile', '56', idfrs, nom, prixB, '1', art, 'yes', 'yes', 'Product', idun, 'purchase_stock.route_warehouse0_buy', '0','0','']
                         # categ_id = product_categories.filtered(lambda c: c.name == 'All / Profile')
-                        seller = self.env['product.supplierinfo'].create({
-                            'name': idfrs,
-                            'price': prixB,
-                            'delay': 56,
-                        })
+                        
                         categ_id =  self.env.ref('__export__.product_category_19_b8423373')
                         if not self.env['product.product'].search([('default_code', '=', art)], limit=1):
-                            product = self.env['product.product'].create({
+                            vals = {
                                 'default_code': art,
                                 'name': nom,
                                 'lst_price': prixV,
                                 'standard_price': prixB,
                                 'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                 'categ_id': categ_id.id,
-                                'seller_ids': [(6, 0, [seller.id])],
                                 'purchase_ok': True,
                                 'sale_ok': True,
                                 'detailed_type': 'product',
@@ -923,7 +918,15 @@ class SqliteConnector(models.Model):
                                 'x_studio_hauteur_mm': 0,
                                 'x_studio_largeur_mm': 0,
                                 # 'x_studio_positionn': ''
-                            })
+                            }
+                            if idfrs:
+                                seller = self.env['product.supplierinfo'].create({
+                                    'name': idfrs,
+                                    'price': prixB,
+                                    'delay': 56,
+                                })
+                                vals.update({'seller_ids': [(6, 0, [seller.id])]})
+                            product = self.env['product.product'].create(vals)
                             refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                             message = _("Product has been Created: %s") % ','.join(refs)
                             self.message_post(body=message)
@@ -1392,20 +1395,15 @@ class SqliteConnector(models.Model):
                             idrefvit = refinterne.replace(" ","_")
                             # categ_id = product_categories.filtered(lambda c: c.name == 'All / Vitrage')
                             categ_id = self.env.ref('__export__.product_category_23_31345211').id
-                            seller = self.env['product.supplierinfo'].create({
-                                'name': idfrs,
-                                'price': prix,
-                                'delay': 3,
-                            })
+                            
                             if not self.env['product.product'].search([('default_code', '=', refinterne)], limit=1):
-                                product = self.env['product.product'].create({
+                                vals = {
                                     'default_code': refinterne,
                                     'name': refart,
                                     'lst_price': 1,
                                     'standard_price': prix,
                                     'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                     'categ_id': categ_id,
-                                    'seller_ids': [(6, 0, [seller.id])],
                                     'purchase_ok': True,
                                     'sale_ok': True,
                                     'detailed_type': 'product',
@@ -1414,7 +1412,15 @@ class SqliteConnector(models.Model):
                                     'x_studio_hauteur_mm': HautNum,
                                     'x_studio_largeur_mm': largNum,
                                     # 'x_studio_positionn': Posint,
+                                }
+                                if idfrs:
+                                    seller = self.env['product.supplierinfo'].create({
+                                        'name': idfrs,
+                                        'price': prix,
+                                        'delay': 3,
                                     })
+                                    vals.update({'seller_ids': [(6, 0, [seller.id])]})
+                                product = self.env['product.product'].create(vals)
                                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                                 message = _("Product has been Created: %s") % ','.join(refs)
                                 self.message_post(body=message)
@@ -1445,20 +1451,14 @@ class SqliteConnector(models.Model):
 
                             # categ_id = product_categories.filtered(lambda c: c.name == 'All / Vitrage')
                             categ_id = self.env.ref('__export__.product_category_23_31345211').id
-                            seller = self.env['product.supplierinfo'].create({
-                                'name': idfrs,
-                                'price': row[3],
-                                'delay': 3,
-                            })
                             if not self.env['product.product'].search([('default_code', '=', refinterne)], limit=1):
-                                product = self.env['product.product'].create({
+                                vals = {
                                     'default_code': refinterne,
                                     'name': refart,
                                     'lst_price': 1,
                                     'standard_price': prix,
                                     'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
                                     'categ_id': categ_id,
-                                    'seller_ids': [(6, 0, [seller.id])],
                                     'purchase_ok': True,
                                     'sale_ok': True,
                                     'detailed_type': 'product',
@@ -1467,7 +1467,15 @@ class SqliteConnector(models.Model):
                                     'x_studio_hauteur_mm': HautNum,
                                     'x_studio_largeur_mm': largNum,
                                     # 'x_studio_positionn': Posint,
-                                })
+                                }
+                                if idfrs:
+                                    seller = self.env['product.supplierinfo'].create({
+                                        'name': idfrs,
+                                        'price': row[3],
+                                        'delay': 3,
+                                    })
+                                    vals.update({'seller_ids': [(6, 0, [seller.id])]})
+                                product = self.env['product.product'].create(vals)
                                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                                 message = _("Product has been Created: %s") % ','.join(refs)
                                 self.message_post(body=message)
