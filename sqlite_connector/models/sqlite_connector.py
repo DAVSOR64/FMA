@@ -134,7 +134,11 @@ class SqliteConnector(models.Model):
         else:
             user_id = False
             self.log_request("Unable to find user Id.", PersonBE, 'Project Data')
-
+        key_vals = dict(self.env['sale.order']._fields['x_studio_bureau_etudes'].selection)
+        bureau_etudes = False
+        for key, val in key_vals.items():
+            if key == PersonBE.strip():
+                bureau_etudes = key
         account_analytic_id = account_analytics.filtered(lambda a: a.name in projet)
         if account_analytic_id:
             account_analytic_id = account_analytic_id[0].id
@@ -1674,6 +1678,7 @@ class SqliteConnector(models.Model):
                         "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
                         "date_order": fields.Date.today(),
                         "analytic_account_id": ana_acc.id if ana_acc else False ,
+                        'x_studio_bureau_etudes': bureau_etudes,
                         "activity_ids": [(0, 0, {
                             'summary': data1[6],
                             "res_model": 'sale.order',
@@ -1683,7 +1688,7 @@ class SqliteConnector(models.Model):
                             'user_id': user_id,
                             'date_deadline': datetime.now(),
                         })],
-                        "x_studio_deviseur_1": row[13],
+                        # "x_studio_deviseur_1": row[13],
                         "x_studio_bureau_etude": data1[9],
                         "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         "commitment_date": dateliv,
@@ -1764,6 +1769,7 @@ class SqliteConnector(models.Model):
                                 "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
                                 "date_order": fields.Date.today(),
                                 "analytic_account_id": ana_acc.id if ana_acc else False ,
+                                'x_studio_bureau_etudes': bureau_etudes,
                                 "activity_ids": [(0, 0, {
                                     'summary': data1[6],
                                     "res_model": 'sale.order',
@@ -1773,7 +1779,7 @@ class SqliteConnector(models.Model):
                                     'user_id': user_id,
                                     'date_deadline': datetime.now(),
                                 })],
-                                "x_studio_deviseur_1": row[13],
+                                # "x_studio_deviseur_1": row[13],
                                 "x_studio_bureau_etude": data1[9],
                                 "tag_ids": [(6, 0, data1[11])],
                                 "commitment_date": dateliv,
