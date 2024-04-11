@@ -139,7 +139,6 @@ class SqliteConnector(models.Model):
         for key, val in key_vals.items():
             if key == PersonBE.strip():
                 bureau_etudes = key
-
         account_analytic_id = account_analytics.filtered(lambda a: a.name in projet)
         if account_analytic_id:
             account_analytic_id = account_analytic_id[0].id
@@ -244,7 +243,7 @@ class SqliteConnector(models.Model):
                 refint =  row[1] + '_' + projet
                 idrefart = ''
                 
-                categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
+                categ = product_categories.filtered(lambda c: c.x_studio_logikal_map == categorie)
                 if not categ:
                     self.log_request("Unable to find product category.", categorie, 'Elevations data')
                 if row[1] != 'ECO-CONTRIBUTION' and not self.env['product.product'].search([('default_code', '=', refint)]):
@@ -289,7 +288,8 @@ class SqliteConnector(models.Model):
                     "detailed_type": "product",
                     "purchase_ok": False,
                     "sale_ok": True,
-                    "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('__export__.stock_location_route_99_adb9a7a8').id)],
+                    "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('mrp.route_warehouse0_manufacture').id)],
+                    # Staging before merge :"route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('__export__.stock_location_route_99_adb9a7a8').id)],
                     'produce_delay': delaifab
                 })
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
@@ -1462,7 +1462,7 @@ class SqliteConnector(models.Model):
                                     'x_studio_hauteur_mm': HautNum,
                                     'x_studio_largeur_mm': largNum,
                                     # 'x_studio_positionn': Posint,
-                                    }
+                                }
                                 if idfrs:
                                     seller = self.env['product.supplierinfo'].create({
                                         'name': idfrs,
@@ -1728,6 +1728,7 @@ class SqliteConnector(models.Model):
                         "date_order": fields.Date.today(),
                         "x_studio_bureau_etudes": bureau_etudes,
                         "analytic_account_id": ana_acc.id if ana_acc else False ,
+                        'x_studio_bureau_etudes': bureau_etudes,
                         "activity_ids": [(0, 0, {
                             'summary': data1[6],
                             "res_model": 'sale.order',
@@ -1737,7 +1738,7 @@ class SqliteConnector(models.Model):
                             'user_id': user_id,
                             'date_deadline': datetime.now(),
                         })],
-                        "x_studio_deviseur": row[13],
+                        # "x_studio_deviseur_1": row[13],
                         "x_studio_bureau_etude": data1[9],
                         "tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         "commitment_date": dateliv,
@@ -1775,7 +1776,8 @@ class SqliteConnector(models.Model):
             pro_name =proj                
             dimension = ''
             pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
-            if sale_order and so_data:
+            if sale_order:
+            # stagging before merge if sale_order and so_data:
                if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                     so_data[sale_order.id].get('order_line').append((0, 0, {
                         'product_id': pro.id,
@@ -1821,6 +1823,7 @@ class SqliteConnector(models.Model):
                                 "date_order": fields.Date.today(),
                                 "x_studio_bureau_etudes": bureau_etudes,
                                 "analytic_account_id": ana_acc.id if ana_acc else False ,
+                                'x_studio_bureau_etudes': bureau_etudes,
                                 "activity_ids": [(0, 0, {
                                     'summary': data1[6],
                                     "res_model": 'sale.order',
@@ -1830,7 +1833,7 @@ class SqliteConnector(models.Model):
                                     'user_id': user_id,
                                     'date_deadline': datetime.now(),
                                 })],
-                                "x_studio_deviseur": row[13],
+                                # "x_studio_deviseur_1": row[13],
                                 "x_studio_bureau_etude": data1[9],
                                 "tag_ids": [(6, 0, data1[11])],
                                 "commitment_date": dateliv,
