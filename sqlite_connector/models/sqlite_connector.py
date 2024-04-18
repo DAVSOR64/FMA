@@ -40,7 +40,6 @@ class SqliteConnector(models.Model):
         nomenclatures_data = []
         operations_data = []
         articleslibre = []
-
         product_categories = self.env['product.category'].search([])
         uom_uoms = self.env['uom.uom'].search([])
         stock_picking_type = self.env['stock.picking.type'].search([])
@@ -243,7 +242,7 @@ class SqliteConnector(models.Model):
                 refint =  row[1] + '_' + projet
                 idrefart = ''
                 
-                categ = product_categories.filtered(lambda c: c.x_studio_logikal_map == categorie)
+                categ = product_categories.filtered(lambda c: getattr(c, 'x_studio_logikal_map', None) == categorie)
                 if not categ:
                     self.log_request("Unable to find product category.", categorie, 'Elevations data')
                 if row[1] != 'ECO-CONTRIBUTION' and not self.env['product.product'].search([('default_code', '=', refint)]):
