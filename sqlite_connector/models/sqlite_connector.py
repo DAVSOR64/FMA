@@ -242,7 +242,7 @@ class SqliteConnector(models.Model):
                 refint =  row[1] + '_' + projet
                 idrefart = ''
                 
-                categ = product_categories.filtered(lambda c: getattr(c, 'x_studio_logikal_map', None) == categorie)
+                categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
                 if not categ:
                     self.log_request("Unable to find product category.", categorie, 'Elevations data')
                 if row[1] != 'ECO-CONTRIBUTION' and not self.env['product.product'].search([('default_code', '=', refint)]):
@@ -309,6 +309,9 @@ class SqliteConnector(models.Model):
 
         warehouse, operation = entrepot.split(":")
         warehouse = stock_warehouse.filtered(lambda w: w.name == warehouse)
+
+        test = stock_picking_type.filtered(lambda p: p.id == 7)
+
         if warehouse:
             stock_picking_type_id = stock_picking_type.filtered(lambda p: p.name == operation.strip() and p.warehouse_id.id == warehouse.id)
             if stock_picking_type_id:
