@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+     <menuitem id="menu_fournisseur" name="Export" sequence="10"/>
+     <record id="action_fournisseur_list" model="ir.actions.act_window">
+            <field name="name">Liste des commandes</field>
+            <field name="res_model">expfrs.fournisseur</field>
+            <field name="view_mode">tree,form</field>
+            <field name="domain">[]</field>
+        </record>
+    <menuitem id="menu_fournisseur_list"
+        name="Liste des commandes"
+        parent="menu_fournisseur"
+        action="action_fournisseur_list"/>
+        
+        
+</odoo>
