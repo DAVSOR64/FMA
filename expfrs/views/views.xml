@@ -1,25 +1,25 @@
 <odoo>
   <data>
     <!-- explicit list view definition -->
-<!--
+
     <record model="ir.ui.view" id="expfrs.list">
       <field name="name">expfrs list</field>
-      <field name="model">expfrs.expfrs</field>
+      <field name="model">fournisseur</field>
       <field name="arch" type="xml">
         <tree>
-          <field name="name"/>
-          <field name="value"/>
-          <field name="value2"/>
+      <!--     <field name="name"/> -->
+     <!--     <field name="value"/>
+          <field name="value2"/> -->
         </tree>
       </field>
     </record>
--->
+
 
     <!-- actions opening views on models -->
-<!--
-    <record model="ir.actions.act_window" id="expfrs.action_window">
+
+<!--    <record model="ir.actions.act_window" id="expfrs.action_window">
       <field name="name">expfrs window</field>
-      <field name="res_model">expfrs.expfrs</field>
+      <field name="res_model">expfrs.fournisseur</field>
       <field name="view_mode">tree,form</field>
     </record>
 -->
@@ -38,17 +38,17 @@
         }
       </field>
     </record>
--->
 
-    <!-- Top menu item -->
-<!--
-    <menuitem name="expfrs" id="expfrs.menu_root"/>
 -->
+    <!-- Top menu item -->
+
+    <menuitem name="expfrs" id="expfrs.menu_root"/>
+
     <!-- menu categories -->
-<!--
+
     <menuitem name="Menu 1" id="expfrs.menu_1" parent="expfrs.menu_root"/>
     <menuitem name="Menu 2" id="expfrs.menu_2" parent="expfrs.menu_root"/>
--->
+
     <!-- actions -->
 <!--
     <menuitem name="List" id="expfrs.menu_1_list" parent="expfrs.menu_1"

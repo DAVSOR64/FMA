@@ -1,2 +1,2 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_expfrs_expfrs,expfrs.expfrs,model_expfrs_expfrs,base.group_user,1,1,1,1
+expfrs.access_fournisseur,fournisseur,expfrs.model_fournisseur,base.group_user,1,1,1,1
