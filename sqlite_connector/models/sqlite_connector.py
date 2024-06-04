@@ -581,6 +581,7 @@ class SqliteConnector(models.Model):
             n = 0
             resultat = math.ceil(x * 10**n)/ 10**n
             Qte = (resultat * float(UV))
+            refart = ligne[0]
             # created nomenclature
             creation_nomenclature(Nomenclature, refart, idun, Qte)
             QteStk = 0
@@ -589,7 +590,6 @@ class SqliteConnector(models.Model):
                 idfrs = resultat[0].id
             else:
                 self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
-            refart = ligne[0]
             prix = float (ligne[3])
             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
             regle = 0
@@ -903,6 +903,7 @@ class SqliteConnector(models.Model):
                 n = 0
                 resultat = math.ceil(x * 10**n)/ 10**n
                 Qte = (resultat * float(UV))
+                refart = ligne[0]
                 # created nomenclature
                 creation_nomenclature(Nomenclature, refart, idun, Qte)
                 QteStk = 0
@@ -911,7 +912,6 @@ class SqliteConnector(models.Model):
                     idfrs = resultat[0].id
                 else:
                     self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
-                refart = ligne[0]
                 prix = float (ligne[3])
                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                 regle = 0
