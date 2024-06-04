@@ -90,15 +90,15 @@ class SqliteConnector(models.Model):
            
 
         # To check if product already exists in odoo from articles
-        for article in articles:
-            product = self.env['product.product'].search([('default_code', '=', article['item'])])
-            if product:
-                product = product[0]
-            if product and round(float(article['price']), 4) != round(product.standard_price, 4):
-                product.standard_price = float(article['price'])
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Standard Price is updated for product: %s") % ','.join(refs)
-                self.message_post(body=message)
+        #for article in articles:
+        #    product = self.env['product.product'].search([('default_code', '=', article['item'])])
+        #    if product:
+        #        product = product[0]
+        #    if product and round(float(article['price']), 4) != round(product.standard_price, 4):
+        #        product.standard_price = float(article['price'])
+        #        refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+        #        message = _("Standard Price is updated for product: %s") % ','.join(refs)
+        #        self.message_post(body=message)
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
@@ -735,10 +735,10 @@ class SqliteConnector(models.Model):
                 if eticom == 'F2M' :
                     couleur =''
                     
-                #for profile in profiles:
-                #    if row[0] == profile['article']:
-                #        prix = profile['prix']
-                #        prixB = float(prix) * float(row[6])
+                for profile in profiles:
+                    if row[0] == profile['article']:
+                        prix = profile['prix']
+                        prixB = float(prix) * float(row[6])
                 
                 refart = refart.replace("RYN","REY")
                 refart = refart.replace("SC  ","SCH ")
