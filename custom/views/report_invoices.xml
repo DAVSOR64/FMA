@@ -27,8 +27,8 @@
         </xpath>
         <xpath expr="//div[@class='page']" position="replace">
             <div class="page invoice-box">
-                <!-- Utilisez ici le code HTML de la facture originale en ajoutant des couleurs et des lignes -->
                 <t t-call="account.report_invoice_document">
+                    <t t-set="doc" t-value="doc"/>
                     <t t-foreach="doc.invoice_line_ids" t-as="line">
                         <tr class="item">
                             <td>
