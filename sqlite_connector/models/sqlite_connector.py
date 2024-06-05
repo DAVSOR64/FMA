@@ -387,6 +387,7 @@ class SqliteConnector(models.Model):
         Commande = []
         Nomenclature = []
         delai = 0
+        QteBesoin = 0
         LstArt = ''
         resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number from AllArticles order by AllArticles.ArticleCode_Supplier")
 
@@ -462,6 +463,7 @@ class SqliteConnector(models.Model):
             fournisseur = ligne[4]
             #Qte = ligne[9]
             UV = ligne[7]
+            QteBesoin = float(ligne[9])
             Qte = (float(ligne[9])) / float(UV) if UV else float(ligne[9])
             x = Qte
             n = 0
@@ -523,7 +525,7 @@ class SqliteConnector(models.Model):
                 self.message_post(body=message)
                 self.env.cr.commit()
                 # created nomenclature
-                creation_nomenclature(Nomenclature, refart, idun, Qte)
+                creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
                 # created Purchase Order
                 trouve = 1
                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
@@ -576,14 +578,16 @@ class SqliteConnector(models.Model):
             # we are looking for the ID of supplier
             fournisseur = ligne[2]
             UV = ligne[5]
-            Qte = (float(ligne[6])) / float(UV) if UV else float(ligne[6])
-            x = Qte
-            n = 0
-            resultat = math.ceil(x * 10**n)/ 10**n
-            Qte = (resultat * float(UV))
+            QteBesoin = float(ligne[6])
+            Qte = float(ligne[6])
+            #Qte = (float(ligne[6])) / float(UV) if UV else float(ligne[6])
+            #x = Qte
+            #n = 0
+            #resultat = math.ceil(x * 10**n)/ 10**n
+            #Qte = (resultat * float(UV))
             refart = ligne[0]
             # created nomenclature
-            creation_nomenclature(Nomenclature, refart, idun, Qte)
+            creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
             QteStk = 0
             resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
             if resultat:
@@ -612,7 +616,12 @@ class SqliteConnector(models.Model):
                     Qte = Qte - QteStk
                 if (regle == 0 ) or consoaff == True :
                     if Qte > 0 :  
-                        _logger.warning("**********MAJ Commande appro********* %s "  )
+                        Qte = (Qte / float(UV)) if UV else Qte
+                        x = Qte
+                        n = 0
+                        resultat = math.ceil(x * 10**n)/ 10**n
+                        Qte = (resultat * float(UV))
+                        _logger.warning("**********MAJ Commande appro********* %s " % str(Qte))
                         for po in po_article_vals:
                             if po.get('partner_id') == idfrs:
                                 trouve = 0
@@ -783,7 +792,7 @@ class SqliteConnector(models.Model):
                 _logger.warning("**********Unite de mesure recuperee ********* %s " % str(idun) )
                 # we are looking for the ID of supplier
                 fournisseur = ligne[4]
-                #Qte = ligne[9]
+                QteBesoin = ligne[9]
                 UV = ligne[7]
                 Qte = (float(ligne[9])) / float(UV) if UV else float(ligne[9])
                 x = Qte
@@ -842,7 +851,7 @@ class SqliteConnector(models.Model):
                         self.message_post(body=message)
                         self.env.cr.commit()
                         # created nomenclature
-                        creation_nomenclature(Nomenclature, refart, idun, Qte)
+                        creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
                         # created Purchase Order
                         trouve = 1
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
@@ -898,14 +907,16 @@ class SqliteConnector(models.Model):
                 # we are looking for the ID of supplier
                 fournisseur = ligne[2]
                 UV = ligne[5]
-                Qte = (float(ligne[6])) / float(UV) if UV else float(ligne[6])
-                x = Qte
-                n = 0
-                resultat = math.ceil(x * 10**n)/ 10**n
-                Qte = (resultat * float(UV))
+                QteBesoin = float(ligne[6])
+                Qte = float(ligne[6])
+                #Qte = (float(ligne[6])) / float(UV) if UV else float(ligne[6])
+                #x = Qte
+                #n = 0
+                #resultat = math.ceil(x * 10**n)/ 10**n
+                #Qte = (resultat * float(UV))
                 refart = ligne[0]
                 # created nomenclature
-                creation_nomenclature(Nomenclature, refart, idun, Qte)
+                creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
                 QteStk = 0
                 resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
                 if resultat:
@@ -935,6 +946,11 @@ class SqliteConnector(models.Model):
                     if (regle == 0 ) or consoaff == True :
                         _logger.warning("**********Qte a commander ********* %s " %str(Qte) )
                         if Qte > 0 :
+                            Qte = (Qte / float(UV)) if UV else Qte
+                            x = Qte
+                            n = 0
+                            resultat = math.ceil(x * 10**n)/ 10**n
+                            Qte = (resultat * float(UV))
                             for po in po_article_vals:
                                 if po.get('partner_id') == idfrs:
                                     trouve = 0
