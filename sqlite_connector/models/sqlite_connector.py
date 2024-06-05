@@ -1143,7 +1143,7 @@ class SqliteConnector(models.Model):
                                     'date_planned': datejourd,
                                 })]
                         })
-                if vitrage != (ligne[3] + " " + ligne[4] + " " + ligne[5]) :
+                if vitrage != (ligne [2] + " " + ligne[3] + " " + ligne[4] + " " + ligne[5]) :
                     refinterne = projet + "_" + str(cpt)
                     vitrage = ligne[3]
                     position = ligne[2]
@@ -1205,7 +1205,7 @@ class SqliteConnector(models.Model):
                                     }))
                 fournisseur = ligne[0]
                 info_livraison = ligne[1]
-                vitrage = (ligne[3] + " " + ligne[4] + " " + ligne[5])
+                vitrage = (ligne [2] + " " + ligne[3] + " " + ligne[4] + " " + ligne[5])
             
         for purchase in po_glass_vals:
             for line in purchase.get('order_line'):
