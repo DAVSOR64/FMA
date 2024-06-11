@@ -1144,7 +1144,7 @@ class SqliteConnector(models.Model):
                                 })]
                         })
                 if vitrage != (ligne [2] + " " + ligne[3] + " " + ligne[4] + " " + ligne[5]) :
-                    refinterne = projet + "_" + str(cpt)
+                    refinterne = proj + "_" + str(cpt)
                     vitrage = ligne[3]
                     position = ligne[2]
                     prix = ligne[6]
