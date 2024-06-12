@@ -1,0 +1,16 @@
+<odoo>
+    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">
+        <xpath expr="//div[@class='page']" position="inside">
+            <t t-if="o.show_text_block">
+                <div class="text-block">
+                    <!-- Place your custom text block here -->
+                    <p>CREDIT MUTUEL FACTORING</p>
+                    <p>Pour être libératoire, votre règlement doit être effectué directement à l'ordre de CREDIT MUTUEL FACTORING</p>
+                    <p>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedes Tél: 01.49.74.56.00, qui reçoit par subrogation et devar être avisée de toute réclamation relative à cette créance.</p>
+                    <p>IBAN : FR76 1197 8000 0100 7278 1612 079</p>
+                    <p>BIC : CMCIFRPPXXX</p>
+                </div>
+            </t>
+        </xpath>
+    </template>
+</odoo>
