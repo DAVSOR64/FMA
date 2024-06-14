@@ -1,0 +1,24 @@
+<odoo>
+    <record id="action_export_order" model="ir.actions.server">
+        <field name="name">Export Order</field>
+        <field name="model_id" ref="purchase.model_purchase_order"/>
+        <field name="binding_model_id" ref="purchase.model_purchase_order"/>
+        <field name="state">code</field>
+        <field name="code">
+            for record in records:
+                record.action_export_order()
+        </field>
+    </record>
+
+    <record id="purchase_order_tree_inherit" model="ir.ui.view">
+        <field name="name">purchase.order.list.inherit</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_kpis_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree//field[@name='user_id']" position="after">
+                <field name="is_generated"/>
+                <field name="xml_file_generation_time"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
