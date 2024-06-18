@@ -16,8 +16,9 @@
         <field name="inherit_id" ref="purchase.purchase_order_kpis_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//tree//field[@name='user_id']" position="after">
-                <field name="is_generated"/>
-                <field name="xml_file_generation_time"/>
+                <field name="is_xml_created" string="Is Exported"/>
+                <field name="xml_creation_time"/>
+                <field name="ftp_synced_time"/>
             </xpath>
         </field>
     </record>

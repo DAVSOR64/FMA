@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-
 {
-    'name': 'Purchase Order : Export',
+    'name': 'Purchase Order : Export (XML)',
     'description':
-    """
-        Attach an XML file to purchase orders and send the XML file to the FTP server using cron.
-        Task: 3975517
-    """,
+        """
+            The purpose of this module is to export the Purchase Order details in XML format.
+            A cron is also introduced to move such XML files to FTP server.
+            Task: 3975517
+        """,
+    'author': 'Odoo PS',
+    'version': '15.0.0.1.0',
     'depends': [
         'purchase'
     ],
     'data': [
-        'data/export_purchase_order_cron.xml',
-        'views/purchase_views.xml',
+        'data/ir_cron.xml',
+        'data/purchase_order_export.xml',
+        'views/purchase_order_views.xml',
         'views/res_config_settings.xml',
-        'report/purchase_order_export_template.xml'
     ],
-    'installable': True,
-    'application': True,
     'license': 'LGPL-3',
 }

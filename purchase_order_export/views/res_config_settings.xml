@@ -6,45 +6,25 @@
         <field name="inherit_id" ref="purchase.res_config_settings_view_form_purchase" />
         <field name="arch" type="xml">
             <xpath expr="//div[@name=('matrix_setting_container')]" position="after">
-                <h2>FTP Server Configuration (Purchase Order Export)</h2>
+                <h2>Export Purchase Order</h2>
                 <div class="row mt16 o_settings_container" name="ftp_server_configurations_container">
-                    <div class="col-12 col-lg-6">
-                        <div class="row mb8">
-                            <div class="col-5">
-                                <label for="ftp_server_host" string="FTP Server Host"/>
-                                <div class="text-muted">Enter the host address of the FTP server.</div>
+                    <div class="col-12 col-lg-6 o_setting_box" id="ftp_server_configurations_box">
+                        <div class="o_setting_right_pane" id="ftp_settings">
+                            <span class="o_form_label">FTP server credentials</span>
+                            <div class="text-muted">
+                                Setup the FTP server configurations for PO export.
                             </div>
-                            <div class="col-7">
-                                <field name="ftp_server_host"/>
-                            </div>
-                        </div>
-                        <div class="row mb8">
-                            <div class="col-5">
-                                <label for="ftp_server_username" string="FTP Server Username"/>
-                                <div class="text-muted">Enter the username for the FTP server.</div>
-                            </div>
-                            <div class="col-7">
-                                <field name="ftp_server_username"/>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-lg-6">
-                        <div class="row mb8">
-                            <div class="col-5">
-                                <label for="ftp_server_password" string="FTP Server Password"/>
-                                <div class="text-muted">Enter the password for the FTP server.</div>
-                            </div>
-                            <div class="col-7">
-                                <field name="ftp_server_password"/>
-                            </div>
-                        </div>
-                        <div class="row mb8">
-                            <div class="col-5">
-                                <label for="ftp_server_file_path" string="FTP Server File Path"/>
-                                <div class="text-muted">Specify the file path on the FTP server.</div>
-                            </div>
-                            <div class="col-7">
-                                <field name="ftp_server_file_path"/>
+                            <div class="content-group" id="ftp_settings_group" >
+                                <div class="mt16 row">
+                                    <label for="ftp_server_host" string="FTP Server Host" class="col-5 o_light_label"/>
+                                    <field name="ftp_server_host" class="col-7"/>
+                                    <label for="ftp_server_username" string="FTP Server Username" class="col-5 o_light_label"/>
+                                    <field name="ftp_server_username" class="col-7"/>
+                                    <label for="ftp_server_password" string="FTP Server Password" class="col-5 o_light_label"/>
+                                    <field name="ftp_server_password" class="col-7"/>
+                                    <label for="ftp_server_file_path" string="FTP Server File Path" class="col-5 o_light_label"/>
+                                    <field name="ftp_server_file_path" class="col-7"/>
+                                </div>
                             </div>
                         </div>
                     </div>

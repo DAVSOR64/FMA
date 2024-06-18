@@ -7,4 +7,4 @@ from odoo import fields, models
 class IrAttachment(models.Model):
     _inherit = 'ir.attachment'
 
-    is_ftp_export_po = fields.Boolean(default=False)
+    is_po_xml = fields.Boolean()
