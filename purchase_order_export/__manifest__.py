@@ -18,6 +18,7 @@
         'data/purchase_order_export.xml',
         'views/purchase_order_views.xml',
         'views/res_config_settings.xml',
+        'views/res_partner.xml'
     ],
     'license': 'LGPL-3',
 }

@@ -18,6 +18,21 @@ class PurchaseOrder(models.Model):
     is_xml_created = fields.Boolean(default=False, readonly=True)
     xml_creation_time = fields.Datetime(readonly=True)
     ftp_synced_time = fields.Datetime("Send to FTP", readonly=True)
+    shipping_partner_id = fields.Many2one('res.partner')
+    shipping_number = fields.Char(compute='_get_default_shipping_number', readonly=False)
+
+    @api.depends('shipping_partner_id')
+    def _get_default_shipping_number(self):
+        address_to_shipping_number = {
+            'LA REGRIPPIERE': '130172',
+            'LA REMAUDIERE': '175269'
+        }
+        for order in self:
+            if order.shipping_partner_id:
+                delivery_address = order.shipping_partner_id.customer_delivery_address
+                order.shipping_number = address_to_shipping_number.get(delivery_address, '')
+            else:
+                order.shipping_number = ''
 
     def action_export_order(self):
         """Attach the purchase order XML template."""
@@ -27,7 +42,7 @@ class PurchaseOrder(models.Model):
 
             try:
                 xml_content = self.env['ir.qweb']._render(
-                    'purchase_order_export.purchase_order_export_template',
+                    'purchase_order_export.purchase_order_ftp_export_template',
                     {'po': po}
                 )
                 attachment = self.env['ir.attachment'].create({
