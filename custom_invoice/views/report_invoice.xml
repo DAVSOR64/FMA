@@ -1,16 +1,212 @@
 <odoo>
-    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">
+    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">      
+       <xpath expr="//div[@class='page']" position="before">
+            <div class="header_table">
+                <div style="text-align: right;">
+                    <span t-field="o.partner_id"/>
+                    <br><span t-field="o.partner_id.street"/></br>
+                    <br><span t-field="o.partner_id.street2"/></br>
+                    <br><span t-field="o.partner_id.zip"/> <span t-field="o.partner_id.city"/></br>
+                    <br><span t-field="o.partner_id.vat"/> </br>
+                    <br><span t-field="o.partner_id.siret"/></br>
+                </div>
+                <div style="text-align: right;">
+                    <p><strong>Commercial :</strong> <span t-field="o.x_studio_commercial"/></p>
+                </div>
+            </div> 
+        </xpath>
+        <!-- Rajout du factor suivant le boolean du client-->
         <xpath expr="//div[@class='page']" position="inside">
             <t t-if="o.show_text_block">
                 <div class="text-block">
                     <!-- Place your custom text block here -->
                     <p>CREDIT MUTUEL FACTORING</p>
                     <p>Pour être libératoire, votre règlement doit être effectué directement à l'ordre de CREDIT MUTUEL FACTORING</p>
-                    <p>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedes Tél: 01.49.74.56.00, qui reçoit par subrogation et devar être avisée de toute réclamation relative à cette créance.</p>
+                    <p>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedes Tél: 01.49.74.56.00, qui reçoit par subrogation et devra être avisée de toute réclamation relative à cette créance.</p>
                     <p>IBAN : FR76 1197 8000 0100 7278 1612 079</p>
                     <p>BIC : CMCIFRPPXXX</p>
                 </div>
             </t>
         </xpath>
+        <!-- Modif de l'entete -->
+        <xpath expr="//div[@id='informations']" position="replace">
+            <div id="informations">
+                    <style>
+                        .table thead th {
+                            background-color: grey;
+                            color : black;
+                            font-size: 16px;
+                        }
+                    </style>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Date d'échéance</th>
+                                <!--<th>Afficher Nom</th>-->
+                                <th>Mode de règlement</th>
+                                <th>Condition de paiement</th>
+                                <th>Montant dû € TTC</th>
+                                <!--<th>Commercial</th>-->
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span t-field="o.invoice_date"/></td>
+                                <td><span t-field="o.invoice_date_due"/></td>
+                                <!--<td><span t-field="o.display_name"/></td>-->
+                                <td><span t-field="o.x_studio_mode_de_rglement"/></td>
+                                <td><span t-field="o.invoice_payment_term_id.display_name"/></td>
+                                <td><span t-field="o.amount_residual"/></td>
+                                <!--<td><span t-field="o.x_studio_commercial"/></td>-->
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+        </xpath>
+        <!-- Nouvelle ligne ajoutée pour la source et la référence -->
+        <xpath expr="//div[@id='informations']" position="after">
+            <div class="source-reference" style = "color:red; font-size : 20px" >
+                <p><strong>Référence :</strong> <span t-field="o.invoice_origin"/> <span t-field="o.x_studio_rfrence_affaire"/></p>
+            </div>
+        </xpath>
+        <!-- Modif du tableau des lignes-->
+        <xpath expr="//table[@class='table table-sm o_main_table']/thead" position="replace">
+            <thead>
+                <tr>
+                    <th name="th_description" class="text-left"><span>Description</span></th>
+                    <th name="th_quantity" class="text-right"><span>Quantité</span></th>
+                    <th name="th_priceunit" t-attf-class="text-right {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Prix Unitaire</span></th>
+                    <th name="th_subtotal" class="text-right">
+                        <span groups="account.group_show_line_subtotals_tax_excluded">Montant</span>
+                        <span groups="account.group_show_line_subtotals_tax_included">Prix Total</span>
+                    </th>
+                </tr>
+            </thead>
+        </xpath>
+        <xpath expr="//tbody[@class='invoice_tbody']" position="replace">
+            <tbody class="invoice_tbody">
+                 <tr class="invoice_tbody_header">
+                    <style>
+                        .invoice_tbody_header {
+                            background-color: grey;
+                            color : black;
+                            font_size:16px;
+                        }
+                        .invoice_tbody td {
+                            font-size: 12px; 
+                        }
+                    </style>
+                </tr> 
+
+                
+                <t t-set="current_subtotal" t-value="0"/>
+                <!-- Variable pour stocker la valeur de l'acompte -->
+                <t t-set="acompte_amount_ttc" t-value="0.0"/>
+                <t t-set="acompte_amount_ht" t-value="0.0"/>
+
+                <!-- Itération sur les lignes de facture -->
+                <t t-foreach="o.invoice_line_ids" t-as="line">
+                    <t t-if="line.product_id.name == 'Acompte'">
+                        <!-- Cumul de la valeur de l'acompte sans l'afficher -->
+                        <t t-set="acompte_amount_ttc" t-value="acompte_amount_ttc + line.price_total"/>
+                        <t t-set="acompte_amount_ht" t-value="acompte_amount_ht + line.price_subtotal"/>
+                    </t>
+                    <t t-if="line.product_id.name != 'Acompte' and line.product_id.name != 'Devis' and not line.display_type">
+                        <tr> 
+                            <td name="account_invoice_line_name"><span t-esc="line.product_id.name + ' ' + line.name" t-options="{'widget': 'text'}"/></td>
+                            <td class="text-right">
+                                <span t-field="line.quantity"/>
+                                <span t-field="line.product_uom_id" groups="uom.group_uom"/>
+                            </td>
+                            <td class="text-right">
+                                <span class="text-nowrap" t-field="line.price_unit"/>
+                            </td>
+                            <td class="text-right o_price_total">
+                                <span class="text-nowrap" t-field="line.price_subtotal" groups="account.group_show_line_subtotals_tax_excluded"/>
+                                <span class="text-nowrap" t-field="line.price_total" groups="account.group_show_line_subtotals_tax_included"/>
+                            </td>
+                        </tr>
+                    </t>
+                </t>
+                
+                
+            </tbody>
+        </xpath>
+        <!-- Modification du tableau des totaux -->
+        <xpath expr="//div[@class='clearfix']" position="replace">
+            <div class="clearfix">
+                <style>
+                    .table tfoot th, .table tfoot td {
+                        background-color: #f9f9f9;
+                        border-top: 1px solid #ddd;
+                        font-size: 12px; /* Taille de police pour les lignes */
+                    }
+                </style>
+                <table class="table table-sm o_main_table">
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-right">
+                                <strong>Total HT de la commande</strong>
+                            </td>
+                            <td class="text-right">
+                                <span t-esc="('%.2f' % (o.amount_untaxed - acompte_amount_ht))" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right">
+                                <strong>% Remise</strong>
+                            </td>
+                            <td class="text-right">
+                                <!--<span t-field="o.discount_rate" /> -->%
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right">
+                                <strong>Total HT Net</strong>
+                            </td>
+                            <td class="text-right">
+                               <!-- <span t-esc="o.amount_untaxed - o.amount_discount" />-->
+                                <span t-esc="('%.2f' % (o.amount_untaxed - acompte_amount_ht))"/>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right">
+                                <strong>Total par TVA</strong>
+                            </td>
+                            <td class="text-right">
+                                <span t-esc="('%.2f' % ((o.amount_total - acompte_amount_ttc ) - (o.amount_untaxed - acompte_amount_ht))) " />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right">
+                                <strong>Total TTC</strong>
+                            </td>
+                            <td class="text-right">
+                                <span t-esc="('%.2f' % (o.amount_total - acompte_amount_ttc))" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right">
+                                <strong>Montant de l'acompte</strong>
+                            </td>
+                            <td class="text-right">
+                                <span t-esc="acompte_amount_ttc * -1" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-right">
+                                <strong>Montant dû</strong>
+                            </td>
+                            <td class="text-right">
+                                <span t-field="o.amount_residual" />
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </xpath>
     </template>
 </odoo>
+
+
