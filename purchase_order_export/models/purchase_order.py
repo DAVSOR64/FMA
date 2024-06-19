@@ -19,18 +19,15 @@ class PurchaseOrder(models.Model):
     xml_creation_time = fields.Datetime(readonly=True)
     ftp_synced_time = fields.Datetime("Send to FTP", readonly=True)
     shipping_partner_id = fields.Many2one('res.partner')
-    customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address', readonly=False)
+    customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address')
 
     @api.depends('shipping_partner_id')
     def _get_default_customer_delivery_address(self):
-        shipping_number_to_address = {
-            '130172': 'LA REGRIPPIERE',
-            '175269': 'LA REMAUDIERE'
-        }
         for order in self:
             if order.shipping_partner_id:
-                delivery_address = order.shipping_partner_id.shipping_number
-                order.customer_delivery_address = shipping_number_to_address.get(delivery_address, '')
+                order.customer_delivery_address = order.shipping_partner_id.shipping_number
+            else:
+                order.customer_delivery_address = ''
 
     def action_export_order(self):
         """Attach the purchase order XML template."""
