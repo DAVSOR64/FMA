@@ -7,4 +7,4 @@ from odoo import fields, models
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
-    customer_delivery_address = fields.Char()
+    shipping_number = fields.Char()
