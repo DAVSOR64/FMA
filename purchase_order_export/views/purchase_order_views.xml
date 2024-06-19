@@ -30,8 +30,8 @@
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='reminder']" position="after">
-                <field name="shipping_partner_id" domain="[('parent_id', '=', partner_id)]"/>
-                <field name="shipping_number"/>
+                <field name="shipping_partner_id" domain="[('parent_id', '=', partner_id)]" options="{'no_create': True}"/>
+                <field name="customer_delivery_address"/>
             </xpath>
         </field>
     </record>

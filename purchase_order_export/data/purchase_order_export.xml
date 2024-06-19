@@ -4,7 +4,7 @@
 		<CCS xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 			<Internal Type="Order" Version="617" Build="2.46.241" Job="3175" ItemSet="0000003643">
 				<PriceList>
-					<PriceDate t-att-Name="po.partner_id.name" t-att-Date="po.create_date" />
+					<PriceDate t-att-Name="po.partner_id.name or ''" t-att-Date="po.create_date or ''" />
 				</PriceList>
 			</Internal>
 			<Orders>
@@ -15,10 +15,10 @@
 						CustomerNumber="130172"
 						CustomerEmail=""
 						BuildingProjectID=""
-						t-att-DocumentNumber="po.name"
-						t-att-DocumentDate="po.create_date"
-						t-att-OrderReference="po.x_studio_rfrence"
-						t-att-ShipToNumber="po.shipping_number"
+						t-att-DocumentNumber="po.name or ''"
+						t-att-DocumentDate="po.create_date or ''"
+						t-att-OrderReference="po.x_studio_rfrence or ''"
+						t-att-ShipToNumber="po.shipping_partner_id.shipping_number or ''"
 						PreferedLanguage="FR"
 						WorkType="03"
 						FinalCusttype="03">
@@ -28,11 +28,11 @@
 					<Articles>
 						<t t-foreach="po.order_line" t-as="line">
 							<Article t-att-ItemCount="(line_index+1)*10"
-								t-att-ArticleID="line.product_id.x_studio_ref_int_logikal"
-								t-att-ArticlesQuantity="line.product_qty"
-								t-att-SalesUnitOfMeasure="line.product_uom.name"
-								t-att-Length="line.product_id.x_studio_largeur_mm"
-								t-att-ExternalColor="line.product_id.x_studio_color_logikal" />
+								t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
+								t-att-ArticlesQuantity="line.product_qty or ''"
+								t-att-SalesUnitOfMeasure="line.product_uom.name or ''"
+								t-att-Length="line.product_id.x_studio_largeur_mm or ''"
+								t-att-ExternalColor="line.product_id.x_studio_color_logikal or ''" />
 						</t>
 					</Articles>
 				</Order>
