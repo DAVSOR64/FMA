@@ -455,7 +455,7 @@ class SqliteConnector(models.Model):
                 _logger.warning("**********saisie manuelle********* %s " % str(SaisieManuelle) )  
                 if str(SaisieManuelle) == 'True' : 
                     CptLb = CptLb + 1
-                    refart = projet +'_LB' + str(CptLb)
+                    refart = nom[:3] + ' ' + projet +'_LB' + str(CptLb)
                     fournisseur = 'NONDEF'
                     _logger.warning("**********Article********* %s " % str(refart) )
                 
