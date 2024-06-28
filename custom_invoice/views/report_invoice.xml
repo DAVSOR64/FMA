@@ -7,18 +7,24 @@
                     <br><span t-field="o.partner_id.street"/></br>
                     <br><span t-field="o.partner_id.street2"/></br>
                     <br><span t-field="o.partner_id.zip"/> <span t-field="o.partner_id.city"/></br>
-                    <br><span t-field="o.partner_id.vat"/> </br>
-                    <br><span t-field="o.partner_id.siret"/></br>
+                    <br>TVA :<span t-field="o.partner_id.vat"/> </br>
+                    <br>SIRET : <span t-field="o.partner_id.siret"/></br>
                 </div>
                 <div style="text-align: right;">
-                    <p><strong>Commercial :</strong> <span t-field="o.x_studio_commercial"/></p>
+                    <br><strong>Commercial :</strong> <span t-field="o.x_studio_commercial"/></br>
                 </div>
             </div> 
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->
         <xpath expr="//div[@class='page']" position="inside">
+            <div class="text-block" style="font-size: 9px;">
+                <!-- Place your custom text block here -->
+                <br>Escompte pour règlement anticipé : 0%</br>
+                <br>En cas de retard de paiement, une pénalité égale à 3 fois le taux d'intérêt légal sera exigible (Décret 2009-138 du 9 Février 2009), ainsi qu'une indemnité forfaitaire pour frais de recouvrement d'un montant minimum de 40 euros pour les professionnels (Décret 2012-1115 du octobre 2012)</br>
+                <br>IDU:FR3164435_04YPGF Numéro d'enregistrement en application de l'article L.541-10 du code de l'Environnement</br>
+            </div>
             <t t-if="o.show_text_block">
-                <div class="text-block">
+                <div class="text-block" >
                     <!-- Place your custom text block here -->
                     <p>CREDIT MUTUEL FACTORING</p>
                     <p>Pour être libératoire, votre règlement doit être effectué directement à l'ordre de CREDIT MUTUEL FACTORING</p>
@@ -35,30 +41,33 @@
                         .table thead th {
                             background-color: grey;
                             color : black;
-                            font-size: 16px;
+                            font-size: 13px;
+                        }
+                        .table tbody th {
+                            font-size: 13px;
                         }
                     </style>
                     <table class="table table-sm">
                         <thead>
                             <tr>
                                 <th>Date</th>
+                                <th>Code Client</th>
                                 <th>Date d'échéance</th>
-                                <!--<th>Afficher Nom</th>-->
                                 <th>Mode de règlement</th>
                                 <th>Condition de paiement</th>
+                                <th>Activité</th>
                                 <th>Montant dû € TTC</th>
-                                <!--<th>Commercial</th>-->
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td><span t-field="o.invoice_date"/></td>
+                                <td><span t-field="o.x_studio_related_field_2M5F4"/></td>
                                 <td><span t-field="o.invoice_date_due"/></td>
-                                <!--<td><span t-field="o.display_name"/></td>-->
                                 <td><span t-field="o.x_studio_mode_de_rglement"/></td>
                                 <td><span t-field="o.invoice_payment_term_id.display_name"/></td>
-                                <td><span t-field="o.amount_residual"/></td>
-                                <!--<td><span t-field="o.x_studio_commercial"/></td>-->
+                                <td><span t-field="o.x_studio_materiaux"/></td>
+                                <td><span t-field="o.amount_residual"/></td> 
                             </tr>
                         </tbody>
                     </table>
@@ -78,7 +87,7 @@
                     <th name="th_quantity" class="text-right"><span>Quantité</span></th>
                     <th name="th_priceunit" t-attf-class="text-right {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Prix Unitaire</span></th>
                     <th name="th_subtotal" class="text-right">
-                        <span groups="account.group_show_line_subtotals_tax_excluded">Montant</span>
+                        <span groups="account.group_show_line_subtotals_tax_excluded">Montant HT</span>
                         <span groups="account.group_show_line_subtotals_tax_included">Prix Total</span>
                     </th>
                 </tr>
@@ -91,7 +100,7 @@
                         .invoice_tbody_header {
                             background-color: grey;
                             color : black;
-                            font_size:16px;
+                            font-size:16px;
                         }
                         .invoice_tbody td {
                             font-size: 12px; 
@@ -117,10 +126,10 @@
                             <td name="account_invoice_line_name"><span t-esc="line.product_id.name + ' ' + line.name" t-options="{'widget': 'text'}"/></td>
                             <td class="text-right">
                                 <span t-field="line.quantity"/>
-                                <span t-field="line.product_uom_id" groups="uom.group_uom"/>
+                                <!--<span t-field="line.product_uom_id" groups="uom.group_uom"/>-->
                             </td>
                             <td class="text-right">
-                                <span class="text-nowrap" t-field="line.price_unit"/>
+                                <span class="text-nowrap" t-esc="o.format_amount(line.price_unit)"/> €
                             </td>
                             <td class="text-right o_price_total">
                                 <span class="text-nowrap" t-field="line.price_subtotal" groups="account.group_show_line_subtotals_tax_excluded"/>
@@ -133,77 +142,107 @@
                 
             </tbody>
         </xpath>
+        <!-- Suppression du bloc de code standard -->
+        <xpath expr="//p[@name='payment_communication']" position="replace"/>
+        <xpath expr="//p[@name='payment_term']" position="replace"/>
+        <xpath expr="//div[@name='comment']" position="replace"/>
+        <xpath expr="//p[@name='note']" position="replace"/>
+        <xpath expr="//p[@name='incoterm']" position="replace"/>
+        <xpath expr="//div[@id='qrcode']" position="replace"/>
         <!-- Modification du tableau des totaux -->
         <xpath expr="//div[@class='clearfix']" position="replace">
             <div class="clearfix">
                 <style>
-                    .table tfoot th, .table tfoot td {
+                    .totals-table-container {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        margin-top: 20px;
+                        page-break-inside: avoid;
+                        font-size: 12px;
+                    }
+                    .table.totals-table tfoot th, .table.totals-table tfoot td {
                         background-color: #f9f9f9;
                         border-top: 1px solid #ddd;
-                        font-size: 12px; /* Taille de police pour les lignes */
+                    }
+                     .totals-table-wrapper {
+                        width: 50%;
+                        float: right;
+                    }
+                    .rib-block {
+                        width: 45%;
+                        border: 1px solid #ddd;
+                        padding: 10px;
+                        font-size: 12px;
+                        float: left;
                     }
                 </style>
-                <table class="table table-sm o_main_table">
-                    <tfoot>
-                        <tr>
-                            <td colspan="4" class="text-right">
-                                <strong>Total HT de la commande</strong>
-                            </td>
-                            <td class="text-right">
-                                <span t-esc="('%.2f' % (o.amount_untaxed - acompte_amount_ht))" />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="text-right">
-                                <strong>% Remise</strong>
-                            </td>
-                            <td class="text-right">
-                                <!--<span t-field="o.discount_rate" /> -->%
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="text-right">
-                                <strong>Total HT Net</strong>
-                            </td>
-                            <td class="text-right">
-                               <!-- <span t-esc="o.amount_untaxed - o.amount_discount" />-->
-                                <span t-esc="('%.2f' % (o.amount_untaxed - acompte_amount_ht))"/>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="text-right">
-                                <strong>Total par TVA</strong>
-                            </td>
-                            <td class="text-right">
-                                <span t-esc="('%.2f' % ((o.amount_total - acompte_amount_ttc ) - (o.amount_untaxed - acompte_amount_ht))) " />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="text-right">
-                                <strong>Total TTC</strong>
-                            </td>
-                            <td class="text-right">
-                                <span t-esc="('%.2f' % (o.amount_total - acompte_amount_ttc))" />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="text-right">
-                                <strong>Montant de l'acompte</strong>
-                            </td>
-                            <td class="text-right">
-                                <span t-esc="acompte_amount_ttc * -1" />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="4" class="text-right">
-                                <strong>Montant dû</strong>
-                            </td>
-                            <td class="text-right">
-                                <span t-field="o.amount_residual" />
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
+                <div class="totals-table-container">
+                    <t t-if="o.show_text_block">
+                        <div class="rib-block">
+                            <br><strong>Coordonnées bancaires société :</strong></br>
+                            <br>Banque : CM-CIC FACTOR</br>
+                            <br>RIB: 11978000010072781612079</br>
+                            <br>IBAN: FR76 1197 8000 0100 7278 1612 079</br>
+                            <br>BIC: CMCIFRPPXXX</br>
+                        </div>
+                    </t>
+                    <t t-if=" not o.show_text_block">
+                        <div class="rib-block">
+                            <br><strong>Coordonnées bancaires société :</strong></br>
+                            <br>Banque : CREDIT MUTUEL</br>
+                            <br>RIB: 10278368000002008870189</br>
+                            <br>IBAN: FR76 1027 8368 0000 0200 8870 189</br>
+                            <br>BIC: CMCIFR2A</br>
+                        </div>
+                    </t>
+                </div>  
+                <div class="totals-table-wrapper">
+                    <table class="table table-sm o_main_table">
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Total HT</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" />€
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Total par TVA</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span t-esc="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed - acompte_amount_ht))" />€
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Total TTC</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span t-esc="o.format_amount(o.amount_total - acompte_amount_ttc)" />€
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Montant de l'acompte reçu </strong>
+                                </td>
+                                <td class="text-right">
+                                    <span t-esc="o.format_amount(acompte_amount_ttc * -1)" /> €
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Montant dû TTC</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span t-esc="o.format_amount(o.amount_residual)" /> €
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
         </xpath>
     </template>

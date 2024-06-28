@@ -15,6 +15,10 @@ class AccountMove(models.Model):
         lines = super(AccountMove, self)._get_invoice_lines()
         return lines.filtered(lambda l: l.product_id.name != 'Devis')
 
+    def format_amount(self, amount):
+        return '{:,.2f}'.format(amount).replace(',', ' ').replace('.', ',')
+
+
     #discount_rate = fields.Float(string='Discount Rate', compute='_compute_discount_rate', store=True)
     #amount_discount = fields.Monetary(string='Total Discount', compute='_compute_amount_discount', store=True)
     #amount_advance = fields.Monetary(string='Advance Payment', compute='_compute_amount_advance', store=True)
