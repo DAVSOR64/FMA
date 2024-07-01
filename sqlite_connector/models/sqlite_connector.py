@@ -58,20 +58,66 @@ class SqliteConnector(models.Model):
         cursor1 = con.cursor()
         date_time = datetime.now()
 
-        article_data = cursor.execute("select ArticleCode, Price, PUSize, Units_Unit from Articles")
+        article_data = cursor.execute("select ArticleCode, Price, PUSize, Units_Unit, ArticleCode_Supplier, ArticleCode_BaseNumber,ColorInfoInternal, Color, ArticleCode_Number from Articles")
         for row in article_data:
+            refart = row[0]
+            couleur = ''
+            Unit = row[3]
+            Unit = Unit.upper()
+            fournisseur= row[4]
+            fournisseur = fournisseur.upper()
+            RefLogikal = row[8]
+            if fournisseur == 'TECHNAL' :
+                refart = 'TEC' + ' ' + row[5]
+                couleur = str(row[6])
+                if couleur == '' :
+                    couleur = str(row[7])
+                if couleur == 'Sans' or couleur == 'sans' :
+                    couleur = ''
+                if couleur != '':
+                    refart = refart + '.' + couleur
+                RefLogikal = 'T' + RefLogikal
+            _logger.warning("**********article pour MAJ********* %s " % refart )
             articles.append({
-                'item': row[0],
+                'item': refart,
                 'price': row[1],
                 'unit': row[2],
-                'condi': row[3]
+                'condi': row[3],
+                'RefLogikal' : RefLogikal,
+                'ColorLogikal' : couleur,
+                'UnitLogikal' : Unit
             })
 
-        profile_data = cursor.execute("select ArticleCode, Price from Profiles")
+
+        profile_data = cursor.execute("select ArticleCode, Price, ArticleCode_Number, Color, ArticleCode_Supplier, ArticleCode_BaseNumber, OuterColorInfoInternal, InnerColorInfoInternal, ColorInfoInternal from Profiles")
         for row in profile_data:
+            refart = row[0]
+            couleur = ''
+            fournisseur = row[4]
+            fournisseur = fournisseur.upper()
+            RefLogikal = row[2]
+            if fournisseur == 'TECHNAL' :
+                refart = 'TEC' + ' ' + row[5]
+                couleurext = str(row[6])
+                couleurint = str(row[7])
+                if couleurext != '' and couleurint != '' :
+                    couleur = couleurext + '/' + couleurint
+                else :
+                    couleur = str(row[8])
+                    if couleur == '' or couleur == ' ' :
+                        couleur = str(row[3])
+                        if couleur == 'Sans' or couleur == 'sans':
+                            couleur = ''
+                if couleur != '' :
+                    refart = refart + '.' + couleur
+                RefLogikal = 'T' + RefLogikal
+            #_logger.warning("**********Profile pour MAJ********* %s " % refart )
             profiles.append({
-                'article': row[0],
-                'prix': row[1]
+                'article': refart,
+                'prix': row[1],
+                'RefLogikal' : RefLogikal,
+                'ColorLogikal' : couleur,
+                'UnitLogikal' : 'Pce'
             })
 
         
@@ -89,22 +135,33 @@ class SqliteConnector(models.Model):
             })
            
 
-        # To check if product already exists in odoo from articles
-        #for article in articles:
-        #    product = self.env['product.product'].search([('default_code', '=', article['item'])])
-        #    if product:
-        #        product = product[0]
-        #    if product and round(float(article['price']), 4) != round(product.standard_price, 4):
-        #        product.standard_price = float(article['price'])
-        #        refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-        #        message = _("Standard Price is updated for product: %s") % ','.join(refs)
-        #        self.message_post(body=message)
+        #To check if product already exists in odoo from articles
+        for article in articles:
+            product = self.env['product.product'].search([('default_code', '=', article['item'])])
+            if product:
+                product = product[0]
+                product.x_studio_ref_int_logikal = article['RefLogikal']
+                product.x_studio_color_logikal = article['ColorLogikal']
+                product.x_studio_unit_logikal = article['UnitLogikal']
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Ref Logikal is updated for product: %s") % ','.join(refs)
+            if product and round(float(article['price']), 4) != round(product.standard_price, 4):
+                product.standard_price = float(article['price'])
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Standard Price is updated for product: %s") % ','.join(refs)
+                self.message_post(body=message)
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
             product = self.env['product.product'].search([('default_code', '=', profile['article'])])
             if product:
                 product = product[0]
+                product.x_studio_ref_int_logikal = profile['RefLogikal']
+                product.x_studio_color_logikal = profile['ColorLogikal']
+                product.x_studio_unit_logikal = profile['UnitLogikal']
+                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
+                message = _("Ref Logikal is updated for product: %s") % ','.join(refs)
+                self.message_post(body=message)
             if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
                 product.standard_price = float(profile['prix'])
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
@@ -270,6 +327,7 @@ class SqliteConnector(models.Model):
                         "purchase_ok": False,
                         "sale_ok": True,
                         'produce_delay': 0,
+                        "invoice_policy":"delivery",
                     })
                     refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                     message = _("Product has been Created: %s") % ','.join(refs)
@@ -310,6 +368,7 @@ class SqliteConnector(models.Model):
                     "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('mrp.route_warehouse0_manufacture').id)],
                     # Staging before merge :"route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('__export__.stock_location_route_99_adb9a7a8').id)],
                     'produce_delay': delaifab,
+                    "invoice_policy":"delivery",
                 })
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                 message = _("Product has been Created: %s") % ','.join(refs)
@@ -346,7 +405,7 @@ class SqliteConnector(models.Model):
         datejourd = fields.Date.today()
         # On vient créer une fonction permettant de créer la liste des articles/profilés 
         QteArt = 0    
-        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte):
+        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal):
             trouve = False
             for item in Article:
                 # Si l'article existe déjà on ne fait rien
@@ -358,7 +417,7 @@ class SqliteConnector(models.Model):
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte])
+                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal])
                 
        # On vient créer une fonction permettant de créer les Purchase Order   
         def creation_commande(Commande, refinterne, unstk, fournisseur, prix, delai, UV, Qte):
@@ -397,7 +456,7 @@ class SqliteConnector(models.Model):
         QteBesoin = 0
         LstArt = ''
         CptLb = 0
-        resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number from AllArticles order by AllArticles.ArticleCode_Supplier")
+        resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number, AllArticles.Units_Unit from AllArticles order by AllArticles.ArticleCode_Supplier")
 
         for row in resart :
             refart = row[0]
@@ -410,9 +469,13 @@ class SqliteConnector(models.Model):
             SaisieManuelle = row[8]
             prix = 0
             Qte = row[6]
-    
+            RefLogikal = row[9]
+            ColorLogikal = ''
+            UnitLogikal = row[12]
+            UnitLogikal = UnitLogikal.upper()
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[9]
+                RefLogikal ='TT'+ RefLogikal 
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[11][1:]
             if fournisseur == 'SAPA' :
@@ -452,6 +515,7 @@ class SqliteConnector(models.Model):
                     couleur =''
                 if couleur != '':
                     refart = refart + '.' + couleur
+                ColorLogikal = couleur
                 _logger.warning("**********saisie manuelle********* %s " % str(SaisieManuelle) )  
                 if str(SaisieManuelle) == 'True' : 
                     CptLb = CptLb + 1
@@ -461,7 +525,7 @@ class SqliteConnector(models.Model):
                 
                 categorie = '__export__.product_category_14_a5d33274'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,delai, UV, SaisieManuelle, Qte)
+                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal)
                 else :
                     creation_commande(Commande, refart, unit, fournisseur,prix ,delai, UV, Qte)
                     
@@ -525,6 +589,9 @@ class SqliteConnector(models.Model):
                     'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
                     'x_studio_hauteur_mm': 0,
                     'x_studio_largeur_mm': 0,
+                    'x_studio_ref_int_logikal' : ligne[10],
+                    'x_studio_color_logikal' : ligne[11],
+                    'x_studio_unit_logikal' : ligne[12],
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
@@ -732,8 +799,12 @@ class SqliteConnector(models.Model):
                 IsManual = row[8]
                 fournisseur = row[2]
                 fournisseur = fournisseur.upper()
+                RefLogikal = row[9]
+                ColorLogikal = ''
+                UnitLogikal = 'PCE'
                 if fournisseur == 'TECHNAL' :
                     refart = 'TEC' + ' ' + row[12]
+                    RefLogikal = 'TT' + row[12]
                 if fournisseur == 'WICONA' :
                     refart = 'WIC' + ' ' + row[13][1:]
                 if fournisseur == 'SAPA' :
@@ -760,7 +831,8 @@ class SqliteConnector(models.Model):
                             couleur = ''
                 if eticom == 'F2M' :
                     couleur =''
-                    
+
+                ColorLogikal = couleur
                 for profile in profiles:
                     if row[0] == profile['article']:
                         prix = profile['prix']
@@ -790,7 +862,7 @@ class SqliteConnector(models.Model):
 
                 #_logger.warning("**********Unite de mesure********* %s " % str(unit) )
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte)
+                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal)
                 else :
                     creation_commande(Commande, refart, unit, fournisseur,prixB ,delai, UV, Qte)
             
@@ -853,6 +925,9 @@ class SqliteConnector(models.Model):
                             'route_ids': [(4, self.env.ref('purchase_stock.route_warehouse0_buy').id)],
                             'x_studio_hauteur_mm': 0,
                             'x_studio_largeur_mm': 0,
+                            'x_studio_ref_int_logikal' : ligne[10],
+                            'x_studio_color_logikal' : ligne[11],
+                            'x_studio_unit_logikal' : ligne[12],
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
