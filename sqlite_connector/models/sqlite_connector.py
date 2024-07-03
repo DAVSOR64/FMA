@@ -67,6 +67,7 @@ class SqliteConnector(models.Model):
             fournisseur= row[4]
             fournisseur = fournisseur.upper()
             RefLogikal = row[8]
+            Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
                 couleur = str(row[6])
@@ -85,17 +86,19 @@ class SqliteConnector(models.Model):
                 'condi': row[3],
                 'RefLogikal' : RefLogikal,
                 'ColorLogikal' : couleur,
+                'LengthLogikal' : Length,
                 'UnitLogikal' : Unit
             })
 
 
-        profile_data = cursor.execute("select ArticleCode, Price, ArticleCode_Number, Color, ArticleCode_Supplier, ArticleCode_BaseNumber, OuterColorInfoInternal, InnerColorInfoInternal, ColorInfoInternal from Profiles")
+        profile_data = cursor.execute("select Profiles.ArticleCode, Profiles.Price, Profiles.ArticleCode_Number, Profiles.Color, Profiles.ArticleCode_Supplier, Profiles.ArticleCode_BaseNumber, Profiles.OuterColorInfoInternal, Profiles.InnerColorInfoInternal, Profiles.ColorInfoInternal, AllProfiles.Length from Profiles INNER JOIN AllProfiles ON AllProfiles.ArticleCode = Profiles.ArticleCode")
         for row in profile_data:
             refart = row[0]
             couleur = ''
             fournisseur = row[4]
             fournisseur = fournisseur.upper()
             RefLogikal = row[2]
+            Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
                 couleurext = str(row[6])
@@ -111,12 +114,14 @@ class SqliteConnector(models.Model):
                 if couleur != '' :
                     refart = refart + '.' + couleur
                 RefLogikal = 'T' + RefLogikal
+                Length= row[9]
             #_logger.warning("**********Profile pour MAJ********* %s " % refart )
             profiles.append({
                 'article': refart,
                 'prix': row[1],
                 'RefLogikal' : RefLogikal,
                 'ColorLogikal' : couleur,
+                'LengthLogikal' : Length,
                 'UnitLogikal' : 'Pce'
             })
 
@@ -143,6 +148,7 @@ class SqliteConnector(models.Model):
                 product.x_studio_ref_int_logikal = article['RefLogikal']
                 product.x_studio_color_logikal = article['ColorLogikal']
                 product.x_studio_unit_logikal = article['UnitLogikal']
+                product.x_studio_longueur_m = article['LengthLogikal']
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                 message = _("Ref Logikal is updated for product: %s") % ','.join(refs)
             if product and round(float(article['price']), 4) != round(product.standard_price, 4):
@@ -159,6 +165,7 @@ class SqliteConnector(models.Model):
                 product.x_studio_ref_int_logikal = profile['RefLogikal']
                 product.x_studio_color_logikal = profile['ColorLogikal']
                 product.x_studio_unit_logikal = profile['UnitLogikal']
+                product.x_studio_longueur_m = profile['LengthLogikal']
                 refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
                 message = _("Ref Logikal is updated for product: %s") % ','.join(refs)
                 self.message_post(body=message)
@@ -473,6 +480,7 @@ class SqliteConnector(models.Model):
             ColorLogikal = ''
             UnitLogikal = row[12]
             UnitLogikal = UnitLogikal.upper()
+            LengthLogikal = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[9]
                 RefLogikal ='TT'+ RefLogikal 
@@ -525,7 +533,7 @@ class SqliteConnector(models.Model):
                 
                 categorie = '__export__.product_category_14_a5d33274'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal)
+                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
                     creation_commande(Commande, refart, unit, fournisseur,prix ,delai, UV, Qte)
                     
@@ -592,6 +600,7 @@ class SqliteConnector(models.Model):
                     'x_studio_ref_int_logikal' : ligne[10],
                     'x_studio_color_logikal' : ligne[11],
                     'x_studio_unit_logikal' : ligne[12],
+                    'x_studio_longueur_m' : ligne[13],
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
@@ -779,7 +788,7 @@ class SqliteConnector(models.Model):
                     BP = 'BPA-BPE'
 
         if BP == 'BPA' or BP == 'BPE':
-            resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number, AllProfiles.PUSize  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
+            resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number, AllProfiles.PUSize, AllProfiles.Length  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
             idun =''
             idfrs = ''
             UV = 0
@@ -802,6 +811,7 @@ class SqliteConnector(models.Model):
                 RefLogikal = row[9]
                 ColorLogikal = ''
                 UnitLogikal = 'PCE'
+                LengthLogikal = row[15]
                 if fournisseur == 'TECHNAL' :
                     refart = 'TEC' + ' ' + row[12]
                     RefLogikal = 'TT' + row[12]
@@ -862,7 +872,7 @@ class SqliteConnector(models.Model):
 
                 #_logger.warning("**********Unite de mesure********* %s " % str(unit) )
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal)
+                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
                     creation_commande(Commande, refart, unit, fournisseur,prixB ,delai, UV, Qte)
             
@@ -928,6 +938,7 @@ class SqliteConnector(models.Model):
                             'x_studio_ref_int_logikal' : ligne[10],
                             'x_studio_color_logikal' : ligne[11],
                             'x_studio_unit_logikal' : ligne[12],
+                            'x_studio_longueur_m' : ligne[13],
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
