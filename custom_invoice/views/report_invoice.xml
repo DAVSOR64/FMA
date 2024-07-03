@@ -23,16 +23,6 @@
                 <br>En cas de retard de paiement, une pénalité égale à 3 fois le taux d'intérêt légal sera exigible (Décret 2009-138 du 9 Février 2009), ainsi qu'une indemnité forfaitaire pour frais de recouvrement d'un montant minimum de 40 euros pour les professionnels (Décret 2012-1115 du octobre 2012)</br>
                 <br>IDU:FR3164435_04YPGF Numéro d'enregistrement en application de l'article L.541-10 du code de l'Environnement</br>
             </div>
-            <t t-if="o.show_text_block">
-                <div class="text-block" >
-                    <!-- Place your custom text block here -->
-                    <p>CREDIT MUTUEL FACTORING</p>
-                    <p>Pour être libératoire, votre règlement doit être effectué directement à l'ordre de CREDIT MUTUEL FACTORING</p>
-                    <p>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedes Tél: 01.49.74.56.00, qui reçoit par subrogation et devra être avisée de toute réclamation relative à cette créance.</p>
-                    <p>IBAN : FR76 1197 8000 0100 7278 1612 079</p>
-                    <p>BIC : CMCIFRPPXXX</p>
-                </div>
-            </t>
         </xpath>
         <!-- Modif de l'entete -->
         <xpath expr="//div[@id='informations']" position="replace">
@@ -121,7 +111,7 @@
                         <t t-set="acompte_amount_ttc" t-value="acompte_amount_ttc + line.price_total"/>
                         <t t-set="acompte_amount_ht" t-value="acompte_amount_ht + line.price_subtotal"/>
                     </t>
-                    <t t-if="line.product_id.name != 'Acompte' and line.product_id.name != 'Devis' and not line.display_type">
+                    <t t-if="line.product_id.name != 'Acompte' and line.product_id.name != 'Devis' and not line.product_id.default_code.startswith('A2') and not line.display_type">
                         <tr> 
                             <td name="account_invoice_line_name"><span t-esc="line.product_id.name + ' ' + line.name" t-options="{'widget': 'text'}"/></td>
                             <td class="text-right">
@@ -149,6 +139,20 @@
         <xpath expr="//p[@name='note']" position="replace"/>
         <xpath expr="//p[@name='incoterm']" position="replace"/>
         <xpath expr="//div[@id='qrcode']" position="replace"/>
+        
+        <xpath expr="//div[@class='clearfix']" position="before">
+            <t t-if="o.show_text_block">
+                    <div class="text-block" style="font-size: 11px;" >
+                        <!-- Place your custom text block here -->
+                        <br>CREDIT MUTUEL FACTORING</br>
+                        <br>Pour être libératoire, votre règlement doit être effectué directement à l'ordre de CREDIT MUTUEL FACTORING</br>
+                        <br>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedes Tél: 01.49.74.56.00, qui reçoit par subrogation et devra être avisée de toute réclamation relative à cette créance.</br>
+                        <br>IBAN : FR76 1197 8000 0100 7278 1612 079</br>
+                        <br>BIC : CMCIFRPPXXX</br>
+                    </div>
+                </t>
+        </xpath>
+        
         <!-- Modification du tableau des totaux -->
         <xpath expr="//div[@class='clearfix']" position="replace">
             <div class="clearfix">
