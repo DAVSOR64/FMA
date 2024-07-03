@@ -30,7 +30,7 @@
 					<Address />
 				</Header>
 				<Articles>
-					<t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.price_subtotal != 0 and line.product_id.default_code != 'affaire')" />
+					<t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.product_id.default_code != 'affaire')" />
 					<t t-foreach="filtered_lines" t-as="line">
 					<Article t-att-ItemCount="(line_index+1)*10"
 						t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
