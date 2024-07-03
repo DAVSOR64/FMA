@@ -1,42 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
 	<template id="purchase_order_ftp_export_template">
-		<CCS xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-			<Internal Type="Order" Version="617" Build="2.46.241" Job="3175" ItemSet="0000003643">
-				<PriceList>
-					<PriceDate t-att-Name="po.partner_id.name or ''" t-att-Date="po.create_date.strftime('%Y%m%d') if po.create_date else ''" />
-				</PriceList>
-			</Internal>
-			<Orders>
-				<Order>
-					<Header DocumentType="ZOR"
-						PuchOrderType="Z009"
-						BrandID="20" SalesSBUID="2000"
-						CustomerNumber="130172"
-						CustomerEmail=""
-						BuildingProjectID=""
-						t-att-DocumentNumber="po.name or ''"
-						t-att-DocumentDate="po.create_date.strftime('%Y%m%d') if po.create_date else ''"
-						t-att-OrderReference="(po.x_studio_rfrence.replace('-', '').replace(' ', '') if po.x_studio_rfrence else '')[:35]"
-						t-att-ShipToNumber="po.shipping_partner_id.shipping_number or ''"
-						PreferedLanguage="FR"
-						WorkType="T"
-						FinalCusttype="03">
-						<InternalRemarks></InternalRemarks>
-						<Address />
-					</Header>
-					<Articles>
-						<t t-foreach="po.order_line" t-as="line">
-							<Article t-att-ItemCount="(line_index+1)*10"
-								t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
-								t-att-ArticlesQuantity="line.product_qty or ''"
-								t-att-SalesUnitOfMeasure="line.product_uom.name or ''"
-								t-att-Length="line.product_id.x_studio_largeur_mm or ''"
-								t-att-ExternalColor="line.product_id.x_studio_color_logikal or ''" />
-						</t>
-					</Articles>
-				</Order>
-			</Orders>
-		</CCS>
+	<CCS xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+		<Internal Type="Order" Version="617" Build="2.46.241" Job="3175" ItemSet="0000003643">
+			<PriceList>
+				<PriceDate t-att-Name="po.partner_id.name or ''" t-att-Date="po.create_date.strftime('%Y%m%d') if po.create_date else ''" />
+			</PriceList>
+		</Internal>
+		<Orders>
+			<Order>
+				<Header DocumentType="ZOR"
+					PuchOrderType="Z009"
+					t-att-BrandID="
+						'20' if po.partner_id.name == 'TECHNAL' else
+						'30' if po.partner_id.name == 'WICONA HBS' else
+						'60' if po.partner_id.name == 'SAPA' else ''"
+					SalesSBUID="2000"
+					CustomerNumber="130172"
+					CustomerEmail=""
+					BuildingProjectID=""
+					t-att-DocumentNumber="po.name or ''"
+					t-att-DocumentDate="po.create_date.strftime('%Y%m%d') if po.create_date else ''"
+					t-att-OrderReference="(po.x_studio_rfrence.replace('-', '').replace(' ', '') if po.x_studio_rfrence else '')[:35]"
+					t-att-ShipToNumber="po.shipping_partner_id.shipping_number or ''"
+					PreferedLanguage="FR"
+					WorkType="T"
+					FinalCusttype="03">
+					<InternalRemarks></InternalRemarks>
+					<Address />
+				</Header>
+				<Articles>
+					<t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.price_subtotal != 0 and line.product_id.default_code != 'affaire')" />
+					<t t-foreach="filtered_lines" t-as="line">
+					<Article t-att-ItemCount="(line_index+1)*10"
+						t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
+						t-att-ArticlesQuantity="line.product_qty or ''"
+						t-att-SalesUnitOfMeasure="line.product_id.x_studio_unit_logikal or ''"
+						t-att-Length="line.product_id.x_studio_largeur_mm or ''"
+						t-att-ExternalColor="line.product_id.x_studio_color_logikal or ''" />
+					</t>
+				</Articles>
+			</Order>
+		</Orders>
+	</CCS>
 	</template>
 </odoo>
