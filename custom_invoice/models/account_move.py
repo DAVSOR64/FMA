@@ -1,19 +1,39 @@
 from odoo import models, fields, api
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
     show_text_block = fields.Boolean(string="Show Text Block", compute='_compute_show_text_block')
-
+    x_studio_delegation_fac = fields.Boolean(string="Délégation")
+    x_studio_com_delegation_fac = fields.Char(string="Commentaire Délégation :")
+    x_delegation_text = fields.Char(string="Texte de Délégation", compute='_compute_delegation_text')
+    x_studio_imputation_2 = fields.Char(string="Imputation :")
+    
+    
     @api.depends('partner_id')
     def _compute_show_text_block(self):
         for record in self:
             record.show_text_block = record.partner_id.x_studio_affacturage
-
+    
+    
     @api.model
     def _get_invoice_lines(self):
         lines = super(AccountMove, self)._get_invoice_lines()
         return lines.filtered(lambda l: l.product_id.name != 'Devis')
+
+    @api.depends('x_studio_delegation_fac')
+    def _compute_delegation_text(self):
+        for record in self:
+            _logger.warning("**********delegation********* %s " % record.x_studio_delegation_fac )
+            if record.x_studio_delegation_fac:
+                record.x_delegation_text = record.x_studio_com_delegation_fac
+            else:
+                record.x_delegation_text = ""    
+    
 
     def format_amount(self, amount):
         return '{:,.2f}'.format(amount).replace(',', ' ').replace('.', ',')

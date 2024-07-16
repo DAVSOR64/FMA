@@ -2,7 +2,7 @@
     <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">      
        <xpath expr="//div[@class='page']" position="before">
             <div class="header_table">
-                <div style="text-align: right;">
+                <div style="margin-left: 400px;">
                     <span t-field="o.partner_id"/>
                     <br><span t-field="o.partner_id.street"/></br>
                     <br><span t-field="o.partner_id.street2"/></br>
@@ -69,6 +69,15 @@
                 <p><strong>Référence :</strong> <span t-field="o.invoice_origin"/> <span t-field="o.x_studio_rfrence_affaire"/></p>
             </div>
         </xpath>
+        <!-- Affichage de x_studio_impuation_2 s'il n'est pas vide -->
+        <xpath expr="//tbody[@class='invoice_tbody']" position="before">
+            <t t-if="o.x_studio_imputation_2">
+                <div class="imputation-detail">
+                    <strong>Imputation :</strong>
+                    <span t-field="o.x_studio_imputation_2"/>
+                </div>
+            </t>
+        </xpath>
         <!-- Modif du tableau des lignes-->
         <xpath expr="//table[@class='table table-sm o_main_table']/thead" position="replace">
             <thead>
@@ -111,7 +120,7 @@
                         <t t-set="acompte_amount_ttc" t-value="acompte_amount_ttc + line.price_total"/>
                         <t t-set="acompte_amount_ht" t-value="acompte_amount_ht + line.price_subtotal"/>
                     </t>
-                    <t t-if="line.product_id.name != 'Acompte' and line.product_id.name != 'Devis' and not line.product_id.default_code.startswith('A2') and not line.display_type">
+                    <t t-if="line.product_id.name != 'Acompte' and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and not line.product_id.default_code.startswith('A2') and not line.display_type">
                         <tr> 
                             <td name="account_invoice_line_name"><span t-esc="line.product_id.name + ' ' + line.name" t-options="{'widget': 'text'}"/></td>
                             <td class="text-right">
@@ -152,6 +161,14 @@
                     </div>
                 </t>
         </xpath>
+        <xpath expr="//div[hasclass('clearfix')]" position="before">
+            <t t-if="o.x_studio_delegation_fac">
+                 <div class="delegation_text" style="font-size: 11px;">
+                    <!-- Place your custom text block here -->
+                    <t t-esc="o.x_delegation_text"/>
+                </div>
+            </t>
+        </xpath>
         
         <!-- Modification du tableau des totaux -->
         <xpath expr="//div[@class='clearfix']" position="replace">
@@ -184,7 +201,7 @@
                 <div class="totals-table-container">
                     <t t-if="o.show_text_block">
                         <div class="rib-block">
-                            <br><strong>Coordonnées bancaires société :</strong></br>
+                            <br><strong>Coordonnées bancaires Factor :</strong></br>
                             <br>Banque : CM-CIC FACTOR</br>
                             <br>RIB: 11978000010072781612079</br>
                             <br>IBAN: FR76 1197 8000 0100 7278 1612 079</br>
@@ -214,7 +231,7 @@
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-right">
-                                    <strong>Total par TVA</strong>
+                                    <strong>Total TVA</strong>
                                 </td>
                                 <td class="text-right">
                                     <span t-esc="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed - acompte_amount_ht))" />€
