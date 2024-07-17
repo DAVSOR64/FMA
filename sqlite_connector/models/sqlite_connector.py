@@ -432,9 +432,6 @@ class SqliteConnector(models.Model):
             for item in Commande:
                 # Si l'article existe déjà on ne fait rien
                 if item[0] == refinterne :
-                    _logger.warning("**********REFART********* %s " % refinterne )
-                    _logger.warning("**********Qte********* %s " % str(Qte) )
-                    _logger.warning("**********Qte Liste********* %s " % str(item[6]) )
                     QteArt = float(item[6])
                     QteArt += float(Qte)
                     item[6] = str(QteArt)
@@ -504,13 +501,9 @@ class SqliteConnector(models.Model):
             # to get price
             for article in articles:
                 if refart == article['item']:
-                    #_logger.warning("**************ARTCILE PRIX************* %s " % row[0]) 
                     prix = article['price']
 
             if fournisseur != 'HUD' :
-                #_logger.warning("**********REFART********* %s " % refart )
-                #_logger.warning("**********FOURNISSEUR********* %s " % fournisseur )
-                #_logger.warning("**********UNITE********* %s " % unit )
                 uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
                 if uom:
                     unit = uom.name
@@ -530,7 +523,7 @@ class SqliteConnector(models.Model):
                     CptLb = CptLb + 1
                     refart = nom[:3] + ' ' + projet +'_LB' + str(CptLb)
                     fournisseur = 'NONDEF'
-                    "_logger.warning("**********Article********* %s " % str(refart) )
+                    
                 
                 categorie = '__export__.product_category_14_a5d33274'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
@@ -851,12 +844,9 @@ class SqliteConnector(models.Model):
                 if couleur != '' :
                     refart = refart + '.' + couleur
                     refartfic = ''
-                #_logger.warning("**********Profile********* %s " % refart )
+                
                 for profile in profiles:
-                    #_logger.warning("**************ARTCILE PROFILE************* %s " % profile['article']) 
-                    #_logger.warning("************** PRIX************* %s " % str(profile['prix'])) 
                     if refart == profile['article']:
-                        #_logger.warning("**************ARTCILE PRIX************* %s " % refart) 
                         prix = profile['prix']
                         prixB = float(prix) * float(row[6])
                         
