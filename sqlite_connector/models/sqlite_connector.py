@@ -77,7 +77,7 @@ class SqliteConnector(models.Model):
                     couleur = ''
                 if couleur != '':
                     refart = refart + '.' + couleur
-                RefLogikal = 'T' + RefLogikal
+                #RefLogikal = 'T' + RefLogikal
             _logger.warning("**********article pour MAJ********* %s " % refart )
             articles.append({
                 'item': refart,
@@ -113,7 +113,7 @@ class SqliteConnector(models.Model):
                             couleur = ''
                 if couleur != '' :
                     refart = refart + '.' + couleur
-                RefLogikal = 'T' + RefLogikal
+                #RefLogikal = 'T' + RefLogikal
                 Length= row[9]
             #_logger.warning("**********Profile pour MAJ********* %s " % refart )
             profiles.append({
@@ -483,7 +483,7 @@ class SqliteConnector(models.Model):
             LengthLogikal = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[9]
-                RefLogikal ='TT'+ RefLogikal 
+                RefLogikal ='T'+ RefLogikal 
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[11][1:]
             if fournisseur == 'SAPA' :
@@ -503,7 +503,8 @@ class SqliteConnector(models.Model):
             
             # to get price
             for article in articles:
-                if row[0] == article['item']:
+                if refart == article['item']:
+                    #_logger.warning("**************ARTCILE PRIX************* %s " % row[0]) 
                     prix = article['price']
 
             if fournisseur != 'HUD' :
@@ -524,12 +525,12 @@ class SqliteConnector(models.Model):
                 if couleur != '':
                     refart = refart + '.' + couleur
                 ColorLogikal = couleur
-                _logger.warning("**********saisie manuelle********* %s " % str(SaisieManuelle) )  
+                #_logger.warning("**********saisie manuelle********* %s " % str(SaisieManuelle) )  
                 if str(SaisieManuelle) == 'True' : 
                     CptLb = CptLb + 1
                     refart = nom[:3] + ' ' + projet +'_LB' + str(CptLb)
                     fournisseur = 'NONDEF'
-                    _logger.warning("**********Article********* %s " % str(refart) )
+                    "_logger.warning("**********Article********* %s " % str(refart) )
                 
                 categorie = '__export__.product_category_14_a5d33274'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
@@ -814,7 +815,7 @@ class SqliteConnector(models.Model):
                 LengthLogikal = row[15]
                 if fournisseur == 'TECHNAL' :
                     refart = 'TEC' + ' ' + row[12]
-                    RefLogikal = 'TT' + row[12]
+                    RefLogikal = 'T' + row[12]
                 if fournisseur == 'WICONA' :
                     refart = 'WIC' + ' ' + row[13][1:]
                 if fournisseur == 'SAPA' :
@@ -843,10 +844,7 @@ class SqliteConnector(models.Model):
                     couleur =''
 
                 ColorLogikal = couleur
-                for profile in profiles:
-                    if row[0] == profile['article']:
-                        prix = profile['prix']
-                        prixB = float(prix) * float(row[6])
+                
                 
                 refart = refart.replace("RYN","REY")
                 refart = refart.replace("SC  ","SCH ")
@@ -854,7 +852,14 @@ class SqliteConnector(models.Model):
                     refart = refart + '.' + couleur
                     refartfic = ''
                 #_logger.warning("**********Profile********* %s " % refart )
-                
+                for profile in profiles:
+                    #_logger.warning("**************ARTCILE PROFILE************* %s " % profile['article']) 
+                    #_logger.warning("************** PRIX************* %s " % str(profile['prix'])) 
+                    if refart == profile['article']:
+                        #_logger.warning("**************ARTCILE PRIX************* %s " % refart) 
+                        prix = profile['prix']
+                        prixB = float(prix) * float(row[6])
+                        
                 uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
                 if uom:
                     unit = uom.name
