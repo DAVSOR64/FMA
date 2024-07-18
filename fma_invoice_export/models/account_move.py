@@ -88,7 +88,7 @@ class AccountMove(models.Model):
             if account_code:
                 items_grouped_by_account = list(items_grouped_by_account)
                 grouped_items.append({
-                    'journal': move.journal_id.name,
+                    'journal': "VTE",
                     'invoice_date': move.invoice_date,
                     'move_name': move.name,
                     'invoice_date_1': move.invoice_date,
@@ -100,8 +100,8 @@ class AccountMove(models.Model):
                     'section_axe2': sale_order_name.replace('-', '') if sale_order_name else '',
                     'section': section,
                     'section_axe3': 999999999999 if all(not item.reconciled for item in items_grouped_by_account) else '',
-                    'debit': round(sum(item.debit for item in items_grouped_by_account), 2),
-                    'credit': round(sum(item.credit for item in items_grouped_by_account), 2)
+                    'debit': round(sum(item.debit for item in items_grouped_by_account), 2) or '',
+                    'credit': round(sum(item.credit for item in items_grouped_by_account), 2) or ''
                 })
 
         # configuring fields and rows for CSVExport
@@ -113,8 +113,8 @@ class AccountMove(models.Model):
             csv_row = []
             for field in fields:
                 value = row.get(field, '')
-                if value is False:
-                    csv_row.append("False")
+                if value in (0, '0', None, False):
+                    csv_row.append('')
                 else:
                     csv_row.append(value)
             rows.append(csv_row)
