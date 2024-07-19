@@ -5,9 +5,12 @@
                 <div style="margin-left: 400px;">
                     <span t-field="o.partner_id"/>
                     <br><span t-field="o.partner_id.street"/></br>
-                    <br><span t-field="o.partner_id.street2"/></br>
+                    <t t-if="o.partner_id.street2">
+                        <br><span t-field="o.partner_id.street2"/></br>
+                    </t>
                     <br><span t-field="o.partner_id.zip"/> <span t-field="o.partner_id.city"/></br>
-                    <br>TVA :<span t-field="o.partner_id.vat"/> </br>
+                    <br></br>
+                    <br>TVA : <span t-field="o.partner_id.vat"/> </br>
                     <br>SIRET : <span t-field="o.partner_id.siret"/></br>
                 </div>
                 <div style="text-align: right;">
@@ -155,9 +158,7 @@
                         <!-- Place your custom text block here -->
                         <br>CREDIT MUTUEL FACTORING</br>
                         <br>Pour être libératoire, votre règlement doit être effectué directement à l'ordre de CREDIT MUTUEL FACTORING</br>
-                        <br>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedes Tél: 01.49.74.56.00, qui reçoit par subrogation et devra être avisée de toute réclamation relative à cette créance.</br>
-                        <br>IBAN : FR76 1197 8000 0100 7278 1612 079</br>
-                        <br>BIC : CMCIFRPPXXX</br>
+                        <br>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedex Tél: 01.49.74.56.00, qui le reçoit par subrogation et devra être avisée de toute réclamation relative à cette créance.</br>
                     </div>
                 </t>
         </xpath>
@@ -226,7 +227,7 @@
                                     <strong>Total HT</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" />€
+                                    <span t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" /> €
                                 </td>
                             </tr>
                             <tr>
@@ -234,7 +235,7 @@
                                     <strong>Total TVA</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed - acompte_amount_ht))" />€
+                                    <span t-esc="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed - acompte_amount_ht))" /> €
                                 </td>
                             </tr>
                             <tr>
@@ -242,7 +243,7 @@
                                     <strong>Total TTC</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount(o.amount_total - acompte_amount_ttc)" />€
+                                    <span t-esc="o.format_amount(o.amount_total - acompte_amount_ttc)" /> €
                                 </td>
                             </tr>
                             <tr>
@@ -250,7 +251,12 @@
                                     <strong>Montant de l'acompte reçu </strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount(acompte_amount_ttc * -1)" /> €
+                                    <t t-if="acompte_amount_ttc == 0">
+                                        0 €
+                                    </t>
+                                    <t t-else="">
+                                        <span t-esc="o.format_amount(acompte_amount_ttc * -1)" /> €
+                                    </t>
                                 </td>
                             </tr>
                             <tr>
