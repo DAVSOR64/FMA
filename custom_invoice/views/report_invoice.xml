@@ -235,14 +235,34 @@
                                     <span t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" /> €
                                 </td>
                             </tr>
-                            <tr>
-                                <td colspan="4" class="text-right">
+                               <!-- <td colspan="4" class="text-right">
                                     <strong>Total TVA</strong>
                                 </td>
                                 <td class="text-right">
                                     <span t-esc="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed - acompte_amount_ht))" /> €
-                                </td>
-                            </tr>
+                                </td>-->
+                                 <!-- Afficher les valeurs de débogage pour les lignes de facture -->
+                            
+                            <!-- Initialiser un dictionnaire pour stocker les montants par taux de TVA -->
+                            <t t-set="tax_details" t-value="{}"/>
+                            <!-- Itérer sur les lignes de facture pour calculer les montants de TVA -->
+                            <t t-foreach="o.invoice_line_ids" t-as="line">
+                                <t t-foreach="line.tax_ids" t-as="tax">
+                                    <t t-set="tax_amount" t-value="tax_details.get(tax.name, 0) + (line.price_subtotal * tax.amount / 100)"/>
+                                    <t t-set="tax_details" t-value="dict(tax_details, **{tax.name: tax_amount})"/>
+                                </t>
+                            </t>
+                            <!-- Afficher les totaux par taux de TVA -->
+                            <t t-foreach="tax_details.items()" t-as="item">
+                                <tr>
+                                    <td colspan="4" class="text-right">
+                                        <strong><t t-esc="item[0]"/></strong>
+                                    </td>
+                                    <td class="text-right">
+                                        <span t-esc="o.format_amount(item[1])" /> €
+                                    </td>
+                                </tr>
+                            </t>
                             <tr>
                                 <td colspan="4" class="text-right">
                                     <strong>Total TTC</strong>
