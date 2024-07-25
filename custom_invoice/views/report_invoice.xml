@@ -87,6 +87,7 @@
                 <tr>
                     <th name="th_description" class="text-left"><span>Description</span></th>
                     <th name="th_quantity" class="text-right"><span>Quantité</span></th>
+                    <th name="th_discount" t-if="any(line.discount > 0 for line in o.invoice_line_ids)" class="text-right"><span>Remise</span></th>
                     <th name="th_priceunit" t-attf-class="text-right {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Prix Unitaire</span></th>
                     <th name="th_subtotal" class="text-right">
                         <span groups="account.group_show_line_subtotals_tax_excluded">Montant HT</span>
@@ -129,6 +130,10 @@
                             <td class="text-right">
                                 <span t-field="line.quantity"/>
                                 <!--<span t-field="line.product_uom_id" groups="uom.group_uom"/>-->
+                            </td>
+                            <td class="text-right" t-if="any(l.discount > 0 for l in o.invoice_line_ids)">
+                                <span t-if="line.discount > 0"><t t-esc="('%.2f' % line.discount)"/></span> % <!-- Afficher la remise uniquement si elle est > 0 -->
+                                <span t-if="line.discount == 0">-</span> <!-- Afficher un tiret si la remise est égale à 0 -->
                             </td>
                             <td class="text-right">
                                 <span class="text-nowrap" t-esc="o.format_amount(line.price_unit)"/> €

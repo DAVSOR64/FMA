@@ -4,7 +4,7 @@ class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
     x_studio_ref_affaire = fields.Char(string="Affaire")
-    x_studio_imputation = fields.Char(string="Imputation")
+    x_studio_imputation = fields.Char(string="Référence Commande")
     x_studio_delegation = fields.Boolean(string="Délégation")
     x_studio_com_delegation = fields.Char(string="Commentaire Délégation:")
     x_studio_mode_de_rglement_1 = fields.Selection(
