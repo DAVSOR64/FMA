@@ -64,6 +64,9 @@ class AccountMove(models.Model):
                     'is_invoice_txt': True
                 })
 
+                # logging CSV file in chatter
+                self._log_csv_file_in_chatter(file_content, attachment.name)
+
                 move.is_txt_created = True
                 move.txt_creation_time = fields.Datetime.now()
             except Exception as e:
@@ -100,11 +103,11 @@ class AccountMove(models.Model):
                     'section_axe2': sale_order_name.replace('-', '') if sale_order_name else '',
                     'section': section,
                     'section_axe3': 999999999999 if all(not item.reconciled for item in items_grouped_by_account) else '',
-                    'debit': round(sum(item.debit for item in items_grouped_by_account), 2) or '',
-                    'credit': round(sum(item.credit for item in items_grouped_by_account), 2) or ''
+                    'debit': round(sum(item.debit for item in items_grouped_by_account), 2),
+                    'credit': round(sum(item.credit for item in items_grouped_by_account), 2)
                 })
 
-        # configuring fields and rows for CSVExport
+        # configuring fields and rows for CSV Export
         fields = [
             'journal', 'invoice_date', 'move_name', 'invoice_date', 'due_date', 'account_code', 'mode_de_regiment', 'name_and_customer_name', 'payment_reference', 'section_axe2', 'section', 'section_axe3', 'debit', 'credit'
         ]
@@ -113,7 +116,7 @@ class AccountMove(models.Model):
             csv_row = []
             for field in fields:
                 value = row.get(field, '')
-                if value in (0, '0', None, False):
+                if value is False:
                     csv_row.append('')
                 else:
                     csv_row.append(value)
@@ -127,6 +130,19 @@ class AccountMove(models.Model):
         csv_data_bytes = csv_data_without_header.encode('utf-8')
 
         return csv_data_bytes
+
+    def _log_csv_file_in_chatter(self, csv_content, file_name):
+        csv_base64 = base64.b64encode(csv_content).decode('utf-8')
+        attachment_id = self.env['ir.attachment'].create({
+            'name': file_name,
+            'datas': csv_base64,
+            'res_model': self._name,
+            'res_id': self.id,
+        })
+        self.message_post(
+            attachment_ids=[attachment_id.id],
+            body=f"CSV file '{file_name}' exported successfully."
+        )
 
     def cron_generate_journal_items_file(self):
         """Cron to generate journal items txt file."""
