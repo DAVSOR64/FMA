@@ -3,11 +3,25 @@ from odoo import models, fields, api
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
-    x_studio_ref_affaire = fields.Char(string="Custom Field affaire")
-    x_studio_imputation = fields.Char(string="Custom Field imputation")
+    x_studio_ref_affaire = fields.Char(string="Affaire")
+    x_studio_imputation = fields.Char(string="Référence Commande")
     x_studio_delegation = fields.Boolean(string="Délégation")
     x_studio_com_delegation = fields.Char(string="Commentaire Délégation:")
-    x_studio_mode_de_rglement_1 = fields.Char(string="Mode de reglement")
+    x_studio_mode_de_rglement_1 = fields.Selection(
+        [
+            ('ESPECES','ESPECES'),
+            ('CHEQUE BANCAIRE','CHEQUE BANCAIRE'),
+            ('VIREMENT BANCAIRE','VIREMENT BANCAIRE'),
+            ('L.C.R. DIRECTE','L.C.R. DIRECTE'),
+            ('L.C.R. A L ACCEPTATION','L.C.R. A L ACCEPTATION'),
+            ('PRELEVEMENT','PRELEVEMENT'),
+            ('L.C.R. MAGENTIQUE','L.C.R. MAGENTIQUE'),
+            ('BOR','BOR'),
+            ('CARTE BANCAIRE','CARTE BANCAIRE'),
+            ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
+        ],
+        string="Mode de Règlement",
+    )
     x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
     
     def _prepare_invoice(self):

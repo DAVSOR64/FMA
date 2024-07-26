@@ -5,9 +5,12 @@
                 <div style="margin-left: 400px;">
                     <span t-field="o.partner_id"/>
                     <br><span t-field="o.partner_id.street"/></br>
-                    <br><span t-field="o.partner_id.street2"/></br>
+                    <t t-if="o.partner_id.street2">
+                        <br><span t-field="o.partner_id.street2"/></br>
+                    </t>
                     <br><span t-field="o.partner_id.zip"/> <span t-field="o.partner_id.city"/></br>
-                    <br>TVA :<span t-field="o.partner_id.vat"/> </br>
+                    <br></br>
+                    <br>TVA : <span t-field="o.partner_id.vat"/> </br>
                     <br>SIRET : <span t-field="o.partner_id.siret"/></br>
                 </div>
                 <div style="text-align: right;">
@@ -52,9 +55,9 @@
                         <tbody>
                             <tr>
                                 <td><span t-field="o.invoice_date"/></td>
-                                <td><span t-field="o.x_studio_related_field_2M5F4"/></td>
+                                <td><span t-field="o.partner_id.x_studio_code_tiers"/></td>
                                 <td><span t-field="o.invoice_date_due"/></td>
-                                <td><span t-field="o.x_studio_mode_de_rglement"/></td>
+                                <td><span t-field="o.partner_id.x_studio_mode_de_rglement_1"/></td>
                                 <td><span t-field="o.invoice_payment_term_id.display_name"/></td>
                                 <td><span t-field="o.x_studio_materiaux"/></td>
                                 <td><span t-field="o.amount_residual"/></td> 
@@ -84,6 +87,7 @@
                 <tr>
                     <th name="th_description" class="text-left"><span>Description</span></th>
                     <th name="th_quantity" class="text-right"><span>Quantité</span></th>
+                    <th name="th_discount" t-if="any(line.discount > 0 for line in o.invoice_line_ids)" class="text-right"><span>Remise</span></th>
                     <th name="th_priceunit" t-attf-class="text-right {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}"><span>Prix Unitaire</span></th>
                     <th name="th_subtotal" class="text-right">
                         <span groups="account.group_show_line_subtotals_tax_excluded">Montant HT</span>
@@ -127,6 +131,10 @@
                                 <span t-field="line.quantity"/>
                                 <!--<span t-field="line.product_uom_id" groups="uom.group_uom"/>-->
                             </td>
+                            <td class="text-right" t-if="any(l.discount > 0 for l in o.invoice_line_ids)">
+                                <span t-if="line.discount > 0"><t t-esc="('%.2f' % line.discount)"/></span> % <!-- Afficher la remise uniquement si elle est > 0 -->
+                                <span t-if="line.discount == 0">-</span> <!-- Afficher un tiret si la remise est égale à 0 -->
+                            </td>
                             <td class="text-right">
                                 <span class="text-nowrap" t-esc="o.format_amount(line.price_unit)"/> €
                             </td>
@@ -155,9 +163,7 @@
                         <!-- Place your custom text block here -->
                         <br>CREDIT MUTUEL FACTORING</br>
                         <br>Pour être libératoire, votre règlement doit être effectué directement à l'ordre de CREDIT MUTUEL FACTORING</br>
-                        <br>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedes Tél: 01.49.74.56.00, qui reçoit par subrogation et devra être avisée de toute réclamation relative à cette créance.</br>
-                        <br>IBAN : FR76 1197 8000 0100 7278 1612 079</br>
-                        <br>BIC : CMCIFRPPXXX</br>
+                        <br>Traitement des encaissements TSA 90002 - 93328 AUBERVILLIERS Cedex Tél: 01.49.74.56.00, qui le reçoit par subrogation et devra être avisée de toute réclamation relative à cette créance.</br>
                     </div>
                 </t>
         </xpath>
@@ -226,23 +232,43 @@
                                     <strong>Total HT</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" />€
+                                    <span t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" /> €
                                 </td>
                             </tr>
-                            <tr>
-                                <td colspan="4" class="text-right">
+                               <!-- <td colspan="4" class="text-right">
                                     <strong>Total TVA</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed - acompte_amount_ht))" />€
-                                </td>
-                            </tr>
+                                    <span t-esc="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed - acompte_amount_ht))" /> €
+                                </td>-->
+                                 <!-- Afficher les valeurs de débogage pour les lignes de facture -->
+                            
+                            <!-- Initialiser un dictionnaire pour stocker les montants par taux de TVA -->
+                            <t t-set="tax_details" t-value="{}"/>
+                            <!-- Itérer sur les lignes de facture pour calculer les montants de TVA -->
+                            <t t-foreach="o.invoice_line_ids" t-as="line">
+                                <t t-foreach="line.tax_ids" t-as="tax">
+                                    <t t-set="tax_amount" t-value="tax_details.get(tax.name, 0) + (line.price_subtotal * tax.amount / 100)"/>
+                                    <t t-set="tax_details" t-value="dict(tax_details, **{tax.name: tax_amount})"/>
+                                </t>
+                            </t>
+                            <!-- Afficher les totaux par taux de TVA -->
+                            <t t-foreach="tax_details.items()" t-as="item">
+                                <tr>
+                                    <td colspan="4" class="text-right">
+                                        <strong><t t-esc="item[0]"/></strong>
+                                    </td>
+                                    <td class="text-right">
+                                        <span t-esc="o.format_amount(item[1])" /> €
+                                    </td>
+                                </tr>
+                            </t>
                             <tr>
                                 <td colspan="4" class="text-right">
                                     <strong>Total TTC</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount(o.amount_total - acompte_amount_ttc)" />€
+                                    <span t-esc="o.format_amount(o.amount_total - acompte_amount_ttc)" /> €
                                 </td>
                             </tr>
                             <tr>
@@ -250,7 +276,12 @@
                                     <strong>Montant de l'acompte reçu </strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount(acompte_amount_ttc * -1)" /> €
+                                    <t t-if="acompte_amount_ttc == 0">
+                                        0 €
+                                    </t>
+                                    <t t-else="">
+                                        <span t-esc="o.format_amount(acompte_amount_ttc * -1)" /> €
+                                    </t>
                                 </td>
                             </tr>
                             <tr>
