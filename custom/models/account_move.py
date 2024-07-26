@@ -9,3 +9,4 @@ class AccountMove(models.Model):
     x_studio_com_delegation_fac = fields.Char(string="COmmentaire Délégation :")
     x_studio_mode_de_rglement = fields.Char(string="Mode de réglement")
     x_studio_related_field_m8sZb = fields.Char(string="test")
+    x_studio_mode_de_rglement_1 = fields.Char(string="Mode de réglement")
