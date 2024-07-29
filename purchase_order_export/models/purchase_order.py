@@ -41,7 +41,7 @@ class PurchaseOrder(models.Model):
                     {'po': po}
                 )
                 attachment = self.env['ir.attachment'].create({
-                    'name': 'Purchase Order for Export-%s.xml' % po.name,
+                    'name': 'ZOR_%s.xml' % po.name,
                     'type': 'binary',
                     'datas': base64.b64encode(xml_content.encode('utf-8')),
                     'res_model': 'purchase.order',

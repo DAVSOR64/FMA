@@ -24,7 +24,7 @@
 					t-att-OrderReference="(po.x_studio_rfrence.replace('-', '').replace(' ', '') if po.x_studio_rfrence else '')[:35]"
 					t-att-ShipToNumber="po.shipping_partner_id.shipping_number or ''"
 					PreferedLanguage="FR"
-					WorkType="T"
+					WorkType="t"
 					FinalCusttype="03">
 					<InternalRemarks></InternalRemarks>
 					<Address />
@@ -36,7 +36,7 @@
 						t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
 						t-att-ArticlesQuantity="line.product_qty or ''"
 						t-att-SalesUnitOfMeasure="line.product_id.x_studio_unit_logikal or ''"
-						t-att-Length="line.product_id.x_studio_longueur_m or ''"
+						t-att-Length="(line.product_id.x_studio_longueur_m or '').upper()"
 						t-att-ExternalColor="line.product_id.x_studio_color_logikal or ''" />
 					</t>
 				</Articles>
