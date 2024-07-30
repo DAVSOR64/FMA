@@ -11,7 +11,7 @@ class ResPartner(models.Model):
             ('L.C.R. DIRECTE','L.C.R. DIRECTE'),
             ('L.C.R. A L ACCEPTATION','L.C.R. A L ACCEPTATION'),
             ('PRELEVEMENT','PRELEVEMENT'),
-            ('L.C.R. MAGENTIQUE','L.C.R. MAGENTIQUE'),
+            ('L.C.R. MAGNETIQUE','L.C.R. MAGNETIQUE'),
             ('BOR','BOR'),
             ('CARTE BANCAIRE','CARTE BANCAIRE'),
             ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
