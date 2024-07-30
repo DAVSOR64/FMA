@@ -1,5 +1,12 @@
 <odoo>
-    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">      
+    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">   
+          <xpath expr="//div[@class='page']" position="before">
+            <style>
+                .avoid-page-break {
+                    page-break-inside: avoid;
+                }
+            </style>
+        </xpath>
        <xpath expr="//div[@class='page']" position="before">
             <div class="header_table">
                 <div style="margin-left: 400px;">
@@ -297,6 +304,11 @@
                 </div>
             </div>
         </xpath>
+        <!-- Application de la classe CSS au tableau des totaux -->
+        <xpath expr="//table[@class='table table-sm o_main_table']" position="attributes">
+            <attribute name="class" add=" avoid-page-break"/>
+        </xpath>
+
     </template>
 </odoo>
 
