@@ -1,13 +1,13 @@
 <odoo>
     <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">
-        <xpath expr="//div[@class='page']" position="before">
+        <xpath expr="//div[hasclass('page')]" position="before">
             <style>
                 .avoid-page-break {
                 page-break-inside: avoid;
                 }
             </style>
         </xpath>
-        <xpath expr="//div[@class='page']" position="before">
+        <xpath expr="//div[hasclass('page')]" position="before">
             <div class="header_table">
                 <div style="margin-left: 400px;">
                     <span t-field="o.partner_id" />
@@ -37,7 +37,7 @@
             </div>
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->
-        <xpath expr="//div[@class='page']" position="inside">
+        <xpath expr="//div[hasclass('page')]" position="inside">
             <div class="text-block" style="font-size: 9px;">
                 <!-- Place your custom text block here -->
                 <br>Escompte pour règlement anticipé : 0%</br>
@@ -108,7 +108,7 @@
             </div>
         </xpath>
         <!-- Affichage de x_studio_impuation_2 s'il n'est pas vide -->
-        <xpath expr="//tbody[@class='invoice_tbody']" position="before">
+        <xpath expr="//tbody[hasclass('invoice_tbody')]" position="before">
             <t t-if="o.x_studio_imputation_2">
                 <div class="imputation-detail">
                     <strong>Imputation :</strong>
@@ -117,7 +117,7 @@
             </t>
         </xpath>
         <!-- Modif du tableau des lignes-->
-        <xpath expr="//table[@class='table table-sm o_main_table']/thead" position="replace">
+        <xpath expr="//table[hasclass('o_main_table')]/thead" position="replace">
             <thead>
                 <tr>
                     <th name="th_description" class="text-left">
@@ -142,7 +142,7 @@
                 </tr>
             </thead>
         </xpath>
-        <xpath expr="//tbody[@class='invoice_tbody']" position="replace">
+        <xpath expr="//tbody[hasclass('invoice_tbody')]" position="replace">
             <tbody class="invoice_tbody">
                 <tr class="invoice_tbody_header">
                     <style>
@@ -217,7 +217,7 @@
         <xpath expr="//p[@name='incoterm']" position="replace" />
         <xpath expr="//div[@id='qrcode']" position="replace" />
 
-        <xpath expr="//div[@class='clearfix']" position="before">
+        <xpath expr="//div[hasclass('clearfix')]" position="before">
             <t t-if="o.show_text_block">
                 <div class="text-block" style="font-size: 11px;">
                     <!-- Place your custom text block here -->
@@ -240,7 +240,7 @@
         </xpath>
 
         <!-- Modification du tableau des totaux -->
-        <xpath expr="//div[@class='clearfix']" position="replace">
+        <xpath expr="//div[hasclass('clearfix')]" position="replace">
             <div class="clearfix">
                 <style>
                     .totals-table-container {
@@ -373,7 +373,7 @@
             </div>
         </xpath>
         <!-- Application de la classe CSS au tableau des totaux -->
-        <xpath expr="//table[@class='table table-sm o_main_table']" position="attributes">
+        <xpath expr="//table[hasclass('o_main_table')]" position="attributes">
             <attribute name="class" add="avoid-page-break" />
         </xpath>
 
