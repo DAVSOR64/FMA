@@ -30,16 +30,22 @@
 					<Address />
 				</Header>
 				<Articles>
-					<t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.product_id.default_code != 'affaire')" />
-					<t t-foreach="filtered_lines" t-as="line">
-					<Article t-att-ItemCount="(line_index+1)*10"
-						t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
-						t-att-ArticlesQuantity="line.product_qty or ''"
-						t-att-SalesUnitOfMeasure="(line.product_id.x_studio_unit_logikal).upper() or ''"
-						t-att-Length="line.product_id.x_studio_longueur_m or ''"
-						t-att-ExternalColor="line.product_id.x_studio_color_logikal or ''" />
-					</t>
-				</Articles>
+                        <t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.product_id.default_code != 'affaire')" />
+                        <t t-foreach="filtered_lines" t-as="line">
+                            <t t-set="external_color" t-value="line.product_id.x_studio_color_logikal.split('/')[0] if line.product_id.x_studio_color_logikal and '/' in line.product_id.x_studio_color_logikal else ''" />
+                            <t t-set="internal_color" t-value="line.product_id.x_studio_color_logikal.split('/')[1] if line.product_id.x_studio_color_logikal and '/' in line.product_id.x_studio_color_logikal else ''" />
+                            
+                            <Article 
+                                t-att-ItemCount="(line_index+1)*10"
+                                t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
+                                t-att-ArticlesQuantity="line.product_qty or ''"
+                                t-att-SalesUnitOfMeasure="(line.product_id.x_studio_unit_logikal).upper() or ''"
+                                t-att-Length="line.product_id.x_studio_longueur_m or ''"
+                                t-att-ExternalColor="external_color"
+                                t-att-InternalColor="internal_color"
+                            />
+                        </t>
+                </Articles>
 			</Order>
 		</Orders>
 	</CCS>
