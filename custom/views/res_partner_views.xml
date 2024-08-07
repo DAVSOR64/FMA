@@ -1,0 +1,21 @@
+<odoo>
+    <record id="view_partner_form_custom" model="ir.ui.view">
+        <field name="name">res.partner.form.custom</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet//group" position="inside">
+                <field name="part_mode_de_reglement"/>
+                <field name="part_siren"/>
+                <field name="part_bic"/>
+                <field name="part_iban"/>
+                <field name="part_affacturage"/>
+                <field name="part_couverture"/>
+                <field name="part_date_couverture"/>
+                <field name="part_montant_couverture"/>
+                <field name="part_decision"/>
+                <field name="part_code_tiers"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

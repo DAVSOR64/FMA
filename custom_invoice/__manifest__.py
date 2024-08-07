@@ -6,7 +6,7 @@
     'author': 'Your Name',
     'depends': ['account'],
     'data': [
-        'views/report_invoice.xml',
+        # 'views/report_invoice.xml',
     ],
     'installable': True,
     'application': True,
