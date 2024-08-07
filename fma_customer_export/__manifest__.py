@@ -5,8 +5,9 @@
     'name': 'Customers: Export (TXT)',
     'description':
         """
-            The purpose of this module is to generate a .txt file containing customer details for each customer.
-            Crons are also introduced to generate and move such TXT files to FTP server.
+            The purpose of this module is to generate a .txt file containing customer details.
+            Crons are also introduced to generate a new file for new customers per day and
+            move such TXT files to FTP server.
             Task: 4061463
         """,
     'author': 'Odoo PS',
@@ -17,7 +18,8 @@
     ],
     'data': [
         'data/ir_cron.xml',
-        'views/res_config_settings_views.xml'
+        'views/res_config_settings_views.xml',
+        'views/res_partner_views.xml'
     ],
     'license': 'LGPL-3',
 }
