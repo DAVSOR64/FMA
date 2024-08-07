@@ -8,3 +8,4 @@ class IrAttachment(models.Model):
     _inherit = 'ir.attachment'
 
     is_customer_txt = fields.Boolean()
+    is_synced_to_ftp = fields.Boolean()
