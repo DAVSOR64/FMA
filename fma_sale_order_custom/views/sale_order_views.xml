@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_inherit" model="ir.ui.view">
+        <field name="name">sale.view.order.form.inherit.fma.sale.order.custom</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='state']" position="replace">
+                <field name="state" widget="statusbar" statusbar_visible="draft,sent,validated,sale"/>
+            </xpath>
+            <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
+                <button name="action_validation" string="Validate" type="object" class="btn-primary" attrs="{'invisible': [('state', '!=', 'sent')]}" />
+            </xpath>
+            <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
+                <attribute name="attrs">{'invisible': [('state', 'not in', ['validated'])]}</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='action_confirm'][2]" position="attributes">
+                <attribute name="class"></attribute>
+                <attribute name="attrs">{'invisible': [('state', 'in', ['draft', 'sent', 'validated', 'sale', 'cancel', 'done'])]}</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='action_quotation_send'][3]" position="after">
+                <button name="action_validation" string="Validate" type="object" attrs="{'invisible': [('state', 'in', ['sent', 'cancel', 'validated', 'sale', 'done'])]}" />
+            </xpath>
+            <xpath expr="//field[@name='x_studio_date_de_la_commande']" position="after">
+                <field name="date_bpe"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_sales_order_filter_inherit" model="ir.ui.view">
+        <field name="name">sale.view.sales.order.filter.inherit.fma.sale.order.custom</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+        <field name="arch" type="xml">
+            <!-- <xpath expr="//filter[@name='my_sale_orders_filter']" position="after">
+                <filter name="date_bpe_filter" string="Date BPE" domain="[]"/>
+            </xpath> -->
+            <xpath expr="//filter[@name='order_month']" position="after">
+                <filter name="date_bpe" string="Date BPE" domain="[]" context="{'group_by': 'date_bpe'}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
