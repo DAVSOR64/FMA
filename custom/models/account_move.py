@@ -13,7 +13,7 @@ class AccountMove(models.Model):
 
     inv_mode_de_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     inv_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
-    #inv_commande_client = fields.Char(related='invoice_origin.so_commande_client', string="N° Commande Client")
+    inv_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
+    inv_commande_client = fields.Char(string="N° Commande Client")
     inv_affacturage = fields.Boolean(related='partner_id.part_affacturage', string="Affacturage")
-    #inv_delegation = fields.Boolean(related='invoice_origin.so_delegation', string="Délégation")
-    #inv_commentaire_delegation = fields.Char(related='invoice_origin.so_commentaire_delegation', string="Commentaire Délégation")
+    inv_activite = fields.Char(string="Activité")

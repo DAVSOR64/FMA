@@ -12,7 +12,8 @@
     'author': 'Odoo PS',
     'version': '15.0.0.1.0',
     'depends': [
-        'sale_management'
+        'sale_management',
+        'custom',
     ],
     'data': [
         'views/sale_order_views.xml'

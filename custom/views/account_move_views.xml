@@ -5,9 +5,14 @@
         <field name="inherit_id" ref="account.view_move_form"/>
         <field name="arch" type="xml">
             <xpath expr="//sheet//group" position="inside">
-                <field name="inv_mode_de_reglement"/>
-                <field name="inv_code_tiers"/>
-                <field name="inv_affacturage"/>
+                <group>
+                    <field name="inv_mode_de_reglement"/>
+                    <field name="inv_code_tiers"/>
+                    <field name="inv_affacturage"/>
+                    <field name="inv_commande_client"/>
+                    <field name="inv_commercial"/>
+                    <field name="inv_activite"/>
+                </group>
             </xpath>
         </field>
     </record>

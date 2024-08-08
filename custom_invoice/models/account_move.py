@@ -8,16 +8,25 @@ class AccountMove(models.Model):
     _inherit = 'account.move'
 
     show_text_block = fields.Boolean(string="Show Text Block", compute='_compute_show_text_block')
+    inv_show_affacturage = fields.Boolean(string="Show Affacturage", compute='_compute_show_affacturage')
     x_studio_delegation_fac = fields.Boolean(string="Délégation")
     x_studio_com_delegation_fac = fields.Char(string="Commentaire Délégation :")
     x_delegation_text = fields.Char(string="Texte de Délégation", compute='_compute_delegation_text')
     x_studio_imputation_2 = fields.Char(string="Imputation :")
+    inv_delegation = fields.Boolean(string="Délégation")
+    inv_commentaire_delegation = fields.Char(string="Commentaire Délégation :")
+    inv_delegation_txt = fields.Char(string="Texte de Délégation", compute='_compute_delegation_txt')
     
     
     @api.depends('partner_id')
     def _compute_show_text_block(self):
         for record in self:
             record.show_text_block = record.partner_id.x_studio_affacturage
+
+    @api.depends('partner_id')
+    def _compute_show_affacturage(self):
+        for record in self:
+            record.inv_show_affacturage = record.partner_id.part_affacturage
     
     
     @api.model
@@ -28,11 +37,20 @@ class AccountMove(models.Model):
     @api.depends('x_studio_delegation_fac')
     def _compute_delegation_text(self):
         for record in self:
-            _logger.warning("**********delegation********* %s " % record.x_studio_delegation_fac )
+            #_logger.warning("**********delegation********* %s " % record.x_studio_delegation_fac )
             if record.x_studio_delegation_fac:
                 record.x_delegation_text = record.x_studio_com_delegation_fac
             else:
                 record.x_delegation_text = ""    
+                                
+    @api.depends('inv_delegation')
+    def _compute_inv_delegation_txt(self):
+        for record in self:
+            #_logger.warning("**********delegation********* %s " % record.x_studio_delegation_fac )
+            if record.inv_delegation:
+                record.inv_delegation_text = record.inv_commentaire_delegation
+            else:
+                record.inv_delegation_text = ""
     
 
     def format_amount(self, amount):

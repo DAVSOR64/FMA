@@ -5,15 +5,18 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//sheet//group" position="inside">
-                <field name="so_mode_reglement"/>
-                <field name="so_code_tiers"/>
-                <field name="so_commande_client"/>
-                <field name="so_delegation"/>
-                <field name="so_commmentaire_delegation"/>
-                <field name="so_date_de_reception"/>
-                <field name="so_date_de_modification"/>
-                <field name="so_date_de_commande"/>
-                <field name="so_date_bpe"/>
+                <group>
+                    <field name="so_mode_reglement"/>
+                    <field name="so_code_tiers"/>
+                    <field name="so_commercial"/>
+                    <field name="so_commande_client"/>
+                    <field name="so_delegation"/>
+                    <field name="so_commmentaire_delegation"/>
+                    <field name="so_date_de_reception"/>
+                    <field name="so_date_de_modification"/>
+                    <field name="so_date_de_commande"/>
+                    <field name="so_date_bpe"/>
+                </group>
             </xpath>
         </field>
     </record>

@@ -21,7 +21,7 @@
             <xpath expr="//header/button[@name='action_quotation_send'][3]" position="after">
                 <button name="action_validation" string="Validate" type="object" attrs="{'invisible': [('state', 'in', ['sent', 'cancel', 'validated', 'sale', 'done'])]}" />
             </xpath>
-            <xpath expr="//field[@name='x_studio_date_de_la_commande']" position="after">
+            <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>
             </xpath>
         </field>

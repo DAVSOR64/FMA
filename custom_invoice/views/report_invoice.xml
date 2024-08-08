@@ -31,7 +31,7 @@
                 <div style="text-align: right;">
                     <br>
                         <strong>Commercial :</strong>
-                        <span t-field="o.x_studio_commercial" />
+                        <span t-field="o.inv_commercial" />
                     </br>
                 </div>
             </div>
@@ -80,17 +80,17 @@
                                 <span t-field="o.invoice_date" />
                             </td>
                             <td>
-                                <span t-field="o.partner_id.x_studio_code_tiers" />
+                                <span t-field="o.partner_id.part_code_tiers" />
                             </td>
                             <td>
                                 <span t-field="o.invoice_date_due" />
                             </td>
-                            <td><span t-field="o.partner_id.x_studio_mode_de_rglement_1"/></td>
+                            <td><span t-field="o.partner_id.part_mode_de_reglement"/></td>
                             <td>
                                 <span t-field="o.invoice_payment_term_id.display_name" />
                             </td>
                             <td>
-                                <span t-field="o.x_studio_materiaux" />
+                                <span t-field="o.inv_activite" />
                             </td>
                             <td>
                                 <span t-field="o.amount_residual" />
@@ -224,7 +224,7 @@
         <xpath expr="//div[@id='qrcode']" position="replace" />
 
         <xpath expr="//div[hasclass('clearfix')]" position="before">
-            <t t-if="o.show_text_block">
+            <t t-if="o.inv_show_affacturage">
                 <div class="text-block" style="font-size: 11px;">
                     <!-- Place your custom text block here -->
                     <br>CREDIT MUTUEL FACTORING</br>
@@ -237,10 +237,10 @@
             </t>
         </xpath>
         <xpath expr="//div[hasclass('clearfix')]" position="before">
-            <t t-if="o.x_studio_delegation_fac">
+            <t t-if="o.inv_delegation">
                 <div class="delegation_text" style="font-size: 11px;">
                     <!-- Place your custom text block here -->
-                    <t t-esc="o.x_delegation_text" />
+                    <t t-esc="o.inv_delegation_txt" />
                 </div>
             </t>
         </xpath>
@@ -276,7 +276,7 @@
 
 
                 <div class="totals-table-container">
-                    <t t-if="o.show_text_block">
+                    <t t-if="o.inv_show_affacturage">
                         <div class="rib-block" style="page-break-inside: avoid;">
                             <br>
                                 <strong>Coordonnées bancaires Factor :</strong>
@@ -287,7 +287,7 @@
                             <br>BIC: CMCIFRPPXXX</br>
                         </div>
                     </t>
-                    <t t-if=" not o.show_text_block">
+                    <t t-if=" not o.inv_show_affacturage">
                         <div class="rib-block" style="page-break-inside: avoid;">
                             <br>
                                 <strong>Coordonnées bancaires société :</strong>

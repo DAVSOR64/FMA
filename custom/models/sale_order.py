@@ -25,6 +25,7 @@ class SaleOrder(models.Model):
     x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
 
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
+    so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
     so_commande_client = fields.Char(string="N° Commande Client")
     so_delegation = fields.Boolean(string="Délégation?")
