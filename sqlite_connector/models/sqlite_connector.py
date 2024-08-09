@@ -70,15 +70,20 @@ class SqliteConnector(models.Model):
             Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
-                couleur = str(row[6])
+                #RefLogikal = 'T' + RefLogikal
+            if fournisseur == 'SAPA' :
+                refart = refart.replace("RC  ","SAP ")
+            if fournisseur == 'WICONA' :
+                refart = 'WIC' + ' ' + row[8][1:]
+                
+            couleur = str(row[6])
                 if couleur == '' :
                     couleur = str(row[7])
                 if couleur == 'Sans' or couleur == 'sans' :
                     couleur = ''
                 if couleur != '':
                     refart = refart + '.' + couleur
-                #RefLogikal = 'T' + RefLogikal
-            _logger.warning("**********article pour MAJ********* %s " % refart )
+            #_logger.warning("**********article pour MAJ********* %s " % refart )
             articles.append({
                 'item': refart,
                 'price': row[1],
@@ -101,20 +106,28 @@ class SqliteConnector(models.Model):
             Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
-                couleurext = str(row[6])
-                couleurint = str(row[7])
-                if couleurext != '' and couleurint != '' :
-                    couleur = couleurext + '/' + couleurint
-                else :
-                    couleur = str(row[8])
-                    if couleur == '' or couleur == ' ' :
-                        couleur = str(row[3])
-                        if couleur == 'Sans' or couleur == 'sans':
-                            couleur = ''
-                if couleur != '' :
-                    refart = refart + '.' + couleur
                 #RefLogikal = 'T' + RefLogikal
                 Length= row[9]
+            if fournisseur == 'SAPA' :
+                refart = refart.replace("RC  ","SAP ")
+                Length= row[9]
+            if fournisseur == 'WICONA' :
+                refart = 'WIC' + ' ' + row[2][1:]
+                
+            couleurext = str(row[6])
+            couleurint = str(row[7])
+            if couleurext != '' and couleurint != '' :
+                couleur = couleurext + '/' + couleurint
+            else :
+                couleur = str(row[8])
+                if couleur == '' or couleur == ' ' :
+                    couleur = str(row[3])
+                    if couleur == 'Sans' or couleur == 'sans':
+                        couleur = ''
+            if couleur != '' :
+                refart = refart + '.' + couleur
+                #RefLogikal = 'T' + RefLogikal
+                
             #_logger.warning("**********Profile pour MAJ********* %s " % refart )
             profiles.append({
                 'article': refart,
@@ -498,10 +511,6 @@ class SqliteConnector(models.Model):
             refart = refart.replace("RYN","REY")
             refart = refart.replace("SC  ","SCH ")
             
-            # to get price
-            for article in articles:
-                if refart == article['item']:
-                    prix = article['price']
 
             if fournisseur != 'HUD' :
                 uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
@@ -524,6 +533,10 @@ class SqliteConnector(models.Model):
                     refart = nom[:3] + ' ' + projet +'_LB' + str(CptLb)
                     fournisseur = 'NONDEF'
                     
+                # to get price
+                for article in articles:
+                    if refart == article['item']:
+                        prix = article['price']
                 
                 categorie = '__export__.product_category_14_a5d33274'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
@@ -576,6 +589,8 @@ class SqliteConnector(models.Model):
             categorie = ligne[3]
             categ_id = self.env.ref(categorie)
             # Created new article
+            #_logger.warning("**********Creation Article********* %s " % refart )
+            #_logger.warning("**********Prix  Article********* %s " % str(prix) )
             if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
                 vals = {
                     'default_code': refart,
