@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_res_partner_filter_inherit" model="ir.ui.view">
+        <field name="name">res.partner.select.inherit.fma.customer.outstanding</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_res_partner_filter" />
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name=('type_company')]" position="after">
+                <filter string="Outstanding Customers" name="outstanding_customers" domain="[('outstandings', '>', context.get('x_studio_allianz_couverture_euleur', 0.0))]"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
