@@ -24,7 +24,7 @@
 					t-att-OrderReference="(po.x_studio_rfrence.replace('-', '').replace(' ', '') if po.x_studio_rfrence else '')[:35]"
 					t-att-ShipToNumber="po.shipping_partner_id.shipping_number or ''"
 					PreferedLanguage="FR"
-					WorkType="t"
+					Worktype="03"
 					FinalCusttype="03">
 					<InternalRemarks></InternalRemarks>
 					<Address />
