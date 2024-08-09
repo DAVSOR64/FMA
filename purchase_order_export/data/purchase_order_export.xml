@@ -32,7 +32,7 @@
 				<Articles>
                         <t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.product_id.default_code != 'affaire')" />
                         <t t-foreach="filtered_lines" t-as="line">
-                            <t t-set="external_color" t-value="line.product_id.x_studio_color_logikal.split('/')[0] if line.product_id.x_studio_color_logikal and '/' in line.product_id.x_studio_color_logikal else ''" />
+                            <t t-set="external_color" t-value="line.product_id.x_studio_color_logikal.split('/')[0] if line.product_id.x_studio_color_logikal and '/' in line.product_id.x_studio_color_logikal else line.product_id.x_studio_color_logikal " />
                             <t t-set="internal_color" t-value="line.product_id.x_studio_color_logikal.split('/')[1] if line.product_id.x_studio_color_logikal and '/' in line.product_id.x_studio_color_logikal else ''" />
                             
                             <Article 
