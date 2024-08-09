@@ -77,12 +77,12 @@ class SqliteConnector(models.Model):
                 refart = 'WIC' + ' ' + row[8][1:]
                 
             couleur = str(row[6])
-                if couleur == '' :
-                    couleur = str(row[7])
-                if couleur == 'Sans' or couleur == 'sans' :
-                    couleur = ''
-                if couleur != '':
-                    refart = refart + '.' + couleur
+            if couleur == '' :
+                couleur = str(row[7])
+            if couleur == 'Sans' or couleur == 'sans' :
+                couleur = ''
+            if couleur != '':
+                refart = refart + '.' + couleur
             #_logger.warning("**********article pour MAJ********* %s " % refart )
             articles.append({
                 'item': refart,
