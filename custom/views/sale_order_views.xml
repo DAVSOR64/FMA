@@ -18,6 +18,42 @@
                     <field name="so_date_bpe"/>
                 </group>
             </xpath>
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Analyse Financière">                  
+                    <group>
+                        <group string="Chiffres Devis">
+                            <field name="so_achat_matiere_devis"/>
+                            <field name="so_achat_vitrage_devis"/>
+                            <field name="so_cout_mod_devis"/>
+                            <field name="so_mtt_facturer_devis"/>
+                            <field name="so_marge_brute_devis"/>
+                            <field name="so_prc_marge_brute_devis" widget="gauge" options="{'min': 0, 'max': 100, 'field_color': 'red'}"/>
+                            <field name="so_mcv_devis"/>
+                            <field name="so_prc_mcv_devis" widget="progressbar"/>
+                        </group>
+                        <group string="Chiffres B.E.">
+                            <field name="so_achat_matiere_be"/>
+                            <field name="so_achat_vitrage_be"/>
+                            <field name="so_cout_mod_be"/>
+                            <field name="so_mtt_facturer_be"/>
+                            <field name="so_marge_brute_be"/>
+                            <field name="so_prc_marge_brute_be" widget="gauge" options="{'min': 0, 'max': 100, 'field_color': 'red'}"/>
+                            <field name="so_mcv_be"/>
+                            <field name="so_prc_mcv_be" widget="progressbar"/>
+                        </group>
+                        <group string="Chiffres Réel">
+                            <field name="so_achat_matiere_reel"/>
+                            <field name="so_achat_vitrage_reel"/>
+                            <field name="so_cout_mod_reel"/>
+                            <field name="so_mtt_facturer_reel"/>
+                            <field name="so_marge_brute_reel"/>
+                            <field name="so_prc_marge_brute_reel" widget="gauge" options="{'min': 0, 'max': 100, 'field_color': 'red'}"/>
+                            <field name="so_mcv_reel"/>
+                            <field name="so_prc_mcv_reel" widget="progressbar"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
         </field>
     </record>
 </odoo>

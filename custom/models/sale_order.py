@@ -34,6 +34,34 @@ class SaleOrder(models.Model):
     so_date_de_modification = fields.Date(string="Date de modification")
     so_date_de_commande = fields.Date(string="Date de la commande")
     so_date_bpe = fields.Date(string="Date BPE")
+
+    #Onglet Analyse Financière
+    so_achat_matiere_devis = fields.Monetary(string="Achat Matière (Devis)")
+    so_achat_vitrage_devis = fields.Monetary(string="Achat Vitrage (Devis)")
+    so_cout_mod_devis = fields.Monetary(string="Coût MOD (Devis)")
+    so_mtt_facturer_devis = fields.Monetary(string="Montant à Facturer H.T. (Devis)")
+    so_marge_brute_devis = fields.Monetary(string="Marge Brute en € (Devis)",compute='_compute_so_marge_brute_devis',store=True)
+    so_prc_marge_brute_devis = fields.Float(string="Marge Brute en % (Devis)",compute='_compute_so_prc_marge_brute_devis',store=True)
+    so_mcv_devis = fields.Monetary(string="M.C.V. en € (Devis)",compute='_compute_so_mcv_devis',store=True)
+    so_prc_mcv_devis = fields.Float(string="M.C.V. en (Devis)",compute='_compute_so_prc_mcv_devis',store=True)
+
+    so_achat_matiere_be = fields.Monetary(string="Achat Matière (B.E.)")
+    so_achat_vitrage_be = fields.Monetary(string="Achat Vitrage (B.E.)")
+    so_cout_mod_be = fields.Monetary(string="Coût MOD (B.E.)")
+    so_mtt_facturer_be = fields.Monetary(string="Montant à Facturer H.T. (B.E.)")
+    so_marge_brute_be = fields.Monetary(string="Marge Brute en € (B.E.)")
+    so_prc_marge_brute_be = fields.Float(string="Marge Brute en % (B.E.)")
+    so_mcv_be = fields.Monetary(string="M.C.V. en € (B.E.)")
+    so_prc_mcv_be = fields.Float(string="M.C.V. en (B.E.)")
+
+    so_achat_matiere_reel = fields.Monetary(string="Achat Matière (Réel)")
+    so_achat_vitrage_reel = fields.Monetary(string="Achat Vitrage (Réel)")
+    so_cout_mod_reel = fields.Monetary(string="Coût MOD (Réel)")
+    so_mtt_facturer_reel = fields.Monetary(string="Montant à Facturer H.T. (Réel)")
+    so_marge_brute_reel = fields.Monetary(string="Marge Brute en € (Réel)")
+    so_prc_marge_brute_reel = fields.Float(string="Marge Brute en % (Réel)")
+    so_mcv_reel = fields.Monetary(string="M.C.V. en € (Réel)")
+    so_prc_mcv_reel = fields.Float(string="M.C.V. en (Réel)")
     
     def _prepare_invoice(self):
         invoice_vals = super(SaleOrder, self)._prepare_invoice()
@@ -45,6 +73,87 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
         return invoice_vals
 
+    #calcul DEVIS 
+    @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
+    def _compute_so_marge_brute_devis(self):
+        for order in self:
+            order.so_marge_brute_devis = order.so_mtt_facturer_devis - order.so_achat_vitrage_devis - order.so_achat_matiere_devis
+
+    @api.depends('so_marge_brute_devis', 'so_mtt_facturer_devis')
+    def _compute_so_prc_marge_brute_devis(self):
+        for order in self:
+            if order.so_mtt_facturer_devis:
+                order.so_prc_marge_brute_devis = (order.so_marge_brute_devis / order.so_mtt_facturer_devis) * 100
+            else:
+                order.so_prc_marge_brute_devis = 0.0
+
+    @api.depends('so_marge_brute_devis', 'so_cout_mod_devis')
+    def _compute_so_mcv_devis(self):
+        for order in self:
+            order.so_mcv_devis = order.so_marge_brute_devis - order.so_cout_mod_devis
+
+    @api.depends('so_mcv_devis', 'so_mtt_facturer_devis')
+    def _compute_so_prc_mcv_devis(self):
+        for order in self:
+            if order.so_mtt_facturer_devis:
+                order.so_prc_mcv_devis = (order.so_mcv_devis / order.so_mtt_facturer_devis) * 100
+            else:
+                order.so_prc_mcv_devis = 0.0
+
+    #calcul BE
+    @api.depends('so_mtt_facturer_be', 'so_achat_vitrage_be', 'so_achat_matiere_be')
+    def _compute_so_marge_brute_be(self):
+        for order in self:
+            order.so_marge_brute_be = order.so_mtt_facturer_be - order.so_achat_vitrage_be - order.so_achat_matiere_be
+
+    @api.depends('so_marge_brute_be', 'so_mtt_facturer_be')
+    def _compute_so_prc_marge_brute_be(self):
+        for order in self:
+            if order.so_mtt_facturer_be:
+                order.so_prc_marge_brute_be = (order.so_marge_brute_be / order.so_mtt_facturer_be) * 100
+            else:
+                order.so_prc_marge_brute_be = 0.0
+
+    @api.depends('so_marge_brute_be', 'so_cout_mod_be')
+    def _compute_so_mcv_be(self):
+        for order in self:
+            order.so_mcv_be = order.so_marge_brute_be - order.so_cout_mod_be
+
+    @api.depends('so_mcv_be', 'so_mtt_facturer_be')
+    def _compute_so_prc_mcv_be(self):
+        for order in self:
+            if order.so_mtt_facturer_be:
+                order.so_prc_mcv_be = (order.so_mcv_be / order.so_mtt_facturer_be) * 100
+            else:
+                order.so_prc_mcv_be = 0.0
+
+    #calcul REEL
+    @api.depends('so_mtt_facturer_reel', 'so_achat_vitrage_reel', 'so_achat_matiere_reel')
+    def _compute_so_marge_brute_reel(self):
+        for order in self:
+            order.so_marge_brute_reel = order.so_mtt_facturer_reel - order.so_achat_vitrage_reel - order.so_achat_matiere_reel
+
+    @api.depends('so_marge_brute_reel', 'so_mtt_facturer_reel')
+    def _compute_so_prc_marge_brute_reel(self):
+        for order in self:
+            if order.so_mtt_facturer_reel:
+                order.so_prc_marge_brute_reel = (order.so_marge_brute_reel / order.so_mtt_facturer_reel) * 100
+            else:
+                order.so_prc_marge_brute_reel = 0.0
+
+    @api.depends('so_marge_brute_reel', 'so_cout_mod_reel')
+    def _compute_so_mcv_reel(self):
+        for order in self:
+            order.so_mcv_reel = order.so_marge_brute_reel - order.so_cout_mod_reel
+
+    @api.depends('so_mcv_reel', 'so_mtt_facturer_reel')
+    def _compute_so_prc_mcv_reel(self):
+        for order in self:
+            if order.so_mtt_facturer_reel:
+                order.so_prc_mcv_reel = (order.so_mcv_reel / order.so_mtt_facturer_reel) * 100
+            else:
+                order.so_prc_mcv_reel = 0.0
+    
     @api.model
     def create(self, vals):
         if 'partner_id' in vals:
