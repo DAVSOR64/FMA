@@ -2,11 +2,12 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
+import datetime
 import ftplib
 import io
 import logging
 
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.tools.misc import groupby
 from odoo.addons.web.controllers.main import CSVExport
 
@@ -20,6 +21,14 @@ class AccountMove(models.Model):
     txt_creation_time = fields.Datetime()
     ftp_synced_time = fields.Datetime()
     is_synced_to_ftp = fields.Boolean()
+
+    @api.depends('posted_before', 'state', 'journal_id', 'date')
+    def _compute_name(self):
+        """Change the invoice name from 'FC2024 + sequence_number' to 'FC24 + sequence_number'"""
+        super(AccountMove, self)._compute_name()
+        current_year_short = datetime.datetime.now().strftime('%y')
+        if str(self.date.year) in self.name:
+            self.name = self.name.replace(str(self.date.year), current_year_short, 1)
 
     def action_view_journal_items(self):
         self.ensure_one()
