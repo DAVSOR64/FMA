@@ -55,6 +55,20 @@ class AccountMove(models.Model):
 
     def format_amount(self, amount):
         return '{:,.2f}'.format(amount).replace(',', ' ').replace('.', ',')
+    def create(self, vals):
+        if isinstance(vals, list):
+            for val in vals:
+                if 'invoice_origin' in val:
+                    sale_order = self.env['sale.order'].search([('name', '=', val['invoice_origin'])], limit=1)
+                    if sale_order:
+                        val['inv_commande_client'] = sale_order.so_commande_client
+        else:
+            if 'invoice_origin' in vals:
+                sale_order = self.env['sale.order'].search([('name', '=', vals['invoice_origin'])], limit=1)
+                if sale_order:
+                    vals['inv_commande_client'] = sale_order.so_commande_client
+            
+        return super(AccountMove, self).create(vals)
 
 
     #discount_rate = fields.Float(string='Discount Rate', compute='_compute_discount_rate', store=True)
