@@ -107,12 +107,12 @@
                 t-field="o.x_studio_rfrence_affaire"/></p>
             </div>
         </xpath>
-        <!-- Affichage de x_studio_impuation_2 s'il n'est pas vide -->
+        <!-- Affichage de inv_commande_client s'il n'est pas vide -->
         <xpath expr="//tbody[hasclass('invoice_tbody')]" position="before">
-            <t t-if="o.x_studio_imputation_2">
+            <t t-if="o.inv_commande_client">
                 <div class="imputation-detail">
                     <strong>Imputation :</strong>
-                    <span t-field="o.x_studio_imputation_2" />
+                    <span t-field="o.inv_commande_client" />
                 </div>
             </t>
         </xpath>
