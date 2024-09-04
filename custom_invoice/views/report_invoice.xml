@@ -111,7 +111,7 @@
         <xpath expr="//tbody[hasclass('invoice_tbody')]" position="before">
             <t t-if="o.inv_commande_client">
                 <div class="imputation-detail">
-                    <strong>Imputation :</strong>
+                    <strong>N° commande client :</strong>
                     <span t-field="o.inv_commande_client" />
                 </div>
             </t>

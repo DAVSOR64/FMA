@@ -91,7 +91,7 @@ class ResPartner(models.Model):
             ('COLLECTIVITE','COLLECTIVITE'),
         ],string="Civilité",
     default = "SARL",)
-    
+
     part_siren = fields.Char(string="SIREN")
     part_bic = fields.Char(string="BIC")
     part_iban = fields.Char(string="IBAN")
@@ -100,8 +100,23 @@ class ResPartner(models.Model):
     part_date_couverture = fields.Date(string="ALLIANZ ND COVER")
     part_montant_couverture = fields.Float(string="ALLIANZ COUVERTURE EULEUR")
     part_decision = fields.Char(string="ASSURANCE-CREDIT")
-    part_code_tiers = fields.Integer(string="Code Tiers", readonly=True)
-
+    part_code_tiers = fields.Integer(string="Code Tiers")
+    
+    @api.model
+    def create(self, vals):
+        # Vérifier si le contact est une société
+        if vals.get('is_company', False):
+            # Récupérer la dernière valeur de 'part_code_tiers' parmi les sociétés uniquement
+            last_record = self.search([('is_company', '=', True)], order='part_code_tiers desc', limit=1)
+            last_code = last_record.part_code_tiers if last_record else 0
+            new_code = last_code + 1
+            
+            # Attribuer la nouvelle valeur de 'part_code_tiers'
+            vals['part_code_tiers'] = new_code
+        
+        # Appel de la méthode create de la super-classe avec les valeurs modifiées
+        return super(ResPartner, self).create(vals)
+ 
     
     def _prepare_order(self):
         order_vals = super(ResPartner, self)._prepare_order()
