@@ -63,24 +63,24 @@ class AccountMove(models.Model):
                     if sale_order:
                         val['inv_commande_client'] = sale_order.so_commande_client
                         # Récupération correcte des noms des tags
-                        #tags = sale_order.tag_ids.mapped('name')
-                        #_logger.warning("**********Etiquettes trouvées********* %s", tags)
-                        #if  'FMA' in tags : 
-                        #    vals['inv_activite'] = 'ALU'
-                        #elif 'F2M'in tags :
-                        #    vals['inv_activite'] = 'ACI'
+                        tags = sale_order.tag_ids.name
+                        _logger.warning("**********Etiquettes trouvées********* %s", tags)
+                        if  tags == 'FMA': 
+                            val['inv_activite'] = 'ALU'
+                        elif tags == 'F2M' :
+                            val['inv_activite'] = 'ACI'
         else:
             if 'invoice_origin' in vals:
                 sale_order = self.env['sale.order'].search([('name', '=', vals['invoice_origin'])], limit=1)
                 if sale_order:
                     vals['inv_commande_client'] = sale_order.so_commande_client
                     # Récupération correcte des noms des tags
-                    #tags = sale_order.tag_ids.mapped('name')
-                    #_logger.warning("**********Etiquettes trouvées********* %s", tags)
-                    #if  'FMA' in tags : 
-                        #vals['inv_activite'] = 'ALU'
-                    #elif 'F2M'in tags :
-                        #vals['inv_activite'] = 'ACI'
+                    tags = sale_order.tag_ids.name
+                    _logger.warning("**********Etiquettes trouvées********* %s", tags)
+                    if  tags == 'FMA': 
+                        vals['inv_activite'] = 'ALU'
+                    elif tags == 'F2M' :
+                        vals['inv_activite'] = 'ACI'
         
         return super(AccountMove, self).create(vals)
 

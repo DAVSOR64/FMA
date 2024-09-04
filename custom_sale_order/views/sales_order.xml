@@ -1,0 +1,76 @@
+<odoo>
+    <template id="report_saleorder_document_inherit" inherit_id="sale.report_saleorder_document">
+        <xpath expr="//div[hasclass('page')]" position="before">
+            <style>
+                .avoid-page-break {
+                page-break-inside: avoid;
+                }
+            </style>
+        </xpath>
+        <xpath expr="//div[hasclass('page')]" position="before">
+            <div class="header_table">
+                <div style="margin-left: 400px;">
+                    <span t-field="doc.partner_id" />
+                    <br>
+                        <span t-field="doc.partner_id.street" />
+                    </br>
+                    <t t-if="doc.partner_id.street2">
+                        <br>
+                            <span t-field="doc.partner_id.street2" />
+                        </br>
+                    </t>
+                    <br>
+                        <span t-field="doc.partner_id.zip" />
+                        <span t-field="doc.partner_id.city" />
+                    </br>
+                    <br></br>
+                    <br>TVA : <span t-field="doc.partner_id.vat" />
+                    </br>
+                    <br>SIRET : <span t-field="doc.partner_id.siret" /></br>
+                </div>
+                <div style="text-align: right;">
+                    <br>
+                        <strong>Commercial :</strong>
+                        <span t-field="doc.so_commercial" />
+                    </br>
+                </div>
+            </div>
+        </xpath>
+        <xpath expr="//div[@id='informations']" position="replace">
+            <div id="informations">
+                <style>
+                    .table thead th {
+                    background-color: grey;
+                    color : black;
+                    font-size: 13px;
+                    }
+                    .table tbody th {
+                    font-size: 13px;
+                    }
+                </style>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Code Client</th>
+                            <th>Activité</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <span t-field="doc.date_order" />
+                            </td>
+                            <td>
+                                <span t-field="doc.so_code_tiers" />
+                            </td>
+                            <td>
+                                <span t-field="doc.tag_ids.name" />
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </xpath>
+    </template>
+</odoo>
