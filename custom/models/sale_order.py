@@ -1,4 +1,7 @@
+import logging
 from odoo import models, fields, api
+_logger = logging.getLogger(__name__)
+
 
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
@@ -166,3 +169,40 @@ class SaleOrder(models.Model):
             partner = self.env['res.partner'].browse(vals['partner_id'])
             vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
         return super(SaleOrder, self).write(vals)
+
+    # Init du WAREHOUSE en fonction du tag FMA ou F2M
+    @api.model   
+    def write(self, vals):
+        _logger.info("Appel de write avec vals: %s", vals)
+        res = super(SaleOrder, self).write(vals)
+        _logger.info("Devis mis à jour: %s", self.id)
+        
+        # Appelez _update_warehouse ici
+        if 'tag_ids' in vals:
+            _logger.info("Appel de _update_warehouse après mise à jour")
+            self._update_warehouse()
+        return res
+
+    def _update_warehouse(self):
+        _logger.info("Début de _update_warehouse pour le devis: %s", self.id)
+        for order in self:
+            _logger.info("Tags actuels: %s", order.tag_ids.mapped('name'))
+
+            # Cherche les entrepôts correspondant aux étiquettes spécifiques
+            warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+            warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+            _logger.info("Entrepôt LA Regripière: %s, Entrepôt La Remaudière: %s", warehouse_regripiere, warehouse_remaudiere)
+
+            # Met à jour l'entrepôt en fonction de l'étiquette
+            if any(tag.name == 'FMA' for tag in order.tag_ids):
+                if warehouse_regripiere:
+                    _logger.info("Mise à jour de l'entrepôt vers LA Regripière")
+                    order.write({'warehouse_id': warehouse_regripiere.id})
+                else:
+                    _logger.warning("Entrepôt LA Regripière non trouvé")
+            elif any(tag.name == 'F2M' for tag in order.tag_ids):
+                if warehouse_remaudiere:
+                    _logger.info("Mise à jour de l'entrepôt vers La Remaudière")
+                    order.write({'warehouse_id': warehouse_remaudiere.id})
+                else:
+                    _logger.warning("Entrepôt La Remaudière non trouvé")
