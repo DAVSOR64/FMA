@@ -65,7 +65,15 @@
                                 <span t-field="doc.so_code_tiers" />
                             </td>
                             <td>
-                                <span t-field="doc.tag_ids.name" />
+                                <t t-if="doc.tag_ids.name == 'FMA'">
+                                    ALU
+                                </t>
+                                <t t-elif="doc.tag_ids.name == 'F2M'">
+                                    ACIER
+                                </t>
+                                <t t-else="">
+                                    <span t-esc="doc.tag_ids.name"/>
+                                </t>
                             </td>
                         </tr>
                     </tbody>
@@ -152,7 +160,7 @@
                                 la remise est égale à 0 -->
                             </td>
                             <td class="text-right">
-                                <span class="text-nowrap" t-esc="line.price_unit" />
+                                <span class="text-nowrap" t-esc="doc.format_amount(line.price_unit)" />
                                 € </td>
                             <td class="text-right">
                                 <span t-field="line.tax_id" />
@@ -161,12 +169,88 @@
                                 <span class="text-nowrap" t-field="line.price_subtotal"
                                     groups="account.group_show_line_subtotals_tax_excluded" />
                                 <span class="text-nowrap" t-field="line.price_total"
-                                    groups="account.group_show_line_subtotals_tax_included" />
+                                    groups="account.group_show_line_subtotals_tax_included)" />
                             </td>
                         </tr>
                     </t>
                 </t>
             </tbody>
+        </xpath>
+        <!-- Modification du tableau des totaux -->
+        <xpath expr="//div[hasclass('clearfix')]" position="replace">
+            <div class="clearfix">
+                <style>
+                    .totals-table-container {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-top: 20px;
+                    page-break-inside: avoid;
+                    font-size: 12px;
+                    }
+                    .table.totals-table tfoot th, .table.totals-table tfoot td {
+                    background-color: #f9f9f9;
+                    border-top: 1px solid #ddd;
+                    }
+                    .totals-table-wrapper {
+                    width: 50%;
+                    float: right;
+                    }
+                    .rib-block {
+                    width: 45%;
+                    border: 1px solid #ddd;
+                    padding: 10px;
+                    font-size: 12px;
+                    float: left;
+                    }
+                </style>
+                <div class="totals-table-wrapper">
+                    <table class="table table-sm o_main_table" style="page-break-inside: avoid;">
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Total HT</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span
+                                        t-esc="doc.format_amount(doc.amount_untaxed)" />
+                                    € </td>
+                            </tr>
+                            <t t-set="tax_details" t-value="{}" />
+                            <!-- Itérer sur les lignes de facture pour calculer les montants de TVA -->
+                            <t t-foreach="doc.order_line" t-as="line">
+                                <t t-foreach="line.tax_id" t-as="tax">
+                                    <t t-set="tax_amount"
+                                        t-value="tax_details.get(tax.name, 0) + (line.price_subtotal * tax.amount / 100)" />
+                                    <t t-set="tax_details"
+                                        t-value="dict(tax_details, **{tax.name: tax_amount})" />
+                                </t>
+                            </t>
+                            <!-- Afficher les totaux par taux de TVA -->
+                            <t t-foreach="tax_details.items()" t-as="item">
+                                <tr>
+                                    <td colspan="4" class="text-right">
+                                        <strong>
+                                            <t t-esc="item[0]" />
+                                        </strong>
+                                    </td>
+                                    <td class="text-right">
+                                        <span t-esc="doc.format_amount(item[1])" /> € </td>
+                                </tr>
+                            </t>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Total TTC</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span
+                                        t-esc="doc.format_amount(doc.amount_total) " />
+                                    € </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
         </xpath>
         <!-- SUppression des conditions de paiement en pied de page -->
     </template>
