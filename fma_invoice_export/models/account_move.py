@@ -87,6 +87,7 @@ class AccountMove(models.Model):
         sale_order_name = ''
         sale_order = None
         section = ''
+        journal = 'VTE'
         if move.line_ids and move.line_ids[0].sale_line_ids:
             sale_order = move.line_ids[0].sale_line_ids[0].order_id
             sale_order_name = sale_order.name if sale_order else ''
@@ -100,7 +101,7 @@ class AccountMove(models.Model):
             if account_code:
                 items_grouped_by_account = list(items_grouped_by_account)
                 grouped_items.append({
-                    'journal': "VTE",
+                    'journal': journal,
                     'invoice_date': move.invoice_date,
                     'move_name': move.name,
                     'invoice_date_1': move.invoice_date,

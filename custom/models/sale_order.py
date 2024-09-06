@@ -170,6 +170,14 @@ class SaleOrder(models.Model):
             vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
         return super(SaleOrder, self).write(vals)
 
+    # Init date BPE lors de la confirmation du devis
+
+    def action_confirm(self):
+        res = super(SaleOrder, self).action_confirm()
+        for order in self:
+            order.write({'so_date_bpe': fields.Date.today()})
+        return res
+
     # Init du WAREHOUSE en fonction du tag FMA ou F2M
     @api.model   
     def write(self, vals):
