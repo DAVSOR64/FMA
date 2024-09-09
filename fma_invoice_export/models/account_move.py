@@ -5,11 +5,11 @@ import base64
 import datetime
 import ftplib
 import io
+import csv
 import logging
 
 from odoo import api, fields, models
 from odoo.tools.misc import groupby
-from odoo.addons.web.controllers.main import CSVExport
 
 _logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class AccountMove(models.Model):
         }
 
     def action_create_journal_items_file(self):
-        """Attach the journal items .txt file."""
+        """Attach the journal items .csv file."""
         AccountMoveLine = self.env['account.move.line']
         IrAttachment = self.env['ir.attachment']
         for move in self.filtered(lambda move: not move.is_txt_created and move.state == 'posted'):
@@ -120,28 +120,23 @@ class AccountMove(models.Model):
         fields = [
             'journal', 'invoice_date', 'move_name', 'invoice_date', 'due_date', 'account_code', 'mode_de_regiment', 'name_and_customer_name', 'payment_reference', 'section_axe2', 'section', 'section_axe3', 'debit', 'credit'
         ]
-        rows = []
-        for row in grouped_items:
-            csv_row = []
-            for field in fields:
-                value = row.get(field, '')
-                if value is False:
-                    csv_row.append('')
-                else:
-                    csv_row.append(value)
-            rows.append(csv_row)
+        output = io.StringIO()
+        csv_writer = csv.writer(output, delimiter=';')
 
-        exporter = CSVExport()
-        csv_data = exporter.from_data(fields, rows)
+        csv_writer.writerow(fields)
+        for row in grouped_items:
+            csv_writer.writerow([row.get(field, '') for field in fields])
+
+        csv_data = output.getvalue()
         # removing row headers
-        csv_data_str = csv_data.decode('utf-8')
-        csv_data_without_header = '\n'.join(csv_data_str.split('\n')[1:])
+        csv_data_without_header = '\n'.join(csv_data.split('\n')[1:])
         csv_data_bytes = csv_data_without_header.encode('utf-8')
 
         return csv_data_bytes
 
     def _log_csv_file_in_chatter(self, csv_content, file_name):
         csv_base64 = base64.b64encode(csv_content).decode('utf-8')
+        file_name = f"{file_name}.csv" if not file_name.endswith('.csv') else file_name
         attachment_id = self.env['ir.attachment'].create({
             'name': file_name,
             'datas': csv_base64,
@@ -154,7 +149,7 @@ class AccountMove(models.Model):
         )
 
     def cron_generate_journal_items_file(self):
-        """Cron to generate journal items txt file."""
+        """Cron to generate journal items csv file."""
         invoices = self.env['account.move'].search([
             ('state', '=', 'posted'),
             ('is_txt_created', '=', False)
@@ -173,7 +168,7 @@ class AccountMove(models.Model):
         for invoice in invoices:
             try:
                 with self.env.cr.savepoint():
-                    attachment_txt = IrAttachment.search([
+                    attachment_csv = IrAttachment.search([
                         ('res_model', '=', 'account.move'),
                         ('res_id', '=', invoice.id),
                         ('is_invoice_txt', '=', True)
@@ -185,15 +180,15 @@ class AccountMove(models.Model):
                         ('name', 'ilike', 'invoice')
                     ], limit=1)
 
-                    if attachment_txt and attachment_pdf:
-                        self._sync_file([attachment_txt, attachment_pdf])
+                    if attachment_csv and attachment_pdf:
+                        self._sync_file([attachment_csv, attachment_pdf])
                         invoice.write({
                             'ftp_synced_time': fields.Datetime.now(),
                             'is_synced_to_ftp': True
                         })
                     else:
-                        if not attachment_txt:
-                            _logger.warning(f"No .txt attachment found for Invoice {invoice.name}.")
+                        if not attachment_csv:
+                            _logger.warning(f"No .csv attachment found for Invoice {invoice.name}.")
                         if not attachment_pdf:
                             _logger.warning(f"No PDF attachment found for Invoice {invoice.name}.")
             except Exception as e:
