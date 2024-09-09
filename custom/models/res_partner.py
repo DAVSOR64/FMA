@@ -42,7 +42,7 @@ class ResPartner(models.Model):
             ('Alexandre BLOT','Alexandre BLOT'),
             ('Alexandre DAUDE','Alexandre DAUDE'),
             ('Cédric SEGUIN','Cédric SEGUIN'),
-            ('Carlos DA TORRE','Carlos SA TORRE'),
+            ('Carlos DA TORRE','Carlos DA TORRE'),
             ('Cédric SANDRE','Cédric SANDRE'),
             ('Cyril JACQUEMET','Cyril JACQUEMET'),
             ('Franck SARAZIN','Franck SARAZIN'),
