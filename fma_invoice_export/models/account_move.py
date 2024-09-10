@@ -10,6 +10,7 @@ import logging
 
 from odoo import api, fields, models
 from odoo.tools.misc import groupby
+from odoo.addons.web.controllers.main import CSVExport
 
 _logger = logging.getLogger(__name__)
 
@@ -26,9 +27,14 @@ class AccountMove(models.Model):
     def _compute_name(self):
         """Change the invoice name from 'FC2024 + sequence_number' to 'FC24 + sequence_number'"""
         super(AccountMove, self)._compute_name()
+        self.name = self.remove_extra_zeros(self.name)
+
+    def remove_extra_zeros(self, input_string):
+        # Split the string into 3 parts: the prefix, current year short and the numeric part
+        prefix = input_string[:2]
         current_year_short = datetime.datetime.now().strftime('%y')
-        if str(self.date.year) in self.name:
-            self.name = self.name.replace(str(self.date.year), current_year_short, 1)
+        numeric_part = input_string[-5:]
+        return prefix + current_year_short + numeric_part
 
     def action_view_journal_items(self):
         self.ensure_one()
