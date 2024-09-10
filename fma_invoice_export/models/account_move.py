@@ -23,19 +23,6 @@ class AccountMove(models.Model):
     ftp_synced_time = fields.Datetime()
     is_synced_to_ftp = fields.Boolean()
 
-    @api.depends('posted_before', 'state', 'journal_id', 'date')
-    def _compute_name(self):
-        """Change the invoice name from 'FC2024 + sequence_number' to 'FC24 + sequence_number'"""
-        super(AccountMove, self)._compute_name()
-        self.name = self.remove_extra_zeros(self.name)
-
-    def remove_extra_zeros(self, input_string):
-        # Split the string into 3 parts: the prefix, current year short and the numeric part
-        prefix = input_string[:2]
-        current_year_short = datetime.datetime.now().strftime('%y')
-        numeric_part = input_string[-5:]
-        return prefix + current_year_short + numeric_part
-
     def action_view_journal_items(self):
         self.ensure_one()
         context = {
