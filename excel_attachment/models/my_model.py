@@ -1,18 +1,17 @@
+from odoo import models, fields, api
 import io
 import base64
-from odoo import models, fields, api
 import xlsxwriter
 
-class SaleOrder(models.Model):
-    _inherit = 'sale.order'  # Changez cela selon votre modèle
-
-    state = fields.Selection(selection_add=[('out', 'OUT')])
+class StockPicking(models.Model):
+    _inherit = 'stock.picking'
 
     @api.multi
     def write(self, vals):
-        result = super(SaleOrder, self).write(vals)
+        result = super(StockPicking, self).write(vals)
 
-        if 'state' in vals and vals['state'] == 'out':
+        # Vérifier si le transfert de stock est complété
+        if 'state' in vals and vals['state'] == 'done':
             # Appel de la fonction pour générer et attacher le fichier Excel
             self.generate_excel_attachment()
 
@@ -24,14 +23,19 @@ class SaleOrder(models.Model):
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
         worksheet = workbook.add_worksheet()
 
-        # Ajout de données dans le fichier Excel (exemple)
+        # Ajout des en-têtes dans le fichier Excel (par exemple)
         worksheet.write('A1', 'Product')
         worksheet.write('B1', 'Quantity')
+        worksheet.write('C1', 'Source Location')
+        worksheet.write('D1', 'Destination Location')
 
         row = 1
-        for line in self.order_line:
-            worksheet.write(row, 0, line.product_id.name)
-            worksheet.write(row, 1, line.product_uom_qty)
+        # Boucler sur les lignes de mouvement de stock pour récupérer les produits et quantités
+        for move_line in self.move_lines:
+            worksheet.write(row, 0, move_line.product_id.name)
+            worksheet.write(row, 1, move_line.product_uom_qty)
+            worksheet.write(row, 2, move_line.location_id.name)
+            worksheet.write(row, 3, move_line.location_dest_id.name)
             row += 1
 
         workbook.close()
@@ -42,14 +46,14 @@ class SaleOrder(models.Model):
 
         # Créer la pièce jointe
         attachment = self.env['ir.attachment'].create({
-            'name': f'Sale_Order_{self.name}.xlsx',
+            'name': f'Stock_Picking_{self.name}.xlsx',
             'type': 'binary',
             'datas': file_data,
-            'store_fname': f'Sale_Order_{self.name}.xlsx',
-            'res_model': 'sale.order',
+            'store_fname': f'Stock_Picking_{self.name}.xlsx',
+            'res_model': 'stock.picking',
             'res_id': self.id,
             'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         })
 
-        # Lier la pièce jointe à ce document (optionnel, déjà fait par res_model/res_id)
-        self.message_post(body="Excel file attached", attachment_ids=[attachment.id])
+        # Lier la pièce jointe à ce document
+        self.message_post(body="Stock picking Excel attached", attachment_ids=[attachment.id])
