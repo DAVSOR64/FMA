@@ -1,0 +1,257 @@
+<odoo>
+    <template id="report_saleorder_document_inherit" inherit_id="sale.report_saleorder_document">
+        <xpath expr="//div[hasclass('page')]" position="before">
+            <style>
+                .avoid-page-break {
+                page-break-inside: avoid;
+                }
+            </style>
+        </xpath>
+        <xpath expr="//div[hasclass('page')]" position="before">
+            <div class="header_table">
+                <div style="margin-left: 400px;">
+                    <span t-field="doc.partner_id" />
+                    <br>
+                        <span t-field="doc.partner_id.street" />
+                    </br>
+                    <t t-if="doc.partner_id.street2">
+                        <br>
+                            <span t-field="doc.partner_id.street2" />
+                        </br>
+                    </t>
+                    <br>
+                        <span t-field="doc.partner_id.zip" />
+                        <span t-field="doc.partner_id.city" />
+                    </br>
+                    <br></br>
+                    <br>TVA : <span t-field="doc.partner_id.vat" />
+                    </br>
+                    <br>SIRET : <span t-field="doc.partner_id.siret" /></br>
+                </div>
+                <div style="text-align: right;">
+                    <br>
+                        <strong>Commercial :</strong>
+                        <span t-field="doc.so_commercial" />
+                    </br>
+                </div>
+            </div>
+        </xpath>
+        <xpath expr="//div[@id='informations']" position="replace">
+            <div id="informations">
+                <style>
+                    .table thead th {
+                    background-color: grey;
+                    color : black;
+                    font-size: 13px;
+                    }
+                    .table tbody th {
+                    font-size: 13px;
+                    }
+                </style>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Code Client</th>
+                            <th>Activité</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <span t-field="doc.date_order" />
+                            </td>
+                            <td>
+                                <span t-field="doc.so_code_tiers" />
+                            </td>
+                            <td>
+                                <t t-if="doc.tag_ids.name == 'FMA'">
+                                    ALU
+                                </t>
+                                <t t-elif="doc.tag_ids.name == 'F2M'">
+                                    ACIER
+                                </t>
+                                <t t-else="">
+                                    <span t-esc="doc.tag_ids.name"/>
+                                </t>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </xpath>
+        <!-- Modifier le bloc h2 pour ajouter "Valable 1 mois" pour les devis -->
+        <xpath expr="//h2[@class='mt16']" position="inside">
+            <t t-if="doc.state in ['draft','sent']">
+                <!-- Ajouter la mention valable 1 mois pour les devis -->
+                <span class="text-muted" style="font-size: 14px; margin-left: 10px;">
+                    (Valable 1 mois)
+                </span>
+            </t>
+        </xpath>
+        <!-- Modif du tableau des lignes-->
+        <xpath expr="//table[hasclass('o_main_table')]/thead" position="replace">
+            <thead>
+                <tr>
+                    <th name="th_description" class="text-left">
+                        <span>Description</span>
+                    </th>
+                    <th name="th_quantity" class="text-right">
+                        <span>Quantité</span>
+                    </th>
+                    <th name="th_discount"
+                        t-if="any(line.discount > 0 for line in doc.order_line)"
+                        class="text-right">
+                        <span>Remise</span>
+                    </th>
+                    <th name="th_priceunit"
+                        t-attf-class="text-right {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                        <span>Prix Unitaire</span>
+                    </th>
+                    <th name="th_tax_ids" class="text-right">
+                        <span>TVA</span>
+                    </th>
+                    <th name="th_subtotal" class="text-right">
+                            <span groups="account.group_show_line_subtotals_tax_excluded">Montant H.T.</span>
+                            <span groups="account.group_show_line_subtotals_tax_included">Total H.T.</span>
+                    </th>
+                </tr>
+            </thead>
+        </xpath>
+        <xpath expr="//tbody[hasclass('sale_tbody')]" position="replace">
+            <tbody class="sale_tbody">
+                <tr class="sale_tbody_header">
+                    <style>
+                        .sale_tbody_header {
+                        background-color: grey;
+                        color : black;
+                        font-size:16px;
+                        }
+                        .sale_tbody td {
+                        font-size: 12px;
+                        }
+                    </style>
+                </tr>
+
+
+                <t t-set="current_subtotal" t-value="0" />
+
+                <!-- Itération sur les lignes de commande -->
+                <t t-foreach="doc.order_line" t-as="line">
+                    <t
+                        t-if="line.product_id.name != 'Acompte' and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and not line.product_id.default_code.startswith('A2') and not line.display_type">
+                        <tr>
+                            <td name="account_invoice_line_name">
+                                <span t-esc="line.product_id.name + ' ' + line.name"
+                                    t-options="{'widget': 'text'}" />
+                            </td>
+                            <td class="text-right">
+                                <span t-field="line.product_uom_qty" />
+                                <!--<span
+                                t-field="line.product_uom_id" groups="uom.group_uom"/>-->
+                            </td>
+                            <td class="text-right"
+                                t-if="any(l.discount > 0 for l in doc.order_line)">
+                                <span t-if="line.discount > 0">
+                                    <t t-esc="('%.2f' % line.discount)" />
+                                </span>
+                                % <!-- Afficher la remise uniquement si elle est > 0 -->
+                                <span t-if="line.discount == 0">-</span> <!-- Afficher un tiret si
+                                la remise est égale à 0 -->
+                            </td>
+                            <td class="text-right">
+                                <span class="text-nowrap" t-esc="doc.format_amount(line.price_unit)" />
+                                € </td>
+                            <td class="text-right">
+                                <span t-field="line.tax_id" />
+                            </td>
+                            <td class="text-right o_price_total">
+                                <span class="text-nowrap" t-field="line.price_subtotal"
+                                    groups="account.group_show_line_subtotals_tax_excluded" />
+                                <span class="text-nowrap" t-field="line.price_total"
+                                    groups="account.group_show_line_subtotals_tax_included)" />
+                            </td>
+                        </tr>
+                    </t>
+                </t>
+            </tbody>
+        </xpath>
+        <!-- Modification du tableau des totaux -->
+        <xpath expr="//div[hasclass('clearfix')]" position="replace">
+            <div class="clearfix">
+                <style>
+                    .totals-table-container {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-top: 20px;
+                    page-break-inside: avoid;
+                    font-size: 12px;
+                    }
+                    .table.totals-table tfoot th, .table.totals-table tfoot td {
+                    background-color: #f9f9f9;
+                    border-top: 1px solid #ddd;
+                    }
+                    .totals-table-wrapper {
+                    width: 50%;
+                    float: right;
+                    }
+                    .rib-block {
+                    width: 45%;
+                    border: 1px solid #ddd;
+                    padding: 10px;
+                    font-size: 12px;
+                    float: left;
+                    }
+                </style>
+                <div class="totals-table-wrapper">
+                    <table class="table table-sm o_main_table" style="page-break-inside: avoid;">
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Total HT</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span
+                                        t-esc="doc.format_amount(doc.amount_untaxed)" />
+                                    € </td>
+                            </tr>
+                            <t t-set="tax_details" t-value="{}" />
+                            <!-- Itérer sur les lignes de facture pour calculer les montants de TVA -->
+                            <t t-foreach="doc.order_line" t-as="line">
+                                <t t-foreach="line.tax_id" t-as="tax">
+                                    <t t-set="tax_amount"
+                                        t-value="tax_details.get(tax.name, 0) + (line.price_subtotal * tax.amount / 100)" />
+                                    <t t-set="tax_details"
+                                        t-value="dict(tax_details, **{tax.name: tax_amount})" />
+                                </t>
+                            </t>
+                            <!-- Afficher les totaux par taux de TVA -->
+                            <t t-foreach="tax_details.items()" t-as="item">
+                                <tr>
+                                    <td colspan="4" class="text-right">
+                                        <strong>
+                                            <t t-esc="item[0]" />
+                                        </strong>
+                                    </td>
+                                    <td class="text-right">
+                                        <span t-esc="doc.format_amount(item[1])" /> € </td>
+                                </tr>
+                            </t>
+                            <tr>
+                                <td colspan="4" class="text-right">
+                                    <strong>Total TTC</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span
+                                        t-esc="doc.format_amount(doc.amount_total) " />
+                                    € </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </xpath>
+        <!-- SUppression des conditions de paiement en pied de page -->
+    </template>
+</odoo>
