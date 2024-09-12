@@ -68,7 +68,7 @@ class AccountMove(models.Model):
                         if  tags == 'FMA': 
                             val['inv_activite'] = 'ALU'
                         elif tags == 'F2M' :
-                            val['inv_activite'] = 'ACI'
+                            val['inv_activite'] = 'ACIER'
         else:
             if 'invoice_origin' in vals:
                 sale_order = self.env['sale.order'].search([('name', '=', vals['invoice_origin'])], limit=1)
@@ -80,7 +80,7 @@ class AccountMove(models.Model):
                     if  tags == 'FMA': 
                         vals['inv_activite'] = 'ALU'
                     elif tags == 'F2M' :
-                        vals['inv_activite'] = 'ACI'
+                        vals['inv_activite'] = 'ACIER'
         
         return super(AccountMove, self).create(vals)
 
