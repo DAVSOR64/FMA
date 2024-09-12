@@ -37,6 +37,16 @@ class SaleOrder(models.Model):
     so_date_de_modification = fields.Date(string="Date de modification")
     so_date_de_commande = fields.Date(string="Date de la commande")
     so_date_bpe = fields.Date(string="Date BPE")
+    so_date_de_reception_devis = fields.Date(string="Date de réception devis")
+    so_date_du_devis = fields.Date(string="Date du devis")
+    so_date_de_modification_devis = fields.Date(string="Date de modification devis")
+    so_date_devis_valide = fields.date(string="Date devis validé")
+    so_date_ARC = fields.Date(string="Date ARC")
+    so_date_ARC_valide = fields.Date(string="Date ARC Validé")
+    so_date_de_fin_de_production = fields.Date(string="Date de fin de production")
+    so_date_de_livraison_prevu = fields.Date(string="Date de livraison prévu")
+    so_statut_avancement = fields.char(string="Statut Avancement")
+    so_gamme = fields.char(string="GAMME")
 
     #Onglet Analyse Financière
     so_achat_matiere_devis = fields.Monetary(string="Achat Matière (Devis)")
