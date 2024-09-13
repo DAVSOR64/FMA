@@ -43,7 +43,7 @@ class SaleOrder(models.Model):
     so_date_devis_valide = fields.Date(string="Date devis validé")
     so_date_ARC = fields.Date(string="Date ARC")
     so_date_ARC_valide = fields.Date(string="Date ARC Validé")
-    so_date_de_fin_de_production = fields.Date(string="Date de fin de production")
+    so_date_de_fin_de_production_reel = fields.Date(string="Date de fin de production réel")
     so_date_de_livraison_prevu = fields.Date(string="Date de livraison prévu")
     so_statut_avancement = fields.Char(string="Statut Avancement")
     so_gamme = fields.Char(string="GAMME")
