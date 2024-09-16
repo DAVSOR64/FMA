@@ -189,6 +189,14 @@ class SaleOrder(models.Model):
             order.write({'so_date_bpe': fields.Date.today()})
         return res
 
+    # Init date validation devis
+    
+    def action_validation(self):
+        res = super(SaleOrder, self).action_validation()
+        for order in self:
+            order.write({'so_date_devis_valide': fields.Date.today()})
+        return res
+
     # Init date fin de production réel
 
     def do_finish(self):
