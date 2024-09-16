@@ -11,6 +11,7 @@
                         <field name="so_commande_client"/>
                         <field name="so_gamme"/>
                         <field name="so_statut_avancement"/>
+                        <field name="so_delai_confirme_en_semaine"/>
                     </group>
                 </group>
 
