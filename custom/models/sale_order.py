@@ -47,7 +47,6 @@ class SaleOrder(models.Model):
     so_date_de_livraison_prevu = fields.Date(string="Date de livraison prévu")
     so_statut_avancement = fields.Char(string="Statut Avancement")
     so_gamme = fields.Char(string="GAMME")
-    so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 
     #Onglet Analyse Financière
     so_achat_matiere_devis = fields.Monetary(string="Achat Matière (Devis)")
