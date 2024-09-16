@@ -189,7 +189,6 @@ class SaleOrder(models.Model):
             order.write({'so_date_bpe': fields.Date.today()})
         return res
 
-
     # Init du WAREHOUSE en fonction du tag FMA ou F2M
     @api.model   
     def write(self, vals):
