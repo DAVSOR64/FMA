@@ -189,6 +189,14 @@ class SaleOrder(models.Model):
             order.write({'so_date_bpe': fields.Date.today()})
         return res
 
+    # Init date fin de production réel
+
+    def do_finish(self):
+        res = super(SaleOrder, self).do_finish()
+        for order in self:
+            order.write({'so_date_de_fin_de_production_reel': fields.Date.today()})
+        return res
+
     # Init du WAREHOUSE en fonction du tag FMA ou F2M
     @api.model   
     def write(self, vals):
