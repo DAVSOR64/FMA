@@ -189,13 +189,24 @@ class SaleOrder(models.Model):
         return res
 
     # Init date du Devis lors de la création d'un numéro de commande
+
     @api.model
     def create(self, vals):
-        if not vals:
-            vals = {}
-        if vals.get('name'):
+        # Log des valeurs reçues avant la création
+        _logger.info('Vals avant création: %s', vals)
+        
+        # Vérifier la présence de 'name' et assigner la date
+        if 'name' in vals:
             vals['so_date_du_devis'] = fields.Date.today()
-        return super(SaleOrder, self).create(vals)
+        
+        # Créer l'enregistrement
+        result = super(SaleOrder, self).create(vals)
+        
+        # Log de l'enregistrement créé
+        _logger.info('Enregistrement créé: %s', result.read(['so_date_du_devis']))
+        
+        return result
+
 
 
     # Init du WAREHOUSE en fonction du tag FMA ou F2M
