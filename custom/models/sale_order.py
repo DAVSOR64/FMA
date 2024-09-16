@@ -188,6 +188,13 @@ class SaleOrder(models.Model):
             order.write({'so_date_bpe': fields.Date.today()})
         return res
 
+    # Init date du Devis lors de la création d'un numéro de commande
+
+    def create(self, vals):
+        if 'name' in vals:
+            vals['so_date_du_devis'] = fields.Date.today()
+        return super(SaleOrder, self).create(vals)
+
     # Init du WAREHOUSE en fonction du tag FMA ou F2M
     @api.model   
     def write(self, vals):
