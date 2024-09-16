@@ -191,10 +191,15 @@ class SaleOrder(models.Model):
     # Init date validation devis
 
     def action_validation(self):
-        res = super(SaleOrder, self).action_validation()
-        for order in self:
-            order.write({'so_date_devis_valide': fields.Date.today()})
-        return res
+    _logger.info("action_validation est bien appelée pour la commande : %s", self.name)
+    res = super(SaleOrder, self).action_validation()
+    
+    for order in self:
+        _logger.info("Mise à jour de la date de validation pour la commande : %s", order.name)
+        order.write({'so_date_devis_valide': fields.Date.today()})
+    
+    return res
+
 
     # Init du WAREHOUSE en fonction du tag FMA ou F2M
     @api.model   
