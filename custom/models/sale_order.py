@@ -190,14 +190,13 @@ class SaleOrder(models.Model):
 
     # Init date du Devis lors de la création d'un numéro de commande
 
-    @api.model
+   @api.model
     def create(self, vals):
-    if not vals:
-        vals = {}
-    # Ajouter la date seulement si le champ 'name' est présent
-    if 'name' in vals:
-        vals['so_date_du_devis'] = fields.Date.context_today(self)
-    return super(SaleOrder, self).create(vals)
+        if not vals:
+            vals = {}
+        if 'name' in vals:
+            vals['so_date_du_devis'] = fields.Date.today()
+        return super(SaleOrder, self).create(vals)
 
 
 
