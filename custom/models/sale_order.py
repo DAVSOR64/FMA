@@ -41,6 +41,7 @@ class SaleOrder(models.Model):
     so_date_du_devis = fields.Date(string="Date du devis")
     so_date_de_modification_devis = fields.Date(string="Date de modification devis")
     so_date_devis_valide = fields.Date(string="Date devis validé")
+
     so_date_ARC = fields.Date(string="Date ARC")
     so_date_ARC_valide = fields.Date(string="Date ARC Validé")
     so_date_de_fin_de_production_reel = fields.Date(string="Date de fin de production réel")
@@ -190,11 +191,19 @@ class SaleOrder(models.Model):
         return res
 
     # Init date validation devis
-    
+
     def action_validation(self):
         res = super(SaleOrder, self).action_validation()
         for order in self:
             order.write({'so_date_devis_valide': fields.Date.today()})
+        return res
+
+    # Init date de modification devis
+
+    def action_quotation_send(self):
+        res = super(SaleOrder, self).action_quotation_send()
+        for order in self:
+            order.write({'so_date_de_modification_devis': fields.Date.today()})
         return res
 
     # Init date fin de production réel
