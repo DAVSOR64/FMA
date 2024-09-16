@@ -192,11 +192,17 @@ class SaleOrder(models.Model):
 
     @api.model
     def create(self, vals):
-        if not vals:
-            vals = {}
-        if 'name' in vals:
-            vals['so_date_du_devis'] = fields.Date.today()
-        return super(SaleOrder, self).create(vals)
+    if not vals:
+        vals = {}
+    # Debug: Vérifier si 'name' est dans vals
+    if 'name' in vals:
+        vals['so_date_du_devis'] = fields.Date.today()
+        # Debug: Vérifier si la date est bien attribuée
+        _logger.info("Date du devis ajoutée : %s", vals['so_date_du_devis'])
+    else:
+        _logger.warning("'name' n'est pas défini dans vals.")
+        
+    return super(SaleOrder, self).create(vals)
 
 
     # Init du WAREHOUSE en fonction du tag FMA ou F2M
