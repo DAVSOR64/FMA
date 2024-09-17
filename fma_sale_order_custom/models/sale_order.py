@@ -29,11 +29,19 @@ class SaleOrder(models.Model):
         for order in self:
             order.so_date_bpe = fields.datetime.today()
         return super().action_confirm()
+    
+     # Init date fin de production réel
+
+    def do_finish(self):
+        for order in self:
+            order.so_date_de_fin_de_production_reel = fields.datetime.Date.today()
+        return super().do_finish()
         
     # Init date de modification devis
     def action_quotation_send(self):
         for order in self:
-            order.so_date_de_modification_devis =fields.Date.today()
+            order.so_date_de_modification_devis = fields.datetime.Date.today()
+        return super().action_quotation_send()
 
     # Init date de livraison prévu
 
@@ -142,14 +150,6 @@ class SaleOrder(models.Model):
             partner = self.env['res.partner'].browse(vals['partner_id'])
             vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
         return super(SaleOrder, self).write(vals)
-
-    # Init date fin de production réel
-
-    def do_finish(self):
-        res = super(SaleOrder, self).do_finish()
-        for order in self:
-            order.write({'so_date_de_fin_de_production_reel': fields.Date.today()})
-        return res
 
     # Init du WAREHOUSE en fonction du tag FMA ou F2M
     @api.model   
