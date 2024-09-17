@@ -34,7 +34,7 @@ class SaleOrder(models.Model):
 
     def button_mark_done(self):
         for order in self:
-            order.so_date_de_fin_de_production_reel = fields.datetime.today()
+            order.so_date_de_fin_de_production_reel = fields.Date.today()
         return super().button_mark_done()
         
     # Init date de modification devis
