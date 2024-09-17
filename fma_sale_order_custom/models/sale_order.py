@@ -9,7 +9,7 @@ class SaleOrder(models.Model):
     
     date_bpe = fields.Date(string="Date BPE") 
 
-# Init date validation devis
+    # Init date validation devis
 
     def action_validation(self):
         for order in self:
@@ -17,16 +17,39 @@ class SaleOrder(models.Model):
             order.x_studio_date_de_la_commande = fields.datetime.today()
             order.so_date_devis_valide = fields.datetime.today()
             
- # Init date BPE lors de la confirmation du devis
+    # Init date BPE lors de la confirmation du devis
     def action_confirm(self):
         for order in self:
             order.so_date_bpe = fields.datetime.today()
         return super().action_confirm()
         
- # Init date de modification devis
+    # Init date de modification devis
     def action_quotation_send(self):
         for order in self:
             order.so_date_de_modification_devis =fields.Date.today()
+
+    # Init date de livraison prévu
+
+    # Calcul de la date de livraison prévue
+    @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
+    def _compute_so_date_de_livraison_prevu(self):
+        for order in self:
+            if order.so_date_bpe and order.so_delai_confirme_en_semaine:
+                # Ajouter le délai confirmé (en semaines) à la date BPE
+                order.so_date_de_livraison_prevu = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+            else:
+                # S'il manque une des valeurs, on ne fait pas le calcul
+                order.so_date_de_livraison_prevu = False
+
+    # Init date du Devis lors de la création d'un numéro de commande
+    
+    def create(self, vals):
+    if not vals:
+        vals = {}
+    # Vérifier si le champ 'name' (numéro de devis) est défini et non vide
+    if vals.get('name'):
+        vals['so_date_du_devis'] = fields.Date.today()
+    return super(SaleOrder, self).create(vals)
 
     #calcul DEVIS 
     @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
