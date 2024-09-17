@@ -41,17 +41,6 @@ class SaleOrder(models.Model):
                 # S'il manque une des valeurs, on ne fait pas le calcul
                 order.so_date_de_livraison_prevu = False
 
-    # Init date du Devis lors de la création d'un numéro de commande
-
-    def create(self, vals):
-    if not vals:
-        vals = {}
-        
-    # Vérifier si le champ 'name' (numéro de devis) est défini
-    if vals.get('name'):
-        vals['so_date_du_devis'] = fields.Date.today()
-        
-    return super(SaleOrder, self).create(vals)
 
     #calcul DEVIS 
     @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
