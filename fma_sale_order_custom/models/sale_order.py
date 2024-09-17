@@ -35,7 +35,7 @@ class SaleOrder(models.Model):
     def button_mark_done(self):
         for order in self:
             order.so_date_de_fin_de_production_reel = fields.datetime.Date.today()
-        return super().do_finish()
+        return super().button_mark_done()
         
     # Init date de modification devis
     def action_quotation_send(self):
