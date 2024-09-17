@@ -7,7 +7,7 @@ from odoo import fields, models
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
     
-     date_bpe = fields.Date(string="Date BPE") 
+    date_bpe = fields.Date(string="Date BPE") 
 
 # Init date validation devis
 
