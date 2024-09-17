@@ -40,7 +40,7 @@ class SaleOrder(models.Model):
     # Init date de modification devis
     def action_quotation_send(self):
         for order in self:
-            order.so_date_de_modification_devis = fields.datetime.Date.today()
+            order.so_date_de_modification_devis = fields.Date.today()
         return super().action_quotation_send()
 
     # Init date de livraison prévu
