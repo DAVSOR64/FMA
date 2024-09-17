@@ -182,30 +182,6 @@ class SaleOrder(models.Model):
             vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
         return super(SaleOrder, self).write(vals)
 
-    # Init date BPE lors de la confirmation du devis
-
-    def action_confirm(self):
-        res = super(SaleOrder, self).action_confirm()
-        for order in self:
-            order.write({'so_date_bpe': fields.Date.today()})
-        return res
-
-    # Init date validation devis
-
-    def action_validation(self):
-        res = super(SaleOrder, self).action_validation()
-        for order in self:
-            order.write({'so_date_devis_valide': fields.Date.today()})
-        return res
-
-    # Init date de modification devis
-
-    def action_quotation_send(self):
-        res = super(SaleOrder, self).action_quotation_send()
-        for order in self:
-            order.write({'so_date_de_modification_devis': fields.Date.today()})
-        return res
-
     # Init date fin de production réel
 
     def do_finish(self):
