@@ -30,7 +30,13 @@ class SaleOrder(models.Model):
             order.so_date_bpe = fields.datetime.today()
         return super().action_confirm()
     
-     # Init date fin de production réel
+    # Init date ARC validé
+    def action_confirm(self):
+        for order in self:
+            order.so_date_ARC_valide = fields.datetime.today()
+        return super().action_confirm()
+
+    # Init date fin de production réel
 
     def button_mark_done(self):
         for order in self:
@@ -42,6 +48,15 @@ class SaleOrder(models.Model):
         for order in self:
             order.so_date_de_modification_devis = fields.Date.today()
         return super().action_quotation_send()
+
+    # Init date du devis
+
+    @api.model
+    def create(self, vals):
+        # Si un numéro de devis est attribué, ajouter la date d'aujourd'hui
+        if 'name' in vals and vals.get('name'):
+            vals['so_date_du_devis'] = date.today()  # Attribuer la date d'aujourd'hui
+        return super(SaleOrder, self).create(vals)
 
     # Init date de livraison prévu
 
