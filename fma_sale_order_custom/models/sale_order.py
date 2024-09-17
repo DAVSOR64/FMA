@@ -42,13 +42,15 @@ class SaleOrder(models.Model):
                 order.so_date_de_livraison_prevu = False
 
     # Init date du Devis lors de la création d'un numéro de commande
-    
+
     def create(self, vals):
     if not vals:
         vals = {}
-    # Vérifier si le champ 'name' (numéro de devis) est défini et non vide
+        
+    # Vérifier si le champ 'name' (numéro de devis) est défini
     if vals.get('name'):
         vals['so_date_du_devis'] = fields.Date.today()
+        
     return super(SaleOrder, self).create(vals)
 
     #calcul DEVIS 
