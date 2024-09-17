@@ -36,7 +36,7 @@
                 <filter name="date_bpe_filter" string="Date BPE" domain="[]"/>
             </xpath> -->
             <xpath expr="//filter[@name='order_month']" position="after">
-                <filter name="date_bpe" string="Date BPE" domain="[]" context="{'group_by': 'date_bpe'}"/>
+                <filter name="so_date_bpe" string="Date BPE" domain="[]" context="{'group_by': 'so_date_bpe'}"/>
             </xpath>
         </field>
     </record>
