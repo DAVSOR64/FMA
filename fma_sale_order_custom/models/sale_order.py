@@ -32,7 +32,7 @@ class SaleOrder(models.Model):
     
      # Init date fin de production réel
 
-    def do_finish(self):
+    def button_mark_done(self):
         for order in self:
             order.so_date_de_fin_de_production_reel = fields.datetime.Date.today()
         return super().do_finish()
