@@ -10,7 +10,6 @@
     'depends': ['stock'],
     'data': [
         'views/delivery_report_excel_views.xml',  # Votre vue et action serveur
-        'security/ir.model.access.csv',  # Les droits d'accès (si nécessaire)
     ],
     'installable': True,
     'application': False,
