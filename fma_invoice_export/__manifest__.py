@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 {
-    'name': 'Invoices: Export (TXT)',
+    'name': 'Invoices: Export (CSV)',
     'description':
         """
             The purpose of this module is to create the .csv file for invoices with the details of journal items.
