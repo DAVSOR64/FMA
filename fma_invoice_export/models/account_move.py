@@ -105,7 +105,7 @@ class AccountMove(models.Model):
                     'payment_reference': f'{sale_order_name} {move.payment_reference}',
                     'section_axe2': sale_order_name.replace('-', '') if sale_order_name else '',
                     'section': section,
-                    'section_axe3': '999999999999',
+                    'section_axe3': str('999999999999'),
                     'debit': round(sum(item.debit for item in items_grouped_by_account), 2),
                     'credit': round(sum(item.credit for item in items_grouped_by_account), 2)
                 })
