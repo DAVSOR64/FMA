@@ -93,6 +93,14 @@ class AccountMove(models.Model):
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
                 name_invoice = move.name.replace('FC2024','FC24',1) if move.name.startswith('FC2024') else move.name
+                # Calculer les sommes
+                debit_sum = round(sum(item.debit for item in items_grouped_by_account), 2)
+                credit_sum = round(sum(item.credit for item in items_grouped_by_account), 2)
+                
+                # Formater les nombres avec une virgule comme séparateur décimal
+                formatted_debit = f"{debit_sum:.2f}".replace('.', ',')
+                formatted_credit = f"{credit_sum:.2f}".replace('.', ',')
+
                 items_grouped_by_account = list(items_grouped_by_account)
                 grouped_items.append({
                     'journal': journal,
@@ -107,8 +115,8 @@ class AccountMove(models.Model):
                     'section_axe2': sale_order_name.replace('-', '') if sale_order_name else '',
                     'section': section,
                     'section_axe3': str('999999999999'),
-                    'debit': round(sum(item.debit for item in items_grouped_by_account), 2),
-                    'credit': round(sum(item.credit for item in items_grouped_by_account), 2)
+                    'debit': formatted_debit,
+                    'credit': formatted_credit
                 })
 
         # configuring fields and rows for CSV Export
