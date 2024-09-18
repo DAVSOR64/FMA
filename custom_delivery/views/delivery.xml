@@ -222,7 +222,7 @@
                                 <t t-foreach="line.tax_id" t-as="tax">
                                     <t t-set="tax_amount"
                                         t-value="tax_details.get(tax.name, 0) + (line.price_subtotal * tax.amount / 100)" />
-                                    <t t-set="tax_details"
+                                    <t t-set="tax_details" 
                                         t-value="dict(tax_details, **{tax.name: tax_amount})" />
                                 </t>
                             </t>
