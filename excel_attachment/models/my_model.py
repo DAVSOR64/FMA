@@ -1,59 +1,52 @@
-from odoo import models, fields, api
-import io
-import base64
+from odoo import http
+from odoo.http import request
 import xlsxwriter
+import io
 
-class StockPicking(models.Model):
-    _inherit = 'stock.picking'
+class DeliveryReportExcel(http.Controller):
 
-    @api.multi
-    def write(self, vals):
-        result = super(StockPicking, self).write(vals)
+    @http.route(['/report/delivery/excel/<int:delivery_id>'], type='http', auth="user", csrf=False)
+    def generate_excel_report(self, delivery_id, **kwargs):
+        # Rechercher le bon de livraison en fonction de l'ID
+        picking = request.env['stock.picking'].browse(delivery_id)
 
-        # Vérifier si le transfert de stock est complété
-        if 'state' in vals and vals['state'] == 'done':
-            # Appel de la fonction pour générer et attacher le fichier Excel
-            self.generate_excel_attachment()
-
-        return result
-
-    def generate_excel_attachment(self):
-        # Créez le fichier Excel en mémoire
+        # Créer un buffer en mémoire pour stocker le fichier Excel
         output = io.BytesIO()
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-        worksheet = workbook.add_worksheet()
+        worksheet = workbook.add_worksheet('Bon de Livraison')
 
-        # Ajout des en-têtes dans le fichier Excel (par exemple)
-        worksheet.write('A1', 'Product')
-        worksheet.write('B1', 'Quantity')
-        worksheet.write('C1', 'Source Location')
-        worksheet.write('D1', 'Destination Location')
+        # Ajouter des styles pour les cellules
+        bold = workbook.add_format({'bold': True})
 
+        # Ajouter des en-têtes
+        worksheet.write(0, 0, 'Référence du bon de livraison', bold)
+        worksheet.write(0, 1, 'Client', bold)
+        worksheet.write(0, 2, 'Date prévue de livraison', bold)
+        worksheet.write(0, 3, 'Article', bold)
+        worksheet.write(0, 4, 'Quantité commandée', bold)
+        worksheet.write(0, 5, 'Quantité livrée', bold)
+
+        # Remplir les données du bon de livraison
         row = 1
-        # Boucler sur les lignes de mouvement de stock pour récupérer les produits et quantités
-        for move_line in self.move_lines:
-            worksheet.write(row, 0, move_line.product_id.name)
-            worksheet.write(row, 1, move_line.product_uom_qty)
-            worksheet.write(row, 2, move_line.location_id.name)
-            worksheet.write(row, 3, move_line.location_dest_id.name)
+        for move in picking.move_lines:
+            worksheet.write(row, 0, picking.name)
+            worksheet.write(row, 1, picking.partner_id.name)
+            worksheet.write(row, 2, picking.scheduled_date)
+            worksheet.write(row, 3, move.product_id.name)
+            worksheet.write(row, 4, move.product_uom_qty)
+            worksheet.write(row, 5, move.quantity_done)
             row += 1
 
+        # Fermer le fichier Excel
         workbook.close()
 
-        # Encoder le fichier en base64 pour le stocker dans Odoo
+        # Renvoyer le fichier Excel en tant que téléchargement
         output.seek(0)
-        file_data = base64.b64encode(output.read())
-
-        # Créer la pièce jointe
-        attachment = self.env['ir.attachment'].create({
-            'name': f'Stock_Picking_{self.name}.xlsx',
-            'type': 'binary',
-            'datas': file_data,
-            'store_fname': f'Stock_Picking_{self.name}.xlsx',
-            'res_model': 'stock.picking',
-            'res_id': self.id,
-            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        })
-
-        # Lier la pièce jointe à ce document
-        self.message_post(body="Stock picking Excel attached", attachment_ids=[attachment.id])
+        response = request.make_response(
+            output.getvalue(),
+            headers=[
+                ('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+                ('Content-Disposition', 'attachment; filename=bon_de_livraison.xlsx;')
+            ]
+        )
+        return response

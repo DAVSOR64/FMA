@@ -1,5 +1,5 @@
 <odoo>
-    <template id="report_saleorder_document_inherit" inherit_id="sale.report_saleorder_document">
+    <template id="report_delivery_document_inherit" inherit_id="stock.report_delivery_document">
         <xpath expr="//div[hasclass('page')]" position="before">
             <style>
                 .avoid-page-break {
