@@ -48,7 +48,7 @@
                     font-size: 13px;
                     }
                 </style>
-                <table lass="table table-sm">
+                <table class="table table-sm">
                     <thead>
                         <tr>
                             <th>Date</th>
