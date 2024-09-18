@@ -12,6 +12,6 @@
         'views/delivery_report_excel_views.xml',  # Votre vue et action serveur
     ],
     'installable': True,
-    'application': False,
+    'application': True,
     'license': 'LGPL-3',
 }
