@@ -57,7 +57,7 @@ class AccountMove(models.Model):
 
                 file_content = self._get_file_content(journal_items, move)
                 attachment = IrAttachment.create({
-                    'name': f"N° {move.invoice_date}.csv",
+                    'name': f"{move.name}.csv",
                     'type': 'binary',
                     'datas': base64.b64encode(file_content),
                     'res_model': 'account.move',
@@ -89,25 +89,34 @@ class AccountMove(models.Model):
                 section = 'REG0701ALU'
             elif 'F2M' in tag_names:
                 section = 'REM0701ACI'
-
+        
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
+                name_invoice = move.name.replace('FC2024','FC24',1) if move.name.startswith('FC2024') else move.name
+                # Calculer les sommes
+                debit_sum = round(sum(item.debit for item in items_grouped_by_account), 2)
+                credit_sum = round(sum(item.credit for item in items_grouped_by_account), 2)
+                
+                # Formater les nombres avec une virgule comme séparateur décimal
+                formatted_debit = f"{debit_sum:.2f}".replace('.', ',')
+                formatted_credit = f"{credit_sum:.2f}".replace('.', ',')
+
                 items_grouped_by_account = list(items_grouped_by_account)
                 grouped_items.append({
                     'journal': journal,
                     'invoice_date': move.invoice_date,
-                    'move_name': move.name,
+                    'move_name': name_invoice,
                     'invoice_date_1': move.invoice_date,
                     'due_date': move.invoice_date_due,
                     'account_code': account_code,
-                    'mode_de_regiment': move.partner_id.x_studio_mode_de_rglement_1,
-                    'name_and_customer_name': f'{move.name} {move.partner_id.name}',
-                    'payment_reference': f'{sale_order_name} {move.payment_reference}',
+                    'mode_de_regiment': move.inv_mode_de_reglement.replace('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATI') if move.inv_mode_de_reglement == 'L.C.R. A L ACCEPTATION' else move.inv_mode_de_reglement,
+                    'name_and_customer_name': f'{name_invoice} {move.partner_id.name}',
+                    'payment_reference': f'{name_invoice} {move.payment_reference}',
                     'section_axe2': sale_order_name.replace('-', '') if sale_order_name else '',
                     'section': section,
-                    'section_axe3': 999999999999 if all(not item.reconciled for item in items_grouped_by_account) else '',
-                    'debit': round(sum(item.debit for item in items_grouped_by_account), 2),
-                    'credit': round(sum(item.credit for item in items_grouped_by_account), 2)
+                    'section_axe3': str('999999999999'),
+                    'debit': formatted_debit,
+                    'credit': formatted_credit
                 })
 
         # configuring fields and rows for CSV Export

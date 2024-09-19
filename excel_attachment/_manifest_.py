@@ -1,12 +1,16 @@
 {
-    'name': 'Odoo Excel Attachment on OUT',
+    'name': 'Bon de Livraison Excel',
     'version': '1.0',
-    'category': 'Tools',
-    'summary': 'Generate Excel file and attach it when a record goes OUT',
-    'depends': ['base', 'sale', 'mail'],  # 'sale' est un exemple
+    'summary': 'Génère des bons de livraison au format Excel',
+    'description': """
+    Ce module génère des bons de livraison au format Excel au lieu de PDF.
+    """,
+    'author': 'Votre Nom',
+    'depends': ['stock'],
     'data': [
-        # Les fichiers XML qui pourraient être nécessaires pour des vues ou des actions
+        'views/delivery_report_excel_views.xml',  # Votre vue et action serveur
     ],
     'installable': True,
-    'auto_install': False,
+    'application': True,
+    'license': 'LGPL-3',
 }

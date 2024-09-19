@@ -9,7 +9,7 @@
                 <field name="state" widget="statusbar" statusbar_visible="draft,sent,validated,sale"/>
             </xpath>
             <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <button name="action_validation" string="Validate" type="object" class="btn-primary" attrs="{'invisible': [('state', '!=', 'sent')]}" />
+                <button name="action_validation" string="Validé" type="object" class="btn-primary" attrs="{'invisible': [('state', '!=', 'sent')]}" />
             </xpath>
             <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
                 <attribute name="attrs">{'invisible': [('state', 'not in', ['validated'])]}</attribute>
@@ -19,7 +19,7 @@
                 <attribute name="attrs">{'invisible': [('state', 'in', ['draft', 'sent', 'validated', 'sale', 'cancel', 'done'])]}</attribute>
             </xpath>
             <xpath expr="//header/button[@name='action_quotation_send'][3]" position="after">
-                <button name="action_validation" string="Validate" type="object" attrs="{'invisible': [('state', 'in', ['sent', 'cancel', 'validated', 'sale', 'done'])]}" />
+                <button name="action_validation" string="Validé" type="object" attrs="{'invisible': [('state', 'in', ['sent', 'cancel', 'validated', 'sale', 'done'])]}" />
             </xpath>
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>
@@ -36,7 +36,7 @@
                 <filter name="date_bpe_filter" string="Date BPE" domain="[]"/>
             </xpath> -->
             <xpath expr="//filter[@name='order_month']" position="after">
-                <filter name="date_bpe" string="Date BPE" domain="[]" context="{'group_by': 'date_bpe'}"/>
+                <filter name="so_date_bpe" string="Date BPE" domain="[]" context="{'group_by': 'so_date_bpe'}"/>
             </xpath>
         </field>
     </record>

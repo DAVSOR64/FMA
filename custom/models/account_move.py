@@ -17,3 +17,4 @@ class AccountMove(models.Model):
     inv_commande_client = fields.Char(string="N° Commande Client")
     inv_affacturage = fields.Boolean(related='partner_id.part_affacturage', string="Affacturage")
     inv_activite = fields.Char(string="Activité")
+    is_txt_created = fields.Boolean(string="TXT Created")
