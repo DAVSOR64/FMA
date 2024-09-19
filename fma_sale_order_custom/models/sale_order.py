@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
-
 from datetime import timedelta
 import logging
 from odoo import api, fields, models
@@ -17,7 +14,6 @@ class SaleOrder(models.Model):
     date_bpe = fields.Date(string="Date BPE") 
 
     # Init date validation devis
-
     def action_validation(self):
         for order in self:
             order.state = 'validated'
@@ -37,7 +33,6 @@ class SaleOrder(models.Model):
         return super().action_confirm()
 
     # Init date fin de production réel
-
     def button_mark_done(self):
         for order in self:
             order.so_date_de_fin_de_production_reel = fields.Date.today()
@@ -50,17 +45,14 @@ class SaleOrder(models.Model):
         return super().action_quotation_send()
 
     # Init date du devis
-
     @api.model
     def create(self, vals):
         # Si un numéro de devis est attribué, ajouter la date d'aujourd'hui
         if 'name' in vals and vals.get('name'):
-            vals['so_date_du_devis'] = date.today()  # Attribuer la date d'aujourd'hui
+            vals['so_date_du_devis'] = fields.Date.today()  # Attribuer la date d'aujourd'hui
         return super(SaleOrder, self).create(vals)
 
     # Init date de livraison prévu
-
-    # Calcul de la date de livraison prévue
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
     def _compute_so_date_de_livraison_prevu(self):
         for order in self:
@@ -71,8 +63,7 @@ class SaleOrder(models.Model):
                 # S'il manque une des valeurs, on ne fait pas le calcul
                 order.so_date_de_livraison_prevu = False
 
-
-    #calcul DEVIS 
+    # Calcul des marges et coûts pour le devis
     @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
     def _compute_so_marge_brute_devis(self):
         for order in self:
@@ -99,7 +90,7 @@ class SaleOrder(models.Model):
             else:
                 order.so_prc_mcv_devis = 0.0
 
-    #calcul BE
+    # Calcul des marges et coûts pour BE
     @api.depends('so_mtt_facturer_be', 'so_achat_vitrage_be', 'so_achat_matiere_be')
     def _compute_so_marge_brute_be(self):
         for order in self:
@@ -126,7 +117,7 @@ class SaleOrder(models.Model):
             else:
                 order.so_prc_mcv_be = 0.0
 
-    #calcul REEL
+    # Calcul des marges et coûts pour le réel
     @api.depends('so_mtt_facturer_reel', 'so_achat_vitrage_reel', 'so_achat_matiere_reel')
     def _compute_so_marge_brute_reel(self):
         for order in self:
@@ -152,7 +143,8 @@ class SaleOrder(models.Model):
                 order.so_prc_mcv_reel = (order.so_mcv_reel / order.so_mtt_facturer_reel) * 100
             else:
                 order.so_prc_mcv_reel = 0.0
-    
+
+    # Méthode create : mise à jour du mode de règlement
     @api.model
     def create(self, vals):
         if 'partner_id' in vals:
@@ -160,45 +152,33 @@ class SaleOrder(models.Model):
             vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
         return super(SaleOrder, self).create(vals)
 
+    # Méthode write fusionnée
     def write(self, vals):
+        _logger.info("Appel de write avec vals: %s", vals)
+        
+        # Si partner_id est modifié, mettre à jour le champ x_studio_mode_de_rglement_1
         if 'partner_id' in vals:
             partner = self.env['res.partner'].browse(vals['partner_id'])
             vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
-        return super(SaleOrder, self).write(vals)
 
-    # Init du WAREHOUSE en fonction du tag FMA ou F2M
-    @api.model   
-    def write(self, vals):
-        _logger.info("Appel de write avec vals: %s", vals)
+        # Appel de la méthode write parente
         res = super(SaleOrder, self).write(vals)
         _logger.info("Devis mis à jour: %s", self.id)
         
-        # Appelez _update_warehouse ici
+        # Mise à jour de l'entrepôt si les tags sont modifiés
         if 'tag_ids' in vals:
             _logger.info("Appel de _update_warehouse après mise à jour")
             self._update_warehouse()
+        
         return res
 
+    # Mise à jour de l'entrepôt en fonction des tags
     def _update_warehouse(self):
         _logger.info("Début de _update_warehouse pour le devis: %s", self.id)
         for order in self:
-            _logger.info("Tags actuels: %s", order.tag_ids.mapped('name'))
-
-            # Cherche les entrepôts correspondant aux étiquettes spécifiques
-            warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
-            warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
-            _logger.info("Entrepôt LA Regripière: %s, Entrepôt La Remaudière: %s", warehouse_regripiere, warehouse_remaudiere)
-
-            # Met à jour l'entrepôt en fonction de l'étiquette
-            if any(tag.name == 'FMA' for tag in order.tag_ids):
-                if warehouse_regripiere:
-                    _logger.info("Mise à jour de l'entrepôt vers LA Regripière")
-                    order.write({'warehouse_id': warehouse_regripiere.id})
-                else:
-                    _logger.warning("Entrepôt LA Regripière non trouvé")
-            elif any(tag.name == 'F2M' for tag in order.tag_ids):
-                if warehouse_remaudiere:
-                    _logger.info("Mise à jour de l'entrepôt vers La Remaudière")
-                    order.write({'warehouse_id': warehouse_remaudiere.id})
-                else:
-                    _logger.warning("Entrepôt La Remaudière non trouvé")
+            _logger.info("Tags actuels: %s", order.tag_ids)
+            tag_wh_56 = self.env.ref('sale_order_tags.sale_order_tag_56')
+            if tag_wh_56 in order.tag_ids:
+                order.warehouse_id = self.env.ref('stock.warehouse_2')  # WH 2
+            else:
+                order.warehouse_id = self.env.ref('stock.warehouse_1')  # WH 1
