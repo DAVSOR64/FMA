@@ -2,7 +2,7 @@
     <template id="report_delivery_document_inherit" inherit_id="stock.report_deliveryslip">
 
         <!-- Header Section -->
-        <xpath expr="//div[hasclass('page')]" position="before">
+        <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <div class="header_table">
                 <div class="company_info">
                     <span t-field="doc.company_id.name" /><br />
