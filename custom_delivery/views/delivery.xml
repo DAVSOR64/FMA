@@ -4,24 +4,24 @@
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <div class="header_table">
                 <div class="company_info">
-                    <span t-field="doc.company_id.name" /><br />
-                    <span t-field="doc.company_id.street" /><br />
-                    <span t-field="doc.company_id.zip" /> <span t-field="doc.company_id.city" /><br />
-                    <t t-if="doc.company_id.phone">
-                        Tél: <span t-field="doc.company_id.phone" /><br />
+                    <span t-field="o.company_id.name" /><br />
+                    <span t-field="o.company_id.street" /><br />
+                    <span t-field="o.company_id.zip" /> <span t-field="o.company_id.city" /><br />
+                    <t t-if="o.company_id.phone">
+                        Tél: <span t-field="o.company_id.phone" /><br />
                     </t>
                 </div>
                 <div class="delivery_info">
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
-                    N°: <span t-field="doc.name" /><br />
+                    N°: <span t-field="o.name" /><br />
                     <br />
                     Adresse de livraison:<br />
-                    <span t-field="doc.partner_shipping_id.name" /><br />
-                    <span t-field="doc.partner_shipping_id.street" /><br />
-                    <span t-field="doc.partner_shipping_id.zip" />
-                    <span t-field="doc.partner_shipping_id.city" /><br />
-                    Contact: <span t-field="doc.user_id.name" />
-                    <span t-field="doc.user_id.phone" /><br />
+                    <span t-field="o.partner_shipping_id.name" /><br />
+                    <span t-field="o.partner_shipping_id.street" /><br />
+                    <span t-field="o.partner_shipping_id.zip" />
+                    <span t-field="o.partner_shipping_id.city" /><br />
+                    Contact: <span t-field="o.user_id.name" />
+                    <span t-field="o.user_id.phone" /><br />
                 </div>
             </div>
         </xpath>
