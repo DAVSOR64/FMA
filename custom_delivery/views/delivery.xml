@@ -1,17 +1,18 @@
 <odoo>
     <template id="report_delivery_document_inherit" inherit_id="stock.report_delivery_document">
-        <!-- Header Section -->
+        <!-- Structure en deux colonnes avec du flexbox -->
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
-            <div class="header_table">
-                <div class="company_info">
-                    <span t-field="o.company_id.name" /><br />
+            <div class="header_table" style="display: flex; justify-content: space-between;">
+                <!-- Bloc de la société FMA-F2M -->
+                <div class="company_info" style="flex: 1;">
+                    <strong t-field="o.company_id.name" /><br />
                     <span t-field="o.company_id.street" /><br />
                     <span t-field="o.company_id.zip" /> <span t-field="o.company_id.city" /><br />
-                    <t t-if="o.company_id.phone">
-                        Tél: <span t-field="o.company_id.phone" /><br />
-                    </t>
+                    Tél: <span t-field="o.company_id.phone" /><br />
+                    Email: <span t-field="o.company_id.email" />
                 </div>
-                <div class="delivery_info">
+                <!-- Bloc des informations de livraison aligné à droite -->
+                <div class="delivery_info" style="flex: 1; text-align: right;">
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
                     N°: <span t-field="o.name" /><br />
                     <br />
@@ -21,7 +22,7 @@
                     <span t-field="o.partner_id.zip" />
                     <span t-field="o.partner_id.city" /><br />
                     Contact: <span t-field="o.user_id.name" />
-                    <span t-field="o.user_id.phone" /><br />
+                    <span t-field="o.user_id.phone" />
                 </div>
             </div>
         </xpath>
