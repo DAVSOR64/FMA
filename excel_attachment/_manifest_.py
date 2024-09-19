@@ -5,7 +5,6 @@
     'description': """
     Ce module génère des bons de livraison au format Excel au lieu de PDF.
     """,
-    'category': 'Warehouse',
     'author': 'Votre Nom',
     'depends': ['stock'],
     'data': [
