@@ -1,6 +1,5 @@
 <odoo>
-    <template id="report_delivery_document_inherit" inherit_id="stock.report_deliveryslip">
-
+    <template id="report_delivery_document_inherit" inherit_id="stock.report_delivery_document">
         <!-- Header Section -->
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <div class="header_table">
