@@ -16,10 +16,10 @@
                     N°: <span t-field="o.name" /><br />
                     <br />
                     Adresse de livraison:<br />
-                    <span t-field="o.partner_shipping_id.name" /><br />
-                    <span t-field="o.partner_shipping_id.street" /><br />
-                    <span t-field="o.partner_shipping_id.zip" />
-                    <span t-field="o.partner_shipping_id.city" /><br />
+                    <span t-field="o.partner_id.name" /><br />
+                    <span t-field="o.partner_id.street" /><br />
+                    <span t-field="o.partner_id.zip" />
+                    <span t-field="o.partner_id.city" /><br />
                     Contact: <span t-field="o.user_id.name" />
                     <span t-field="o.user_id.phone" /><br />
                 </div>
