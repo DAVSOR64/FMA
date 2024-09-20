@@ -26,28 +26,17 @@
                 </div>
             </div>
         </xpath>
-           <!-- Information Section -->
-        <xpath expr="//div[@class='row mt32']" position="inside">
-          <!-- Nouvelle colonne Projet -->
-             <div class="col-auto" name="div_project">
-             <strong>Projet:</strong>
-             <p t-field="o.project"/>
-         </div>
-         <!-- Nouvelle colonne Série -->
-         <div class="col-auto" name="div_serie">
-             <strong>Série:</strong>
-             <p t-field="o.serie"/>
-         </div>
-         <!-- Nouvelle colonne Finition -->
-          <div class="col-auto" name="div_finition">
-             <strong>Finition:</strong>
-             <p t-field="o.finition"/>
-         </div>
-         <!-- Nouvelle colonne Finition Accessoire -->
-         <div class="col-auto" name="div_finition_accessoire">
-             <strong>Finition Accessoire:</strong>
-             <p t-field="o.finition_accessoire"/>
-         </div>
+        <!-- Table Section for Products -->
+        <xpath expr="//table[hasclass('o_main_table')]/thead" position="replace">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Dimensions (L x H)</th>
+                    <th>Quantité</th>
+                    <th class="text-right">Livraison</th>
+                    <th class="text-right">Rel. Solde</th>
+                </tr>
+            </thead>
         </xpath>
     </template>
 </odoo>
