@@ -27,7 +27,7 @@
             </div>
         </xpath>
            <!-- Information Section -->
-        <xpath expr="//div[@name='o_origin']" position="after">
+        <xpath expr="//div[@name='div_origin']" position="after">
             <div id="informations">
                 <table>
                     <tr>
