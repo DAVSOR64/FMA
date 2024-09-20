@@ -26,5 +26,28 @@
                 </div>
             </div>
         </xpath>
+           <!-- Information Section -->
+        <xpath expr="//div[@id='informations']" position="replace">
+            <div id="informations">
+                <table>
+                    <tr>
+                        <td>Projet:</td>
+                        <td><strong t-field="o.origin" /></td>
+                    </tr>
+                    <tr>
+                        <td>Série:</td>
+                        <td><span>Série</span></td>
+                    </tr>
+                    <tr>
+                        <td>Finition:</td>
+                        <td>RAL 7021</td>
+                    </tr>
+                    <tr>
+                        <td>Finition accessoires:</td>
+                        <td>Argent</td>
+                    </tr>
+                </table>
+            </div>
+        </xpath>
     </template>
 </odoo>
