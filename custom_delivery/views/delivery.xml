@@ -28,26 +28,26 @@
         </xpath>
            <!-- Information Section -->
         <xpath expr="//div[@class='row mt32 mb32']" position="inside">
-            <div id="informations">
-                <table>
-                    <tr>
-                        <td>Projet:</td>
-                        <td><strong t-field="o.origin" /></td>
-                    </tr>
-                    <tr>
-                        <td>Série:</td>
-                        <td><span>Série</span></td>
-                    </tr>
-                    <tr>
-                        <td>Finition:</td>
-                        <td>RAL 7021</td>
-                    </tr>
-                    <tr>
-                        <td>Finition accessoires:</td>
-                        <td>Argent</td>
-                    </tr>
-                </table>
-            </div>
+          <!-- Nouvelle colonne Projet -->
+         <div class="col-auto" name="div_project">
+             <strong>Projet:</strong>
+             <p t-field="o.project"/>
+         </div>
+         <!-- Nouvelle colonne Série -->
+         <div class="col-auto" name="div_serie">
+             <strong>Série:</strong>
+             <p t-field="o.serie"/>
+         </div>
+         <!-- Nouvelle colonne Finition -->
+          <div class="col-auto" name="div_finition">
+             <strong>Finition:</strong>
+             <p t-field="o.finition"/>
+         </div>
+         <!-- Nouvelle colonne Finition Accessoire -->
+         <div class="col-auto" name="div_finition_accessoire">
+             <strong>Finition Accessoire:</strong>
+             <p t-field="o.finition_accessoire"/>
+         </div>
         </xpath>
     </template>
 </odoo>
