@@ -26,13 +26,13 @@
                 </div>
             </div>
         </xpath>
-    <!-- Information Section -->
-        <xpath expr="//div[@id='informations']" position="replace">
+           <!-- Information Section -->
+        <xpath expr="//div[@name='div_origin']" position="after">
             <div id="informations">
                 <table>
                     <tr>
                         <td>Projet:</td>
-                        <td><strong t-field="o.origin" /></strong></td>
+                        <td><strong t-field="o.origin" /></td>
                     </tr>
                     <tr>
                         <td>Série:</td>
