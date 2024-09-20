@@ -27,7 +27,7 @@
             </div>
         </xpath>
            <!-- Information Section -->
-        <xpath expr="//div[@id='informations']" position="replace">
+        <xpath expr="//div[contains(@class, 'page')]" position="inside">
             <div id="informations">
                 <table>
                     <tr>
