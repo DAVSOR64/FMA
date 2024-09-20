@@ -12,13 +12,14 @@
         </field>
     </record>
 
-    <!-- Action serveur pour générer l'Excel -->
-    <record id="action_delivery_report_excel" model="ir.actions.server">
-        <field name="name">Télécharger Bon de Livraison Excel</field>
-        <field name="model_id" ref="stock.model_stock_picking" />
-        <field name="state">code</field>
-        <field name="code">
-            action = env['ir.actions.report']._get_report_from_name('stock.picking.excel')
-        </field>
+    <!-- Action de rapport pour générer l'Excel -->
+    <record id="action_delivery_report_excel" model="ir.actions.report">
+        <field name="name">Bon de Livraison Excel</field>
+        <field name="model">stock.picking</field>
+        <field name="report_type">xlsx</field>
+        <field name="report_name">custom_delivery_attachement.delivery_report_excel_template</field>
+        <field name="report_file">custom_delivery_attachement.delivery_report_excel_template</field>
+        <field name="binding_model_id" ref="stock.model_stock_picking" />
+        <field name="binding_type">report</field>
     </record>
 </odoo>
