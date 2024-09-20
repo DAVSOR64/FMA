@@ -18,7 +18,7 @@ _logger = logging.getLogger(__name__)
 class AccountMove(models.Model):
     _inherit = "account.move"
 
-    is_txt_created = fields.Boolean("Is Journals File Created")
+    is_txt_created = fields.Boolean("Fichier généré")
     txt_creation_time = fields.Datetime()
     ftp_synced_time = fields.Datetime()
     is_synced_to_ftp = fields.Boolean()
@@ -100,11 +100,11 @@ class AccountMove(models.Model):
                 # Formater les nombres avec une virgule comme séparateur décimal
                 formatted_debit = f"{debit_sum:.2f}".replace('.', ',')
                 formatted_credit = f"{credit_sum:.2f}".replace('.', ',')
-
+                invoice_date = str(move.invoice_date)
                 items_grouped_by_account = list(items_grouped_by_account)
                 grouped_items.append({
                     'journal': journal,
-                    'invoice_date': move.invoice_date,
+                    'invoice_date': invoice_date.replace('-',''),
                     'move_name': name_invoice,
                     'invoice_date_1': move.invoice_date,
                     'due_date': move.invoice_date_due,
