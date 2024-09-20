@@ -101,13 +101,14 @@ class AccountMove(models.Model):
                 formatted_debit = f"{debit_sum:.2f}".replace('.', ',')
                 formatted_credit = f"{credit_sum:.2f}".replace('.', ',')
                 invoice_date = str(move.invoice_date)
+                invoice_date_due = str(move.invoice_date_due)
                 items_grouped_by_account = list(items_grouped_by_account)
                 grouped_items.append({
                     'journal': journal,
                     'invoice_date': invoice_date.replace('-',''),
                     'move_name': name_invoice,
                     'invoice_date_1': invoice_date.replace('-',''),
-                    'due_date': move.invoice_date_due,
+                    'due_date': invoice_date_due.replace('-',''),
                     'account_code': account_code,
                     'mode_de_regiment': move.inv_mode_de_reglement.replace('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATI') if move.inv_mode_de_reglement == 'L.C.R. A L ACCEPTATION' else move.inv_mode_de_reglement,
                     'name_and_customer_name': f'{name_invoice} {move.partner_id.name}',
