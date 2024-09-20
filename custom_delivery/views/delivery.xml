@@ -27,9 +27,9 @@
             </div>
         </xpath>
            <!-- Information Section -->
-        <xpath expr="//div[@class='row mt32 mb32']" position="inside">
+        <xpath expr="//div[@class='row mt32']" position="inside">
           <!-- Nouvelle colonne Projet -->
-         <div class="col-auto" name="div_project">
+             <div class="col-auto" name="div_project">
              <strong>Projet:</strong>
              <p t-field="o.project"/>
          </div>
