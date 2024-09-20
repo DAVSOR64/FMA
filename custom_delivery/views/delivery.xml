@@ -27,7 +27,7 @@
             </div>
         </xpath>
         <!-- Table Section for Products -->
-        <xpath expr="//table[hasclass('o_main_table')]/thead" position="replace">
+        <xpath expr="//table[contains(@class, 'o_main_table')]/thead">
             <thead>
                 <tr>
                     <th>Description</th>
