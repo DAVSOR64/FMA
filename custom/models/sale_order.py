@@ -28,6 +28,7 @@ class SaleOrder(models.Model):
     x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
     is_all_service = fields.Boolean(string="Is All Service")
     delivery_set = fields.Boolean(string="Delivery Set")
+    recompute_delivery_price = fields.Boolean(string="Delivery Price")
 
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
