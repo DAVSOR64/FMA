@@ -8,9 +8,9 @@
             <xpath expr="//sheet//group//field[@name='partner_id']" position="after">
                 <group string="Informations complémentaires">
                     <field name="tag_ids"/>
-                    <field name="deviseur_id"/>
-                    <field name="bureau_etudes"/>
-                    <field name="progress_state"/>
+                    <field name="x_studio_deviseur_1"/>
+                    <field name="x_studio_bureau_etudes"/>
+                    <field name="x_studio_avancement"/>
                 </group>
             </xpath>
 
