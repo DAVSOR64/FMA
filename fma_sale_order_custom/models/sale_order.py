@@ -26,10 +26,10 @@ class SaleOrder(models.Model):
             order.so_date_bpe = fields.datetime.today()
         return super().action_confirm()
     
-    # Init date ARC validé
+    # Init date bon pour fab
     def action_confirm(self):
         for order in self:
-            order.so_date_ARC_valide = fields.datetime.today()
+            order.so_date_bon_pour_fab = fields.datetime.today()
         return super().action_confirm()
 
     # Init date fin de production réel
