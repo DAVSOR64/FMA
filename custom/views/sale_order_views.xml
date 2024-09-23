@@ -4,18 +4,28 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//sheet//group" position="inside">
-                <!-- Nouveau groupe avec deux colonnes -->
-                <group string="Informations générales" col="2">
-                    <!-- Colonne de gauche : Informations principales -->
-                    <group string="Informations principales">
+            <!-- Groupe principal avec deux colonnes -->
+            <xpath expr="//sheet//group" position="replace">
+                <group string="Informations Client et Devis" col="2">
+                    <!-- Première colonne : Informations du client + informations principales -->
+                    <group>
+                        <field name="partner_id"/>
+                        <field name="partner_invoice_id"/>
+                        <field name="partner_shipping_id"/>
+                        <field name="analytic_account_id"/>
+                        <field name="x_studio_ref_affaire"/>
+                        <field name="tag_ids"/>
+                        <field name="x_studio_deviseur_1"/>
+                        <field name="x_studio_bureau_etudes"/>
+                        <field name="x_studio_avancement"/>
                         <field name="so_commercial"/>
                         <field name="so_commande_client"/>
                         <field name="so_gamme"/>
                         <field name="so_statut_avancement_production"/>
                         <field name="so_delai_confirme_en_semaine"/>
                     </group>
-                    <!-- Colonne de droite : Dates -->
+
+                    <!-- Deuxième colonne : Dates -->
                     <group string="Dates">
                         <field name="so_date_de_reception_devis"/>
                         <field name="so_date_du_devis"/>
@@ -30,6 +40,7 @@
                 </group>
             </xpath>
 
+            <!-- La section suivante reste inchangée pour "Analyse Financière" -->
             <xpath expr="//sheet/notebook" position="inside">
                 <page string="Analyse Financière">                  
                     <group>
