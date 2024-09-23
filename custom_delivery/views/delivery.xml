@@ -26,5 +26,17 @@
                 </div>
             </div>
         </xpath>
+<!-- Personnalisation de l'en-tête de la table des produits -->
+        <xpath expr="//table[hasclass('o_main_table')]/thead" position="replace">
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Dimensions (L x H)</th>
+                    <th>Quantité</th>
+                    <th class="text-right">Livraison</th>
+                    <th class="text-right">Rel. Solde</th>
+                </tr>
+            </thead>
+        </xpath>
     </template>
 </odoo>
