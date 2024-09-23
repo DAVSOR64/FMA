@@ -84,6 +84,8 @@ class AccountMove(models.Model):
         if move.line_ids and move.line_ids[0].sale_line_ids:
             sale_order = move.line_ids[0].sale_line_ids[0].order_id
             sale_order_name = sale_order.name if sale_order else ''
+            if sale_order_name :
+               sale_order_name = sale_order_name[:10]
             tag_names = {tag.name for tag in sale_order.tag_ids}
             if 'FMA' in tag_names:
                 section = 'REG0701ALU'
