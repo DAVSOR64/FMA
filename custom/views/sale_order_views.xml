@@ -16,7 +16,6 @@
                         <field name="pricelist_id"/>
                         <field name="tax_country_id"/>
                         <field name="authorized_transaction_ids" invisible="1"/>
-                        <field name="is_all_service" invisible="1"/>
                         <field name="x_studio_ref_affaire"/>
                         <field name="tag_ids"/>
                         <field name="x_studio_deviseur_1"/>
