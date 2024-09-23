@@ -13,6 +13,7 @@
                         <field name="partner_invoice_id"/>
                         <field name="partner_shipping_id"/>
                         <field name="analytic_account_id"/>
+                        <field name="pricelist_id"/>
                         <field name="x_studio_ref_affaire"/>
                         <field name="tag_ids"/>
                         <field name="x_studio_deviseur_1"/>
