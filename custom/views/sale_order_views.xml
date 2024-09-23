@@ -5,18 +5,18 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//sheet//group" position="inside">
-                <group string="Informations principales">
-                    <group>
+                <!-- Nouveau groupe avec deux colonnes -->
+                <group string="Informations générales" col="2">
+                    <!-- Colonne de gauche : Informations principales -->
+                    <group string="Informations principales">
                         <field name="so_commercial"/>
                         <field name="so_commande_client"/>
                         <field name="so_gamme"/>
                         <field name="so_statut_avancement_production"/>
                         <field name="so_delai_confirme_en_semaine"/>
                     </group>
-                </group>
-
-                <group string="Dates">
-                    <group>
+                    <!-- Colonne de droite : Dates -->
+                    <group string="Dates">
                         <field name="so_date_de_reception_devis"/>
                         <field name="so_date_du_devis"/>
                         <field name="so_date_de_modification_devis"/>
@@ -29,6 +29,7 @@
                     </group>
                 </group>
             </xpath>
+
             <xpath expr="//sheet/notebook" position="inside">
                 <page string="Analyse Financière">                  
                     <group>
