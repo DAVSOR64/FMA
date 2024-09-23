@@ -5,7 +5,7 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <!-- Ajout des champs sous Référence Affaire -->
-            <xpath expr="//sheet//group//field[@name='x_studio_ref_affaire']" position="after">
+            <xpath expr="//sheet//group//field[@name='partner_id']" position="after">
                 <group string="Informations complémentaires">
                     <field name="tag_ids"/>
                     <field name="deviseur_id"/>
