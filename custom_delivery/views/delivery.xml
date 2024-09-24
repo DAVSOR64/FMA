@@ -27,7 +27,7 @@
             </div>
         </xpath>
 <!-- Personnalisation de l'en-tête de la table des produits -->
-        <xpath expr="//table[@name='stock_move_table']/thead" position="replace">
+        <xpath expr="//table[contains(@class, 'table-sm')]/thead" position="replace">
             <thead>
                 <tr>
                     <th>Description</th>
