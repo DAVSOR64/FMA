@@ -27,7 +27,7 @@
             </div>
             
             <!-- Table des mouvements de stock -->
-            <table class="table table-sm" t-if="o.state!='done'" name="stock_move_table">
+            <table class="table table-sm" t-if="o.state!='done'" name="stock_move_table" style="margin-top: 20px;">
                 <thead>
                     <tr>
                         <th>Référence</th>
@@ -49,7 +49,7 @@
                         </td>
                         <td>
                             <!-- Dimensions -->
-                            <span t-field="line.product_id.x_studio_largeur_mm" />
+                            <span t-field="line.product_id.x_studio_largeur_mm" /> x
                             <span t-field="line.product_id.x_studio_hauteur_mm" />
                         </td>
                         <td>
