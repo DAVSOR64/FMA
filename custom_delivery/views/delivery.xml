@@ -26,7 +26,7 @@
                 </div>
             </div>
             
-            <!-- Table des mouvements de stock avec marge avant pour aérer -->
+            <!-- Table avec en-tête de colonne -->
             <table class="table table-sm" t-if="o.state!='done'" name="stock_move_table" style="margin-top: 20px;">
                 <thead>
                     <tr>
@@ -60,7 +60,7 @@
                 </tbody>
             </table>
 
-            <!-- Section pour afficher le poids total encadré -->
+            <!-- Affichage du poids -->
             <div class="total_weight_section" 
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
                 <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in o.move_ids_without_package)" />
