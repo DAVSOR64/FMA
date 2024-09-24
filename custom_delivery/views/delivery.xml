@@ -45,7 +45,7 @@
                         </td>
                         <td>
                             <!-- Description -->
-                           <span t-esc="re.sub(r'\[.*?\]', '', line.name)" />
+                            <span t-field="line.cleaned_description" />
                         </td>
                         <td>
                             <!-- Dimensions (Largeur x Hauteur) -->
