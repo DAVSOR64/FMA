@@ -45,7 +45,7 @@
                         </td>
                         <td>
                             <!-- Description -->
-                            <span t-field="line.name" />
+                           <span t-esc="re.sub(r'\[.*?\]', '', line.name)" />
                         </td>
                         <td>
                             <!-- Dimensions (Largeur x Hauteur) -->
@@ -62,7 +62,7 @@
 
             <!-- Section pour afficher le poids total encadré -->
             <div class="total_weight_section" 
-                 style="margin-top: 20px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
+                 style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
                 <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in o.move_ids_without_package)" />
                 Poids total : <span t-esc="total_weight"/> kg
             </div>
