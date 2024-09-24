@@ -14,8 +14,7 @@
                         <field name="so_delai_confirme_en_semaine"/>
                     </group>
                 </group>
-            </xpath>
-            <xpath expr="//sheet//partner_detail" position="inside">
+
                 <group string="Dates">
                     <group>
                         <field name="so_date_de_reception_devis"/>
