@@ -49,8 +49,8 @@
                         </td>
                         <td>
                             <!-- Dimensions -->
-                            <span t-field="line.product_id.x_studio_largeur_mm_1" />
-                            <span t-field="line.product_id.x_studio_hauteur_mm_1" />
+                            <span t-field="line.product_id.x_studio_largeur_mm" />
+                            <span t-field="line.product_id.x_studio_hauteur_mm" />
                         </td>
                         <td>
                             <!-- Quantité -->
