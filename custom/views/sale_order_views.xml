@@ -14,7 +14,6 @@
                         <field name="so_delai_confirme_en_semaine"/>
                     </group>
                 </group>
-
                 <group string="Dates">
                     <group>
                         <field name="so_date_de_reception_devis"/>
