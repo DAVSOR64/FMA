@@ -42,7 +42,7 @@ class SaleOrder(models.Model):
     so_date_bpe = fields.Date(string="BPE du : ")
     so_date_de_reception_devis = fields.Date(string="Demande reçue le : ")
     so_date_du_devis = fields.Date(string="Devis fait le : ")
-    so_date_de_modification_devis = fields.Date(string="DDevis modifié le : ")
+    so_date_de_modification_devis = fields.Date(string="Devis modifié le : ")
     so_date_devis_valide = fields.Date(string="Devis validé le : ")
 
     so_date_ARC = fields.Date(string="ARC du : ")
