@@ -45,7 +45,7 @@
                         </td>
                         <td>
                             <!-- Description -->
-                            <span t-field="line.cleaned_description" />
+                            <span t-field="line.name" />
                         </td>
                         <td>
                             <!-- Dimensions (Largeur x Hauteur) -->
