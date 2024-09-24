@@ -30,6 +30,20 @@ class SaleOrder(models.Model):
     delivery_set = fields.Boolean(string="Delivery Set")
     recompute_delivery_price = fields.Boolean(string="Delivery Price")
 
+    so_acces = fields.Char(string="Accès")
+    so_type_camion = fields.Selection(
+        [
+            ('Semi-remorque (base)','Semi-remorque (base)'),
+            ('Semi-remorque avec hayon (base)','Semi-remorque avec hayon (base)'),
+            ('Semi-remorque plateau (base)','Semi-remorque plateau (base)'),
+            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
+            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
+            ('Semi-remorque chariot embarqué (650€)','Semi-remorque chariot embarqué (650€)'),
+            ('Autre (sur devis)','Autre (sur devis)'),
+        ],
+        string="Type de camion (Hayon palette maxi 2400mm)",
+    )
+
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
