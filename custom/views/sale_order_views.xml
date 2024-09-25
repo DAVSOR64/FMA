@@ -5,18 +5,37 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//sheet//group[@name='partner_details']" position="after">
-                <group string="Chronologie">
-                    <group>
-                        <field name="so_date_de_reception_devis"/>
-                        <field name="so_date_du_devis"/>
-                        <field name="so_date_de_modification_devis"/>
-                        <field name="so_date_devis_valide"/>
-                        <field name="so_date_ARC"/>
-                        <field name="so_date_bpe"/>
-                        <field name="so_date_bon_pour_fab"/>
-                        <field name="so_date_de_fin_de_production_reel"/>
-                        <field name="so_date_de_livraison_prevu" style="white-space: nowrap; width: 400px;"/>
-                    </group>
+                <group string="Chronologie" col="2"> <!-- On augmente le nombre de colonnes à 2 -->
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <field name="so_date_de_reception_devis"/>
+                        </div>
+                        <div class="col-lg-6">
+                            <field name="so_date_du_devis"/>
+                        </div>
+                        <div class="col-lg-6">
+                            <field name="so_date_de_modification_devis"/>
+                        </div>
+                        <div class="col-lg-6">
+                            <field name="so_date_devis_valide"/>
+                        </div>
+                        <div class="col-lg-6">
+                            <field name="so_date_ARC"/>
+                        </div>
+                        <div class="col-lg-6">
+                            <field name="so_date_bpe"/>
+                        </div>
+                        <div class="col-lg-6">
+                            <field name="so_date_bon_pour_fab"/>
+                        </div>
+                        <div class="col-lg-6">
+                            <field name="so_date_de_fin_de_production_reel"/>
+                        </div>
+                        <div class="col-lg-6">
+                            <!-- Ajout de style CSS pour élargir l'espace du label -->
+                            <field name="so_date_de_livraison_prevu" style="white-space: nowrap; width: 100%;"/>
+                        </div>
+                    </div>
                 </group>
                 <group string="Informations principales">
                     <field name="so_commercial"/>
