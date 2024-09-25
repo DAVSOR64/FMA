@@ -5,7 +5,7 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//sheet//group[@name='partner_details']" position="after">
-                <group string="Chronologie" style="width: 600px;">
+                <group string="Chronologie" class="oe_inline">
                     <group>
                         <field name="so_date_de_reception_devis"/>
                         <field name="so_date_du_devis"/>
