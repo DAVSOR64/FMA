@@ -15,7 +15,7 @@
                         <field name="so_date_bpe"/>
                         <field name="so_date_bon_pour_fab"/>
                         <field name="so_date_de_fin_de_production_reel"/>
-                        <field name="so_date_de_livraison_prevu" string="Date de Livraison Prévue le :" style="white-space: nowrap; overflow: visible; width: 600px;"/>
+                        <field name="so_date_de_livraison_prevu"/>
                     </group>
                 </group>
                 <group string="Informations principales">
