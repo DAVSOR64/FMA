@@ -25,7 +25,21 @@
                     <span t-field="o.user_id.phone" />
                 </div>
             </div>
-            
+
+            <!-- Bloc pour les quatre champs personnalisés, organisés en deux colonnes -->
+            <div class="custom_info" style="display: flex; justify-content: space-between; margin-top: 20px;">
+                <!-- Colonne de gauche -->
+                <div style="flex: 1;">
+                    <p><strong>Accès : </strong><span t-field="o.so_acces" /></p>
+                    <p><strong>Type de camion : </strong><span t-field="o.so_type_camion" /></p>
+                </div>
+                <!-- Colonne de droite -->
+                <div style="flex: 1; text-align: right;">
+                    <p><strong>Horaire d'ouverture : </strong><span t-field="o.so_horaire_ouverture" /></p>
+                    <p><strong>Horaire de fermeture : </strong><span t-field="o.so_horaire_fermeture" /></p>
+                </div>
+            </div>
+
             <!-- Table avec en-tête de colonne -->
             <table class="table table-sm" t-if="o.state!='done'" name="stock_move_table" style="margin-top: 20px;">
                 <thead>
