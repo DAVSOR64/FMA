@@ -4,6 +4,7 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
+            <!-- Ajout après les détails du partenaire -->
             <xpath expr="//sheet//group[@name='partner_details']" position="after">
                 <group string="Chronologie">
                     <group>
@@ -27,15 +28,15 @@
                 </group>
             </xpath>
             
-            <!-- Ajout des champs dans l'onglet "Autres informations" sous "Livraison" -->
-            <xpath expr="//sheet/notebook/page[@string='Autres informations']//group[@name='delivery']" position="inside">
+            <!-- Ajout des champs dans l'onglet "Autres informations" sous la section "Livraison" -->
+            <xpath expr="//sheet/notebook/page[@name='other_info']//group[@name='delivery']" position="inside">
                 <group string="Informations de livraison">
                     <field name="so_acces"/>
                     <field name="so_type_camion"/>
                 </group>
             </xpath>
 
-            <!-- Exemple pour ajouter les pages existantes -->
+           <!-- Exemple pour ajouter les pages existantes -->
             <xpath expr="//sheet/notebook" position="inside">
                 <page string="Analyse Financière">
                     <group>
