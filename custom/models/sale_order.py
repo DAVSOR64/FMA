@@ -31,7 +31,9 @@ class SaleOrder(models.Model):
     recompute_delivery_price = fields.Boolean(string="Delivery Price")
 
     so_acces = fields.Char(string="Accès")
-    so_horaire = fields.Float(string='Horaire', widget='float_time')
+    so_horaire_ouverture = fields.Float(string='Horaire', widget='float_time')
+    so_horaire_fermeture = fields.Float(string='Horaire', widget='float_time')
+
     so_type_camion = fields.Selection(
         [
             ('Semi-remorque (base)','Semi-remorque (base)'),
