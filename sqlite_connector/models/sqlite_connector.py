@@ -66,7 +66,7 @@ class SqliteConnector(models.Model):
             Unit = Unit.upper()
             fournisseur= row[4]
             fournisseur = fournisseur.upper()
-            RefLogikal = row[8]
+            RefLogikal = row[5]
             Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
@@ -102,7 +102,7 @@ class SqliteConnector(models.Model):
             couleur = ''
             fournisseur = row[4]
             fournisseur = fournisseur.upper()
-            RefLogikal = row[2]
+            RefLogikal = row[5]
             Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
@@ -493,7 +493,7 @@ class SqliteConnector(models.Model):
             LengthLogikal = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[9]
-                RefLogikal ='T'+ RefLogikal 
+                #RefLogikal = 'T' + RefLogikal 
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[11][1:]
             if fournisseur == 'SAPA' :
@@ -817,13 +817,13 @@ class SqliteConnector(models.Model):
                 IsManual = row[8]
                 fournisseur = row[2]
                 fournisseur = fournisseur.upper()
-                RefLogikal = row[9]
+                RefLogikal = row[12]
                 ColorLogikal = ''
                 UnitLogikal = 'PCE'
                 LengthLogikal = row[15]
                 if fournisseur == 'TECHNAL' :
                     refart = 'TEC' + ' ' + row[12]
-                    RefLogikal = 'T' + row[12]
+                    #RefLogikal = 'T' + row[12]
                 if fournisseur == 'WICONA' :
                     refart = 'WIC' + ' ' + row[13][1:]
                 if fournisseur == 'SAPA' :
