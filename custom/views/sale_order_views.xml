@@ -27,7 +27,8 @@
                     <field name="so_delai_confirme_en_semaine"/>
                     <field name="so_acces"/>
                     <field name="so_type_camion"/>
-                    <field name="so_horaire"/>
+                    <field name="so_horaire_ouverture"/>
+                    <field name="so_horaire_fermeture"/>
                 </group>
             </xpath>
 
