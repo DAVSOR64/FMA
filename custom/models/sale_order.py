@@ -62,7 +62,7 @@ class SaleOrder(models.Model):
     so_date_ARC = fields.Date(string="ARC du : ")
     so_date_bon_pour_fab = fields.Date(string="Bon pour Fab. le : ")
     so_date_de_fin_de_production_reel = fields.Date(string="Fin de production du : ")
-    so_date_de_livraison_prevu = fields.Date(string="Date de livraison prévue le : ", compute='_compute_so_date_de_livraison_prevu', store=True)
+    so_date_de_livraison_prevu = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison_prevu', store=True)
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_gamme = fields.Char(string="GAMME")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
