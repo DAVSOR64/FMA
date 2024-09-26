@@ -165,6 +165,7 @@
                 <!-- Variable pour stocker la valeur de l'acompte -->
                 <t t-set="acompte_amount_ttc" t-value="0.0" />
                 <t t-set="acompte_amount_ht" t-value="0.0" />
+                <t t-set="nb_line_invoice" t-value="0" />
 
                 <!-- Itération sur les lignes de facture -->
                 <t t-foreach="o.invoice_line_ids" t-as="line">
@@ -175,7 +176,48 @@
                         <t t-set="acompte_amount_ht"
                             t-value="acompte_amount_ht + line.price_subtotal" />
                     </t>
+                    <t t-elif="line.product_id.default_code != 'Acpt20' and line.product_id.default_code != 'Acpt10' and line.product_id.default_code != 'Acpt5'">
+                        <!-- Traitement pour un autre produit -->
+                        <t t-set="nb_line_invoice" t-value="nb_line_invoice + 1" />
+                    </t>
                     <t t-if=" line.product_id.default_code and isinstance(line.product_id.default_code, str) and line.product_id.default_code != 'Acpt20' and line.product_id.default_code != 'Acpt10' and line.product_id.default_code != 'Acpt5' and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and not line.product_id.default_code.startswith('A2') and not line.display_type">
+                        <tr>
+                            <td name="account_invoice_line_name">
+                                <span t-esc="line.product_id.name + ' ' + line.name"
+                                    t-options="{'widget': 'text'}" />
+                            </td>
+                            <td class="text-right">
+                                <span t-field="line.quantity" />
+                                <!--<span
+                                t-field="line.product_uom_id" groups="uom.group_uom"/>-->
+                            </td>
+                            <td class="text-right"
+                                t-if="any(l.discount > 0 for l in o.invoice_line_ids)">
+                                <span t-if="line.discount > 0">
+                                    <t t-esc="('%.2f' % line.discount)" />
+                                </span>
+                                % <!-- Afficher la remise uniquement si elle est > 0 -->
+                                <span t-if="line.discount == 0">-</span> <!-- Afficher un tiret si
+                                la remise est égale à 0 -->
+                            </td>
+                            <td class="text-right">
+                                <span class="text-nowrap" t-esc="o.format_amount(line.price_unit)" />
+                                € </td>
+                            <td class="text-right">
+                                <span t-field="line.tax_ids" />
+                            </td>
+                            <td class="text-right o_price_total">
+                                <span class="text-nowrap" t-field="line.price_subtotal"
+                                    groups="account.group_show_line_subtotals_tax_excluded" />
+                                <span class="text-nowrap" t-field="line.price_total"
+                                    groups="account.group_show_line_subtotals_tax_included" />
+                            </td>
+                        </tr>
+                    </t>
+                </t>
+                <!--Bloc pour gérer les acomptes sur les factures-->
+                <t t-foreach="o.invoice_line_ids" t-as="line">
+                    <t t-if=" nb_line_invoice == 0">
                         <tr>
                             <td name="account_invoice_line_name">
                                 <span t-esc="line.product_id.name + ' ' + line.name"
