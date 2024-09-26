@@ -1,35 +1,19 @@
 # -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 {
-    'name': "fma_custom",
-
-    'summary': """
-        Short (1 phrase/line) summary of the module's purpose, used as
-        subtitle on modules listing or apps.openerp.com""",
-
-    'description': """
-        Long description of module's purpose
+    "name": "FMA: Custom",
+    "description": """
+        Custom module delete button on email.
     """,
-
-    'author': "My Company",
-    'website': "http://www.yourcompany.com",
-
-    # Categories can be used to filter modules in modules listing
-    # Check https://github.com/odoo/odoo/blob/15.0/odoo/addons/base/data/ir_module_category_data.xml
-    # for the full list
-    'category': 'Uncategorized',
-    'version': '0.1',
-
-    # any module necessary for this one to work correctly
-    'depends': ['base'],
-
-    # always loaded
-    'data': [
-        # 'security/ir.model.access.csv',
-        'views/views.xml',
-        'views/templates.xml',
+    "summary": "Custom delete button",
+    "author": "Odoo PS",
+    "version": "15.0.0.1.0",
+    "depends": [
+        "custom"
     ],
-    # only loaded in demonstration mode
-    'demo': [
-        'demo/demo.xml',
+    "data": [
+        "views/mail_templates.xml",
     ],
+    "license": "LGPL-3",
 }

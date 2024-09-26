@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="mail_notification_paynow_inherit" inherit_id="mail.mail_notification_paynow" name="Invoice: Remove View Invoice Button">
+        <xpath expr="//div[@t-if=&quot;is_online and not record._context.get('proforma')&quot;]" position="replace">
+            <div t-if="is_online and record._context.get('show_view_invoice_button', True) and not record._context.get('proforma')" style="margin: 32px 0px 32px 0px; text-align: center;">
+                <a t-att-href="access_url"
+                    style="background-color: #875A7B; padding: 8px 16px 8px 16px; text-decoration: none; color: #fff; border-radius: 5px; font-size:13px;">
+                    <t t-esc="access_name"/>
+                </a>
+            </div>
+        </xpath>
+    </template>
+</odoo>
