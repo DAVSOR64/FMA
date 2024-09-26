@@ -4,35 +4,37 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//sheet//group" position="inside">
-                <group string="Informations principales">
-                    <group>
-                        <field name="so_commercial"/>
-                        <field name="so_commande_client"/>
-                        <field name="so_gamme"/>
-                        <field name="so_statut_avancement"/>
-                        <field name="so_delai_confirme_en_semaine"/>
-                    </group>
-                </group>
-
-                <group string="Dates">
+            <!-- Ajout après les détails du partenaire -->
+            <xpath expr="//sheet//group[@name='partner_details']" position="after">
+                <group string="Chronologie">
                     <group>
                         <field name="so_date_de_reception_devis"/>
                         <field name="so_date_du_devis"/>
                         <field name="so_date_de_modification_devis"/>
                         <field name="so_date_devis_valide"/>
                         <field name="so_date_ARC"/>
-                    </group>
-                    <group>
                         <field name="so_date_bpe"/>
-                        <field name="so_date_ARC_valide"/>
+                        <field name="so_date_bon_pour_fab"/>
                         <field name="so_date_de_fin_de_production_reel"/>
                         <field name="so_date_de_livraison_prevu"/>
                     </group>
                 </group>
+                <group string="Informations principales">
+                    <field name="so_commercial"/>
+                    <field name="so_commande_client"/>
+                    <field name="so_gamme"/>
+                    <field name="so_statut_avancement_production"/>
+                    <field name="so_delai_confirme_en_semaine"/>
+                    <field name="so_acces"/>
+                    <field name="so_type_camion"/>
+                    <field name="so_horaire_ouverture"/>
+                    <field name="so_horaire_fermeture"/>
+                </group>
             </xpath>
+
+            <!-- Exemple pour ajouter les pages existantes -->
             <xpath expr="//sheet/notebook" position="inside">
-                <page string="Analyse Financière">                  
+                <page string="Analyse Financière">
                     <group>
                         <group string="Chiffres Devis">
                             <field name="so_achat_matiere_devis"/>

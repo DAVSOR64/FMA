@@ -26,10 +26,10 @@ class SaleOrder(models.Model):
             order.so_date_bpe = fields.datetime.today()
         return super().action_confirm()
     
-    # Init date ARC validé
+    # Init date bon pour fab
     def action_confirm(self):
         for order in self:
-            order.so_date_ARC_valide = fields.datetime.today()
+            order.so_date_bon_pour_fab = fields.datetime.today()
         return super().action_confirm()
 
     # Init date fin de production réel
@@ -172,13 +172,42 @@ class SaleOrder(models.Model):
         
         return res
 
+    # Méthode create : mise à jour du mode de règlement
+    @api.model_create_multi
+    def create(self, vals_list):
+        fma_tag = self.env['crm.tag'].search([('name', '=', 'FMA')], limit=1)
+        f2m_tag = self.env['crm.tag'].search([('name', '=', 'F2M')], limit=1)
+        for vals in vals_list:
+            if 'partner_id' in vals:
+                partner = self.env['res.partner'].browse(vals['partner_id'])
+                vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
+
+            if 'tag_ids' in vals:
+                tag_updates = vals.get('tag_ids', [])
+                if tag_updates and fma_tag.id in tag_updates[0][2]:
+                    warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+                    if warehouse_regripiere:
+                        vals['warehouse_id'] = warehouse_regripiere.id
+                if tag_updates and f2m_tag.id in tag_updates[0][2]:
+                    warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+                    if warehouse_remaudiere:
+                        vals['warehouse_id'] = warehouse_remaudiere.id
+
+        return super(SaleOrder, self).create(vals_list)
+
+   
     # Mise à jour de l'entrepôt en fonction des tags
     def _update_warehouse(self):
         _logger.info("Début de _update_warehouse pour le devis: %s", self.id)
+        fma_tag = self.env['crm.tag'].search([('name', '=', 'FMA')], limit=1)
+        f2m_tag = self.env['crm.tag'].search([('name', '=', 'F2M')], limit=1)
         for order in self:
             _logger.info("Tags actuels: %s", order.tag_ids)
-            tag_wh_56 = self.env.ref('sale_order_tags.sale_order_tag_56')
-            if tag_wh_56 in order.tag_ids:
-                order.warehouse_id = self.env.ref('stock.warehouse_2')  # WH 2
+            if fma_tag in order.tag_ids:
+                warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+                if warehouse_regripiere:
+                    order.warehouse_id = warehouse_regripiere.id
             else:
-                order.warehouse_id = self.env.ref('stock.warehouse_1')  # WH 1
+                warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+                if warehouse_remaudiere:
+                    order.warehouse_id = warehouse_remaudiere.id

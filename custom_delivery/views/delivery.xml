@@ -25,28 +25,61 @@
                     <span t-field="o.user_id.phone" />
                 </div>
             </div>
-        </xpath>
-        <!-- Information Section -->
-        <xpath expr="//div[@class='some-other-class']" position="replace">
-            <div id="informations">
-                <table>
+
+            <!-- Bloc pour les quatre champs personnalisés, organisés en deux colonnes -->
+            <div class="custom_info" style="display: flex; justify-content: space-between; margin-top: 20px;">
+                <!-- Colonne de gauche -->
+                <div style="flex: 1;">
+                    <p><strong>Accès : </strong><span t-field="o.so_acces_bl" /></p>
+                    <p><strong>Type de camion : </strong><span t-field="o.so_type_camion_bl" /></p>
+
+                </div>
+                <!-- Colonne de droite -->
+                <div style="flex: 1; text-align: right;">
+                    <p><strong>Horaire d'ouverture : </strong><span t-field="o.so_horaire_ouverture_bl" /></p>
+                    <p><strong>Horaire de fermeture : </strong><span t-field="o.so_horaire_fermeture_bl" /></p>
+                </div>
+            </div>
+
+            <!-- Table avec en-tête de colonne -->
+            <table class="table table-sm" t-if="o.state!='done'" name="stock_move_table" style="margin-top: 20px;">
+                <thead>
                     <tr>
-                        <td>Projet:</td>
-                        <td><strong t-field="o.origin" /></td>
+                        <th>Référence</th>
+                        <th>Description</th>
+                        <th>Dimensions (L x H)</th>
+                        <th>Quantité</th>
                     </tr>
-                    <tr>
-                        <td>Série:</td>
-                        <td><span>Série</span></td>
+                </thead>
+                <tbody>
+                    <!-- Boucle à travers les lignes de mouvement de stock -->
+                    <tr t-foreach="o.move_ids_without_package" t-as="line">
+                        <td>
+                            <!-- Référence du produit -->
+                            <span t-field="line.product_id.default_code" />
+                        </td>
+                        <td>
+                            <!-- Description -->
+                            <span t-field="line.name" />
+                        </td>
+                        <td>
+                            <!-- Dimensions (Largeur x Hauteur) -->
+                            <span t-field="line.product_id.x_studio_largeur_mm" /> x 
+                            <span t-field="line.product_id.x_studio_hauteur_mm" />
+                        </td>
+                        <td>
+                            <!-- Quantité -->
+                            <span t-field="line.product_uom_qty" />
+                        </td>
                     </tr>
-                    <tr>
-                        <td>Finition:</td>
-                        <td>RAL 7021</td>
-                    </tr>
-                    <tr>
-                        <td>Finition accessoires:</td>
-                        <td>Argent</td>
-                    </tr>
-                </table>
+                </tbody>
+            </table>
+
+            <!-- Affichage du poids -->
+            <div class="total_weight_section" 
+                 style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
+                <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in o.move_ids_without_package)" />
+                Poids total : <span t-esc="total_weight"/> kg
             </div>
         </xpath>
     </template>

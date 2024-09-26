@@ -3,9 +3,9 @@
 # from odoo import models, fields, api
 
 
-# class custom_delivery(models.Model):
-#     _name = 'custom_delivery.custom_delivery'
-#     _description = 'custom_delivery.custom_delivery'
+# class fma_custom(models.Model):
+#     _name = 'fma_custom.fma_custom'
+#     _description = 'fma_custom.fma_custom'
 
 #     name = fields.Char()
 #     value = fields.Integer()

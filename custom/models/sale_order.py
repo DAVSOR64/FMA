@@ -26,6 +26,26 @@ class SaleOrder(models.Model):
         string="Mode de Règlement",
     )
     x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
+    is_all_service = fields.Boolean(string="Is All Service")
+    delivery_set = fields.Boolean(string="Delivery Set")
+    recompute_delivery_price = fields.Boolean(string="Delivery Price")
+
+    so_acces = fields.Char(string="Accès")
+    so_horaire_ouverture = fields.Float(string='Horaire ouverture', widget='float_time')
+    so_horaire_fermeture = fields.Float(string='Horaire fermeture', widget='float_time')
+
+    so_type_camion = fields.Selection(
+        [
+            ('Semi-remorque (base)','Semi-remorque (base)'),
+            ('Semi-remorque avec hayon (base)','Semi-remorque avec hayon (base)'),
+            ('Semi-remorque plateau (base)','Semi-remorque plateau (base)'),
+            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
+            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
+            ('Semi-remorque chariot embarqué (650€)','Semi-remorque chariot embarqué (650€)'),
+            ('Autre (sur devis)','Autre (sur devis)'),
+        ],
+        string="Type de camion (Hayon palette maxi 2400mm)",
+    )
 
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
@@ -36,17 +56,17 @@ class SaleOrder(models.Model):
     so_date_de_reception = fields.Date(string="Date de réception")
     so_date_de_modification = fields.Date(string="Date de modification")
     so_date_de_commande = fields.Date(string="Date de la commande")
-    so_date_bpe = fields.Date(string="Date BPE")
-    so_date_de_reception_devis = fields.Date(string="Date de réception devis")
-    so_date_du_devis = fields.Date(string="Date du devis")
-    so_date_de_modification_devis = fields.Date(string="Date de modification devis")
-    so_date_devis_valide = fields.Date(string="Date devis validé")
+    so_date_bpe = fields.Date(string="BPE du : ")
+    so_date_de_reception_devis = fields.Date(string="Demande reçue le : ")
+    so_date_du_devis = fields.Date(string="Devis fait le : ")
+    so_date_de_modification_devis = fields.Date(string="Devis modifié le : ")
+    so_date_devis_valide = fields.Date(string="Devis validé le : ")
 
-    so_date_ARC = fields.Date(string="Date ARC")
-    so_date_ARC_valide = fields.Date(string="Date ARC Validé")
-    so_date_de_fin_de_production_reel = fields.Date(string="Date de fin de production réel")
-    so_date_de_livraison_prevu = fields.Date(string="Date de Livraison Prévue", compute='_compute_so_date_de_livraison_prevu', store=True)
-    so_statut_avancement = fields.Char(string="Statut Avancement")
+    so_date_ARC = fields.Date(string="ARC du : ")
+    so_date_bon_pour_fab = fields.Date(string="Bon pour Fab. le : ")
+    so_date_de_fin_de_production_reel = fields.Date(string="Fin de production du : ")
+    so_date_de_livraison_prevu = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison_prevu', store=True)
+    so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_gamme = fields.Char(string="GAMME")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 
