@@ -3,6 +3,8 @@ from odoo import models, fields
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
+    sale_id = fields.Many2one('sale.order', string="Sale Order")
+
     # Champs liés au sale.order
     so_acces_bl = fields.Char(related='sale_id.so_acces', string="Accès")
     so_type_camion_bl = fields.Char(related='sale_id.so_type_camion', string="Type de camion")
