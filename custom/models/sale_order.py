@@ -3,6 +3,7 @@ from odoo import models, fields, api
 _logger = logging.getLogger(__name__)
 
 
+
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
@@ -25,15 +26,6 @@ class SaleOrder(models.Model):
         ],
         string="Mode de Règlement",
     )
-    x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
-    is_all_service = fields.Boolean(string="Is All Service")
-    delivery_set = fields.Boolean(string="Delivery Set")
-    recompute_delivery_price = fields.Boolean(string="Delivery Price")
-
-    so_acces = fields.Char(string="Accès")
-    so_horaire_ouverture = fields.Float(string='Horaire ouverture', widget='float_time')
-    so_horaire_fermeture = fields.Float(string='Horaire fermeture', widget='float_time')
-
     so_type_camion = fields.Selection(
         [
             ('Semi-remorque (base)','Semi-remorque (base)'),
@@ -46,6 +38,13 @@ class SaleOrder(models.Model):
         ],
         string="Type de camion (Hayon palette maxi 2400mm)",
     )
+    so_acces = fields.Char(string="Accès")
+    so_horaire_ouverture = fields.Float(string='Horaire ouverture', widget='float_time')
+    so_horaire_fermeture = fields.Float(string='Horaire fermeture', widget='float_time')
+    x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
+    is_all_service = fields.Boolean(string="Is All Service")
+    delivery_set = fields.Boolean(string="Delivery Set")
+    recompute_delivery_price = fields.Boolean(string="Delivery Price")
 
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")

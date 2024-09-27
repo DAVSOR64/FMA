@@ -1,0 +1,16 @@
+<odoo>
+    <template id="report_laquage_inherit" inherit_id="purchase.report_purchaseorder_document">
+         <xpath expr="//div[contains(@class, 'page')]" position="replace">
+            <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif;">
+                <!-- Bloc de la société FMA-F2M avec émoticônes -->
+                <div class="company_info" style="flex: 1;">
+                    <strong t-field="o.company_id.name" /><br />
+                    <img src="/custom_delivery/static/src/img/lieu.png" style="height: 16px; width: 16px;" alt="lieu" />
+                     <span t-field="o.company_id.street" /><br />
+                     <span t-field="o.company_id.zip" /> <span t-field="o.company_id.city" /><br />
+                     <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="o.company_id.phone" /><br />
+                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" />
+                </div>
+         </xpath>   
+    </template>
+</odoo>

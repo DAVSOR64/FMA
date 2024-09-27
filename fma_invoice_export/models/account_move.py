@@ -85,7 +85,7 @@ class AccountMove(models.Model):
             sale_order = move.line_ids[0].sale_line_ids[0].order_id
             sale_order_name = sale_order.name if sale_order else ''
             if sale_order_name :
-               sale_order_name = sale_order_name[:10]
+               sale_order_name = sale_order_name[:12]
             tag_names = {tag.name for tag in sale_order.tag_ids}
             if 'FMA' in tag_names:
                 section = 'REG0701ALU'
@@ -94,8 +94,12 @@ class AccountMove(models.Model):
         
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
-                name_invoice = move.name.replace('FC2024','FC24',1) if move.name.startswith('FC2024') else move.name
-                name_invoice = move.name.replace('AV2024','AV24',1) if move.name.startswith('AV2024') else move.name
+                name_invoice = move.name
+                if move.name.startswith('FC2024'):
+                    name_invoice = move.name.replace('FC2024', 'FC24', 1)
+                if move.name.startswith('AV2024'):
+                    name_invoice = move.name.replace('AV2024', 'AV24', 1)
+            
                 # Calculer les sommes
                 debit_sum = round(sum(item.debit for item in items_grouped_by_account), 2)
                 credit_sum = round(sum(item.credit for item in items_grouped_by_account), 2)
