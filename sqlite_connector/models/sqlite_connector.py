@@ -70,11 +70,25 @@ class SqliteConnector(models.Model):
             Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
-                #RefLogikal = 'T' + RefLogikal
+                if reflogikal.startswith("X"):
+                    # Exécuter une action si reflogikal commence par "X"
+                else:
+                    # Exécuter une action si reflogikal ne commence pas par "X"
+                    RefLogikal = 'T' + RefLogikal
             if fournisseur == 'SAPA' :
                 refart = refart.replace("RC  ","SAP ")
+                if reflogikal.startswith("X"):
+                    # Exécuter une action si reflogikal commence par "X"
+                else:
+                    # Exécuter une action si reflogikal ne commence pas par "X"
+                    RefLogikal = 'S' + RefLogikal
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[8][1:]
+                if reflogikal.startswith("X"):
+                    # Exécuter une action si reflogikal commence par "X"
+                else:
+                    # Exécuter une action si reflogikal ne commence pas par "X"
+                    RefLogikal = 'W' + RefLogikal
                 
             couleur = str(row[6])
             if couleur == '' :
@@ -106,13 +120,28 @@ class SqliteConnector(models.Model):
             Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
-                #RefLogikal = 'T' + RefLogikal
+                if reflogikal.startswith("X"):
+                    # Exécuter une action si reflogikal commence par "X"
+                else:
+                    # Exécuter une action si reflogikal ne commence pas par "X"
+                    RefLogikal = 'T' + RefLogikal
                 Length= row[9]
             if fournisseur == 'SAPA' :
                 refart = refart.replace("RC  ","SAP ")
                 Length= row[9]
+                if reflogikal.startswith("X"):
+                    # Exécuter une action si reflogikal commence par "X"
+                else:
+                    # Exécuter une action si reflogikal ne commence pas par "X"
+                    RefLogikal = 'S' + RefLogikal
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[2][1:]
+                Length= row[9]
+                if reflogikal.startswith("X"):
+                    # Exécuter une action si reflogikal commence par "X"
+                else:
+                    # Exécuter une action si reflogikal ne commence pas par "X"
+                    RefLogikal = 'W' + RefLogikal
                 
             couleurext = str(row[6])
             couleurint = str(row[7])
@@ -1256,7 +1285,7 @@ class SqliteConnector(models.Model):
                                     'date_planned': datejourd,
                                 })]
                         })
-                if vitrage != (ligne [2] + " " + ligne[3] + " " + ligne[4] + " " + ligne[5]) :
+                if vitrage != (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5])) :
                     refinterne = proj + "_" + str(cpt)
                     vitrage = ligne[3]
                     position = ligne[2]
@@ -1318,7 +1347,7 @@ class SqliteConnector(models.Model):
                                     }))
                 fournisseur = ligne[0]
                 info_livraison = ligne[1]
-                vitrage = (ligne [2] + " " + ligne[3] + " " + ligne[4] + " " + ligne[5])
+                vitrage = (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5]))
             
         for purchase in po_glass_vals:
             for line in purchase.get('order_line'):
@@ -1417,7 +1446,7 @@ class SqliteConnector(models.Model):
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                     else:
-                        dimension = row[9] + 'mm * ' + row[7] + 'mm'
+                        dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         refart = '[' + row[11] + '_' + projet + ']' + row[12]
                 data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
                 if NbrLig == 1:
@@ -1667,7 +1696,9 @@ class SqliteConnector(models.Model):
         for row in resu :
             cpt1 = cpt1 + 1
             ope = row[1]
-            ope = ope.strip()
+            if ope is not None:
+                ope = ope.strip()
+            #ope = ope.strip()
             temps = float(row[0])
             dataope = ''
             if ope == '' :

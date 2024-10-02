@@ -49,8 +49,8 @@
                         <th>Description</th>
                         <th>Largeur</th>
                         <th>Hauteur</th>
-                        <th>Quantité</th>
-                        <th>Livré</th>
+                        <th>Qte Commandé</th>
+                        <th>Qte Livré</th>
                         <th>Reliquat</th>
                     </tr>
                 </thead>
