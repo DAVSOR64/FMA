@@ -70,24 +70,21 @@ class SqliteConnector(models.Model):
             Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
-                if reflogikal.startswith("X"):
-                    # Exécuter une action si reflogikal commence par "X"
-                else:
-                    # Exécuter une action si reflogikal ne commence pas par "X"
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
                     RefLogikal = 'T' + RefLogikal
             if fournisseur == 'SAPA' :
                 refart = refart.replace("RC  ","SAP ")
-                if reflogikal.startswith("X"):
-                    # Exécuter une action si reflogikal commence par "X"
-                else:
-                    # Exécuter une action si reflogikal ne commence pas par "X"
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
                     RefLogikal = 'S' + RefLogikal
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[8][1:]
-                if reflogikal.startswith("X"):
-                    # Exécuter une action si reflogikal commence par "X"
-                else:
-                    # Exécuter une action si reflogikal ne commence pas par "X"
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
                     RefLogikal = 'W' + RefLogikal
                 
             couleur = str(row[6])
@@ -120,27 +117,24 @@ class SqliteConnector(models.Model):
             Length = 0
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
-                if reflogikal.startswith("X"):
-                    # Exécuter une action si reflogikal commence par "X"
-                else:
-                    # Exécuter une action si reflogikal ne commence pas par "X"
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
                     RefLogikal = 'T' + RefLogikal
                 Length= row[9]
             if fournisseur == 'SAPA' :
                 refart = refart.replace("RC  ","SAP ")
                 Length= row[9]
-                if reflogikal.startswith("X"):
-                    # Exécuter une action si reflogikal commence par "X"
-                else:
-                    # Exécuter une action si reflogikal ne commence pas par "X"
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
                     RefLogikal = 'S' + RefLogikal
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[2][1:]
                 Length= row[9]
-                if reflogikal.startswith("X"):
-                    # Exécuter une action si reflogikal commence par "X"
-                else:
-                    # Exécuter une action si reflogikal ne commence pas par "X"
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
                     RefLogikal = 'W' + RefLogikal
                 
             couleurext = str(row[6])
