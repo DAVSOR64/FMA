@@ -166,7 +166,7 @@ class SqliteConnector(models.Model):
         rfrs = cursor.execute("select SupplierID,Address2 from Suppliers")
         for row in rfrs:
             name = str(row[1])
-            if name =='' :
+            if name not in ['', None, 'None']:
                 name = 'NonDef'
             _logger.warning('fournisseur ID %s' % row[0])
             _logger.warning('fournisseur Non %s' % name)
@@ -1227,7 +1227,7 @@ class SqliteConnector(models.Model):
                 if res_partner:
                     frsnomf = res_partner[0].name
                 else:
-                    self.log_request('Unable to find customer with LK Supplier ID', str(Frsid), 'Glass Data')
+                    self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
                 
                 #_logger.warning('Envoi pour les vitrages fournisseur %s' % frsnomf)
                 #_logger.warning('Envoi pour les vitrages livraison %s' % Info2)
