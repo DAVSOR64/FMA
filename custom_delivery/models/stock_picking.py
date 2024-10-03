@@ -4,6 +4,7 @@ class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
     so_acces_bl = fields.Char(string="Accès")
+
     so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture', widget='float_time')
     so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture', widget='float_time')
 

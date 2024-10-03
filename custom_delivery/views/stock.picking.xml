@@ -7,8 +7,8 @@
             <xpath expr="//field[@name='backorder_id']" position="after">
                 <field name="so_acces_bl"/>
                 <field name="so_type_camion_bl"/>
-                <field name="so_horaire_ouverture_bl"/>
-                <field name="so_horaire_fermeture_bl"/>
+                <field name="so_horaire_ouverture_bl" widget="float_time" string="Horaire ouverture"/>
+                <field name="so_horaire_fermeture_bl" widget="float_time" string="Horaire fermeture"/>
             </xpath>
         </field>
     </record>

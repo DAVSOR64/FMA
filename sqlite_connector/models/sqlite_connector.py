@@ -87,12 +87,12 @@ class SqliteConnector(models.Model):
                 else :
                     RefLogikal = 'W' + RefLogikal
                 
-            couleur = str(row[6])
-            if couleur == '' :
-                couleur = str(row[7])
+            couleur = row[6] if row[6] else ''
+            if couleur == '' or couleur == 'None':
+                couleur = row[7] if row[7] else ''
             if couleur == 'Sans' or couleur == 'sans' :
                 couleur = ''
-            if couleur != '':
+            if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
             #_logger.warning("**********article pour MAJ********* %s " % refart )
             articles.append({
@@ -137,17 +137,17 @@ class SqliteConnector(models.Model):
                 else :
                     RefLogikal = 'W' + RefLogikal
                 
-            couleurext = str(row[6])
-            couleurint = str(row[7])
-            if couleurext != '' and couleurint != '' :
+            couleurext = row[6] if row[6] else ''
+            couleurint = row[7] if row[7] else ''
+            if couleurext not in ['', None] and couleurint not in  ['', None] :
                 couleur = couleurext + '/' + couleurint
             else :
                 couleur = str(row[8])
-                if couleur == '' or couleur == ' ' :
+                if couleurext == '' or couleurint == '' :
                     couleur = str(row[3])
                     if couleur == 'Sans' or couleur == 'sans':
                         couleur = ''
-            if couleur != '' :
+            if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
                 #RefLogikal = 'T' + RefLogikal
                 
@@ -540,14 +540,14 @@ class SqliteConnector(models.Model):
                 if uom:
                     unit = uom.name
                 #_logger.warning("**********UNITE APRES CONVERSION********* %s " % unit )
-                couleur = str(row[10])
-                if couleur == '' :
-                    couleur = str(row[4])
+                couleur = row[10] if row[10] else ''
+                if couleur == '' and couleur != 'None':
+                    couleur = row[4] if row[4] else ''
                 if couleur == 'Sans' or couleur == 'sans' :
                     couleur = ''
                 if eticom == 'F2M' :
                     couleur =''
-                if couleur != '':
+                if couleur not in ['', None, 'None']:
                     refart = refart + '.' + couleur
                 ColorLogikal = couleur
                 #_logger.warning("**********saisie manuelle********* %s " % str(SaisieManuelle) )  
@@ -858,17 +858,17 @@ class SqliteConnector(models.Model):
                 if fournisseur == 'Forster' :
                     refart = 'FRS' + ' ' + row[9]
                     refart = refart.replace('.','')
-                couleurext = str(row[9])
-                couleurint = str(row[10])
+                couleurext = row[9] if row[9] else ''
+                couleurint = row[10] if row[10] else ''
                 if fournisseur == 'RPT' or fournisseur == 'rpt' :
                     fournisseur = 'KDI'
 
-                if couleurext != '' and couleurint != '' :
+                if couleurext != '' and couleurext != 'None' and couleurint != '' and couleurint !='None' :
                     couleur = couleurext + '/' + couleurint
                 else :
-                    couleur = str(row[11])
-                    if couleur == '' or couleur == ' ' :
-                        couleur = str(row[4])
+                    couleur = row[11] if row[11] else ''
+                    if (couleurext == '' or couleurext == 'None' ) or (couleurint == '' or couleurint == 'None') :
+                        couleur = row[4] if row[4] else ''
                         if couleur == 'Sans' or couleur == 'sans':
                             couleur = ''
                 if eticom == 'F2M' :
@@ -879,7 +879,7 @@ class SqliteConnector(models.Model):
                 
                 refart = refart.replace("RYN","REY")
                 refart = refart.replace("SC  ","SCH ")
-                if couleur != '' :
+                if couleur not in ['', None, 'None']:
                     refart = refart + '.' + couleur
                     refartfic = ''
                 

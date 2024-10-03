@@ -22,8 +22,8 @@
                      <span t-field="o.partner_id.name" /><br />
                      <span t-field="o.partner_id.street" /><br />
                      <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
-                    ☎️ Contact: <span t-field="o.user_id.name" />
-                    <span t-field="o.user_id.phone" />
+                     Contact: ☎️ <span t-field="o.partner_id.phone" /><br />
+                    <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> <span t-field="o.partner_id.email" />
                 </div>
             </div>
 
@@ -55,15 +55,15 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Boucle à travers les lignes de mouvement de stock -->
-                    <tr t-foreach="o.move_ids_without_package" t-as="line">
+                    <!-- Boucle à travers les lignes de mouvement de stock -->   <!-- t-if Enlève les lignes commençant par A2 (lignes comprenant la nomenclature) -->
+                    <tr t-foreach="o.move_ids_without_package" t-as="line" t-if="not (line.product_id.default_code.startswith('A2') or line.product_id.default_code.startswith('ECO'))">
                         <td>
                             <!-- Référence du produit -->
                             <span t-field="line.product_id.default_code" />
                         </td>
                         <td>
                             <!-- Description -->
-                            <span t-field="line.name" />
+                            <span t-esc="line.name.split(']', 1)[-1].strip()" />
                         </td>
                         <td>
                             <!-- Dimensions (Largeur x Hauteur) -->
