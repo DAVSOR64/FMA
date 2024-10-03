@@ -63,7 +63,7 @@
                         </td>
                         <td>
                             <!-- Description -->
-                            <span t-esc="line.name.split(']', 1)[-1].strip()" />
+                            <span t-esc="line.product_id.name" />
                         </td>
                         <td>
                             <!-- Dimensions (Largeur x Hauteur) -->

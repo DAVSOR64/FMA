@@ -143,7 +143,7 @@ class SqliteConnector(models.Model):
                 couleur = couleurext + '/' + couleurint
             else :
                 couleur = str(row[8])
-                if couleurext == '' or couleurint == '' :
+                if couleur == '' or couleur == ' ' :
                     couleur = str(row[3])
                     if couleur == 'Sans' or couleur == 'sans':
                         couleur = ''
@@ -867,7 +867,7 @@ class SqliteConnector(models.Model):
                     couleur = couleurext + '/' + couleurint
                 else :
                     couleur = row[11] if row[11] else ''
-                    if (couleurext == '' or couleurext == 'None' ) or (couleurint == '' or couleurint == 'None') :
+                    if couleur == '' or couleur == ' '  :
                         couleur = row[4] if row[4] else ''
                         if couleur == 'Sans' or couleur == 'sans':
                             couleur = ''
