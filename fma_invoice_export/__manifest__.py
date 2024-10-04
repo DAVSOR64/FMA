@@ -2,11 +2,11 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 {
-    'name': 'Invoices: Export (CSV)',
+    'name': 'Invoices: Export (TXT)',
     'description':
         """
             The purpose of this module is to create the .csv file for invoices with the details of journal items.
-            A cron is also introduced to move such CSV and invoice PDF files to FTP server.
+            A cron is also introduced to move such CSV and invoice PDF files to SFTP server.
             Task: 4022500
         """,
     'author': 'Odoo PS',

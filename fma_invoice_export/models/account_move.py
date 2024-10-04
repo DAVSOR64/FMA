@@ -2,15 +2,13 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
-import datetime
-import ftplib
 import io
 import csv
 import logging
+import paramiko
 
 from odoo import api, fields, models
 from odoo.tools.misc import groupby
-from odoo.addons.web.controllers.main import CSVExport
 
 _logger = logging.getLogger(__name__)
 
@@ -18,10 +16,10 @@ _logger = logging.getLogger(__name__)
 class AccountMove(models.Model):
     _inherit = "account.move"
 
-    is_txt_created = fields.Boolean("Fichier généré")
+    is_txt_created = fields.Boolean("Is Journals File Created")
     txt_creation_time = fields.Datetime()
-    ftp_synced_time = fields.Datetime()
-    is_synced_to_ftp = fields.Boolean()
+    sftp_synced_time = fields.Datetime()
+    is_synced_to_sftp = fields.Boolean()
 
     def action_view_journal_items(self):
         self.ensure_one()
@@ -57,7 +55,7 @@ class AccountMove(models.Model):
 
                 file_content = self._get_file_content(journal_items, move)
                 attachment = IrAttachment.create({
-                    'name': f"{move.name}.csv",
+                    'name': f"N° {move.invoice_date}.csv",
                     'type': 'binary',
                     'datas': base64.b64encode(file_content),
                     'res_model': 'account.move',
@@ -80,47 +78,33 @@ class AccountMove(models.Model):
         sale_order_name = ''
         sale_order = None
         section = ''
-        journal = 'VTE'
         if move.line_ids and move.line_ids[0].sale_line_ids:
             sale_order = move.line_ids[0].sale_line_ids[0].order_id
             sale_order_name = sale_order.name if sale_order else ''
-            if sale_order_name :
-               sale_order_name = sale_order_name[:10]
             tag_names = {tag.name for tag in sale_order.tag_ids}
             if 'FMA' in tag_names:
                 section = 'REG0701ALU'
             elif 'F2M' in tag_names:
                 section = 'REM0701ACI'
-        
+
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
-                name_invoice = move.name.replace('FC2024','FC24',1) if move.name.startswith('FC2024') else move.name
-                name_invoice = move.name.replace('AV2024','AV24',1) if move.name.startswith('AV2024') else move.name
-                # Calculer les sommes
-                debit_sum = round(sum(item.debit for item in items_grouped_by_account), 2)
-                credit_sum = round(sum(item.credit for item in items_grouped_by_account), 2)
-                
-                # Formater les nombres avec une virgule comme séparateur décimal
-                formatted_debit = f"{debit_sum:.2f}".replace('.', ',')
-                formatted_credit = f"{credit_sum:.2f}".replace('.', ',')
-                invoice_date = str(move.invoice_date)
-                invoice_date_due = str(move.invoice_date_due)
                 items_grouped_by_account = list(items_grouped_by_account)
                 grouped_items.append({
-                    'journal': journal,
-                    'invoice_date': invoice_date.replace('-',''),
-                    'move_name': name_invoice,
-                    'invoice_date_1': invoice_date.replace('-',''),
-                    'due_date': invoice_date_due.replace('-',''),
+                    'journal': "VTE",
+                    'invoice_date': move.invoice_date,
+                    'move_name': move.name,
+                    'invoice_date_1': move.invoice_date,
+                    'due_date': move.invoice_date_due,
                     'account_code': account_code,
-                    'mode_de_regiment': move.inv_mode_de_reglement.replace('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATI') if move.inv_mode_de_reglement == 'L.C.R. A L ACCEPTATION' else move.inv_mode_de_reglement,
-                    'name_and_customer_name': f'{name_invoice} {move.partner_id.name}',
-                    'payment_reference': f'{sale_order_name} {move.x_studio_rfrence_affaire}',
+                    'mode_de_regiment': move.partner_id.x_studio_mode_de_rglement_1,
+                    'name_and_customer_name': f'{move.name} {move.partner_id.name}',
+                    'payment_reference': f'{sale_order_name} {move.payment_reference}',
                     'section_axe2': sale_order_name.replace('-', '') if sale_order_name else '',
                     'section': section,
-                    'section_axe3': str('999999999999'),
-                    'debit': formatted_debit,
-                    'credit': formatted_credit
+                    'section_axe3': 999999999999 if all(not item.reconciled for item in items_grouped_by_account) else '',
+                    'debit': round(sum(item.debit for item in items_grouped_by_account), 2),
+                    'credit': round(sum(item.credit for item in items_grouped_by_account), 2)
                 })
 
         # configuring fields and rows for CSV Export
@@ -164,12 +148,21 @@ class AccountMove(models.Model):
         for invoice in invoices:
             invoice.action_create_journal_items_file()
 
-    def cron_send_invoice_to_ftp(self):
-        """Sync the unsynced invoices to the FTP server."""
+    def cron_send_invoice_to_sftp(self):
+        """Sync the unsynced invoices to the SFTP server."""
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+        sftp_server_host = get_param('fma_invoice_export.sftp_host_invoice_export')
+        sftp_server_username = get_param('fma_invoice_export.sftp_username_invoice_export')
+        sftp_server_password = get_param('fma_invoice_export.sftp_server_password_invoice_export')
+        sftp_server_file_path = get_param('fma_invoice_export.sftp_server_file_path_invoice_export')
+        if not all([sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path]):
+            _logger.error("Missing one or more SFTP server credentials.")
+            return
+
         invoices = self.env['account.move'].search([
             ('is_txt_created', '=', True),
             ('state', '=', 'posted'),
-            ('is_synced_to_ftp', '=', False)
+            ('is_synced_to_sftp', '=', False)
         ])
         IrAttachment = self.env['ir.attachment']
         for invoice in invoices:
@@ -188,10 +181,10 @@ class AccountMove(models.Model):
                     ], limit=1)
 
                     if attachment_csv and attachment_pdf:
-                        self._sync_file([attachment_csv, attachment_pdf])
+                        self._sync_file([attachment_csv, attachment_pdf], sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path)
                         invoice.write({
-                            'ftp_synced_time': fields.Datetime.now(),
-                            'is_synced_to_ftp': True
+                            'sftp_synced_time': fields.Datetime.now(),
+                            'is_synced_to_sftp': True
                         })
                     else:
                         if not attachment_csv:
@@ -199,26 +192,26 @@ class AccountMove(models.Model):
                         if not attachment_pdf:
                             _logger.warning(f"No PDF attachment found for Invoice {invoice.name}.")
             except Exception as e:
-                _logger.error(f"Failed to sync Invoice {invoice.name} to FTP: {e}")
+                _logger.error(f"Failed to sync Invoice {invoice.name} to SFTP server: {e}")
 
-    def _sync_file(self, attachments):
-        get_param = self.env['ir.config_parameter'].sudo().get_param
-        ftp_server_host = get_param('fma_invoice_export.ftp_server_host')
-        ftp_server_username = get_param('fma_invoice_export.ftp_server_username')
-        ftp_server_password = get_param('fma_invoice_export.ftp_server_password')
-        ftp_server_file_path = get_param('fma_invoice_export.ftp_server_file_path')
-        if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
-            _logger.error("Missing one or more FTP server credentials.")
-            return
+    def _sync_file(self, attachments, sftp_host, sftp_username, sftp_password, sftp_file_path):
+        """Uploads files to the SFTP server."""
+        try:
+            # Establish an SFTP connection using paramiko
+            transport = paramiko.Transport((sftp_host, 22))
+            transport.connect(username=sftp_username, password=sftp_password)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            sftp.chdir(sftp_file_path)
 
-        for attachment in attachments:
-            attachment_content = base64.b64decode(attachment.datas)
-            with ftplib.FTP(ftp_server_host, ftp_server_username, ftp_server_password) as session:
-                try:
-                    session.cwd(ftp_server_file_path)
-                    session.storbinary('STOR ' + attachment.name, io.BytesIO(attachment_content))
+            for attachment in attachments:
+                attachment_content = base64.b64decode(attachment.datas)
+                with io.BytesIO(attachment_content) as file_obj:
+                    sftp.putfo(file_obj, attachment.name)
 
-                except ftplib.all_errors as ftp_error:
-                    _logger.error("FTP error while uploading file %s: %s", attachment.name, ftp_error)
-                except Exception as upload_error:
-                    _logger.error("Unexpected error while uploading file %s: %s", attachment.name, upload_error)
+        except paramiko.SSHException as ssh_error:
+            _logger.error("SSH error while uploading file: %s: %s", attachment.name, ssh_error)
+        except Exception as upload_error:
+            _logger.error("Unexpected error while uploading file: %s: %s", attachment.name, upload_error)
+        finally:
+            sftp.close()
+            transport.close()
