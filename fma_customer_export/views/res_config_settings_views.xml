@@ -7,23 +7,23 @@
         <field name="arch" type="xml">
             <xpath expr="//div[@id=('languages')]" position="after">
                 <h2>Export Customers</h2>
-                <div class="row mt16 o_settings_container" name="ftp_server_configurations_container">
-                    <div class="col-12 col-lg-6 o_setting_box" id="ftp_server_configurations_box">
-                        <div class="o_setting_right_pane" id="ftp_settings">
-                            <span class="o_form_label">FTP server credentials</span>
+                <div class="row mt16 o_settings_container" name="sftp_server_configurations_container">
+                    <div class="col-12 col-lg-6 o_setting_box" id="sftp_server_configurations_box">
+                        <div class="o_setting_right_pane" id="sftp_settings">
+                            <span class="o_form_label">SFTP server credentials</span>
                             <div class="text-muted">
-                                Setup the FTP server configurations for customers export.
+                                Setup the SFTP server configurations for customers export.
                             </div>
-                            <div class="content-group" id="ftp_settings_group" >
+                            <div class="content-group" id="sftp_settings_group" >
                                 <div class="mt16 row">
-                                    <label for="ftp_server_host" string="FTP Server Host" class="col-5 o_light_label"/>
-                                    <field name="ftp_server_host" class="col-7"/>
-                                    <label for="ftp_server_username" string="FTP Server Username" class="col-5 o_light_label"/>
-                                    <field name="ftp_server_username" class="col-7"/>
-                                    <label for="ftp_server_password" string="FTP Server Password" class="col-5 o_light_label"/>
-                                    <field name="ftp_server_password" class="col-7"/>
-                                    <label for="ftp_server_file_path" string="FTP Server File Path" class="col-5 o_light_label"/>
-                                    <field name="ftp_server_file_path" class="col-7"/>
+                                    <label for="sftp_server_host" string="SFTP Server Host" class="col-5 o_light_label"/>
+                                    <field name="sftp_server_host" class="col-7"/>
+                                    <label for="sftp_server_username" string="SFTP Server Username" class="col-5 o_light_label"/>
+                                    <field name="sftp_server_username" class="col-7"/>
+                                    <label for="sftp_server_password" string="SFTP Server Password" class="col-5 o_light_label"/>
+                                    <field name="sftp_server_password" class="col-7"/>
+                                    <label for="sftp_server_file_path" string="SFTP Server File Path" class="col-5 o_light_label"/>
+                                    <field name="sftp_server_file_path" class="col-7"/>
                                 </div>
                             </div>
                         </div>
