@@ -7,7 +7,7 @@ from odoo import fields, models
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
-    ftp_server_host = fields.Char(config_parameter='fma_customer_outstanding.ftp_server_host')
-    ftp_server_username = fields.Char(config_parameter='fma_customer_outstanding.ftp_server_username')
-    ftp_server_password = fields.Char(config_parameter='fma_customer_outstanding.ftp_server_password')
-    ftp_server_file_path = fields.Char(config_parameter='fma_customer_outstanding.ftp_server_file_path')
+    sftp_host_outstandings = fields.Char(config_parameter='fma_customer_outstanding.sftp_host_outstandings')
+    sftp_username_outstandings = fields.Char(config_parameter='fma_customer_outstanding.sftp_username_outstandings')
+    sftp_password_outstandings = fields.Char(config_parameter='fma_customer_outstanding.sftp_password_outstandings')
+    sftp_file_path_outstandings = fields.Char(config_parameter='fma_customer_outstanding.sftp_file_path_outstandings')

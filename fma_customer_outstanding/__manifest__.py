@@ -6,7 +6,7 @@
     'description':
         """
             The purpose of this module is add a partner field based on debit-credit difference from
-            a CSV file imported from FTP server and perform related functions like filtering
+            a CSV file imported from SFTP server and perform related functions like filtering
             related customers and adding alerts upon sale order confirmation and validation.
             Task: 4101724
         """,

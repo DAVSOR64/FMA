@@ -2,9 +2,9 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import csv
-import ftplib
 import io
 import logging
+import paramiko
 from odoo import fields, models
 
 _logger = logging.getLogger(__name__)
@@ -16,34 +16,37 @@ class ResPartner(models.Model):
     outstandings = fields.Float()
 
     def cron_update_outstandings(self):
-        """Compute outstandings for customers from ENCOURS_DAte.csv of the FTP server."""
+        """Compute outstandings for customers from ENCOURS_DAte.csv of the SFTP server."""
         try:
             get_param = self.env['ir.config_parameter'].sudo().get_param
-            ftp_server_host = get_param('fma_customer_outstanding.ftp_server_host')
-            ftp_server_username = get_param('fma_customer_outstanding.ftp_server_username')
-            ftp_server_password = get_param('fma_customer_outstanding.ftp_server_password')
-            ftp_server_file_path = get_param('fma_customer_outstanding.ftp_server_file_path')
-            if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
-                _logger.error("Missing one or more FTP server credentials.")
+            sftp_server_host = get_param('fma_customer_outstanding.sftp_host_outstandings')
+            sftp_server_username = get_param('fma_customer_outstanding.sftp_username_outstandings')
+            sftp_server_password = get_param('fma_customer_outstanding.sftp_password_outstandings')
+            sftp_server_file_path = get_param('fma_customer_outstanding.sftp_file_path_outstandings')
+            if not all([sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path]):
+                _logger.error("Missing one or more SFTP server credentials.")
                 return
 
             filename = 'ENCOURS_DAte.csv'
-            with ftplib.FTP(ftp_server_host, ftp_server_username, ftp_server_password) as session:
-                try:
-                    session.cwd(ftp_server_file_path)
-                    file_content = io.BytesIO()
-                    session.retrbinary(f"RETR {filename}", file_content.write)
-                    file_content.seek(0)
+            try:
+                transport = paramiko.Transport((sftp_server_host, 22))
+                transport.connect(username=sftp_server_username, password=sftp_server_password)
+                sftp = paramiko.SFTPClient.from_transport(transport)
+                with sftp.open(f"{sftp_server_file_path}/{filename}", "rb") as remote_file:
+                    file_content = io.BytesIO(remote_file.read())
 
-                    self._update_customer_outstandings(file_content)
-                except ftplib.all_errors as ftp_error:
-                    _logger.error("FTP error while downloading file %s: %s", filename, ftp_error)
-                except Exception as upload_error:
-                    _logger.error("Unexpected error while downloading file %s: %s", filename, upload_error)
-                else:
-                    session.quit()
+                self._update_customer_outstandings(file_content)
+                _logger.info("Customer outstandings updated successfully.")
+
+                # Close the SFTP connection
+                sftp.close()
+                transport.close()
+            except paramiko.SSHException as ssh_error:
+                _logger.error("SFTP error while downloading file %s: %s", filename, ssh_error)
+            except Exception as download_error:
+                _logger.error("Unexpected error while downloading file %s: %s", filename, download_error)
         except Exception as e:
-            _logger.error(f"Failed to download customer file {filename}.txt to FTP server: {e}")
+            _logger.error(f"Failed to download customer file {filename} from SFTP server: {e}")
 
     def _update_customer_outstandings(self, file_content):
         """Parse CSV file and update customer outstandings."""
