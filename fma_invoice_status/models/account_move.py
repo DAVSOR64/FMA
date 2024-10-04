@@ -2,9 +2,9 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import csv
-import ftplib
 import io
 import logging
+import paramiko
 from datetime import datetime
 from odoo import fields, models, Command
 
@@ -15,32 +15,30 @@ class AccountMove(models.Model):
     _inherit = "account.move"
 
     def cron_update_invoice_status(self):
-        """Update status and related fields for invoices from REGLEMENT_DATE.csv on the FTP server."""
+        """Update status and related fields for invoices from REGLEMENT_DATE.csv on the SFTP server."""
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+        sftp_server_host = get_param('fma_invoice_status.sftp_host_invoice_status')
+        sftp_server_username = get_param('fma_invoice_status.sftp_username_invoice_status')
+        sftp_server_password = get_param('fma_invoice_status.sftp_password_invoice_status')
+        sftp_server_file_path = get_param('fma_invoice_status.sftp_file_path_invoice_status')
+        if not all([sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path]):
+            _logger.error("Missing one or more SFTP server credentials.")
+            return
+
+        filename = 'REGLEMENT_DATE.csv'
         try:
-            get_param = self.env['ir.config_parameter'].sudo().get_param
-            ftp_server_host = get_param('fma_invoice_status.ftp_server_host')
-            ftp_server_username = get_param('fma_invoice_status.ftp_server_username')
-            ftp_server_password = get_param('fma_invoice_status.ftp_server_password')
-            ftp_server_file_path = get_param('fma_invoice_status.ftp_server_file_path')
-            if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
-                _logger.error("Missing one or more FTP server credentials.")
-                return
+            transport = paramiko.Transport((sftp_server_host, 22))
+            transport.connect(username=sftp_server_username, password=sftp_server_password)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            with sftp.open(f"{sftp_server_file_path}/{filename}", "rb") as remote_file:
+                file_content = io.BytesIO(remote_file.read())
 
-            filename = 'REGLEMENT_DATE.csv'
-            with ftplib.FTP(ftp_server_host, ftp_server_username, ftp_server_password) as session:
-                try:
-                    session.cwd(ftp_server_file_path)
-                    file_content = io.BytesIO()
-                    session.retrbinary(f"RETR {filename}", file_content.write)
-                    file_content.seek(0)
+            self._update_invoices(file_content)
 
-                    self._update_invoices(file_content)
-                except ftplib.all_errors as ftp_error:
-                    _logger.error("FTP error while downloading file %s: %s", filename, ftp_error)
-                except Exception as upload_error:
-                    _logger.error("Unexpected error while dealing with invoices %s: %s", filename, upload_error)
+        except paramiko.SSHException as ssh_error:
+            _logger.error("SSH error while downloading file %s: %s", filename, ssh_error)
         except Exception as e:
-            _logger.error(f"Failed to download customer file {filename}.txt to FTP server: {e}")
+            _logger.error(f"Failed to download customer file {filename}.txt to SFTP server: {e}")
 
     def _update_invoices(self, file_content):
         """Parse CSV file and update the invoices."""
@@ -53,9 +51,8 @@ class AccountMove(models.Model):
                 rows.append(row)
 
         # Fetch all invoices in one query
-        invoices = self.search([('name', 'in', invoice_codes)])
+        invoices = self.search([('name', 'in', invoice_codes), ('state', '!=', 'posted')])
         invoices_map = {customer.name: customer for customer in invoices}
-
         # Update invoices
         for row in rows:
             name = row[0]

@@ -5,8 +5,8 @@
     'name': 'Invoice: Status Update',
     'description':
         """
-            The purpose of this module is update the status and date of payment of the
-            invoices from a CSV file imported from FTP server.
+            The purpose of this module is update the status and date of payment of all
+            the invoices from a CSV file imported from SFTP server.
             Task: 4115364
         """,
     'author': 'Odoo PS',
