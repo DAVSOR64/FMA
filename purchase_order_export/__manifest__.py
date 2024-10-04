@@ -5,7 +5,7 @@
     'description':
         """
             The purpose of this module is to export the Purchase Order details in XML format.
-            A cron is also introduced to move such XML files to FTP server.
+            A cron is also introduced to move such XML files to SFTP server.
             Task: 3975517
         """,
     'author': 'Odoo PS',
