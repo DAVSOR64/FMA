@@ -7,23 +7,39 @@
                 <div class="company_info" style="flex: 1;">
                     <strong t-field="o.company_id.name" /><br />
                     <img src="/custom_delivery/static/src/img/lieu.png" style="height: 16px; width: 16px;" alt="lieu" />
-                     <span t-field="o.company_id.street" /><br />
-                     <span t-field="o.company_id.zip" /> <span t-field="o.company_id.city" /><br />
-                     <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="o.company_id.phone" /><br />
-                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" />
+                    <span t-field="o.company_id.street" /><br />
+                    <span t-field="o.company_id.zip" /> <span t-field="o.company_id.city" /><br />
+                    <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="o.company_id.phone" /><br />
+                    <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" />
                 </div>
 
                 <!-- Bloc des informations de livraison avec émoticônes aligné à droite -->
                 <div class="delivery_info" style="flex: 1; text-align: right;">
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
-                    N°: <span t-field="o.name" /><br />
+                    N°: 
+                    <t t-if="'OUT' in o.name">
+                        <t t-esc="o.name.replace('OUT', 'BL')"/>
+                    </t>
+                    <t t-else="">
+                        <t t-esc="o.name"/>
+                    </t>
                     <br />
-                     <img src="/custom_delivery/static/src/img/camion.png" style="height: 16px; width: 16px;" alt="camion" /> Adresse de livraison:<br />
-                     <span t-field="o.partner_id.name" /><br />
-                     <span t-field="o.partner_id.street" /><br />
-                     <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
-                     Contact: ☎️ <span t-field="o.partner_id.phone" /><br />
-                    <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> <span t-field="o.partner_id.email" />
+                    <br />
+                    <t t-if="o.partner_id">
+                        <img src="/custom_delivery/static/src/img/camion.png" style="height: 16px; width: 16px;" alt="camion" /> Adresse de livraison :<br />
+                        <span t-field="o.partner_id.name" /><br />
+                        <span t-field="o.partner_id.street" /><br />
+                        <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
+                        Contact: ☎️ <span t-field="o.partner_id.phone" /><br />
+                        <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> <span t-field="o.partner_id.email" />
+                    </t>
+                </div>
+
+                <!-- Nouveau bloc d'information concernant le client, aligné à droite -->
+                <div class="customer_info" style="position: absolute; top: 60px; right: 20px; text-align: right; font-size: 12px;">
+                    <strong t-field="o.partner_id.name" /><br />
+                    <span><strong class="bold_text">Adresse:</strong> <span t-field="o.partner_id.street" /></span><br />
+                    <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
                 </div>
             </div>
 
@@ -63,7 +79,7 @@
                         </td>
                         <td>
                             <!-- Description -->
-                            <span t-esc="line.product_id.name" />
+                            <span t-field="line.product_id.name" />
                         </td>
                         <td>
                             <!-- Dimensions (Largeur x Hauteur) -->

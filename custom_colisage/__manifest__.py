@@ -24,8 +24,7 @@
         # 'security/ir.model.access.csv',
         'views/views.xml',
         'views/templates.xml',
-        'views/delivery.xml',
-        'views/stock.picking.xml',
+        'views/colisage.xml',  
     ],
 
     # Section pour inclure les fichiers statiques

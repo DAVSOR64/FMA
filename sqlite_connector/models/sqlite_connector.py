@@ -166,10 +166,10 @@ class SqliteConnector(models.Model):
         rfrs = cursor.execute("select SupplierID,Address2 from Suppliers")
         for row in rfrs:
             name = str(row[1])
-            if name not in ['', None, 'None']:
+            if name in ['', None,'None'] :
                 name = 'NonDef'
             _logger.warning('fournisseur ID %s' % row[0])
-            _logger.warning('fournisseur Non %s' % name)
+            _logger.warning('fournisseur Nom %s' % name)
             suppliers.append({
                 'id': row[0],
                 'name' : name
@@ -1211,14 +1211,16 @@ class SqliteConnector(models.Model):
                     position = str(row[9])
                 
                 Frsid = row[17]
-                #_logger.warning('fournisseur %s' % str(Frsid))
+                #_logger.warning('fournisseur %s :' % str(Frsid))
                 
                 res_partner = False
                 for sup in suppliers:
-                    if sup['id'] == str(Frsid) :
+                    #_logger.warning('fournisseur dans la liste : %s ' % sup['name'])
+                    #_logger.warning('ID fournisseur dans la liste : %s ' % sup['id'])
+                    if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
                         sname = sup['name']
                 
-                #_logger.warning('fournisseur trouve %s' % sname)
+                #_logger.warning('fournisseur trouve %s :' % sname)
                         
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
                     if sname.startswith(part.x_studio_ref_logikal):
