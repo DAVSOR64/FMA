@@ -4,11 +4,16 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='backorder_id']" position="after">
-                <field name="so_acces_bl"/>
-                <field name="so_type_camion_bl"/>
-                <field name="so_horaire_ouverture_bl"/>
-                <field name="so_horaire_fermeture_bl"/>
+            <!-- Ajouter un nouvel onglet à la fin du notebook -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Info Colisage">
+                    <group>
+                        <field name="so_acces_bl"/>
+                        <field name="so_type_camion_bl"/>
+                        <field name="so_horaire_ouverture_bl" widget="float_time" string="Horaire ouverture"/>
+                        <field name="so_horaire_fermeture_bl" widget="float_time" string="Horaire fermeture"/>
+                    </group>
+                </page>
             </xpath>
         </field>
     </record>

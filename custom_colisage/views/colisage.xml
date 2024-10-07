@@ -1,0 +1,97 @@
+<odoo>
+    <template id="report_colisage_document_report" inherit_id="studio_customization.studio_report_docume_52fcabed-c17a-449c-b19c-fe82b5a1dde3" priority="100">
+        <xpath expr="//div[contains(@class, 'page')]" position="replace">
+            <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif; width: 100%;">
+                <div class="company_info" style="flex: 1;">
+                    <p><strong>Numéro de dossier FMA :</strong> <span t-field="doc.origin" /></p>
+                    <p><strong>Ref. Affaire :</strong> <span t-field="doc.x_studio_many2one_field_Vc214" /></p>
+                    <p><strong>N° Commande Client :</strong> <span t-field="doc.date_done" /></p>
+                    <p><strong>Liste préparée le :</strong> <span t-field="doc.date_done" /></p>
+                    <p><strong>Concerne le BL :</strong> <span t-field="doc.name" /></p>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 40px;"></div>
+
+            <table class="table table-sm" t-if="doc.state!='done'" name="stock_move_table" style="margin-top: 20px; width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Référence</th>
+                        <th>Description</th>
+                        <th>Largeur</th>
+                        <th>Hauteur</th>
+                        <th>Qte Commandé</th>
+                        <th>Qte Livré</th>
+                        <th>Reliquat</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="doc.move_ids_without_package" t-as="line" t-if="not (line.product_id.default_code.startswith('A2') or line.product_id.default_code.startswith('ECO'))">
+                        <td>
+                            <span t-field="line.product_id.default_code" />
+                        </td>
+                        <td>
+                            <span t-esc="line.product_id.name" />
+                        </td>
+                        <td>
+                            <span t-field="line.product_id.x_studio_largeur_mm" />
+                        </td>
+                        <td>
+                            <span t-field="line.product_id.x_studio_hauteur_mm" />
+                        </td>
+                        <td>
+                            <span t-field="line.product_uom_qty" />
+                        </td>
+                        <td>
+                            <span t-field="line.quantity_done" />
+                        </td>
+                        <td>
+                            <t t-set="difference" t-value="line.product_uom_qty - line.quantity_done" />
+                            <span t-esc="difference" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="margin-bottom: 40px;"></div>
+
+            <table class="table table-sm table-bordered" style="margin-top: 20px; width: 100%;">
+                <thead>
+                    <tr>
+                        <th colspan="1" style="text-align: center;">Cartons</th>
+                        <th colspan="2" style="text-align: center;">Botte(s)</th>
+                        <th colspan="4" style="text-align: center;">Palette(s)</th>
+                    </tr>
+                    <tr>
+                        <th style="text-align: center;">Qté</th>
+                        <th style="text-align: center;">Qté</th>
+                        <th style="text-align: center;">Lg</th>
+                        <th style="text-align: center;">Qté</th>
+                        <th style="text-align: center;">Longueur</th>
+                        <th style="text-align: center;">Profondeur</th>
+                        <th style="text-align: center;">Hauteur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="doc.move_ids_without_package" t-as="line">
+                        <tr>
+                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
+                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
+                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
+                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
+                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
+                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
+                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
+                        </tr>
+                    </t>
+                </tbody>
+            </table>
+
+            <div class="total_weight_section" 
+                 style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
+                <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in doc.move_ids_without_package)" />
+                ⚖️ Poids total : <span t-esc="total_weight"/> kg
+            </div>
+        </xpath>
+    </template>
+</odoo>

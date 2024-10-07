@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 {
-    'name': "custom_laquage_report",
+    'name': "custom_colisage",
 
     'summary': """
         Short (1 phrase/line) summary of the module's purpose, used as
@@ -22,11 +22,27 @@
     # always loaded
     'data': [
         # 'security/ir.model.access.csv',
-        'views/bon_laquage.xml,
+        'views/views.xml',
+        'views/templates.xml',
+        'views/colisage.xml',  
     ],
 
     # Section pour inclure les fichiers statiques
     'assets': {
         'web.assets_backend': [
+            'custom_colisage/static/src/img/lieu.png', # Chemin vers l'image à inclure
+            'custom_colisage/static/src/img/camion.png',
+            'custom_colisage/static/src/img/appel-telephonique.png',
+            'custom_colisage/static/src/img/enveloppe.png',
+        ],
     },
+
+    # only loaded in demonstration mode
+    'demo': [
+        'demo/demo.xml',
+    ],
+
+    'installable': True,
+    'application': True,
+    'license': 'LGPL-3',
 }
