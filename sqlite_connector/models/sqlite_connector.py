@@ -551,7 +551,7 @@ class SqliteConnector(models.Model):
                     refart = refart + '.' + couleur
                 ColorLogikal = couleur
                 #_logger.warning("**********saisie manuelle********* %s " % str(SaisieManuelle) )  
-                if str(SaisieManuelle) == 'True' : 
+                if str(SaisieManuelle) == 'True' or SaisieManuelle == 1 : 
                     CptLb = CptLb + 1
                     refart = nom[:3] + ' ' + projet +'_LB' + str(CptLb)
                     fournisseur = 'NONDEF'

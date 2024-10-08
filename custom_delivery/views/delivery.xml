@@ -12,7 +12,7 @@
                     <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="o.company_id.phone" /><br />
                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" />
                 </div>
-
+                
                 <!-- Bloc des informations de livraison avec émoticônes aligné à droite -->
                 <div class="delivery_info" style="flex: 1; text-align: right;">
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
@@ -21,7 +21,7 @@
                         <t t-esc="o.name.replace('OUT', 'BL')"/>
                     </t>
                     <t t-else="">
-                        <t t-esc="o.name"/>
+                        <t t-esc="o.name"/> 
                     </t>
                     <br />
                     <br />
@@ -45,7 +45,7 @@
 
             <!-- Bloc pour les quatre champs personnalisés, organisés en deux colonnes -->
             <div class="custom_info" style="display: flex; justify-content: space-between; margin-top: 20px;">
-                <!-- Colonne de gauche -->
+                <!-- Colonne de gauche --> 
                 <div style="flex: 1; padding-right: 20px;">
                     <p><strong> Accès : </strong><span t-field="o.so_acces_bl" /></p>
                     <p><strong> Type de camion : </strong><span t-field="o.so_type_camion_bl" /></p>
@@ -62,7 +62,7 @@
                 <thead>
                     <tr>
                         <th>Référence</th>
-                        <th>Description</th>
+                        <th>Description</th
                         <th>Largeur</th>
                         <th>Hauteur</th>
                         <th>Qte Commandé</th>
