@@ -8,10 +8,27 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Info Colisage">
                     <group>
-                        <field name="so_acces_bl"/>
-                        <field name="so_type_camion_bl"/>
-                        <field name="so_horaire_ouverture_bl" widget="float_time" string="Horaire ouverture"/>
-                        <field name="so_horaire_fermeture_bl" widget="float_time" string="Horaire fermeture"/>
+                        <!-- Table pour les lignes de colisage -->
+                        <field name="colisage_line_ids">
+                            <tree editable="bottom">
+                                <field name="so_repere"/>
+                                <field name="so_designation"/>
+                                <field name="so_largeur"/>
+                                <field name="so_hauteur"/>
+                                <field name="so_qte_commandee"/>
+                                <field name="so_qte_livree"/>
+                            </tree>
+                            <form>
+                                <group>
+                                    <field name="so_repere"/>
+                                    <field name="so_designation"/>
+                                    <field name="so_largeur"/>
+                                    <field name="so_hauteur"/>
+                                    <field name="so_qte_commandee"/>
+                                    <field name="so_qte_livree"/>
+                                </group>
+                            </form>
+                        </field>
                     </group>
                 </page>
             </xpath>

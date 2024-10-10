@@ -17,42 +17,47 @@ class SaleOrder(models.Model):
     def action_validation(self):
         for order in self:
             order.state = 'validated'
-            order.x_studio_date_de_la_commande = fields.datetime.today()
-            order.so_date_devis_valide = fields.datetime.today()
+            order.x_studio_date_de_la_commande = fields.Datetime.today()
+            order.so_date_devis_valide = fields.Datetime.today()
             
     # Init date BPE lors de la confirmation du devis
     def action_confirm(self):
         for order in self:
-            order.so_date_bpe = fields.datetime.today()
-        return super().action_confirm()
+            order.so_date_bpe = fields.Datetime.today()
+        return super(SaleOrder, self).action_confirm()
     
     # Init date bon pour fab
     def action_confirm(self):
         for order in self:
-            order.so_date_bon_pour_fab = fields.datetime.today()
-        return super().action_confirm()
+            order.so_date_bon_pour_fab = fields.Datetime.today()
+        return super(SaleOrder, self).action_confirm()
 
     # Init date fin de production réel
     def button_mark_done(self):
         for order in self:
             order.so_date_de_fin_de_production_reel = fields.Date.today()
-        return super().button_mark_done()
+        return super(SaleOrder, self).button_mark_done()
         
     # Init date de modification devis
     def action_quotation_send(self):
         for order in self:
             order.so_date_de_modification_devis = fields.Date.today()
-        return super().action_quotation_send()
+        return super(SaleOrder, self).action_quotation_send()
 
-    # Init date du devis
     @api.model
     def create(self, vals):
-        # Si un numéro de devis est attribué, ajouter la date d'aujourd'hui
-        if 'name' in vals and vals.get('name'):
-            vals['so_date_du_devis'] = fields.Date.today()  # Attribuer la date d'aujourd'hui
+        # Ajouter la date d'aujourd'hui au champ so_date_du_devis
+        for order in self:
+            order.so_date_du_devis = fields.Date.today()
+    
+        # Si un partner_id est présent, mettre à jour le mode de règlement
+        if 'partner_id' in vals:
+            partner = self.env['res.partner'].browse(vals['partner_id'])
+            vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
+    
         return super(SaleOrder, self).create(vals)
 
-    # Init date de livraison prévu
+    # Init date de livraison prévue
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
     def _compute_so_date_de_livraison_prevu(self):
         for order in self:
@@ -144,14 +149,6 @@ class SaleOrder(models.Model):
             else:
                 order.so_prc_mcv_reel = 0.0
 
-    # Méthode create : mise à jour du mode de règlement
-    @api.model
-    def create(self, vals):
-        if 'partner_id' in vals:
-            partner = self.env['res.partner'].browse(vals['partner_id'])
-            vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
-        return super(SaleOrder, self).create(vals)
-
     # Méthode write fusionnée
     def write(self, vals):
         _logger.info("Appel de write avec vals: %s", vals)
@@ -178,6 +175,7 @@ class SaleOrder(models.Model):
         fma_tag = self.env['crm.tag'].search([('name', '=', 'FMA')], limit=1)
         f2m_tag = self.env['crm.tag'].search([('name', '=', 'F2M')], limit=1)
         for vals in vals_list:
+            vals['so_date_du_devis'] = fields.Date.today()
             if 'partner_id' in vals:
                 partner = self.env['res.partner'].browse(vals['partner_id'])
                 vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
@@ -195,7 +193,6 @@ class SaleOrder(models.Model):
 
         return super(SaleOrder, self).create(vals_list)
 
-   
     # Mise à jour de l'entrepôt en fonction des tags
     def _update_warehouse(self):
         _logger.info("Début de _update_warehouse pour le devis: %s", self.id)

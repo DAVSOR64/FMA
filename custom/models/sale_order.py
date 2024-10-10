@@ -21,7 +21,7 @@ class SaleOrder(models.Model):
             ('PRELEVEMENT','PRELEVEMENT'),
             ('L.C.R. MAGNETIQUE','L.C.R. MAGNETIQUE'),
             ('BOR','BOR'),
-            ('CARTE BANCAIRE','CARTE BANCAIRE'),
+            ('CARTE BANCAIRE','CARTE BANCAIRE'), 
             ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
         ],
         string="Mode de Règlement",
