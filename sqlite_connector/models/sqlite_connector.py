@@ -514,13 +514,26 @@ class SqliteConnector(models.Model):
             UnitLogikal = row[12]
             UnitLogikal = UnitLogikal.upper()
             LengthLogikal = 0
+            
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[9]
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
+                    RefLogikal = 'T' + RefLogikal
                 #RefLogikal = 'T' + RefLogikal 
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[11][1:]
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
+                    RefLogikal = 'W' + RefLogikal
             if fournisseur == 'SAPA' :
                 refart = refart.replace("RC  ","SAP ")
+                if RefLogikal.startswith("X") :
+                    RefLogikal = RefLogikal
+                else :
+                    RefLogikal = 'S' + RefLogikal
             if fournisseur == 'Jansen' :
                 refart = 'JAN' + ' ' + row[9]
             if fournisseur == 'RP-Technik' :
@@ -844,13 +857,26 @@ class SqliteConnector(models.Model):
                 ColorLogikal = ''
                 UnitLogikal = 'PCE'
                 LengthLogikal = row[15]
+                
                 if fournisseur == 'TECHNAL' :
                     refart = 'TEC' + ' ' + row[12]
+                    if RefLogikal.startswith("X") :
+                        RefLogikal = RefLogikal
+                    else :
+                        RefLogikal = 'T' + RefLogikal
                     #RefLogikal = 'T' + row[12]
                 if fournisseur == 'WICONA' :
                     refart = 'WIC' + ' ' + row[13][1:]
+                    if RefLogikal.startswith("X") :
+                        RefLogikal = RefLogikal
+                    else :
+                        RefLogikal = 'W' + RefLogikal
                 if fournisseur == 'SAPA' :
                     refart = refart.replace("RC  ","SAP ")
+                    if RefLogikal.startswith("X") :
+                        RefLogikal = RefLogikal
+                    else :
+                        RefLogikal = 'S' + RefLogikal
                 if fournisseur == 'Jansen' :
                     refart = 'JAN' + ' ' + row[9]
                 if fournisseur == 'RP-Technik' :
