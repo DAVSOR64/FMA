@@ -97,7 +97,7 @@
             <div class="total_weight_section" 
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
                 <t t-set="total_weight" t-value="sum(line.so_qte_livree * 0 for line in doc.colisage_line_ids)" />
-                ⚖️ Poids total : <span t-esc="total_weight"/> kg
+                ⚖️ Poids total : <span t-field="doc.so_poids_total"/> kg
             </div>
         </xpath>
     </template>

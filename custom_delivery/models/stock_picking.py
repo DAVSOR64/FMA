@@ -32,12 +32,12 @@ class StockPicking(models.Model):
     so_palette_length = fields.Float(string='Longueur (en m)')
     so_palette_depth = fields.Float(string='Profondeur (en m)')
     so_palette_height = fields.Float(string='Hauteur (en m)')
+    so_poids_total = fields.Float(string='Poids (en kg)')
 
     # Ajout du champ one2many pour les lignes de colisage
     colisage_line_ids = fields.One2many(
         'picking.colisage.line', 'picking_id', string="Lignes de Colisage"
     )
-
 
 class PickingColisageLine(models.Model):
     _name = 'picking.colisage.line'
