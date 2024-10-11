@@ -68,6 +68,7 @@ class SqliteConnector(models.Model):
             fournisseur = fournisseur.upper()
             RefLogikal = row[5]
             Length = 0
+            LengthLogikal = row[5]
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
                 if RefLogikal.startswith("X") :
@@ -85,7 +86,10 @@ class SqliteConnector(models.Model):
                 if RefLogikal.startswith("X") :
                     RefLogikal = RefLogikal
                 else :
-                    RefLogikal = 'W' + RefLogikal
+                    if int(LengthLogikal) < 7 :
+                        RefLogikal = 'W' + RefLogikal.zfill(7)
+                    else :
+                        RefLogikal = 'W' + RefLogikal
                 
             couleur = row[6] if row[6] else ''
             if couleur == '' or couleur == 'None':
@@ -115,6 +119,7 @@ class SqliteConnector(models.Model):
             fournisseur = fournisseur.upper()
             RefLogikal = row[5]
             Length = 0
+            LengthLogikal = len(row[5])
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[5]
                 if RefLogikal.startswith("X") :
@@ -135,7 +140,10 @@ class SqliteConnector(models.Model):
                 if RefLogikal.startswith("X") :
                     RefLogikal = RefLogikal
                 else :
-                    RefLogikal = 'W' + RefLogikal
+                    if int(LengthLogikal) < 7 :
+                        RefLogikal = 'W' + RefLogikal.zfill(7)
+                    else :
+                        RefLogikal = 'W' + RefLogikal
                 
             couleurext = row[6] if row[6] else ''
             couleurint = row[7] if row[7] else ''
@@ -514,7 +522,7 @@ class SqliteConnector(models.Model):
             UnitLogikal = row[12]
             UnitLogikal = UnitLogikal.upper()
             LengthLogikal = 0
-            
+            LengthLogi = len(row[9])
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[9]
                 if RefLogikal.startswith("X") :
@@ -528,6 +536,10 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     RefLogikal = 'W' + RefLogikal
+                    if int(LengthLogi) < 7 :
+                        RefLogikal = 'W' + RefLogikal.zfill(7)
+                    else :
+                        RefLogikal = 'W' + RefLogikal
             if fournisseur == 'SAPA' :
                 refart = refart.replace("RC  ","SAP ")
                 if RefLogikal.startswith("X") :
@@ -857,7 +869,7 @@ class SqliteConnector(models.Model):
                 ColorLogikal = ''
                 UnitLogikal = 'PCE'
                 LengthLogikal = row[15]
-                
+                LengthLogi = len(row[12])
                 if fournisseur == 'TECHNAL' :
                     refart = 'TEC' + ' ' + row[12]
                     if RefLogikal.startswith("X") :
@@ -871,6 +883,10 @@ class SqliteConnector(models.Model):
                         RefLogikal = RefLogikal
                     else :
                         RefLogikal = 'W' + RefLogikal
+                        if int(LengthLogi) < 7 :
+                            RefLogikal = 'W' + RefLogikal.zfill(7)
+                        else :
+                            RefLogikal = 'W' + RefLogikal
                 if fournisseur == 'SAPA' :
                     refart = refart.replace("RC  ","SAP ")
                     if RefLogikal.startswith("X") :

@@ -4,7 +4,21 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
-            <!-- Ajouter un nouvel onglet à la fin du notebook -->
+
+            <!-- Ajouter les champs sous le champ sale_id -->
+            <xpath expr="//field[@name='origin']" position="after">
+                <group>
+                    <!-- Utilisation de colspan="1" pour forcer les éléments à gauche -->
+                    <group string="Informations supplémentaires" colspan="1">
+                        <field name="so_acces_bl"/>
+                        <field name="so_type_camion_bl"/>
+                        <field name="so_horaire_ouverture_bl"/>
+                        <field name="so_horaire_fermeture_bl"/>
+                    </group>
+                </group>
+            </xpath>
+
+            <!-- Partie 2 : Ajouter un nouvel onglet pour Info Colisage -->
             <xpath expr="//notebook" position="inside">
                 <page string="Info Colisage">
                     <group>
@@ -34,7 +48,8 @@
                     <!-- Nouvelle section pour Carton(s), Botte(s) et Palette(s) -->
                     <group string="Details Colisage">
                         <group string="Poids">
-                            <field name="so_poids_total"/
+                            <field name="so_poids_total"/>
+                        </group>
                                 
                         <group string="Carton(s)">
                             <field name="so_carton_qty"/>
@@ -55,6 +70,7 @@
 
                 </page>
             </xpath>
+
         </field>
     </record>
 </odoo>
