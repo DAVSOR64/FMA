@@ -34,6 +34,9 @@
                     
                     <label for="so_date_de_livraison_prevu" string="Livraison prévue le :" style="color:orange;"/>
                     <field name="so_date_de_livraison_prevu" nolabel="1"/>
+
+                    <label for="commitment_date" string="Date de livraison :" style="color:orange;"/>
+                    <field name="commitment_date" nolabel="1"/>
                 </group>
                 
                 <!-- Autres groupes -->

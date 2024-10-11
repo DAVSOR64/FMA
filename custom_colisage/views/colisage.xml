@@ -2,7 +2,7 @@
     <template id="report_colisage_document_report" inherit_id="studio_customization.studio_report_docume_52fcabed-c17a-449c-b19c-fe82b5a1dde3" priority="100">
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <div class="header_table" style="display: flex; justify-content: flex-end; font-family: 'DejaVu Sans', sans-serif; width: 100%;">
-                <div class="company_info" style="flex: 1; text-align: right; font-size: 15px;"> <!-- Diminuer la taille de la police -->
+                <div class="company_info" style="flex: 1; text-align: right; font-size: 15px;">
                     <p><strong>Numéro de dossier FMA :</strong> <span t-field="doc.origin" /></p>
                     <p><strong>Ref. Affaire :</strong> <span t-field="doc.x_studio_many2one_field_Vc214" /></p>
                     <p><strong>N° Commande Client :</strong> <span t-field="doc.sale_id.so_commande_client" /></p>
@@ -13,41 +13,43 @@
 
             <div style="margin-bottom: 40px;"></div>
 
+            <!-- Section Table des produits -->
             <table class="table table-sm" t-if="doc.state!='done'" name="stock_move_table" style="margin-top: 20px; width: 100%;">
                 <thead>
                     <tr>
-                        <th>Référence</th>
-                        <th>Description</th>
-                        <th>Largeur</th>
-                        <th>Hauteur</th>
-                        <th>Qte Commandé</th>
-                        <th>Qte Livré</th>
+                        <th>Réf./Repère</th>
+                        <th>Désignation</th>
+                        <th>Largeur (en m)</th>
+                        <th>Hauteur (en m)</th>
+                        <th>Qté Commandée</th>
+                        <th>Qté Livrée</th>
                         <th>Reliquat</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr t-foreach="doc.move_ids_without_package" t-as="line" t-if="not (line.product_id.default_code.startswith('A2') or line.product_id.default_code.startswith('ECO'))">
+                    <!-- Utilisation des lignes de colisage définies dans le champ One2many -->
+                    <tr t-foreach="doc.colisage_line_ids" t-as="line">
                         <td>
-                            <span t-field="line.product_id.default_code" />
+                            <span t-field="line.so_repere" />
                         </td>
                         <td>
-                            <span t-esc="line.product_id.name" />
+                            <span t-field="line.so_designation" />
                         </td>
                         <td>
-                            <span t-field="line.product_id.x_studio_largeur_mm" />
+                            <span t-field="line.so_largeur" />
                         </td>
                         <td>
-                            <span t-field="line.product_id.x_studio_hauteur_mm" />
+                            <span t-field="line.so_hauteur" />
                         </td>
                         <td>
-                            <span t-field="line.product_uom_qty" />
+                            <span t-field="line.so_qte_commandee" />
                         </td>
                         <td>
-                            <span t-field="line.quantity_done" />
+                            <span t-field="line.so_qte_livree" />
                         </td>
+                        <!-- Colonne Reliquat : différence entre Qté Commandée et Qté Livrée -->
                         <td>
-                            <t t-set="difference" t-value="line.product_uom_qty - line.quantity_done" />
-                            <span t-esc="difference" />
+                            <span t-esc="line.so_qte_commandee - line.so_qte_livree" />
                         </td>
                     </tr>
                 </tbody>
@@ -55,6 +57,7 @@
 
             <div style="margin-bottom: 40px;"></div>
 
+            <!-- Nouvelle section Carton(s), Botte(s), et Palette(s) -->
             <table class="table table-sm table-bordered" style="margin-top: 20px; width: 100%;">
                 <thead>
                     <tr>
@@ -65,31 +68,35 @@
                     <tr>
                         <th style="text-align: center;">Qté</th>
                         <th style="text-align: center;">Qté</th>
-                        <th style="text-align: center;">Lg</th>
+                        <th style="text-align: center;">Lg (en m)</th>
                         <th style="text-align: center;">Qté</th>
-                        <th style="text-align: center;">Longueur</th>
-                        <th style="text-align: center;">Profondeur</th>
-                        <th style="text-align: center;">Hauteur</th>
+                        <th style="text-align: center;">Longueur (en m)</th>
+                        <th style="text-align: center;">Profondeur (en m)</th>
+                        <th style="text-align: center;">Hauteur (en m)</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <t t-foreach="doc.move_ids_without_package" t-as="line">
-                        <tr>
-                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
-                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
-                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
-                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
-                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
-                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
-                            <td style="text-align: center;"><span t-field="line.product_uom_qty" /></td>
-                        </tr>
-                    </t>
+                    <tr>
+                        <!-- Cartons -->
+                        <td style="text-align: center;"><span t-field="doc.so_carton_qty" /></td>
+
+                        <!-- Botte(s) -->
+                        <td style="text-align: center;"><span t-field="doc.so_botte_qty" /></td>
+                        <td style="text-align: center;"><span t-field="doc.so_botte_length" /></td>
+
+                        <!-- Palette(s) -->
+                        <td style="text-align: center;"><span t-field="doc.so_palette_qty" /></td>
+                        <td style="text-align: center;"><span t-field="doc.so_palette_length" /></td>
+                        <td style="text-align: center;"><span t-field="doc.so_palette_depth" /></td>
+                        <td style="text-align: center;"><span t-field="doc.so_palette_height" /></td>
+                    </tr>
                 </tbody>
             </table>
 
+            <!-- Section poids total -->
             <div class="total_weight_section" 
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
-                <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in doc.move_ids_without_package)" />
+                <t t-set="total_weight" t-value="sum(line.so_qte_livree * 0 for line in doc.colisage_line_ids)" />
                 ⚖️ Poids total : <span t-esc="total_weight"/> kg
             </div>
         </xpath>

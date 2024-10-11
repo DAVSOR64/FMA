@@ -57,16 +57,23 @@ class SaleOrder(models.Model):
     
         return super(SaleOrder, self).create(vals)
 
-    # Init date de livraison prévue
+   # Calcul de la date de livraison prévue et transfert vers le champ `commitment_date`
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
-    def _compute_so_date_de_livraison_prevu(self):
+    def _compute_commitment_date(self):
         for order in self:
             if order.so_date_bpe and order.so_delai_confirme_en_semaine:
-                # Ajouter le délai confirmé (en semaines) à la date BPE
-                order.so_date_de_livraison_prevu = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+                # Ajouter le délai confirmé (en semaines) à la date BPE et stocker dans `commitment_date`
+                order.commitment_date = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
             else:
-                # S'il manque une des valeurs, on ne fait pas le calcul
-                order.so_date_de_livraison_prevu = False
+                # S'il manque une des valeurs, ne pas effectuer de calcul
+                order.commitment_date = False
+
+    # On définit l'appel de la fonction de calcul sur le champ `commitment_date`
+    commitment_date = fields.Date(
+        string="Date de livraison prévue",
+        compute='_compute_commitment_date',
+        store=True
+    )
 
     # Calcul des marges et coûts pour le devis
     @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')

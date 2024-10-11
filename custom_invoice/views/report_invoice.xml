@@ -346,9 +346,13 @@
                                     <strong>Total HT</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span
-                                        t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" />
-                                    € </td>
+                                    <t t-if=" nb_line_invoice == 0">
+                                        <span t-esc="o.format_amount( acompte_amount_ht)" /> €
+                                    </t>
+                                    <t t-else="">
+                                        <span t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" /> €
+                                    </t>
+                                </td>
                             </tr>
                             <!-- <td colspan="4" class="text-right">
                                         <strong>Total TVA</strong>
@@ -388,20 +392,25 @@
                                     <strong>Total TTC</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span
-                                        t-esc="o.format_amount(o.amount_total - acompte_amount_ttc)" />
-                                    € </td>
+                                    <t t-if="nb_line_invoice == 0 ">
+                                        <span t-esc="o.format_amount(acompte_amount_ttc)" /> €
+                                    </t>
+                                    <t t-else="">
+                                        <span t-esc="o.format_amount(o.amount_total - acompte_amount_ttc)" /> €
+                                    </t>
+                                </td>
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-right">
                                     <strong>Montant de l'acompte reçu </strong>
                                 </td>
                                 <td class="text-right">
-                                    <t t-if="acompte_amount_ttc == 0">
+                                    <t t-if="acompte_amount_ttc == 0 or nb_line_invoice == 0">
                                         0 €
                                     </t>
                                     <t t-else="">
-                                        <span t-esc="o.format_amount(acompte_amount_ttc * -1)" /> € </t>
+                                        <span t-esc="o.format_amount(acompte_amount_ttc * -1)" /> €
+                                    </t>
                                 </td>
                             </tr>
                             <tr>
@@ -409,7 +418,13 @@
                                     <strong>Montant dû TTC</strong>
                                 </td>
                                 <td class="text-right">
-                                    <span t-esc="o.format_amount(o.amount_residual)" /> € </td>
+                                    <t t-if="o.amount_residual &lt; 0">
+                                        <span t-esc="o.format_amount(o.amount_residual * -1)" /> €
+                                    </t>
+                                    <t t-else="">
+                                        <span t-esc="o.format_amount(o.amount_residual)" /> €
+                                    </t>
+                                </td>
                             </tr>
                         </tfoot>
                     </table>
