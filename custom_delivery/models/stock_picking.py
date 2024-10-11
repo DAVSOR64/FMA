@@ -23,6 +23,16 @@ class StockPicking(models.Model):
         string="Type de camion (Hayon palette maxi 2400mm)",
     )
 
+    # Champs détail colisage
+    
+    so_carton_qty = fields.Integer(string='Qté')
+    so_botte_qty = fields.Integer(string='Qté')
+    so_botte_length = fields.Float(string='Longueur (en m)')
+    so_palette_qty = fields.Integer(string='Qté')
+    so_palette_length = fields.Float(string='Longueur (en m)')
+    so_palette_depth = fields.Float(string='Profondeur (en m)')
+    so_palette_height = fields.Float(string='Hauteur (en m)')
+
     # Ajout du champ one2many pour les lignes de colisage
     colisage_line_ids = fields.One2many(
         'picking.colisage.line', 'picking_id', string="Lignes de Colisage"
