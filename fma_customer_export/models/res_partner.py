@@ -136,7 +136,7 @@ class ResPartner(models.Model):
                 (partner.invoice_ids[0].partner_id.city if partner.invoice_ids else partner.city) or '',
                 '1'
             ]
-            content_lines.append('\t'.join(line))
+            content_lines.append(''.join(line))
 
         return '\n'.join(content_lines)
 
