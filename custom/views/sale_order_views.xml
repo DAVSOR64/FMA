@@ -43,8 +43,15 @@
                 <!-- Autres groupes -->
                 <group string="Informations principales">
                     <field name="so_commercial"/>
-                    <field name="so_commande_client"/>
-                    <field name="so_gamme"/>
+                    <field name="so_commande_client" string="N° Commande Client"
+                           attrs="{'required': [('partner_id.name', 'ilike', 'GCC'),
+                                                ('partner_id.name', 'ilike', 'BOLLORE'),
+                                                ('partner_id.name', 'ilike', 'BOUYGUES'),
+                                                ('partner_id.name', 'ilike', 'LEGENDRE')]}"/>
+                    <label for="so_gamme" string="GAMME :" style="color:blue;"/>
+                    <field name="so_gamme" nolabel="1"/>
+                    <label for="so_serie" string="SERIE :" style="color:blue;"/>
+                    <field name="so_serie" nolabel="1"/>
                     <field name="so_statut_avancement_production"/>
                     <field name="so_delai_confirme_en_semaine"/>
                 </group>
