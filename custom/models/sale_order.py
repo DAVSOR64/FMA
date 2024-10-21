@@ -49,14 +49,33 @@ class SaleOrder(models.Model):
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
+
     so_commande_client = fields.Char(string="N° Commande Client")
+
+    @api.constrains('partner_id', 'so_commande_client')
+    def _check_commande_client_required(self):
+        for order in self:
+            # Liste des mots-clés qui nécessitent un N° Commande Client obligatoire
+            required_keywords = ['GCC', 'BOLLORE', 'BOUYGUES', 'LEGENDRE']
+            
+            # Si le nom du client contient un des mots-clés
+            if any(keyword in order.partner_id.name.upper() for keyword in required_keywords):
+                # Et si le champ "N° Commande Client" est vide
+                if not order.so_commande_client:
+                    # Lever une erreur de validation qui empêche l'enregistrement et affiche un message
+                    raise ValidationError("Le champ 'N° Commande Client' est obligatoire pour ce client.")
+
+      
     so_delegation = fields.Boolean(string="Délégation?")
     so_commmentaire_delegation = fields.Char(string="Commentaire Délégation")
     so_date_de_reception = fields.Date(string="Date de réception")
     so_date_de_modification = fields.Date(string="Date de modification")
     so_date_de_commande = fields.Date(string="Date de la commande")
     so_date_bpe = fields.Date(string="BPE du : ")
-    so_date_de_reception_devis = fields.Date(string="Demande reçue le : ")
+    so_date_de_reception_devis = fields.Date(
+    string="Demande reçue le :",
+    required=True 
+)
     so_date_du_devis = fields.Date(string="Devis fait le : ")
     so_date_de_modification_devis = fields.Date(string="Devis modifié le : ")
     so_date_devis_valide = fields.Date(string="Devis validé le : ")
@@ -67,8 +86,153 @@ class SaleOrder(models.Model):
     so_date_de_livraison_prevu = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison_prevu', store=True)
     so_date_de_livraison = fields.Date(string="Livraison prévue le : ")
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
-    so_gamme = fields.Char(string="GAMME")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
+
+    so_gamme = fields.Selection(
+        [
+            ('FORSTER','FORSTER'),
+            ('RP TECHNIK','RP TECHNIK'),
+            ('JANSEN','JANSEN'),
+            ('MIXTE','MIXTE'),
+            ('REYNAERS','REYNAERS'),
+            ('SAPA','SAPA'),
+            ('SCHUCO','SCHUCO'),
+            ('SEPALUMIC','SEPALUMIC'),
+            ('TECHNAL','TECHNAL'), 
+            ('WICONA','WICONA'),
+        ],
+        string="GAMME",
+        required=True
+    )
+
+    so_serie = fields.Selection(
+        [
+            ('UNICO XS', 'UNICO XS'),
+            ('UNICO', 'UNICO'),
+            ('PRESTO', 'PRESTO'),
+            ('FUEGO LIGHT', 'FUEGO LIGHT'),
+            ('THERMFIX', 'THERMFIX'),
+            ('MIXTE', 'MIXTE'),
+            ('INELINE', 'INELINE'),
+            ('HERMETIC 55', 'HERMETIC 55'),
+            ('HERMETIC 70', 'HERMETIC 70'),
+            ('HERMETIC 75', 'HERMETIC 75'),
+            ('FINELINE 70', 'FINELINE 70'),
+            ('ISOFINE 45', 'ISOFINE 45'),
+            ('ISO HERMETIC 60N', 'ISO HERMETIC 60N'),
+            ('MULTITOP', 'MULTITOP'),
+            ('MIXTE', 'MIXTE'),
+            ('JANISOL', 'JANISOL'),
+            ('ECO 50', 'ECO 50'),
+            ('ECO 60', 'ECO 60'),
+            ('ARTE 2.0', 'ARTE 2.0'),
+            ('JANISOL 2', 'JANISOL 2'),
+            ('C4', 'C4'),
+            ('JANISOL HI', 'JANISOL HI'),
+            ('ART 15', 'ART 15'),
+            ('VISS FACADE / VERRIERE', 'VISS FACADE / VERRIERE'),
+            ('MIXTE', 'MIXTE'),
+            ('CD45Pa', 'CD45Pa'),
+            ('CD68', 'CD68'),
+            ('CF77', 'CF77'),
+            ('CP130', 'CP130'),
+            ('CP45', 'CP45'),
+            ('CP68', 'CP68'),
+            ('CS45Pa', 'CS45Pa'),
+            ('CS77-BP', 'CS77-BP'),
+            ('CW50', 'CW50'),
+            ('CW50-FP', 'CW50-FP'),
+            ('CW60', 'CW60'),
+            ('CW86', 'CW86'),
+            ('Hifinity', 'Hifinity'),
+            ('IL68', 'IL68'),
+            ('IP68', 'IP68'),
+            ('ML 8 & 8-HV', 'ML 8 & 8-HV'),
+            ('ML10', 'ML10'),
+            ('MP', 'MP'),
+            ('SL38', 'SL38'),
+            ('SP68', 'SP68'),
+            ('A92BR', 'A92BR'),
+            ('E52', 'E52'),
+            ('MIXTE', 'MIXTE'),
+            ('P70 CL', 'P70 CL'),
+            ('P70 FP', 'P70 FP'),
+            ('P70 GTi & GTi+', 'P70 GTi & GTi+'),
+            ('P70 OC', 'P70 OC'),
+            ('ADS50.Ni', 'ADS50.Ni'),
+            ('ADS60', 'ADS60'),
+            ('ADS60.CH & CH.HD', 'ADS60.CH & CH.HD'),
+            ('ADS65.NI.FR30', 'ADS65.NI.FR30'),
+            ('ADS75.HD.Hi', 'ADS75.HD.Hi'),
+            ('ADS80.FR30', 'ADS80.FR30'),
+            ('ADS80.FR60', 'ADS80.FR60'),
+            ('ADS90.BR', 'ADS90.BR'),
+            ('ASS39.SC', 'ASS39.SC'),
+            ('ASS41.SC', 'ASS41.SC'),
+            ('ASS50 & 50Ni', 'ASS50 & 50Ni'),
+            ('ASS70.FD', 'ASS70.FD'),
+            ('AWS60 & 60.BD', 'AWS60 & 60.BD'),
+            ('AWS60.FR30', 'AWS60.FR30'),
+            ('AWS75', 'AWS75'),
+            ('AWS90.BR', 'AWS90.BR'),
+            ('FW50+ BF', 'FW50+ BF'),
+            ('FWS50', 'FWS50'),
+            ('MIXTE', 'MIXTE'),
+            ('SFC85', 'SFC85'),
+            ('3700', '3700'),
+            ('MIXTE', 'MIXTE'),
+            ('AMBIAL PW', 'AMBIAL PW'),
+            ('GYPSE BY', 'GYPSE BY'),
+            ('JADE SX', 'JADE SX'),
+            ('LUMEAL GA', 'LUMEAL GA'),
+            ('MIXTE', 'MIXTE'),
+            ('MX GEODE 62', 'MX GEODE 62'),
+            ('SOLEAL 55 - CINTRE', 'SOLEAL 55 - CINTRE'),
+            ('SOLEAL 65 - CINTRE', 'SOLEAL 65 - CINTRE'),
+            ('SOLEAL 65.PF', 'SOLEAL 65.PF'),
+            ('SOLEAL FY/PY65', 'SOLEAL FY/PY65'),
+            ('SOLEAL FY55', 'SOLEAL FY55'),
+            ('SOLEAL FY65', 'SOLEAL FY65'),
+            ('SOLEAL FYn/PYn55', 'SOLEAL FYn/PYn55'),
+            ('SOLEAL FYn55', 'SOLEAL FYn55'),
+            ('SOLEAL GY65', 'SOLEAL GY65'),
+            ('SOLEAL GYn55', 'SOLEAL GYn55'),
+            ('SOLEAL Next 65 Fenêtre', 'SOLEAL Next 65 Fenêtre'),
+            ('SOLEAL Next 65 Porte', 'SOLEAL Next 65 Porte'),
+            ('SOLEAL Next 75 Fenêtre', 'SOLEAL Next 75 Fenêtre'),
+            ('SOLEAL Next 75 Porte', 'SOLEAL Next 75 Porte'),
+            ('SOLEAL PY55', 'SOLEAL PY55'),
+            ('SOLEAL PY65', 'SOLEAL PY65'),
+            ('SOLEAL PYn 55', 'SOLEAL PYn 55'),
+            ('SPINAL MY 62', 'SPINAL MY 62'),
+            ('TITANE PH65', 'TITANE PH65'),
+            ('TOPAZE', 'TOPAZE'),
+            ('TOURMALINE SD', 'TOURMALINE SD'),
+            ('MECANO 52', 'MECANO 52'),
+            ('MIXTE', 'MIXTE'),
+            ('WL/WS65 EVO.FB4', 'WL/WS65 EVO.FB4'),
+            ('WL/WS65.EVO', 'WL/WS65.EVO'),
+            ('WL/WS75', 'WL/WS75'),
+            ('WL/WS75 EVO.FB4', 'WL/WS75 EVO.FB4'),
+            ('WL65', 'WL65'),
+            ('WL65.EVO', 'WL65.EVO'),
+            ('WL65.FP', 'WL65.FP'),
+            ('WL75.FP', 'WL75.FP'),
+            ('WLS65.EVO', 'WLS65.EVO'),
+            ('WS65.EVO', 'WS65.EVO'),
+            ('WS65.FP', 'WS65.FP'),
+            ('WS77.FP', 'WS77.FP'),
+            ('WSL160', 'WSL160'),
+            ('WSL65', 'WSL65'),
+            ('WT50 - MR', 'WT50 - MR'),
+            ('WT50 - VERRIERE', 'WT50 - VERRIERE'),
+            ('WT50.RC3', 'WT50.RC3'),
+        ],
+        string="SERIE",
+        required=True
+    )
+
+
 
     #Onglet Analyse Financière
     so_achat_matiere_devis = fields.Monetary(string="Achat Matière (Devis)")
@@ -97,6 +261,7 @@ class SaleOrder(models.Model):
     so_prc_marge_brute_reel = fields.Float(string="Marge Brute en % (Réel)",compute='_compute_so_prc_marge_brute_reel',store=True)
     so_mcv_reel = fields.Monetary(string="M.C.V. en € (Réel)",compute='_compute_so_mcv_reel',store=True)
     so_prc_mcv_reel = fields.Float(string="M.C.V. en (Réel)",compute='_compute_so_prc_mcv_reel',store=True)
+
     
     def _prepare_invoice(self):
         invoice_vals = super(SaleOrder, self)._prepare_invoice()
