@@ -102,7 +102,6 @@ class SaleOrder(models.Model):
             ('WICONA','WICONA'),
         ],
         string="GAMME",
-        required=True
     )
 
     so_serie = fields.Selection(
@@ -229,7 +228,6 @@ class SaleOrder(models.Model):
             ('WT50.RC3', 'WT50.RC3'),
         ],
         string="SERIE",
-        required=True
     )
 
 
