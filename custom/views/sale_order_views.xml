@@ -19,7 +19,7 @@
                     
                     <label for="so_date_devis_valide" string="Devis validé le :" style="color:blue;"/>
                     <field name="so_date_devis_valide" nolabel="1"/>
-                    
+
                     <label for="so_date_ARC" string="ARC du :" style="color:green;"/>
                     <field name="so_date_ARC" nolabel="1"/>
                     
