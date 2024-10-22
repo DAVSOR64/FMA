@@ -96,9 +96,8 @@
                             <span t-field="line.quantity_done" />
                         </td>
                         <td>
-                            <!-- Différence (Quantité prévue - Quantité livrée) -->
-                            <t t-set="difference" t-value="line.product_uom_qty - line.quantity_done" />
-                            <span t-esc="difference" />
+                            <span t-field="line.reliquat_qty" />
+
                         </td>
                     </tr>
                 </tbody>
