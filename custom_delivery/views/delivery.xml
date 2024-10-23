@@ -71,7 +71,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Boucle à travers les lignes de mouvement de stock -->   <!-- t-if Enlève les lignes commençant par A2 (lignes comprenant la nomenclature) -->
+                    <!-- Boucle à travers les lignes de mouvement de stock -->   
                     <tr t-foreach="o.move_ids_without_package" t-as="line" t-if="not (line.product_id.default_code.startswith('A2') or line.product_id.default_code.startswith('ECO'))">
                         <td>
                             <!-- Référence du produit -->
@@ -89,16 +89,18 @@
                             <span t-field="line.product_id.x_studio_hauteur_mm" />
                         </td>
                         <td>
-                            <!-- Quantité -->
-                            <span t-field="line.product_uom_qty" />
+                            <!-- Quantité commandée -->
+                            <span t-field="line.sale_line_id.product_uom_qty" />
                         </td>
                         <td>
-                            <span t-field="line.quantity_done" />
+                            <!-- Quantité livrée à partir de la ligne de commande (via sale_line_id) -->
+                            <span t-field="line.sale_line_id.qty_delivered" />
                         </td>
                         <td>
-                            <span t-field="line.reliquat_qty" />
-
-                        </td>
+                            <!-- Différence (Quantité commandée - Quantité livrée) -->
+                            <t t-set="difference" t-value="line.sale_line_id.product_uom_qty - line.sale_line_id.qty_delivered" />
+                            <span t-esc="difference" />
+                        </td>    
                     </tr>
                 </tbody>
             </table>

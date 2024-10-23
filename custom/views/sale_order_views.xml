@@ -90,6 +90,13 @@
                     </group>
                 </page>
             </xpath>
+
+            <!-- Modification des champs demandés avec titres en bleu 
+
+             <xpath expr="//field[@name='tag_ids']" position="attributes">
+                <label for="tag_ids" string="Etiquette" style="color:blue;"/>
+                <field name="tag_ids" nolabel="1"/>
+            </xpath>-->
         </field>
     </record>
 </odoo>
