@@ -90,6 +90,9 @@ class SqliteConnector(models.Model):
                         RefLogikal = 'W' + RefLogikal.zfill(7)
                     else :
                         RefLogikal = 'W' + RefLogikal
+            if fournisseur == 'JANSEN' :
+                refart = 'JAN' + ' ' + row[5]
+            refart = refart.replace("RYN","REY")
                 
             couleur = row[6] if row[6] else ''
             if couleur == '' or couleur == 'None':
@@ -144,6 +147,9 @@ class SqliteConnector(models.Model):
                         RefLogikal = 'W' + RefLogikal.zfill(7)
                     else :
                         RefLogikal = 'W' + RefLogikal
+            if fournisseur == 'JANSEN' :
+                refart = 'JAN' + ' ' + row[5]
+            refart = refart.replace("RYN","REY")
                 
             couleurext = row[6] if row[6] else ''
             couleurint = row[7] if row[7] else ''

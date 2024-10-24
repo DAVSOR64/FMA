@@ -24,13 +24,22 @@ class SaleOrder(models.Model):
     def action_confirm(self):
         for order in self:
             order.so_date_bpe = fields.Datetime.today()
+            order.so_date_bon_pour_fab = fields.Datetime.today()  # Ajout de la deuxième initialisation de date
         return super(SaleOrder, self).action_confirm()
     
-    # Init date bon pour fab
-    def action_confirm(self):
+    # Champ booléen pour désactiver le bouton de confirmation
+    disable_confirm_button = fields.Boolean(string="Désactiver le bouton de confirmation", compute='_compute_disable_confirm_button')
+    
+    @api.depends('partner_id', 'so_commande_client')
+    def _compute_disable_confirm_button(self):
+        # Liste des partner_id pour lesquels le champ so_commande_client est obligatoire
+        special_partner_ids = [49473, 49472, 49471, 49756, 50997, 49918, 49919, 49920, 50758, 49750, 49450]  # Remplacez par les ID réels des clients
         for order in self:
-            order.so_date_bon_pour_fab = fields.Datetime.today()
-        return super(SaleOrder, self).action_confirm()
+            # Désactiver le bouton si le partner_id est dans la liste et que le champ so_commande_client est vide
+            if order.partner_id.id in special_partner_ids and not order.so_commande_client:
+                order.disable_confirm_button = True
+            else:
+                order.disable_confirm_button = False
 
     # Init date fin de production réel
     def button_mark_done(self):
@@ -44,18 +53,75 @@ class SaleOrder(models.Model):
             order.so_date_de_modification_devis = fields.Date.today()
         return super(SaleOrder, self).action_quotation_send()
 
-    @api.model
-    def create(self, vals):
-        # Ajouter la date d'aujourd'hui au champ so_date_du_devis
-        for order in self:
-            order.so_date_du_devis = fields.Date.today()
-    
-        # Si un partner_id est présent, mettre à jour le mode de règlement
+    # Méthode create : mise à jour du mode de règlement et de la date de modification du devis
+    @api.model_create_multi
+    def create(self, vals_list):
+        fma_tag = self.env['crm.tag'].search([('name', '=', 'FMA')], limit=1)
+        f2m_tag = self.env['crm.tag'].search([('name', '=', 'F2M')], limit=1)
+        
+        for vals in vals_list:
+            # Si la date du devis est définie, la copier dans la date de modification du devis
+            if 'so_date_du_devis' in vals:
+                vals['so_date_de_modification_devis'] = vals['so_date_du_devis']
+
+            # Si un partner_id est présent, mettre à jour le mode de règlement
+            if 'partner_id' in vals:
+                partner = self.env['res.partner'].browse(vals['partner_id'])
+                vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
+
+            # Mise à jour de l'entrepôt en fonction des tags
+            if 'tag_ids' in vals:
+                tag_updates = vals.get('tag_ids', [])
+                if tag_updates and fma_tag.id in tag_updates[0][2]:
+                    warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+                    if warehouse_regripiere:
+                        vals['warehouse_id'] = warehouse_regripiere.id
+                if tag_updates and f2m_tag.id in tag_updates[0][2]:
+                    warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+                    if warehouse_remaudiere:
+                        vals['warehouse_id'] = warehouse_remaudiere.id
+
+        return super(SaleOrder, self).create(vals_list)
+
+    # Méthode write : mise à jour du mode de règlement et de la date de modification du devis
+    def write(self, vals):
+        _logger.info("Appel de write avec vals: %s", vals)
+
+        # Si la date du devis est modifiée, copier la même valeur dans la date de modification du devis
+        if 'so_date_du_devis' in vals:
+            vals['so_date_de_modification_devis'] = vals['so_date_du_devis']
+        
+        # Si partner_id est modifié, mettre à jour le champ x_studio_mode_de_rglement_1
         if 'partner_id' in vals:
             partner = self.env['res.partner'].browse(vals['partner_id'])
             vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
-    
-        return super(SaleOrder, self).create(vals)
+
+        # Appel de la méthode write parente
+        res = super(SaleOrder, self).write(vals)
+        _logger.info("Devis mis à jour: %s", self.id)
+        
+        # Mise à jour de l'entrepôt si les tags sont modifiés
+        if 'tag_ids' in vals:
+            _logger.info("Appel de _update_warehouse après mise à jour")
+            self._update_warehouse()
+        
+        return res
+
+    # Mise à jour de l'entrepôt en fonction des tags
+    def _update_warehouse(self):
+        _logger.info("Début de _update_warehouse pour le devis: %s", self.id)
+        fma_tag = self.env['crm.tag'].search([('name', '=', 'FMA')], limit=1)
+        f2m_tag = self.env['crm.tag'].search([('name', '=', 'F2M')], limit=1)
+        for order in self:
+            _logger.info("Tags actuels: %s", order.tag_ids)
+            if fma_tag in order.tag_ids:
+                warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+                if warehouse_regripiere:
+                    order.warehouse_id = warehouse_regripiere.id
+            else:
+                warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+                if warehouse_remaudiere:
+                    order.warehouse_id = warehouse_remaudiere.id
 
     # Init date de livraison prévue
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
@@ -68,7 +134,6 @@ class SaleOrder(models.Model):
                 # S'il manque une des valeurs, on ne fait pas le calcul
                 order.so_date_de_livraison_prevu = False
                 
-
     # Calcul des marges et coûts pour le devis
     @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
     def _compute_so_marge_brute_devis(self):
@@ -149,63 +214,3 @@ class SaleOrder(models.Model):
                 order.so_prc_mcv_reel = (order.so_mcv_reel / order.so_mtt_facturer_reel) * 100
             else:
                 order.so_prc_mcv_reel = 0.0
-
-    # Méthode write fusionnée
-    def write(self, vals):
-        _logger.info("Appel de write avec vals: %s", vals)
-        
-        # Si partner_id est modifié, mettre à jour le champ x_studio_mode_de_rglement_1
-        if 'partner_id' in vals:
-            partner = self.env['res.partner'].browse(vals['partner_id'])
-            vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
-
-        # Appel de la méthode write parente
-        res = super(SaleOrder, self).write(vals)
-        _logger.info("Devis mis à jour: %s", self.id)
-        
-        # Mise à jour de l'entrepôt si les tags sont modifiés
-        if 'tag_ids' in vals:
-            _logger.info("Appel de _update_warehouse après mise à jour")
-            self._update_warehouse()
-        
-        return res
-
-    # Méthode create : mise à jour du mode de règlement
-    @api.model_create_multi
-    def create(self, vals_list):
-        fma_tag = self.env['crm.tag'].search([('name', '=', 'FMA')], limit=1)
-        f2m_tag = self.env['crm.tag'].search([('name', '=', 'F2M')], limit=1)
-        for vals in vals_list:
-            vals['so_date_du_devis'] = fields.Date.today()
-            if 'partner_id' in vals:
-                partner = self.env['res.partner'].browse(vals['partner_id'])
-                vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
-
-            if 'tag_ids' in vals:
-                tag_updates = vals.get('tag_ids', [])
-                if tag_updates and fma_tag.id in tag_updates[0][2]:
-                    warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
-                    if warehouse_regripiere:
-                        vals['warehouse_id'] = warehouse_regripiere.id
-                if tag_updates and f2m_tag.id in tag_updates[0][2]:
-                    warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
-                    if warehouse_remaudiere:
-                        vals['warehouse_id'] = warehouse_remaudiere.id
-
-        return super(SaleOrder, self).create(vals_list)
-
-    # Mise à jour de l'entrepôt en fonction des tags
-    def _update_warehouse(self):
-        _logger.info("Début de _update_warehouse pour le devis: %s", self.id)
-        fma_tag = self.env['crm.tag'].search([('name', '=', 'FMA')], limit=1)
-        f2m_tag = self.env['crm.tag'].search([('name', '=', 'F2M')], limit=1)
-        for order in self:
-            _logger.info("Tags actuels: %s", order.tag_ids)
-            if fma_tag in order.tag_ids:
-                warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
-                if warehouse_regripiere:
-                    order.warehouse_id = warehouse_regripiere.id
-            else:
-                warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
-                if warehouse_remaudiere:
-                    order.warehouse_id = warehouse_remaudiere.id

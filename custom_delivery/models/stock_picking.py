@@ -1,14 +1,33 @@
+import logging
 from odoo import models, fields, api
+
+_logger = logging.getLogger(__name__)
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
+    def __init__(self, pool, cr):
+        super(StockPicking, self).__init__(pool, cr)
+        _logger.warning("Le modèle StockPicking est chargé avec succès")
+
     # Champ sale_id (s'il n'existe pas déjà)
     sale_id = fields.Many2one('sale.order', string="Commande de Vente", help="Référence à la commande de vente associée")
-
+    
     so_acces_bl = fields.Char(string="Accès")
     so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture', widget='float_time')
     so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture', widget='float_time')
+
+
+    # Forcer le recalcul après la modification des mouvements
+    def write(self, vals):
+        res = super(StockPicking, self).write(vals)
+        if 'move_ids_without_package' in vals:  # Si les mouvements sont modifiés
+            self._compute_reliquat_qty()  # Recalcul du reliquat
+        if 'scheduled_date' in vals:  # Mise à jour de la date de livraison si modifiée
+            for picking in self:
+                if picking.sale_id:
+                    picking.sale_id.so_date_de_livraison = picking.scheduled_date
+        return res
 
     so_type_camion_bl = fields.Selection(
         [
@@ -24,7 +43,6 @@ class StockPicking(models.Model):
     )
 
     # Champs détail colisage
-    
     so_carton_qty = fields.Integer(string='Qté')
     so_botte_qty = fields.Integer(string='Qté')
     so_botte_length = fields.Float(string='Longueur (en m)')
@@ -68,6 +86,7 @@ class PickingColisageLine(models.Model):
 
     def write(self, vals):
         """Permet de suivre les modifications dans le fil de discussion Odoo"""
+        _logger.warning("**********fonction write appelée dans PickingColisageLine *********")  # Log d'avertissement
         res = super(PickingColisageLine, self).write(vals)
         message = "Ligne de colisage mise à jour."
         self.picking_id.message_post(body=message)

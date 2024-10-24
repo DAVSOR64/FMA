@@ -26,6 +26,7 @@ class SaleOrder(models.Model):
         ],
         string="Mode de Règlement",
     )
+        
     so_type_camion = fields.Selection(
         [
             ('Semi-remorque (base)','Semi-remorque (base)'),
@@ -52,18 +53,18 @@ class SaleOrder(models.Model):
 
     so_commande_client = fields.Char(string="N° Commande Client")
 
-    @api.constrains('partner_id', 'so_commande_client')
-    def _check_commande_client_required(self):
-        for order in self:
+    #@api.constrains('partner_id', 'so_commande_client')
+    #def _check_commande_client_required(self):
+        #for order in self:
             # Liste des mots-clés qui nécessitent un N° Commande Client obligatoire
-            required_keywords = ['GCC', 'BOLLORE', 'BOUYGUES', 'LEGENDRE']
+            #required_keywords = ['GCC', 'BOLLORE', 'BOUYGUES', 'LEGENDRE']
             
             # Si le nom du client contient un des mots-clés
-            if any(keyword in order.partner_id.name.upper() for keyword in required_keywords):
+            #if any(keyword in order.partner_id.name.upper() for keyword in required_keywords):
                 # Et si le champ "N° Commande Client" est vide
-                if not order.so_commande_client:
+                #if not order.so_commande_client:
                     # Lever une erreur de validation qui empêche l'enregistrement et affiche un message
-                    raise ValidationError("Le champ 'N° Commande Client' est obligatoire pour ce client.")
+                    #raise ValidationError("Le champ 'N° Commande Client' est obligatoire pour ce client.")
 
       
     so_delegation = fields.Boolean(string="Délégation?")
@@ -126,6 +127,7 @@ class SaleOrder(models.Model):
             ('JANISOL 2', 'JANISOL 2'),
             ('C4', 'C4'),
             ('JANISOL HI', 'JANISOL HI'),
+            ('SOLEAL GY 55', 'SOLEAL GY 55'),
             ('ART 15', 'ART 15'),
             ('VISS FACADE / VERRIERE', 'VISS FACADE / VERRIERE'),
             ('MIXTE', 'MIXTE'),
