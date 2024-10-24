@@ -66,7 +66,7 @@ class SaleOrder(models.Model):
                     # Lever une erreur de validation qui empêche l'enregistrement et affiche un message
                     #raise ValidationError("Le champ 'N° Commande Client' est obligatoire pour ce client.")
 
-      
+    
     so_delegation = fields.Boolean(string="Délégation?")
     so_commmentaire_delegation = fields.Char(string="Commentaire Délégation")
     so_date_de_reception = fields.Date(string="Date de réception")

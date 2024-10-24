@@ -90,8 +90,8 @@ class SqliteConnector(models.Model):
                         RefLogikal = 'W' + RefLogikal.zfill(7)
                     else :
                         RefLogikal = 'W' + RefLogikal
-            if fournisseur == 'JANSEN' :
-                refart = 'JAN' + ' ' + row[5]
+            if fournisseur == 'JANSEN' or fournisseur == 'Jansen':
+                refart = 'JAN' + ' ' + row[8]
             refart = refart.replace("RYN","REY")
                 
             couleur = row[6] if row[6] else ''
@@ -147,8 +147,8 @@ class SqliteConnector(models.Model):
                         RefLogikal = 'W' + RefLogikal.zfill(7)
                     else :
                         RefLogikal = 'W' + RefLogikal
-            if fournisseur == 'JANSEN' :
-                refart = 'JAN' + ' ' + row[5]
+            if fournisseur == 'JANSEN' or fournisseur == 'Jansen' :
+                refart = 'JAN' + ' ' + row[2]
             refart = refart.replace("RYN","REY")
                 
             couleurext = row[6] if row[6] else ''
@@ -552,8 +552,8 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     RefLogikal = 'S' + RefLogikal
-            if fournisseur == 'Jansen' :
-                refart = 'JAN' + ' ' + row[9]
+            if fournisseur == 'Jansen' or fournisseur == 'Jansen' :
+                refart = 'JAN' + ' ' + row[11]
             if fournisseur == 'RP-Technik' :
                 refart = 'RP' + ' ' + row[9]
             if fournisseur == 'Forster' :
@@ -899,8 +899,8 @@ class SqliteConnector(models.Model):
                         RefLogikal = RefLogikal
                     else :
                         RefLogikal = 'S' + RefLogikal
-                if fournisseur == 'Jansen' :
-                    refart = 'JAN' + ' ' + row[9]
+                if fournisseur == 'Jansen' or fournisseur == 'JANSEN':
+                    refart = 'JAN' + ' ' + row[13]
                 if fournisseur == 'RP-Technik' :
                     refart = 'RP' + ' ' + row[9]
                 if fournisseur == 'Forster' :
