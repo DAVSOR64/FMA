@@ -7,7 +7,7 @@
         Ce module ajoute un rapport PDF personnalisé pour les commandes d'achat.
     """,
     'author': "My Company",
-    'version': '0.1',
+    'version': '17.0.1',
 
     # any module necessary for this one to work correctly
     'depends': ['base', 'stock', 'purchase'],  # Ajout de 'purchase' comme dépendance
