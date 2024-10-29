@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Custom Field Transfer',
-    'version': '1.0',
+    'version': '17.0.1',
     'summary': 'Created and Transfer custom field from contact and sale order to invoice',
     'author': 'Your Name',
     'depends': ['base','sale', 'account','contacts', 'sale_stock'],
