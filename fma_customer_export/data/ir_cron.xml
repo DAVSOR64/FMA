@@ -12,12 +12,12 @@
             <field name="numbercall">-1</field>
         </record>
 
-        <record id="ir_cron_export_customer_files_to_ftp_server" model="ir.cron">
-            <field name="name">Send Customer Files to FTP server</field>
+        <record id="ir_cron_export_customer_files_to_sftp_server" model="ir.cron">
+            <field name="name">Send Customer Files to SFTP server</field>
             <field name="model_id" ref="model_res_partner"/>
             <field name="type">ir.actions.server</field>
             <field name="state">code</field>
-            <field name="code">model.cron_send_customers_file_to_ftp_server()</field>
+            <field name="code">model.cron_send_customers_file_to_sftp_server()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
             <field name="numbercall">-1</field>

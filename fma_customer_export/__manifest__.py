@@ -7,7 +7,7 @@
         """
             The purpose of this module is to generate a .txt file containing customer details.
             Crons are also introduced to generate a new file for new customers per day and
-            move such TXT files to FTP server.
+            move such TXT files to SFTP server.
             Task: 4061463
         """,
     'author': 'Odoo PS',

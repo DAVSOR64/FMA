@@ -2,9 +2,9 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
-import ftplib
 import io
 import logging
+import paramiko
 from odoo import _, fields, models
 
 _logger = logging.getLogger(__name__)
@@ -136,7 +136,7 @@ class ResPartner(models.Model):
                 (partner.invoice_ids[0].partner_id.city if partner.invoice_ids else partner.city) or '',
                 '1'
             ]
-            content_lines.append('\t'.join(line))
+            content_lines.append(''.join(line))
 
         return '\n'.join(content_lines)
 
@@ -172,39 +172,53 @@ class ResPartner(models.Model):
         except Exception as e:
             _logger.exception("Failed to create customer file for %s: %s", self.name, e)
 
-    def cron_send_customers_file_to_ftp_server(self):
-        """Sync the unsynced customer files to FTP server."""
+    def cron_send_customers_file_to_sftp_server(self):
+        """Sync the unsynced customer files to SFTP server."""
         attachments = self.env['ir.attachment'].search([
             ('res_model', '=', 'ir.attachment'),
             ('is_customer_txt', '=', True),
-            ('is_synced_to_ftp', '=', False)
+            ('is_synced_to_sftp', '=', False)
         ])
+
+        # Fetch the SFTP credentials
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+        sftp_server_host = get_param('fma_customer_export.sftp_server_host')
+        sftp_server_username = get_param('fma_customer_export.sftp_server_username')
+        sftp_server_password = get_param('fma_customer_export.sftp_server_password')
+        sftp_server_file_path = get_param('fma_customer_export.sftp_server_file_path')
+        if not all([sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path]):
+            _logger.error("Missing one or more SFTP server credentials.")
+            return
 
         for attachment in attachments:
             try:
                 with self.env.cr.savepoint():
-                    self._sync_file(attachment)
-                    attachment.is_synced_to_ftp = True
+                    self._sync_file(attachment, sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path)
+                    attachment.is_synced_to_sftp = True
             except Exception as e:
-                _logger.error(f"Failed to sync customer file {attachment.name}.txt to FTP server: {e}")
+                _logger.error(f"Failed to sync customer file {attachment.name}.txt to SFTP server: {e}")
 
-    def _sync_file(self, attachment):
-        get_param = self.env['ir.config_parameter'].sudo().get_param
-        ftp_server_host = get_param('fma_customer_export.ftp_server_host')
-        ftp_server_username = get_param('fma_customer_export.ftp_server_username')
-        ftp_server_password = get_param('fma_customer_export.ftp_server_password')
-        ftp_server_file_path = get_param('fma_customer_export.ftp_server_file_path')
-        if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
-            _logger.error("Missing one or more FTP server credentials.")
-            return
-
+    def _sync_file(self, attachment, sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path):
+        """Upload the customers file to the SFTP server."""
         attachment_content = base64.b64decode(attachment.datas)
-        with ftplib.FTP(ftp_server_host, ftp_server_username, ftp_server_password) as session:
-            try:
-                session.cwd(ftp_server_file_path)
-                session.storbinary('STOR ' + attachment.name, io.BytesIO(attachment_content))
+        try:
+            # Create an SFTP connection
+            transport = paramiko.Transport((sftp_server_host, 22))
+            transport.connect(username=sftp_server_username, password=sftp_server_password)
+            sftp = paramiko.SFTPClient.from_transport(transport)
+            sftp.chdir(sftp_server_file_path)
 
-            except ftplib.all_errors as ftp_error:
-                _logger.error("FTP error while uploading file %s: %s", attachment.name, ftp_error)
-            except Exception as upload_error:
-                _logger.error("Unexpected error while uploading file %s: %s", attachment.name, upload_error)
+            # Upload the file
+            with io.BytesIO(attachment_content) as file_obj:
+                sftp.putfo(file_obj, attachment.name)
+            _logger.info("File %s uploaded successfully to SFTP server.", attachment.name)
+
+        except paramiko.SSHException as sftp_error:
+            _logger.error("SFTP error while uploading file %s: %s", attachment.name, sftp_error)
+        except Exception as upload_error:
+            _logger.error("Unexpected error while uploading file %s: %s", attachment.name, upload_error)
+        finally:
+            if 'sftp' in locals():
+                sftp.close()
+            if 'transport' in locals():
+                transport.close()
