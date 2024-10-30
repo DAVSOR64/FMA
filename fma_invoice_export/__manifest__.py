@@ -10,7 +10,7 @@
             Task: 4022500
         """,
     'author': 'Odoo PS',
-    'version': '17.0.2',
+    'version': '17.0.2.0',
     'depends': [
         'account_accountant',
         'sale_management'

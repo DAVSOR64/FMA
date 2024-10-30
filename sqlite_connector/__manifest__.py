@@ -4,7 +4,7 @@
     'author': 'Odoo PS',
     'sequence': 358,
     'summary': '',
-    'version': '17.0.2',
+    'version': '17.0.2.0',
     'description': """
         
     """,

@@ -11,7 +11,7 @@
             Task: 4101724
         """,
     'author': 'Odoo PS',
-    'version': '17.0.2',
+    'version': '17.0.2.0',
     'depends': [
         'contacts',
         'fma_sale_order_custom'

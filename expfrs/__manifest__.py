@@ -4,7 +4,7 @@
     'description': """Module permattant d exporter les commandes fournisseurs en XML""",
     'author': "DAVSOR",
     'category': 'Uncategorized',
-    'version': '17.0.2',
+    'version': '17.0.2.0',
     'depends': ['base'],
 
     'data': [

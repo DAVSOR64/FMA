@@ -11,7 +11,7 @@
             Task: 4061463
         """,
     'author': 'Odoo PS',
-    'version': '17.0.2',
+    'version': '17.0.2.0',
     'depends': [
         'base_setup',
         'contacts'

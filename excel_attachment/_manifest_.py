@@ -1,6 +1,6 @@
 {
     'name': 'Bon de Livraison Excel',
-    'version': '17.0.2',
+    'version': '17.0.2.0',
     'summary': 'Génère des bons de livraison au format Excel',
     'description': """
     Ce module génère des bons de livraison au format Excel au lieu de PDF.
