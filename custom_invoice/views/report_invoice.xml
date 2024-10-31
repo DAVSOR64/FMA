@@ -220,7 +220,7 @@
                     <t t-if=" nb_line_invoice == 0">
                         <tr>
                             <td name="account_invoice_line_name">
-                                <span t-esc="line.product_id.name + ' ' + line.name"
+                                <span t-esc="(line.product_id.name or '') + ' ' + (line.name or '')"
                                     t-options="{'widget': 'text'}" />
                             </td>
                             <td class="text-right">
