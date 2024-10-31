@@ -178,7 +178,7 @@
                     <t t-if=" line.product_id.default_code and isinstance(line.product_id.default_code, str) and line.product_id.default_code != 'Acpt20' and line.product_id.default_code != 'Acpt10' and line.product_id.default_code != 'Acpt5' and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and not line.product_id.default_code.startswith('A2') and not line.display_type">
                         <tr>
                             <td name="account_invoice_line_name">
-                                <span t-esc="line.product_id.name + ' ' + line.name"
+                                <span t-esc="(line.product_id.name or '') + ' ' + (line.name or '')"
                                     t-options="{'widget': 'text'}" />
                             </td>
                             <td class="text-right">
