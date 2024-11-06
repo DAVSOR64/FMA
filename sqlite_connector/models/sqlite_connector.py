@@ -262,7 +262,7 @@ class SqliteConnector(models.Model):
             if key == PersonBE.strip():
                 bureau_etudes = key
         
-        account_analytic_id = account_analytics.filtered(lambda a: a.name in projet)
+        account_analytic_id = account_analytics.filtered(lambda a: a.name.strip() in projet.strip())
         #_logger.warning("*****************************COMPTE ANALYTIQUE**************** %s " % account_analytic_id)
         if account_analytic_id:
             account_analytic_id = account_analytic_id[0].id
@@ -1497,9 +1497,9 @@ class SqliteConnector(models.Model):
                     data1 =['','','','','','','','','','','','','']
                     proj = ''
                     if Tranche != '0' :
-                        proj = projet + '/' + str(Tranche)
+                        proj = projet.strip() + '/' + str(Tranche)
                     else :
-                        proj = projet
+                        proj = projet.strip()
                     if BP == 'BPA':
                         proj = proj + '_BPA'
                     data = data1 + [proj,0, 1,proj,etiana,PourRem]
@@ -1513,6 +1513,7 @@ class SqliteConnector(models.Model):
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
+                _logger.warning('Dans la creation du sale order %s' % proj)
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                 
