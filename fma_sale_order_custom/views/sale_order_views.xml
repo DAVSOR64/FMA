@@ -8,7 +8,8 @@
                 <field name="state" widget="statusbar" statusbar_visible="draft,sent,validated,sale"/>
             </xpath>
             <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <button name="action_validation" string="Validé" type="object" class="btn-primary" attrs="{'invisible': [('state', '!=', 'sent')]}" />
+    <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" 
+        attrs="{'invisible': [('state', 'not in', ('send', 'draft', 'validated'))]}" />
             </xpath>
             <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
                 <attribute name="attrs">{'invisible': [('state', 'not in', ['validated'])]}</attribute>
@@ -17,20 +18,8 @@
             <xpath expr="//sheet" position="inside">
                 <field name="disable_confirm_button" invisible="1"/>
             </xpath>
-                        <!-- Regrouper toutes les conditions pour le bouton action_confirm -->
-            <xpath expr="//button[@name='action_confirm']" position="attributes">
-                <!-- Désactiver ou cacher le bouton en fonction de disable_confirm_button et de l'état -->
-                <attribute name="attrs">
-                    {
-                        'invisible': [
-                            ('disable_confirm_button', '=', True),
-                            ('state', 'in', ['draft', 'sent', 'validated', 'sale', 'cancel', 'done'])                    
-                        ]
-                    }
-                </attribute>
-            </xpath>
             <xpath expr="//header/button[@name='action_quotation_send'][3]" position="after">
-                <button name="action_validation" string="Validé" type="object" attrs="{'invisible': [('state', 'in', ['sent', 'cancel', 'validated', 'sale', 'done'])]}" />
+                <button name="action_validation" string="Validé" type="object" attrs="{'invisible': [('state', 'in', ['cancel', 'validated', 'sale', 'done'])]}" />
             </xpath>
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>
