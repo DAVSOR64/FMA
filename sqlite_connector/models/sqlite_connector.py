@@ -64,6 +64,13 @@ class SqliteConnector(models.Model):
             couleur = ''
             Unit = row[3]
             Unit = Unit.upper()
+            UnitLog = ''
+            if Unit == 'M' or Unit == 'ML':
+                UnitLog = 'MTR'
+            else :
+                if Unit == 'PCE' or Unit == 'PAI' or Unit == 'UNIT' :
+                    UnitLog = 'PCE'
+                    
             fournisseur= row[4]
             fournisseur = fournisseur.upper()
             RefLogikal = row[5]
@@ -110,7 +117,7 @@ class SqliteConnector(models.Model):
                 'RefLogikal' : RefLogikal,
                 'ColorLogikal' : couleur,
                 'LengthLogikal' : Length,
-                'UnitLogikal' : Unit
+                'UnitLogikal' : UnitLog
             })
 
 

@@ -8,7 +8,8 @@
                 <field name="state" widget="statusbar" statusbar_visible="draft,sent,validated,sale"/>
             </xpath>
             <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <button name="action_validation" string="Validé" type="object" class="btn-primary" attrs="{'invisible': [('state', '!=', 'sent')]}" />
+    <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" 
+        attrs="{'invisible': [('state', 'not in', ('send', 'draft', 'validated'))]}" />
             </xpath>
             <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
                 <attribute name="attrs">{'invisible': [('state', 'not in', ['validated'])]}</attribute>
