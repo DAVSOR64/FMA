@@ -5,6 +5,7 @@ _logger = logging.getLogger(__name__)
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
+    
 
     def __init__(self, pool, cr):
         super(StockPicking, self).__init__(pool, cr)
@@ -26,7 +27,7 @@ class StockPicking(models.Model):
         if 'scheduled_date' in vals:  # Mise à jour de la date de livraison si modifiée
             for picking in self:
                 if picking.sale_id:
-                    picking.sale_id.so_date_de_livraison = picking.scheduled_date
+                    picking.sale_id.so_date_de_livraison_prevu = picking.scheduled_date
         return res
 
     so_type_camion_bl = fields.Selection(

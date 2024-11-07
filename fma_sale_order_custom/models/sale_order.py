@@ -18,17 +18,25 @@ class SaleOrder(models.Model):
     
     date_bpe = fields.Date(string="Date BPE") 
 
+
+    @api.onchange('so_date_de_livraison')
+    def _onchange_so_date_de_livraison(self):
+        # Synchronise la date de livraison prévue avec commitment_date
+        if self.so_date_de_livraison:
+            self.commitment_date = self.so_date_de_livraison
+
     # Init date validation devis
     def action_validation(self):
         for order in self:
             order.state = 'validated'
             order.x_studio_date_de_la_commande = fields.Datetime.today()
             order.so_date_devis_valide = fields.Datetime.today()
+            order.x_studio_avancement = '5'  # Mettre x_studio_avancement à '5'
+            
             
     # Init date BPE lors de la confirmation du devis
     def action_confirm(self):
         for order in self:
-            order.so_date_bpe = fields.Datetime.today()
             order.so_date_bon_pour_fab = fields.Datetime.today()  # Ajout de la deuxième initialisation de date
         return super(SaleOrder, self).action_confirm()
     
@@ -128,16 +136,20 @@ class SaleOrder(models.Model):
                 if warehouse_remaudiere:
                     order.warehouse_id = warehouse_remaudiere.id
 
-    # Init date de livraison prévue
+
+    # Init date de livraison prévue et synchronisation avec commitment_date
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
-    def _compute_so_date_de_livraison_prevu(self):
+    def _compute_so_date_de_livraison(self):
         for order in self:
             if order.so_date_bpe and order.so_delai_confirme_en_semaine:
-                # Ajouter le délai confirmé (en semaines) à la date BPE
-                order.so_date_de_livraison_prevu = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+                # Calculer la date de livraison prévue
+                order.so_date_de_livraison = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+                # Synchroniser avec commitment_date
+                order.commitment_date = order.so_date_de_livraison
             else:
-                # S'il manque une des valeurs, on ne fait pas le calcul
-                order.so_date_de_livraison_prevu = False
+                # Réinitialiser si les valeurs nécessaires sont manquantes
+                order.so_date_de_livraison = False
+                order.commitment_date = False
                 
     # Calcul des marges et coûts pour le devis
     @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
