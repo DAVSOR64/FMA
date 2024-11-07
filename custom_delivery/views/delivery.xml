@@ -3,6 +3,7 @@
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <!-- Structure en deux colonnes avec du flexbox -->
             <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif;">
+                
                 <!-- Bloc de la société FMA-F2M avec émoticônes -->
                 <div class="company_info" style="flex: 1;">
                     <strong t-field="o.company_id.name" /><br />
@@ -15,6 +16,10 @@
                 
                 <!-- Bloc des informations de livraison avec émoticônes aligné à droite -->
                 <div class="delivery_info" style="flex: 1; text-align: right;">
+                    <!-- Nouvelle ligne pour afficher la date de livraison -->
+                    <strong>Livraison le : </strong>
+                    <span t-field="o.scheduled_date" t-options="{'widget': 'date'}" /><br /><br />
+                    
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
                     N°: 
                     <t t-if="'OUT' in o.name">
