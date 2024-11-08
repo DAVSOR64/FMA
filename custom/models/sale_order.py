@@ -1,5 +1,6 @@
 import logging
 from odoo import models, fields, api
+from odoo.tools import float_round
 _logger = logging.getLogger(__name__)
 
 
@@ -232,43 +233,110 @@ class SaleOrder(models.Model):
 
 
 
-    #Onglet Analyse Financière
+    #Onglet Analyse Financière (Devis)
     so_achat_matiere_devis = fields.Monetary(string="Achat Matière (Devis)")
     so_achat_vitrage_devis = fields.Monetary(string="Achat Vitrage (Devis)")
     so_cout_mod_devis = fields.Monetary(string="Coût MOD (Devis)")
     so_mtt_facturer_devis = fields.Monetary(string="Montant à Facturer H.T. (Devis)")
-    so_marge_brute_devis = fields.Monetary(string="Marge Brute en € (Devis)",compute='_compute_so_marge_brute_devis',store=True)
-    so_prc_marge_brute_devis = fields.Float(string="Marge Brute en % (Devis)",compute='_compute_so_prc_marge_brute_devis',store=True)
-    so_mcv_devis = fields.Monetary(string="M.C.V. en € (Devis)",compute='_compute_so_mcv_devis',store=True)
-    so_prc_mcv_devis = fields.Float(string="M.C.V. en (Devis)",compute='_compute_so_prc_mcv_devis',store=True)
+    so_marge_brute_devis = fields.Monetary(string="Marge Brute en € (Devis)", compute='_compute_so_marge_brute_devis', store=True)
+    so_prc_marge_brute_devis = fields.Float(string="Marge Brute en % (Devis)", compute='_compute_so_prc_marge_brute_devis', store=True)
+    so_mcv_devis = fields.Monetary(string="M.C.V. en € (Devis)", compute='_compute_so_mcv_devis', store=True)
+    so_prc_mcv_devis = fields.Float(string="M.C.V. en % (Devis)", compute='_compute_so_prc_mcv_devis', store=True)
+    
+    # Champs formatés pour affichage arrondi avec "%" ajouté
+    so_prc_marge_brute_devis_display = fields.Char(
+        compute='_compute_so_prc_marge_brute_devis_display',
+        string="Marge Brute en % (Devis)"
+    )
+    so_prc_mcv_devis_display = fields.Char(
+        compute='_compute_so_prc_mcv_devis_display',
+        string="M.C.V. en % (Devis)"
+    )
 
+    @api.depends('so_prc_marge_brute_devis')
+    def _compute_so_prc_marge_brute_devis_display(self):
+        for record in self:
+            # Arrondir la marge brute à une décimale avant l'affichage avec format explicite
+            marge_brute_arrondie = "{:.1f}".format(float_round(record.so_prc_marge_brute_devis, precision_digits=1))
+            record.so_prc_marge_brute_devis_display = f"{marge_brute_arrondie} %"
+
+    @api.depends('so_prc_mcv_devis')
+    def _compute_so_prc_mcv_devis_display(self):
+        for record in self:
+            # Arrondir le M.C.V. à une décimale avant l'affichage avec format explicite
+            mcv_arrondi = "{:.1f}".format(float_round(record.so_prc_mcv_devis, precision_digits=1))
+            record.so_prc_mcv_devis_display = f"{mcv_arrondi} %"
+
+
+    # Onglet Analyse Financière (B.E.)
     so_achat_matiere_be = fields.Monetary(string="Achat Matière (B.E.)")
     so_achat_vitrage_be = fields.Monetary(string="Achat Vitrage (B.E.)")
     so_cout_mod_be = fields.Monetary(string="Coût MOD (B.E.)")
     so_mtt_facturer_be = fields.Monetary(string="Montant à Facturer H.T. (B.E.)")
-    so_marge_brute_be = fields.Monetary(string="Marge Brute en € (B.E.)",compute='_compute_so_marge_brute_be',store=True)
-    so_prc_marge_brute_be = fields.Float(string="Marge Brute en % (B.E.)",compute='_compute_so_prc_marge_brute_be',store=True)
-    so_mcv_be = fields.Monetary(string="M.C.V. en € (B.E.)",compute='_compute_so_mcv_be',store=True)
-    so_prc_mcv_be = fields.Float(string="M.C.V. en (B.E.)",compute='_compute_so_prc_mcv_be',store=True)
+    so_marge_brute_be = fields.Monetary(string="Marge Brute en € (B.E.)", compute='_compute_so_marge_brute_be', store=True)
+    so_prc_marge_brute_be = fields.Float(string="Marge Brute en % (B.E.)", compute='_compute_so_prc_marge_brute_be', store=True)
+    so_mcv_be = fields.Monetary(string="M.C.V. en € (B.E.)", compute='_compute_so_mcv_be', store=True)
+    so_prc_mcv_be = fields.Float(string="M.C.V. en % (B.E.)", compute='_compute_so_prc_mcv_be', store=True)
 
+    # Champs formatés pour affichage arrondi avec "%" ajouté
+    so_prc_marge_brute_be_display = fields.Char(
+        compute='_compute_so_prc_marge_brute_be_display',
+        string="Marge Brute en % (B.E.)"
+    )
+    so_prc_mcv_be_display = fields.Char(
+        compute='_compute_so_prc_mcv_be_display',
+        string="M.C.V. en % (B.E.)"
+    )
+
+    @api.depends('so_prc_marge_brute_be')
+    def _compute_so_prc_marge_brute_be_display(self):
+        for record in self:
+            # Arrondir la marge brute à une décimale avant l'affichage avec format explicite
+            marge_brute_arrondie_be = "{:.1f}".format(float_round(record.so_prc_marge_brute_be, precision_digits=1))
+            record.so_prc_marge_brute_be_display = f"{marge_brute_arrondie_be} %"
+
+    @api.depends('so_prc_mcv_be')
+    def _compute_so_prc_mcv_be_display(self):
+        for record in self:
+            # Arrondir le M.C.V. à une décimale avant l'affichage avec format explicite
+            mcv_arrondi_be = "{:.1f}".format(float_round(record.so_prc_mcv_be, precision_digits=1))
+            record.so_prc_mcv_be_display = f"{mcv_arrondi_be} %"
+
+
+    # Onglet Analyse Financière (Réel)
     so_achat_matiere_reel = fields.Monetary(string="Achat Matière (Réel)")
     so_achat_vitrage_reel = fields.Monetary(string="Achat Vitrage (Réel)")
     so_cout_mod_reel = fields.Monetary(string="Coût MOD (Réel)")
     so_mtt_facturer_reel = fields.Monetary(string="Montant à Facturer H.T. (Réel)")
-    so_marge_brute_reel = fields.Monetary(string="Marge Brute en € (Réel)",compute='_compute_so_marge_brute_reel',store=True)
-    so_prc_marge_brute_reel = fields.Float(string="Marge Brute en % (Réel)",compute='_compute_so_prc_marge_brute_reel',store=True)
-    so_mcv_reel = fields.Monetary(string="M.C.V. en € (Réel)",compute='_compute_so_mcv_reel',store=True)
-    so_prc_mcv_reel = fields.Float(string="M.C.V. en (Réel)",compute='_compute_so_prc_mcv_reel',store=True)
+    so_marge_brute_reel = fields.Monetary(string="Marge Brute en € (Réel)", compute='_compute_so_marge_brute_reel', store=True)
+    so_prc_marge_brute_reel = fields.Float(string="Marge Brute en % (Réel)", compute='_compute_so_prc_marge_brute_reel', store=True)
+    so_mcv_reel = fields.Monetary(string="M.C.V. en € (Réel)", compute='_compute_so_mcv_reel', store=True)
+    so_prc_mcv_reel = fields.Float(string="M.C.V. en % (Réel)", compute='_compute_so_prc_mcv_reel', store=True)
 
-    
-    def _prepare_invoice(self):
-        invoice_vals = super(SaleOrder, self)._prepare_invoice()
-        invoice_vals['x_studio_rfrence_affaire'] = self.x_studio_ref_affaire
-        invoice_vals['x_studio_imputation_2'] = self.x_studio_imputation
-        invoice_vals['x_studio_delegation_fac'] = self.x_studio_delegation
-        invoice_vals['x_studio_com_delegation_fac'] = self.x_studio_com_delegation
-        invoice_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
-        invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
-        return invoice_vals
+    # Champs formatés pour affichage arrondi avec "%" ajouté
+    so_prc_marge_brute_reel_display = fields.Char(
+        compute='_compute_so_prc_marge_brute_reel_display',
+        string="Marge Brute en % (Réel)"
+    )
+    so_prc_mcv_reel_display = fields.Char(
+        compute='_compute_so_prc_mcv_reel_display',
+        string="M.C.V. en % (Réel)"
+    )
+
+    @api.depends('so_prc_marge_brute_reel')
+    def _compute_so_prc_marge_brute_reel_display(self):
+        for record in self:
+            # Arrondir la marge brute à une décimale avant l'affichage avec format explicite
+            marge_brute_arrondie_reel = "{:.1f}".format(float_round(record.so_prc_marge_brute_reel, precision_digits=1))
+            record.so_prc_marge_brute_reel_display = f"{marge_brute_arrondie_reel} %"
+
+    @api.depends('so_prc_mcv_reel')
+    def _compute_so_prc_mcv_reel_display(self):
+        for record in self:
+            # Arrondir le M.C.V. à une décimale avant l'affichage avec format explicite
+            mcv_arrondi_reel = "{:.1f}".format(float_round(record.so_prc_mcv_reel, precision_digits=1))
+            record.so_prc_mcv_reel_display = f"{mcv_arrondi_reel} %"
+
+
 
     

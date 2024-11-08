@@ -63,9 +63,9 @@
                             <field name="so_cout_mod_devis"/>
                             <field name="so_mtt_facturer_devis"/>
                             <field name="so_marge_brute_devis"/>
-                            <field name="so_prc_marge_brute_devis" widget="gauge" options="{'min': 0, 'max': 100, 'field_color': 'red'}"/>
+                            <field name="so_prc_marge_brute_devis_display"/>
                             <field name="so_mcv_devis"/>
-                            <field name="so_prc_mcv_devis" widget="progressbar"/>
+                            <field name="so_prc_mcv_devis_display"/>
                         </group>
                         <group string="Chiffres B.E.">
                             <field name="so_achat_matiere_be"/>
@@ -73,9 +73,9 @@
                             <field name="so_cout_mod_be"/>
                             <field name="so_mtt_facturer_be"/>
                             <field name="so_marge_brute_be"/>
-                            <field name="so_prc_marge_brute_be" widget="gauge" options="{'min': 0, 'max': 100, 'field_color': 'red'}"/>
+                            <field name="so_prc_marge_brute_be_display"/>
                             <field name="so_mcv_be"/>
-                            <field name="so_prc_mcv_be" widget="progressbar"/>
+                            <field name="so_prc_mcv_be_display"/>
                         </group>
                         <group string="Chiffres Réel">
                             <field name="so_achat_matiere_reel"/>
@@ -83,9 +83,9 @@
                             <field name="so_cout_mod_reel"/>
                             <field name="so_mtt_facturer_reel"/>
                             <field name="so_marge_brute_reel"/>
-                            <field name="so_prc_marge_brute_reel" widget="gauge" options="{'min': 0, 'max': 100, 'field_color': 'red'}"/>
+                            <field name="so_prc_marge_brute_reel_display"/>
                             <field name="so_mcv_reel"/>
-                            <field name="so_prc_mcv_reel" widget="progressbar"/>
+                            <field name="so_prc_mcv_reel_display"/>
                         </group>
                     </group>
                 </page>
