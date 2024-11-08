@@ -337,6 +337,14 @@ class SaleOrder(models.Model):
             mcv_arrondi_reel = "{:.1f}".format(float_round(record.so_prc_mcv_reel, precision_digits=1))
             record.so_prc_mcv_reel_display = f"{mcv_arrondi_reel} %"
 
-
+    def _prepare_invoice(self):
+        invoice_vals = super(SaleOrder, self)._prepare_invoice()
+        invoice_vals['x_studio_rfrence_affaire'] = self.x_studio_ref_affaire
+        invoice_vals['x_studio_imputation_2'] = self.x_studio_imputation
+        invoice_vals['x_studio_delegation_fac'] = self.x_studio_delegation
+        invoice_vals['x_studio_com_delegation_fac'] = self.x_studio_com_delegation
+        invoice_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
+        invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
+        return invoice_vals
 
     
