@@ -4,7 +4,7 @@
     'version': '15.0',
     'summary': 'Created and Transfer custom field from contact and sale order to invoice',
     'author': 'Your Name',
-    'depends': ['base','sale', 'account','contacts', 'sale_stock'],
+    'depends': ['base','sale', 'account','contacts', 'sale_stock','mrp'],
     'data': [
         'views/res_partner_views.xml',
         'views/sale_order_views.xml',
