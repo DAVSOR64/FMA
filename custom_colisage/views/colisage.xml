@@ -1,5 +1,5 @@
 <odoo>
-    <template id="report_colisage_document_report" inherit_id="studio_customization.studio_report_docume_52fcabed-c17a-449c-b19c-fe82b5a1dde3" priority="100">
+    <template id="report_colisage_document_report" inherit_id="studio_customization.studio_report_docume_ca9228ee-2454-4fbc-b92b-b832df732242" priority="100">
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <div class="header_table" style="display: flex; justify-content: flex-end; font-family: 'DejaVu Sans', sans-serif; width: 100%;">
                 <div class="company_info" style="flex: 1; text-align: right; font-size: 15px;">
