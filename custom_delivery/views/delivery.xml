@@ -16,6 +16,7 @@
                 
                 <!-- Bloc des informations de livraison avec émoticônes aligné à droite -->
                 <div class="delivery_info" style="flex: 1; text-align: right;">
+                    <p><strong>Numéro de dossier FMA :</strong> <span t-field="o.origin" /></p>
                     <!-- Nouvelle ligne pour afficher la date de livraison -->
                     <strong>Livraison le : </strong>
                     <span t-field="o.scheduled_date" t-options="{'widget': 'date'}" /><br /><br />

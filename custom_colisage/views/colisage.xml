@@ -4,9 +4,8 @@
             <div class="header_table" style="display: flex; justify-content: flex-end; font-family: 'DejaVu Sans', sans-serif; width: 100%;">
                 <div class="company_info" style="flex: 1; text-align: right; font-size: 15px;">
                     <p><strong>Numéro de dossier FMA :</strong> <span t-field="doc.origin" /></p>
-                    <p><strong>Ref. Affaire :</strong> <span t-field="doc.x_studio_many2one_field_Vc214" /></p>
+                    <p><strong>Ref. Affaire :</strong> <span t-field="doc.sale_id.x_studio_ref_affaire" /></p>
                     <p><strong>N° Commande Client :</strong> <span t-field="doc.sale_id.so_commande_client" /></p>
-                    <p><strong>Liste préparée le :</strong> <span t-field="doc.date_done" /></p>
                     <p><strong>Concerne le BL :</strong> <span t-field="doc.name" /></p>
                 </div>
             </div>
