@@ -1,4 +1,5 @@
 <odoo>
+    <!-- Action pour l'exportation de commande -->
     <record id="action_export_order" model="ir.actions.server">
         <field name="name">Export Order</field>
         <field name="model_id" ref="purchase.model_purchase_order"/>
@@ -10,6 +11,7 @@
         </field>
     </record>
 
+    <!-- Héritage de la vue Tree avec ajout des champs -->
     <record id="purchase_order_kpis_tree_inherit" model="ir.ui.view">
         <field name="name">purchase.order.kpis.tree.inherit</field>
         <field name="model">purchase.order</field>
@@ -23,6 +25,7 @@
         </field>
     </record>
 
+    <!-- Héritage de la vue Form avec ajout de champs supplémentaires -->
     <record id="purchase_order_form_inherit" model="ir.ui.view">
         <field name="name">purchase.order.form.inherit</field>
         <field name="model">purchase.order</field>
@@ -32,6 +35,53 @@
             <xpath expr="//div[@name='reminder']" position="after">
                 <field name="shipping_partner_id" domain="[('parent_id', '=', partner_id)]" options="{'no_create': True}"/>
                 <field name="customer_delivery_address"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Ajout de l'onglet Infos Laquage -->
+    <record id="view_purchase_order_form_inherit_with_infos_laquage" model="ir.ui.view">
+        <field name="name">purchase.order.form.inherit.with.infos.laquage</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Infos Laquage">
+                    <group>
+                        <field name="laquage_line_ids">
+                            <tree editable="bottom">
+                                <field name="so_repere"/>
+                                <field name="so_qte_commandee"/>
+                                <field name="so_reliquat"/>
+                            </tree>
+                            <form>
+                                <group>
+                                    <field name="so_repere"/>
+                                    <field name="so_qte_commandee"/>
+                                    <field name="so_reliquat"/>
+                                </group>
+                            </form>
+                        </field>
+                    </group>
+                    <group string="Détails Laquage">
+                        <group string="Poids">
+                            <field name="so_poids_total"/>
+                        </group>
+                        <group string="Carton(s)">
+                            <field name="so_carton_qty"/>
+                        </group>
+                        <group string="Botte(s)">
+                            <field name="so_botte_qty"/>
+                            <field name="so_botte_length"/>
+                        </group>
+                        <group string="Palette(s)">
+                            <field name="so_palette_qty"/>
+                            <field name="so_palette_length"/>
+                            <field name="so_palette_depth"/>
+                            <field name="so_palette_height"/>
+                        </group>
+                    </group>
+                </page>
             </xpath>
         </field>
     </record>

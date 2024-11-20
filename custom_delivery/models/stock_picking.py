@@ -32,13 +32,14 @@ class StockPicking(models.Model):
 
     so_type_camion_bl = fields.Selection(
         [
-            ('Semi-remorque (base)', 'Semi-remorque (base)'),
-            ('Semi-remorque avec hayon (base)', 'Semi-remorque avec hayon (base)'),
-            ('Semi-remorque plateau (base)', 'Semi-remorque plateau (base)'),
-            ('Porteur avec hayon (base)', 'Porteur avec hayon (base)'),
-            ('Fourgon 20m3 (150€ + 0.50€/km)', 'Fourgon 20m3 (150€ + 0.50€/km)'),
-            ('Semi-remorque chariot embarqué (650€)', 'Semi-remorque chariot embarqué (650€)'),
-            ('Autre (sur devis)', 'Autre (sur devis)'),
+            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
+            ('GEODIS','GEODIS'),
+            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
+            ('Semi-remorque (base)','Semi-remorque (base)'),
+            ('Semi-remorque avec hayon (base)','Semi-remorque avec hayon (base)'),
+            ('Semi-remorque plateau (base)','Semi-remorque plateau (base)'),
+            ('Semi-remorque chariot embarqué (650€)','Semi-remorque chariot embarqué (650€)'),
+            ('Autre (sur devis)','Autre (sur devis)'),
         ],
         string="Type de camion (Hayon palette maxi 2400mm)",
     )
