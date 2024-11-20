@@ -31,11 +31,12 @@ class SaleOrder(models.Model):
         
     so_type_camion = fields.Selection(
         [
+            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
+            ('GEODIS','GEODIS'),
+            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
             ('Semi-remorque (base)','Semi-remorque (base)'),
             ('Semi-remorque avec hayon (base)','Semi-remorque avec hayon (base)'),
             ('Semi-remorque plateau (base)','Semi-remorque plateau (base)'),
-            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
-            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
             ('Semi-remorque chariot embarqué (650€)','Semi-remorque chariot embarqué (650€)'),
             ('Autre (sur devis)','Autre (sur devis)'),
         ],
@@ -75,8 +76,7 @@ class SaleOrder(models.Model):
     so_date_de_modification = fields.Date(string="Date de modification")
     so_date_de_commande = fields.Date(string="Date de la commande")
     so_date_bpe = fields.Date(string="BPE du : ")
-    so_date_de_reception_devis = fields.Date(
-    string="Demande reçue le :")
+    so_date_de_reception_devis = fields.Date(string="Demande reçue le :", required=True)
     so_date_du_devis = fields.Date(string="Devis fait le : ")
     so_date_de_modification_devis = fields.Date(string="Devis modifié le : ")
     so_date_devis_valide = fields.Date(string="Devis validé le : ")
@@ -103,6 +103,7 @@ class SaleOrder(models.Model):
             ('WICONA','WICONA'),
         ],
         string="GAMME",
+        required=True,
     )
 
     so_serie = fields.Selection(
@@ -230,6 +231,7 @@ class SaleOrder(models.Model):
             ('WT50.RC3', 'WT50.RC3'),
         ],
         string="SERIE",
+        required=True,
     )
 
 
