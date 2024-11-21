@@ -121,7 +121,7 @@ class PurchaseOrder(models.Model):
         except psycopg2.Error:
             pass
 
-    # Champs détail colisage
+    # Champs détail laquage
     so_carton_qty = fields.Integer(string='Qté')
     so_botte_qty = fields.Integer(string='Qté')
     so_botte_length = fields.Float(string='Longueur (en m)')

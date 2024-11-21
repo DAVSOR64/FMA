@@ -63,24 +63,6 @@
                             </form>
                         </field>
                     </group>
-                    <group string="Détails Laquage">
-                        <group string="Poids">
-                            <field name="so_poids_total"/>
-                        </group>
-                        <group string="Carton(s)">
-                            <field name="so_carton_qty"/>
-                        </group>
-                        <group string="Botte(s)">
-                            <field name="so_botte_qty"/>
-                            <field name="so_botte_length"/>
-                        </group>
-                        <group string="Palette(s)">
-                            <field name="so_palette_qty"/>
-                            <field name="so_palette_length"/>
-                            <field name="so_palette_depth"/>
-                            <field name="so_palette_height"/>
-                        </group>
-                    </group>
                 </page>
             </xpath>
         </field>

@@ -149,7 +149,7 @@ class SqliteConnector(models.Model):
         # the manufacturing address, the manufacturing time and the customer delivery time for
         # each item.
         address = ''
-
+        
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
           if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
@@ -374,6 +374,7 @@ class SqliteConnector(models.Model):
             condi = ''
             consoaff = ''
             datejourd = fields.Date.today()
+            dateliv = datejourd
             # to get price
             for article in articles:
                 if row[0] == article['item']:
@@ -472,7 +473,7 @@ class SqliteConnector(models.Model):
                                     projet = projet.strip()
                                     delai = int(delai)
                                     dateliv = datejourd + timedelta(days=delai)
-
+                                    _logger.warning("date Liv 1 %s " % str(dateliv) )
                                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                     #x_affaire = self.env['x_studio_many2one_field_LCOZX'].search([('x_name', 'ilike', projet)], limit=1)
                                     for po in po_article_vals:
@@ -500,7 +501,7 @@ class SqliteConnector(models.Model):
                                         projet = projet.strip()
                                         delai = int(delai)
                                         dateliv = datejourd + timedelta(days=delai)
-
+                                        _logger.warning("date Liv 2 %s " % str(dateliv) )
                                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                                         #x_affaire = self.env['x_studio_many2one_field_LCOZX'].search([('x_name', 'ilike', data22[1])], limit=1)
                                         for po in po_article_vals:
@@ -600,6 +601,7 @@ class SqliteConnector(models.Model):
                         prixV = float(prix) * 1.5
                         delai = 14
                         dateliv = datejourd + timedelta(days=delai)
+                        _logger.warning("date Liv 3 %s " % str(dateliv) )
                         categ_id = self.env.ref('__export__.product_category_14_a5d33274')
                         if not self.env['product.product'].search([('default_code', '=', art)], limit=1):
                             product = self.env['product.product'].create({
@@ -731,7 +733,8 @@ class SqliteConnector(models.Model):
                 trouve = 1
                 tache = 0
                 regle = 0
-
+                dateliv = datejourd
+                _logger.warning("date Liv 4 %s " % str(dateliv) )
                 for product in self.env['product.product'].search([('default_code', '=', refart)]):
                     data2 = product.default_code
                     delai = product.seller_ids[0].delay if product.seller_ids else 1
@@ -800,6 +803,7 @@ class SqliteConnector(models.Model):
                         projet = projet.strip()
                         delai = int(delai)
                         dateliv = datejourd + timedelta(days=delai)
+                        _logger.warning("date Liv 5 %s " % str(dateliv) )
                         part = res_partners.filtered(lambda p: p.name == data22[2])
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                         for po in po_profile_vals:
@@ -847,7 +851,7 @@ class SqliteConnector(models.Model):
                         art = data2
                         projet = projet.strip()
                         dateliv = datejourd + timedelta(days=delai)
-                        
+                        _logger.warning("date Liv 6 %s " % str(dateliv) )
                         part = res_partners.filtered(lambda p: p.name == data22[2])
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                         for po in po_profile_vals:
@@ -978,7 +982,7 @@ class SqliteConnector(models.Model):
                             data22 = ['','','','','','','']
                             delai = 35
                             dateliv = datejourd + timedelta(days=delai)
-                            
+                            _logger.warning("date Liv 7 %s " % str(dateliv) )
                         part = res_partners.filtered(lambda p: p.name == data22[2])
                         x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                         for po in po_profile_vals:
@@ -1036,7 +1040,8 @@ class SqliteConnector(models.Model):
             largNumint  = 0
             HautNumInt = 0
             refint = ''
-
+            dateliv = datejourd
+            _logger.warning("date Liv 8 %s " % str(dateliv) )
             for row in resultg:
                 Info2 = row[7]
                 cpt1 = cpt1 + 1
@@ -1127,6 +1132,7 @@ class SqliteConnector(models.Model):
                                         data22 = ['',projet,idfrs,stock_picking_type_id,Info2,datetime.now(),user_id]
 
                             dateliv = datejourd + timedelta(days=delai)
+                            _logger.warning("date Liv 9 %s " % str(dateliv) )
                             part = res_partners.filtered(lambda p: p.name == data22[2])
                             x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                             #if part:
@@ -1187,6 +1193,7 @@ class SqliteConnector(models.Model):
                             
                             if cpt1 != nbr:
                                 dateliv = datejourd + timedelta(days=delai)
+                                _logger.warning("date Liv 10 %s " % str(dateliv) )
                                 part = res_partners.filtered(lambda p: p.id == data22[2])
                                 _logger.warning("FOURNISSEUR %s " % data22[2])
                                 _logger.warning("info2 %s " % Info2)
@@ -1328,6 +1335,7 @@ class SqliteConnector(models.Model):
 
                             if cpt1 == nbr:
                                 dateliv = datejourd + timedelta(days=delai)
+                                _logger.warning("date Liv 11 %s " % str(dateliv) )
                                 part = res_partners.filtered(lambda p: p.id == data22[2])
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                 if stock_picking_type_id:
@@ -1442,6 +1450,7 @@ class SqliteConnector(models.Model):
                                     else:
                                         data22 = ['','','','','','','']
                                 dateliv = datejourd + timedelta(days=delai)
+                                _logger.warning("date Liv 12 %s " % str(dateliv) )
                                 part = res_partners.filtered(lambda p: p.id == data22[2])
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                 for po in po_glass_vals:
@@ -1617,6 +1626,7 @@ class SqliteConnector(models.Model):
                                     data22 = ['','','','','','','']
                                 if cpt1 == nbr :
                                     dateliv = datejourd + timedelta(days=delai)
+                                    _logger.warning("date Liv 13 %s " % str(dateliv) )
                                     part = res_partners.filtered(lambda p: p.id == data22[2])
                                     #x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', data22[1])], limit=1)
                                     x_affaire = self.env['x_studio_many2one_field_LCOZX'].search([('x_name', 'ilike', data22[1])], limit=1)
@@ -1648,6 +1658,7 @@ class SqliteConnector(models.Model):
         # We come to create the quote
         address = ''
         dateliv = date_time
+        _logger.warning("date Liv 14 %s " % str(dateliv) )
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
             if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
@@ -1667,7 +1678,7 @@ class SqliteConnector(models.Model):
                     else:
                         return datetime.now()
                 dateliv = convert(date_time)
-
+        _logger.warning("date Liv 15 %s " % str(dateliv) )
         PourRem = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultrem:
@@ -1786,6 +1797,8 @@ class SqliteConnector(models.Model):
                                 })],
                         }
                     else:
+                        _logger.warning("LIGNE DU DEVIS Article%s " % pro_name )
+                        _logger.warning("LIGNE DU DEVIS PRIX %s " % str(row[8]) )
                         if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                             so_data[sale_order.id].get('order_line').append((0, 0, {
                                 'product_id': pro.id,
