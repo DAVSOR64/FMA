@@ -5,7 +5,6 @@ _logger = logging.getLogger(__name__)
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
-    
 
     def __init__(self, env, ids, prefetch_ids):
         super(StockPicking, self).__init__(env, ids, prefetch_ids)
@@ -18,12 +17,12 @@ class StockPicking(models.Model):
     so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture', widget='float_time')
     so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture', widget='float_time')
 
-
     # Forcer le recalcul après la modification des mouvements
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
         if 'move_ids_without_package' in vals:  # Si les mouvements sont modifiés
-            self._compute_reliquat_qty()  # Recalcul du reliquat
+            # self._compute_reliquat_qty()  # Recalcul du reliquat (commenté car non défini)
+            _logger.warning("Appel à '_compute_reliquat_qty' commenté car la méthode n'est pas définie.")
         if 'scheduled_date' in vals:  # Mise à jour de la date de livraison si modifiée
             for picking in self:
                 if picking.sale_id:
