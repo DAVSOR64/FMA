@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': "custom_colisage",
 
@@ -10,11 +11,11 @@
         Long description of module's purpose
     """,
 
-    'author': "My Company",
+    'author': "Odoo PS",
     'website': "http://www.yourcompany.com",
 
     'category': 'Uncategorized',
-    'version': '0.1',
+    'version': '17.0.1.0.1',
 
     # any module necessary for this one to work correctly
     'depends': ['base', 'stock'],
@@ -24,7 +25,7 @@
         # 'security/ir.model.access.csv',
         'views/views.xml',
         'views/templates.xml',
-        'views/colisage.xml',  
+        # 'views/colisage.xml',  
     ],
 
     # Section pour inclure les fichiers statiques
