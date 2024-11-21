@@ -281,33 +281,30 @@ class SqliteConnector(models.Model):
         # the manufacturing address, the manufacturing time and the customer delivery time for
         # each item.
         address = ''
-        dateliv = None
-        
+
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
-            _logger.warning("dans le for %s " % row[0] )
-            _logger.warning("dans le for %s " % row[1] )
-            if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
-                if (row[2] == '0')  :
-                    address = 'LRE'
-                if (row[2] == '1') :
-                    address = 'CBM'
-                if (row[2] == '2') :
-                    address = 'REM'
-            if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
+          if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
+            if (row[2] == '0')  :
+                address = 'LRE'
+            if (row[2] == '1') :
+                address = 'CBM'
+            if (row[2] == '2') :
+                address = 'REM'
+          if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
                 delaifab = float(row[2])
-            if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
-                date_time = row[2]
-                _logger.warning("Date Time %s " % str(date_time) )
-                def convert(date_time):
-                    if date_time:
-                        format = '%d/%m/%Y'  # The format
-                        datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
+          if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
+            date_time = row[2]
+            def convert(date_time):
+                if date_time:
+                    format = '%d/%m/%Y'  # The format
+                    datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
                     return datetime_str
                 return datetime.now()
-                dateliv = convert(date_time)
-                _logger.warning("Date Livraison %s " % str(dateliv) )
+            dateliv = convert(date_time)
+        
         # Depending on the parameters of the MDB database, I create commercial and analytical labels.
+        
         resultp=cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         etiana = ''
         for row in resultp :
