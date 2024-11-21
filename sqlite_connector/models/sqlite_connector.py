@@ -299,8 +299,8 @@ class SqliteConnector(models.Model):
                 _logger.warning("Date Time %s " % str(date_time) )
                 def convert(date_time):
                     if date_time:
-                    format = '%d/%m/%Y'  # The format
-                    datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
+                        format = '%d/%m/%Y'  # The format
+                        datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
                     return datetime_str
                 return datetime.now()
                 dateliv = convert(date_time)
