@@ -58,7 +58,7 @@ class SaleOrder(models.Model):
     #@api.constrains('partner_id', 'so_commande_client')
     #def _check_commande_client_required(self):
         #for order in self:
-            # Liste des mots-clés qui nécessitent un N° Commande Client obligatoire
+            # Liste des mots-clés qui nécessitent un N° Commande Client obligatoire P
             #required_keywords = ['GCC', 'BOLLORE', 'BOUYGUES', 'LEGENDRE']
             
             # Si le nom du client contient un des mots-clés
