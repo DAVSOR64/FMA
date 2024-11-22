@@ -21,6 +21,9 @@ class PurchaseOrder(models.Model):
     shipping_partner_id = fields.Many2one('res.partner')
     customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address')
 
+    #extra
+    x_studio_rfrence = fields.Char()
+
     @api.depends('shipping_partner_id')
     def _get_default_customer_delivery_address(self):
         for order in self:
