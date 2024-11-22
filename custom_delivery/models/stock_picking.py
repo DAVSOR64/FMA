@@ -5,7 +5,6 @@ _logger = logging.getLogger(__name__)
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
-    
 
     def __init__(self, pool, cr):
         super(StockPicking, self).__init__(pool, cr)
@@ -18,12 +17,12 @@ class StockPicking(models.Model):
     so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture', widget='float_time')
     so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture', widget='float_time')
 
-
     # Forcer le recalcul après la modification des mouvements
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
         if 'move_ids_without_package' in vals:  # Si les mouvements sont modifiés
-            self._compute_reliquat_qty()  # Recalcul du reliquat
+            # self._compute_reliquat_qty()  # Recalcul du reliquat (commenté car non défini)
+            _logger.warning("Appel à '_compute_reliquat_qty' commenté car la méthode n'est pas définie.")
         if 'scheduled_date' in vals:  # Mise à jour de la date de livraison si modifiée
             for picking in self:
                 if picking.sale_id:
@@ -32,13 +31,14 @@ class StockPicking(models.Model):
 
     so_type_camion_bl = fields.Selection(
         [
-            ('Semi-remorque (base)', 'Semi-remorque (base)'),
-            ('Semi-remorque avec hayon (base)', 'Semi-remorque avec hayon (base)'),
-            ('Semi-remorque plateau (base)', 'Semi-remorque plateau (base)'),
-            ('Porteur avec hayon (base)', 'Porteur avec hayon (base)'),
-            ('Fourgon 20m3 (150€ + 0.50€/km)', 'Fourgon 20m3 (150€ + 0.50€/km)'),
-            ('Semi-remorque chariot embarqué (650€)', 'Semi-remorque chariot embarqué (650€)'),
-            ('Autre (sur devis)', 'Autre (sur devis)'),
+            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
+            ('GEODIS','GEODIS'),
+            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
+            ('Semi-remorque (base)','Semi-remorque (base)'),
+            ('Semi-remorque avec hayon (base)','Semi-remorque avec hayon (base)'),
+            ('Semi-remorque plateau (base)','Semi-remorque plateau (base)'),
+            ('Semi-remorque chariot embarqué (650€)','Semi-remorque chariot embarqué (650€)'),
+            ('Autre (sur devis)','Autre (sur devis)'),
         ],
         string="Type de camion (Hayon palette maxi 2400mm)",
     )

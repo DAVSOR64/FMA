@@ -104,7 +104,7 @@ class SqliteConnector(models.Model):
             couleur = row[6] if row[6] else ''
             if couleur == '' or couleur == 'None':
                 couleur = row[7] if row[7] else ''
-            if couleur == 'Sans' or couleur == 'sans' :
+            if couleur == 'Sans' or couleur == 'sans' or couleur == 'RAL':
                 couleur = ''
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
@@ -166,7 +166,7 @@ class SqliteConnector(models.Model):
                 couleur = str(row[8])
                 if couleur == '' or couleur == ' ' :
                     couleur = str(row[3])
-                    if couleur == 'Sans' or couleur == 'sans':
+                    if couleur == 'Sans' or couleur == 'sans' or couleur == 'RAL':
                         couleur = ''
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
@@ -302,8 +302,9 @@ class SqliteConnector(models.Model):
                     return datetime_str
                 return datetime.now()
             dateliv = convert(date_time)
-
+        
         # Depending on the parameters of the MDB database, I create commercial and analytical labels.
+        
         resultp=cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         etiana = ''
         for row in resultp :
@@ -939,10 +940,17 @@ class SqliteConnector(models.Model):
                     refartfic = ''
                 
                 for profile in profiles:
+                    #_logger.warning("**********Profile dans la base********* %s " % refart )
+                    #_logger.warning("**********Profile dans la liste********* %s " % profile['article'] )
                     if refart == profile['article']:
                         prix = profile['prix']
                         prixB = float(prix) * float(row[6])
-                        
+                        #_logger.warning("**********Profile********* %s " % refart )
+                        #_logger.warning("**********Prix********* %s " % str(prix) )
+                        #_logger.warning("**********Unit********* %s " % str(float(row[6])) )
+                        #_logger.warning("**********Unit********* %s " % str((row[6])) )
+                        #_logger.warning("**********Prix B********* %s " % str(prixB) )
+                
                 uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
                 if uom:
                     unit = uom.name
