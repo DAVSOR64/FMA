@@ -1,4 +1,7 @@
-from odoo import models, fields, api, re
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
+from odoo import models, fields, api
 
 class SaleOrder(models.Model):
     _inherit = ['delivery', 'sale.order']
@@ -7,6 +10,6 @@ class SaleOrder(models.Model):
         return '{:,.2f}'.format(amount).replace(',', ' ').replace('.', ',')
 
 
-    line.product_id.name = re.sub(r'\[.*?\]', '', line.name).strip()
+    # line.product_id.name = re.sub(r'\[.*?\]', '', line.name).strip()
 
 

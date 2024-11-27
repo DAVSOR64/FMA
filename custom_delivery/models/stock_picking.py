@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 import logging
 from odoo import models, fields, api
 
@@ -7,8 +10,8 @@ class StockPicking(models.Model):
     _inherit = 'stock.picking'
     
 
-    def __init__(self, pool, cr):
-        super(StockPicking, self).__init__(pool, cr)
+    def __init__(self, env, ids, prefetch_ids):
+        super(StockPicking, self).__init__(env, ids, prefetch_ids)
         _logger.warning("Le modèle StockPicking est chargé avec succès")
 
     # Champ sale_id (s'il n'existe pas déjà)

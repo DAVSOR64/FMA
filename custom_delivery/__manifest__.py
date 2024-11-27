@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': "custom_delivery",
 
@@ -10,14 +11,14 @@
         Long description of module's purpose
     """,
 
-    'author': "My Company",
+    'author': "Odoo PS",
     'website': "http://www.yourcompany.com",
 
     'category': 'Uncategorized',
-    'version': '0.1',
+    'version': '17.0.1.0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock'],
+    'depends': ['base', 'stock', 'custom'],
 
     # always loaded
     'data': [
