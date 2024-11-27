@@ -108,7 +108,7 @@ class SqliteConnector(models.Model):
                 couleur = ''
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
-            _logger.warning("**********article pour MAJ********* %s " % refart )
+            #_logger.warning("**********article pour MAJ********* %s " % refart )
             articles.append({
                 'item': refart,
                 'price': row[1],
@@ -518,7 +518,6 @@ class SqliteConnector(models.Model):
         QteBesoin = 0
         LstArt = ''
         CptLb = 0
-        #dateliv = datejourd
         resart = cursor1.execute("select AllArticles.ArticleCode, AllArticles.ArticleCode_Supplier, AllArticles.Units_Unit, AllArticles.Description, AllArticles.Color, AllArticles.Price, AllArticles.Units, AllArticles.PUSize, AllArticles.IsManual,AllArticles.ArticleCode_BaseNumber, AllArticles.ColorInfoInternal, AllArticles.ArticleCode_Number, AllArticles.Units_Unit from AllArticles order by AllArticles.ArticleCode_Supplier")
 
         for row in resart :
@@ -825,7 +824,7 @@ class SqliteConnector(models.Model):
                                             'price_unit': prix,
                                             'product_qty': Qte,
                                             'product_uom': False,
-                                            'date_planned': datejourd,
+                                            'date_planned': dateliv,
                                         }))
                 
         #for purchase in po_article_vals:
