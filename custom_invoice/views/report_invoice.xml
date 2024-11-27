@@ -7,7 +7,7 @@
                 }
             </style>
         </xpath>
-        <xpath expr="//div[hasclass('page')]" position="before">
+        <xpath expr="//div[@class='page mb-4']" position="before">
             <div class="header_table">
                 <div style="margin-left: 400px;">
                     <span t-field="o.partner_id" />
@@ -26,7 +26,7 @@
                     <br></br>
                     <br>TVA : <span t-field="o.partner_id.vat" />
                     </br>
-                    <br>SIRET : <span t-field="o.partner_id.siret" /></br>
+                    <!-- <br>SIRET : <span t-field="o.partner_id.siret" /></br> -->
                 </div>
                 <div style="text-align: right;">
                     <br>
@@ -37,18 +37,7 @@
             </div>
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->
-        <xpath expr="//div[hasclass('page')]" position="inside">
-            <div class="text-block" style="font-size: 9px;">
-                <!-- Place your custom text block here -->
-                <br>Escompte pour règlement anticipé : 0%</br>
-                <br>En cas de retard de paiement, une pénalité égale à 3 fois le taux d'intérêt
-                    légal sera exigible (Décret 2009-138 du 9 Février 2009), ainsi qu'une indemnité
-                    forfaitaire pour frais de recouvrement d'un montant minimum de 40 euros pour les
-                    professionnels (Décret 2012-1115 du octobre 2012)</br>
-                <br>IDU:FR3164435_04YPGF Numéro d'enregistrement en application de l'article
-                    L.541-10 du code de l'Environnement</br>
-            </div>
-        </xpath>
+
         <!-- Modif de l'entete -->
         <xpath expr="//div[@id='informations']" position="replace">
             <div id="informations">
@@ -120,27 +109,27 @@
         <xpath expr="//table[hasclass('o_main_table')]/thead" position="replace">
             <thead>
                 <tr>
-                    <th name="th_description" class="text-left">
+                    <th name="th_description" class="text-start">
                         <span>Description</span>
                     </th>
-                    <th name="th_quantity" class="text-right">
+                    <th name="th_quantity" class="text-end">
                         <span>Quantité</span>
                     </th>
                     <th name="th_discount"
                         t-if="any(line.discount > 0 for line in o.invoice_line_ids)"
-                        class="text-right">
+                        class="text-end">
                         <span>Remise</span>
                     </th>
                     <th name="th_priceunit"
-                        t-attf-class="text-right {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
+                        t-attf-class="text-end {{ 'd-none d-md-table-cell' if report_type == 'html' else '' }}">
                         <span>Prix Unitaire</span>
                     </th>
-                    <th name="th_tax_ids" class="text-right">
+                    <th name="th_tax_ids" class="text-end">
                         <span>TVA</span>
                     </th>
-                    <th name="th_subtotal" class="text-right">
-                        <span groups="account.group_show_line_subtotals_tax_excluded">Montant HT</span>
-                        <span groups="account.group_show_line_subtotals_tax_included">Prix Total</span>
+                    <th name="th_subtotal" class="text-end">
+                        <span>Montant HT</span>
+                        <span>Prix Total</span>
                     </th>
                 </tr>
             </thead>
@@ -180,74 +169,70 @@
                         <!-- Traitement pour un autre produit -->
                         <t t-set="nb_line_invoice" t-value="nb_line_invoice + 1" />
                     </t>
-                    <t t-if=" line.product_id.default_code and isinstance(line.product_id.default_code, str) and line.product_id.default_code != 'Acpt20' and line.product_id.default_code != 'Acpt10' and line.product_id.default_code != 'Acpt5' and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and not line.product_id.default_code.startswith('A24') and not line.product_id.default_code.startswith('A25') and not line.display_type">
+                    <t t-if="line.product_id and line.product_id.default_code and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and line.product_id.default_code not in ['Acpt20', 'Acpt10', 'Acpt5'] and not line.product_id.default_code.startswith('A24') and not line.product_id.default_code.startswith('A25')">
                         <tr>
                             <td name="account_invoice_line_name">
-                                <span t-esc="line.product_id.name + ' ' + line.name"
+                                <span t-out="line.product_id.name + ' ' + line.name"
                                     t-options="{'widget': 'text'}" />
                             </td>
-                            <td class="text-right">
+                            <td class="text-end">
                                 <span t-field="line.quantity" />
                                 <!--<span
                                 t-field="line.product_uom_id" groups="uom.group_uom"/>-->
                             </td>
-                            <td class="text-right"
+                            <td class="text-end"
                                 t-if="any(l.discount > 0 for l in o.invoice_line_ids)">
                                 <span t-if="line.discount > 0">
-                                    <t t-esc="('%.2f' % line.discount)" />
+                                    <t t-out="('%.2f' % line.discount)" />
                                 </span>
                                 % <!-- Afficher la remise uniquement si elle est > 0 -->
                                 <span t-if="line.discount == 0">-</span> <!-- Afficher un tiret si
                                 la remise est égale à 0 -->
                             </td>
-                            <td class="text-right">
-                                <span class="text-nowrap" t-esc="o.format_amount(line.price_unit)" />
+                            <td class="text-end">
+                                <span class="text-nowrap" t-out="o.format_amount(line.price_unit)" />
                                 € </td>
-                            <td class="text-right">
+                            <td class="text-end">
                                 <span t-field="line.tax_ids" />
                             </td>
-                            <td class="text-right o_price_total">
-                                <span class="text-nowrap" t-field="line.price_subtotal"
-                                    groups="account.group_show_line_subtotals_tax_excluded" />
-                                <span class="text-nowrap" t-field="line.price_total"
-                                    groups="account.group_show_line_subtotals_tax_included" />
+                            <td class="text-end o_price_total">
+                                <span class="text-nowrap" t-field="line.price_subtotal" />
+                                <span class="text-nowrap" t-field="line.price_total" />
                             </td>
                         </tr>
                     </t>
                 </t>
                 <!--Bloc pour gérer les acomptes sur les factures-->
                 <t t-foreach="o.invoice_line_ids" t-as="line">
-                    <t t-if=" nb_line_invoice == 0">
+                    <t t-if="nb_line_invoice == 0">
                         <tr>
                             <td name="account_invoice_line_name">
-                                <span t-esc="(line.product_id.name or '') + ' ' + (line.name or '')"
+                                <span t-out="(line.product_id.name or '') + ' ' + (line.name or '')"
                                     t-options="{'widget': 'text'}" />
                             </td>
-                            <td class="text-right">
+                            <td class="text-end">
                                 <span t-field="line.quantity" />
                                 <!--<span
                                 t-field="line.product_uom_id" groups="uom.group_uom"/>-->
                             </td>
-                            <td class="text-right"
+                            <td class="text-end"
                                 t-if="any(l.discount > 0 for l in o.invoice_line_ids)">
                                 <span t-if="line.discount > 0">
-                                    <t t-esc="('%.2f' % line.discount)" />
+                                    <t t-out="('%.2f' % line.discount)" />
                                 </span>
                                 % <!-- Afficher la remise uniquement si elle est > 0 -->
                                 <span t-if="line.discount == 0">-</span> <!-- Afficher un tiret si
                                 la remise est égale à 0 -->
                             </td>
-                            <td class="text-right">
-                                <span class="text-nowrap" t-esc="o.format_amount(line.price_unit)" />
+                            <td class="text-end">
+                                <span class="text-nowrap" t-out="o.format_amount(line.price_unit)" />
                                 € </td>
-                            <td class="text-right">
+                            <td class="text-end">
                                 <span t-field="line.tax_ids" />
                             </td>
-                            <td class="text-right o_price_total">
-                                <span class="text-nowrap" t-field="line.price_subtotal"
-                                    groups="account.group_show_line_subtotals_tax_excluded" />
-                                <span class="text-nowrap" t-field="line.price_total"
-                                    groups="account.group_show_line_subtotals_tax_included" />
+                            <td class="text-end o_price_total">
+                                <span class="text-nowrap" t-field="line.price_subtotal" />
+                                <span class="text-nowrap" t-field="line.price_total" />
                             </td>
                         </tr>
                     </t>
@@ -256,10 +241,10 @@
         </xpath>
         <!-- Suppression du bloc de code standard -->
         <xpath expr="//p[@name='payment_communication']" position="replace" />
-        <xpath expr="//p[@name='payment_term']" position="replace" />
+        <!-- <xpath expr="//p[@name='payment_term']" position="replace" /> -->
         <xpath expr="//div[@name='comment']" position="replace" />
         <xpath expr="//p[@name='note']" position="replace" />
-        <xpath expr="//p[@name='incoterm']" position="replace" />
+        <!-- <xpath expr="//p[@name='incoterm']" position="replace" /> -->
         <xpath expr="//div[@id='qrcode']" position="replace" />
 
         <xpath expr="//div[hasclass('clearfix')]" position="before">
@@ -279,13 +264,13 @@
             <t t-if="o.inv_delegation">
                 <div class="delegation_text" style="font-size: 11px;">
                     <!-- Place your custom text block here -->
-                    <t t-esc="o.inv_delegation_txt" />
+                    <t t-out="o.inv_delegation_txt" />
                 </div>
             </t>
         </xpath>
 
         <!-- Modification du tableau des totaux -->
-        <xpath expr="//div[hasclass('clearfix')]" position="replace">
+        <xpath expr="//div[hasclass('clearfix')]" position="after">
             <div class="clearfix">
                 <style>
                     .totals-table-container {
@@ -305,11 +290,13 @@
                     float: right;
                     }
                     .rib-block {
+                    height:130px;    
                     width: 45%;
                     border: 1px solid #ddd;
                     padding: 10px;
                     font-size: 12px;
                     float: left;
+                    line-height: 1.5;
                     }
                 </style>
 
@@ -342,23 +329,23 @@
                     <table class="table table-sm o_main_table" style="page-break-inside: avoid;">
                         <tfoot>
                             <tr>
-                                <td colspan="4" class="text-right">
+                                <td colspan="4" class="text-end">
                                     <strong>Total HT</strong>
                                 </td>
-                                <td class="text-right">
-                                    <t t-if=" nb_line_invoice == 0">
-                                        <span t-esc="o.format_amount( acompte_amount_ht)" /> €
+                                <td class="text-end">
+                                    <t t-if="nb_line_invoice == 0">
+                                        <span t-out="o.format_amount(acompte_amount_ht)" /> €
                                     </t>
                                     <t t-else="">
-                                        <span t-esc="o.format_amount(o.amount_untaxed - acompte_amount_ht)" /> €
+                                        <span t-out="o.format_amount((o.amount_untaxed or 0.0) - (acompte_amount_ht or 0.0))" /> €
                                     </t>
                                 </td>
                             </tr>
-                            <!-- <td colspan="4" class="text-right">
+                            <!-- <td colspan="4" class="text-end">
                                         <strong>Total TVA</strong>
                                     </td>
-                                    <td class="text-right">
-                                        <span t-esc="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed -
+                                    <td class="text-end">
+                                        <span t-out="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed -
                             acompte_amount_ht))" /> €
                                     </td>-->
                             <!-- Afficher les valeurs de débogage pour les lignes de facture -->
@@ -378,58 +365,67 @@
                             <!-- Afficher les totaux par taux de TVA -->
                             <t t-foreach="tax_details.items()" t-as="item">
                                 <tr>
-                                    <td colspan="4" class="text-right">
+                                    <td colspan="4" class="text-end">
                                         <strong>
-                                            <t t-esc="item[0]" />
+                                            <t t-out="item[0]" />
                                         </strong>
                                     </td>
-                                    <td class="text-right">
-                                        <span t-esc="o.format_amount(item[1])" /> € </td>
+                                    <td class="text-end">
+                                        <span t-out="o.format_amount(item[1])" /> € </td>
                                 </tr>
                             </t>
                             <tr>
-                                <td colspan="4" class="text-right">
+                                <td colspan="4" class="text-end">
                                     <strong>Total TTC</strong>
                                 </td>
-                                <td class="text-right">
+                                <td class="text-end">
                                     <t t-if="nb_line_invoice == 0 ">
-                                        <span t-esc="o.format_amount(acompte_amount_ttc)" /> €
+                                        <span t-out="o.format_amount(acompte_amount_ttc)" /> €
                                     </t>
                                     <t t-else="">
-                                        <span t-esc="o.format_amount(o.amount_total - acompte_amount_ttc)" /> €
+                                        <span t-out="o.format_amount((o.amount_total or 0.0) - (acompte_amount_ttc or 0.0))" /> €
                                     </t>
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="4" class="text-right">
+                                <td colspan="4" class="text-end">
                                     <strong>Montant de l'acompte reçu </strong>
                                 </td>
-                                <td class="text-right">
+                                <td class="text-end">
                                     <t t-if="acompte_amount_ttc == 0 or nb_line_invoice == 0">
                                         0 €
                                     </t>
                                     <t t-else="">
-                                        <span t-esc="o.format_amount(acompte_amount_ttc * -1)" /> €
+                                        <span t-out="o.format_amount((acompte_amount_ttc or 0.0) * -1)" /> €
                                     </t>
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="4" class="text-right">
+                                <td colspan="4" class="text-end">
                                     <strong>Montant dû TTC</strong>
                                 </td>
-                                <td class="text-right">
+                                <td class="text-end">
                                     <t t-if="o.amount_residual &lt; 0">
-                                        <span t-esc="o.format_amount(o.amount_residual * -1)" /> €
+                                        <span t-out="o.format_amount(o.amount_residual * -1)" /> €
                                     </t>
                                     <t t-else="">
-                                        <span t-esc="o.format_amount(o.amount_residual)" /> €
+                                        <span t-out="o.format_amount(o.amount_residual)" /> €
                                     </t>
                                 </td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
-
+            </div>
+            <div class="text-block" style="font-size: 9px;">
+                <!-- Place your custom text block here -->
+                <br>Escompte pour règlement anticipé : 0%</br>
+                <br>En cas de retard de paiement, une pénalité égale à 3 fois le taux d'intérêt
+                    légal sera exigible (Décret 2009-138 du 9 Février 2009), ainsi qu'une indemnité
+                    forfaitaire pour frais de recouvrement d'un montant minimum de 40 euros pour les
+                    professionnels (Décret 2012-1115 du octobre 2012)</br>
+                <br>IDU:FR3164435_04YPGF Numéro d'enregistrement en application de l'article
+                    L.541-10 du code de l'Environnement</br>
             </div>
         </xpath>
         <!-- Application de la classe CSS au tableau des totaux -->
@@ -437,5 +433,15 @@
             <attribute name="class" add="avoid-page-break" />
         </xpath>
 
+        <xpath expr="//div[@id='payment_term']" position="replace">
+            <div></div>
+        </xpath>
+
+    </template>
+
+    <template id="document_tax_totals_template_inherit" inherit_id="account.document_tax_totals_template">
+        <xpath expr="." position="replace">
+            <p></p>
+        </xpath>
     </template>
 </odoo>
