@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
-
 import logging
 from odoo import models, fields, api
 from odoo.tools import float_round
+from datetime import timedelta
 _logger = logging.getLogger(__name__)
 
 
@@ -349,6 +347,8 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
         return invoice_vals
+
+    #Below methods are shifted from fma_sale_order_custom module
 
     # Init date de livraison prévue et synchronisation avec commitment_date
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
