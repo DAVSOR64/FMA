@@ -1286,7 +1286,7 @@ class SqliteConnector(models.Model):
                 #_logger.warning('fournisseur trouve %s :' % sname)
                         
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
-                    if sname.startswith(part.x_studio_ref_logikal):
+                    if sname == (part.x_studio_ref_logikal):
                         res_partner = part
                         #_logger.warning('----- %s' % res_partner)
                 if res_partner:
