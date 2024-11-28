@@ -350,4 +350,97 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
         return invoice_vals
 
-    
+    # Init date de livraison prévue et synchronisation avec commitment_date
+    @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
+    def _compute_so_date_de_livraison(self):
+        for order in self:
+            if order.so_date_bpe and order.so_delai_confirme_en_semaine:
+                # Calculer la date de livraison prévue
+                order.so_date_de_livraison = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+                # Synchroniser avec commitment_date
+                order.commitment_date = order.so_date_de_livraison
+            else:
+                # Réinitialiser si les valeurs nécessaires sont manquantes
+                order.so_date_de_livraison = False
+                order.commitment_date = False
+
+    # Calcul des marges et coûts pour le devis
+    @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
+    def _compute_so_marge_brute_devis(self):
+        for order in self:
+            order.so_marge_brute_devis = order.so_mtt_facturer_devis - order.so_achat_vitrage_devis - order.so_achat_matiere_devis
+
+    @api.depends('so_marge_brute_devis', 'so_cout_mod_devis')
+    def _compute_so_mcv_devis(self):
+        for order in self:
+            order.so_mcv_devis = order.so_marge_brute_devis - order.so_cout_mod_devis
+
+    # Calcul des marges et coûts pour BE
+    @api.depends('so_mtt_facturer_be', 'so_achat_vitrage_be', 'so_achat_matiere_be')
+    def _compute_so_marge_brute_be(self):
+        for order in self:
+            order.so_marge_brute_be = order.so_mtt_facturer_be - order.so_achat_vitrage_be - order.so_achat_matiere_be
+
+    @api.depends('so_marge_brute_be', 'so_cout_mod_be')
+    def _compute_so_mcv_be(self):
+        for order in self:
+            order.so_mcv_be = order.so_marge_brute_be - order.so_cout_mod_be
+
+    # Calcul des marges et coûts pour le réel
+    @api.depends('so_mtt_facturer_reel', 'so_achat_vitrage_reel', 'so_achat_matiere_reel')
+    def _compute_so_marge_brute_reel(self):
+        for order in self:
+            order.so_marge_brute_reel = order.so_mtt_facturer_reel - order.so_achat_vitrage_reel - order.so_achat_matiere_reel
+
+    @api.depends('so_marge_brute_reel', 'so_cout_mod_reel')
+    def _compute_so_mcv_reel(self):
+        for order in self:
+            order.so_mcv_reel = order.so_marge_brute_reel - order.so_cout_mod_reel
+
+    @api.depends('so_marge_brute_devis', 'so_mtt_facturer_devis')
+    def _compute_so_prc_marge_brute_devis(self):
+        for order in self:
+            if order.so_mtt_facturer_devis:
+                order.so_prc_marge_brute_devis = (order.so_marge_brute_devis / order.so_mtt_facturer_devis) * 100
+            else:
+                order.so_prc_marge_brute_devis = 0.0
+
+    @api.depends('so_mcv_devis', 'so_mtt_facturer_devis')
+    def _compute_so_prc_mcv_devis(self):
+        for order in self:
+            if order.so_mtt_facturer_devis:
+                order.so_prc_mcv_devis = (order.so_mcv_devis / order.so_mtt_facturer_devis) * 100
+            else:
+                order.so_prc_mcv_devis = 0.0
+
+    @api.depends('so_marge_brute_be', 'so_mtt_facturer_be')
+    def _compute_so_prc_marge_brute_be(self):
+        for order in self:
+            if order.so_mtt_facturer_be:
+                order.so_prc_marge_brute_be = (order.so_marge_brute_be / order.so_mtt_facturer_be) * 100
+            else:
+                order.so_prc_marge_brute_be = 0.0
+
+    @api.depends('so_mcv_be', 'so_mtt_facturer_be')
+    def _compute_so_prc_mcv_be(self):
+        for order in self:
+            if order.so_mtt_facturer_be:
+                order.so_prc_mcv_be = (order.so_mcv_be / order.so_mtt_facturer_be) * 100
+            else:
+                order.so_prc_mcv_be = 0.0
+
+    @api.depends('so_marge_brute_reel', 'so_mtt_facturer_reel')
+    def _compute_so_prc_marge_brute_reel(self):
+        for order in self:
+            if order.so_mtt_facturer_reel:
+                order.so_prc_marge_brute_reel = (order.so_marge_brute_reel / order.so_mtt_facturer_reel) * 100
+            else:
+                order.so_prc_marge_brute_reel = 0.0
+
+    @api.depends('so_mcv_reel', 'so_mtt_facturer_reel')
+    def _compute_so_prc_mcv_reel(self):
+        for order in self:
+            if order.so_mtt_facturer_reel:
+                order.so_prc_mcv_reel = (order.so_mcv_reel / order.so_mtt_facturer_reel) * 100
+            else:
+                order.so_prc_mcv_reel = 0.0
