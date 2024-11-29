@@ -4,9 +4,9 @@
 from odoo import models
 
 
-class AccountInvoiceSend(models.TransientModel):
-    _inherit = 'account.invoice.send'
+class AccountMoveSend(models.TransientModel):
+    _inherit = 'account.move.send'
 
-    def send_and_print_action(self):
+    def action_send_and_print(self):
         # Update the context to not show invoice button
-        return super(AccountInvoiceSend, self.with_context(show_view_invoice_button=False)).send_and_print_action()
+        return super(AccountMoveSend, self.with_context(show_view_invoice_button=False)).action_send_and_print()
