@@ -11,7 +11,7 @@
                 <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" invisible="state not in ('send', 'draft', 'validated')"/>
             </xpath>
             <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
-                <attribute name="attrs">{'invisible': [('state', 'not in', ['validated'])]}</attribute>
+                <attribute name="invisible">state not in ['validated']</attribute>
             </xpath>
             <!-- Ajouter le champ disable_confirm_button invisible pour les attrs -->
             <xpath expr="//sheet" position="inside">
