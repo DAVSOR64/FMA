@@ -38,7 +38,7 @@ class ResPartner(models.Model):
         for partner in partners:
             # Acknowledge in the chatter
             partner.message_post(
-                body=_("Customer Details files created: <a href='%s' target='_blank'>%s</a>") % (attachment_url, file.name)
+                body=Markup(_("Customer Details files created: <a href='%s' target='_blank'>%s</a>")) % (attachment_url, file.name)
             )
             # Add the file to attachments as well
             partner.attachment_ids = [(4, file.id)]
