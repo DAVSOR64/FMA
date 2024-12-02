@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': "custom_sale_order",
 
@@ -10,12 +9,12 @@
         This modul customize the sale_order odf
     """,
 
-    'author': "Odoo PS",
+    'author': "My Company",
     'category': 'Uncategorized',
     'version': '17.0.1.0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['sale'],
+    'depends': ['sale','custom'],
 
     # always loaded
     'data': [

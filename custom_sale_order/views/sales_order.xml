@@ -26,7 +26,7 @@
                     <br></br>
                     <br>TVA : <span t-field="doc.partner_id.vat" />
                     </br>
-                    <!-- <br>SIRET : <span t-field="doc.partner_id.siret" /></br> -->
+                    <br>SIRET : <span t-field="doc.partner_id.siret" /></br>
                 </div>
                 <div style="text-align: right;">
                     <br>
