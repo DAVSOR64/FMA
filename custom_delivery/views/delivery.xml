@@ -89,11 +89,10 @@
                         </td>
                         <td>
                             <!-- Dimensions (Largeur x Hauteur) -->
-                            <!-- Commented fields -->
-                            <!-- <span t-field="line.product_id.x_studio_largeur_mm" /> -->
+                            <span t-field="line.product_id.x_studio_largeur_mm" />
                         </td>
                         <td>
-                            <!-- <span t-field="line.product_id.x_studio_hauteur_mm" /> -->
+                            <span t-field="line.product_id.x_studio_hauteur_mm" />
                         </td>
                         <td>
                             <!-- Quantité commandée -->

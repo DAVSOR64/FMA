@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': "custom_delivery",
 
@@ -11,7 +10,7 @@
         Long description of module's purpose
     """,
 
-    'author': "Odoo PS",
+    'author': "My Company",
     'website': "http://www.yourcompany.com",
 
     'category': 'Uncategorized',
