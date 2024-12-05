@@ -11,6 +11,8 @@ from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
+    
+
 
 class PurchaseOrder(models.Model):
     _inherit = 'purchase.order'
@@ -118,3 +120,69 @@ class PurchaseOrder(models.Model):
                 })
         except psycopg2.Error:
             pass
+
+    # Champs détail laquage
+    so_carton_qty = fields.Integer(string='Qté')
+    so_botte_qty = fields.Integer(string='Qté')
+    so_botte_length = fields.Float(string='Longueur (en m)')
+    so_palette_qty = fields.Integer(string='Qté')
+    so_palette_length = fields.Float(string='Longueur (en m)')
+    so_palette_depth = fields.Float(string='Profondeur (en m)')
+    so_palette_height = fields.Float(string='Hauteur (en m)')
+    so_poids_total = fields.Float(string='Poids (en kg)')
+
+    # Ajout du champ One2many pour les lignes de laquage
+    laquage_line_ids = fields.One2many(
+        'purchase.order.laquage.line', 'order_id', string="Lignes de Laquage"
+    )
+
+
+class PurchaseOrderLaquageLine(models.Model):
+    _name = 'purchase.order.laquage.line'
+    _description = 'Ligne de Laquage'
+    _inherit = ['mail.thread']  # Suivi pour l'historique des modifications
+    _log_access = True  # Historique des accès
+
+    # Relation avec la commande d'achat
+    order_id = fields.Many2one(
+        'purchase.order', string="Commande d'Achat", ondelete='cascade'
+    )
+
+    # Champs spécifiques pour les détails de laquage
+    so_repere = fields.Char(string="Réf./Repère", track_visibility='onchange')
+    so_designation = fields.Char(string="Désignation", track_visibility='onchange')
+    so_largeur = fields.Float(string="Largeur", track_visibility='onchange')
+    so_hauteur = fields.Float(string="Hauteur", track_visibility='onchange')
+    so_qte_commandee = fields.Integer(string="Quantité", track_visibility='onchange')
+    so_qte_livree = fields.Integer(string="Qté Livrée", track_visibility='onchange')
+    so_reliquat = fields.Integer(string="Reliquat", track_visibility='onchange')
+    so_poids_total = fields.Float(string="Poids Total", track_visibility='onchange')
+    so_carton_qty = fields.Integer(string="Quantité de Cartons", track_visibility='onchange')
+    so_botte_qty = fields.Integer(string="Nombre de Bottes", track_visibility='onchange')
+    so_botte_length = fields.Float(string="Longueur de Botte", track_visibility='onchange')
+    so_palette_qty = fields.Integer(string="Nombre de Palettes", track_visibility='onchange')
+    so_palette_length = fields.Float(string="Longueur Palette", track_visibility='onchange')
+    so_palette_depth = fields.Float(string="Profondeur Palette", track_visibility='onchange')
+    so_palette_height = fields.Float(string="Hauteur Palette", track_visibility='onchange')
+
+    # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
+    _sql_constraints = [
+        ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique pour une ligne de laquage !'),
+    ]
+
+    @api.model
+    def create(self, vals):
+        """Log de création"""
+        res = super(PurchaseOrderLaquageLine, self).create(vals)
+        message = _("Ligne de laquage créée : %s") % res.so_repere
+        res.order_id.message_post(body=message)
+        return res
+
+    def write(self, vals):
+        """Log de modification"""
+        _logger.warning("********** Fonction write appelée dans PurchaseOrderLaquageLine *********")
+        res = super(PurchaseOrderLaquageLine, self).write(vals)
+        message = _("Ligne de laquage mise à jour.")
+        self.order_id.message_post(body=message)
+        return res
+

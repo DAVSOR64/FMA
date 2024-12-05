@@ -14,6 +14,7 @@
         'purchase'
     ],
     'data': [
+        'security/ir.model.access.csv',
         'data/ir_cron.xml',
         'data/purchase_order_export.xml',
         'views/purchase_order_views.xml',
