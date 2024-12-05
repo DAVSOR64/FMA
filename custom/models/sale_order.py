@@ -76,7 +76,7 @@ class SaleOrder(models.Model):
     so_date_de_modification = fields.Date(string="Date de modification")
     so_date_de_commande = fields.Date(string="Date de la commande")
     so_date_bpe = fields.Date(string="BPE du : ")
-    so_date_de_reception_devis = fields.Date(string="Demande reçue le :", required=True)
+    so_date_de_reception_devis = fields.Date(string="Demande reçue le :", required=True, default=fields.Date.today())
     so_date_du_devis = fields.Date(string="Devis fait le : ")
     so_date_de_modification_devis = fields.Date(string="Devis modifié le : ")
     so_date_devis_valide = fields.Date(string="Devis validé le : ")
@@ -103,6 +103,7 @@ class SaleOrder(models.Model):
             ('WICONA','WICONA'),
         ],
         string="GAMME",
+        default="FORSTER",
         required=True,
     )
 
@@ -231,6 +232,7 @@ class SaleOrder(models.Model):
             ('WT50.RC3', 'WT50.RC3'),
         ],
         string="SERIE",
+        default="UNICO",
         required=True,
     )
 
