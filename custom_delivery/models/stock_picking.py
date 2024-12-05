@@ -73,9 +73,9 @@ class PickingColisageLine(models.Model):
     so_qte_livree = fields.Integer(string="Qté Livrée", track_visibility='onchange')
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
-    _sql_constraints = [
-        ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique !'),
-    ]
+    # _sql_constraints = [
+    #     ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique !'),
+    # ]
 
     @api.model
     def create(self, vals):
