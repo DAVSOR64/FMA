@@ -16,7 +16,7 @@
     # always loaded
     'data': [
         # 'security/ir.model.access.csv',  # Si vous avez des règles de sécurité, sinon laissez commenté
-        # 'views/custom_laquage.xml',       # Template QWeb pour le PDF
+        'views/custom_laquage.xml',       # Template QWeb pour le PDF
     ],
 
     # only loaded in demonstration mode
