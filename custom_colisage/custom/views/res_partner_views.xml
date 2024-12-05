@@ -1,0 +1,29 @@
+<odoo>
+    <record id="view_partner_form_custom" model="ir.ui.view">
+        <field name="name">res.partner.form.custom</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/group" position="inside">
+                <group>
+                    <field name="part_civilite" string="Civilité"/>
+                    <field name="part_code_tiers" string="Code Tiers"/>
+                    <field name="part_commercial" string="Commercial"/>
+                </group>
+            </xpath>
+            <xpath expr="//page[@name='sales_purchases']/group" position="inside">
+                <group>
+                    <field name="part_mode_de_reglement" string="Mode de Réglement"/>
+                    <field name="part_siren" string="SIREN"/>
+                    <field name="part_bic" string="BIC"/>
+                    <field name="part_iban" string="IBAN"/>
+                    <field name="part_affacturage" string="Affacturage"/>
+                    <field name="part_couverture" string="ALLIANZ ND COVER"/>
+                    <field name="part_date_couverture" string="Date ALLIANZ ND COVER"/>
+                    <field name="part_montant_couverture" string="ALLIANZ COUVERTURE EULEUR"/>
+                    <field name="part_decision" string="ASSURANCE-CREDIT"/>
+                </group>
+            </xpath>      
+        </field>
+    </record>
+</odoo>

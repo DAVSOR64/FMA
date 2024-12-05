@@ -1,0 +1,98 @@
+<odoo>
+    <template id="report_purchaseorder_document" inherit_id="studio_customization.studio_report_docume_a3fa276b-c49c-488f-80c4-816f3ec0da74" priority="100">
+        <xpath expr="//div[@class='page']" position="replace">
+            <div class="page">
+                <!-- En-tête avec logo et informations de l'entreprise -->
+                
+                <!-- Bloc du logo de l'entreprise -->
+                <div class="row" style="text-align: left;">
+                    <div class="col-12" style="margin-bottom: 10px;">
+                        <img src="/custom_laquage_report/static/src/img/F2M.png" style="max-height: 50px;" alt="F2M" />
+                    </div>
+                </div>
+
+                <!-- Bloc avec la phrase et les informations de l'entreprise -->
+                <div class="row" style="text-align: left;">
+                    <div class="col-12">
+                        <!-- Phrase d'accroche entre le logo et les infos -->
+                        <p style="font-weight:bold; font-size:14px; margin: 0 0 15px 0;">
+                            <em>FABRICATION MENUISERIE METALLIQUE</em>
+                        </p>
+                        
+                        <!-- Informations de l'entreprise avec moins d'espace entre les lignes -->
+                        <p style="margin: 0 0 2px 0;">10, RUE DE L'INDUSTRIE</p>
+                        <p style="margin: 0 0 2px 0;">ZI DES DORICES</p>
+                        <p style="margin: 0 0 2px 0;">44330 VALLET</p>
+                        
+                        <!-- SIRET en italique et plus petit -->
+                        <p style="margin: 0 0 15px 0; font-size: 12px;">
+                            <em>SIRET 510 402 704 000 41</em>
+                        </p>
+                        
+                        <!-- Ajout d'un espace entre le SIRET et les numéros de contact -->
+                        <p style="margin: 0 0 2px 0;">TEL: 02.28.03.02.33</p>
+                        <p style="margin: 0;">FAX: 02.40.56.57.63</p>
+                    </div>
+                </div>
+
+                <!-- Espacement supplémentaire entre le bloc des infos entreprise et le bon de laquage -->
+                <div style="margin-bottom: 20px;"></div>
+
+                <!-- En-tête du bon de laquage avec VALLET et la date à droite -->
+                <div class="row">
+                    <div class="col-6">
+                        <h2 style="text-align: left;">Bon de laquage</h2>
+                    </div>
+                    <div class="col-6" style="text-align: right;">
+                        <p>VALLET, le <span t-esc="datetime.datetime.today().strftime('%d/%m/%Y')" /></p>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 20px;"></div>
+                
+                <!-- Détails du bon de laquage avec espacement réduit -->
+                <p style="margin-bottom: 5px;"><strong> OBJET : </strong><span t-field="doc.x_studio_many2one_field_LCOZX" /></p>
+                <p style="margin-top: 0; margin-bottom: 20px;"><strong> Référence : </strong><span t-field="doc.x_studio_rfrence" /></p>
+                
+                <!-- Phrase en gras italique avec une petite police -->
+                <p style="font-weight: bold; font-style: italic; font-size: 15px;">
+                    Nous vous remercions de reporter ces références sur vos BL et Factures
+                </p>
+                <p style="margin-bottom: 5px; font-size: 25px;"><strong> RAL : </strong><span t-field="doc.x_studio_many2one_field_LCOZX" /></p>
+                <p style="margin-bottom: 5px; font-size: 25px;"><strong> RICHE EN ZINC : </strong><span t-field="doc.x_studio_many2one_field_LCOZX" /></p>
+            </div>
+             <table class="table table-sm" t-if="doc.state!='done'" name="order.table" style="margin-top: 20px;">
+                <thead>
+                    <tr>
+                        <th>Repère</th>
+                        <th>Quantité</th>
+                        <th>Reliquat</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Boucle à travers les lignes de commande d'achat -->
+                    <tr t-foreach="doc.order_line" t-as="line">
+                        <td>
+                            <!-- Référence du produit -->
+                            <span t-field="line.product_id.default_code" />
+                        </td>
+                        <td>
+                            <!-- Quantité commandée -->
+                            <span t-field="line.product_qty" />
+                        </td>
+                        <td>
+                            <!-- Reliquat -->
+                            <t t-set="difference" t-value="line.product_qty - line.qty_received" />
+                            <span t-esc="difference" />
+                        </td>
+                        <td>
+                            <!-- Date -->
+                            <span t-field="line.create_date" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </xpath>
+    </template>
+</odoo>

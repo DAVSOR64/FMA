@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    
+        <record id="view_tree_fournisseur" model="ir.ui.view">
+            <field name="name">Liste des commandes tree</field>
+            <field name="model">fournisseur</field>
+            <field name="arch" type ="xml">
+                <tree>
+                    <field name="reference"/>
+                    <field name="affaire"/>
+                    <field name="fournisseur"/>
+                    <field name="exporte"/>
+                    <field name="date_exportation"/>
+                </tree>
+            </field>
+        </record> 
+    
+        <record id="view_fournisseur_order_form" model="ir.ui.view">
+            <field name="name">fournisseur.order.form</field>
+            <field name="model">fournisseur</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="reference"/>
+                            <field name="date_order"/>
+                            <field name="fournisseur"/>
+                            <field name="order_line_ids">
+                                <tree editable="bottom">
+                                    <field name="product_id"/>
+                                    <field name="product_qty"/>
+                                    <field name="price_unit"/>
+                                </tree>
+                            </field>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        
+        <menuitem id="menu_fournisseur" name="Export" sequence="10"/>
+         <record id="action_fournisseur_list" model="ir.actions.act_window">
+                <field name="name">Liste des commandes</field>
+                <field name="res_model">fournisseur</field>
+                <field name="view_mode">tree,form</field>
+                <field name="domain">[]</field>
+            </record>
+        <menuitem id="menu_fournisseur_list"
+            name="Liste des commandes"
+            parent="menu_fournisseur"
+            action="action_fournisseur_list"
+            sequence ="2"/>
+            
+       <menuitem id="menu_fournisseur_orders" name="Fournisseur Orders" parent="base.menu_custom" sequence="1"/>
+       <menuitem id="menu_fournisseur_order" name="Orders" parent="menu_fournisseur_orders" action="action_fournisseur_list"/>
+</odoo>

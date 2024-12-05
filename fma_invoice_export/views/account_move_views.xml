@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="action_export_invoices" model="ir.actions.server">
+        <field name="name">Export Factures</field>
+        <field name="model_id" ref="account.model_account_move"/>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="state">code</field>
+        <field name="code">
+            for record in records:
+                record.action_create_journal_items_file()
+        </field>
+    </record>
+
+    <record id="account_invoice_view_form_inherit" model="ir.ui.view">
+        <field name="name">account.invoice.form.inherit.fma.invoice.export</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_journal_items"
+                        class="oe_stat_button"
+                        icon="fa-dollar"
+                        type="object"
+                        string="Journal Items">
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>
