@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="mail_notification_layout_inherited" inherit_id="mail.mail_notification_layout">
+        <xpath expr="//td[@t-if='has_button_access']" position="replace">
+            <td t-if="has_button_access and record._context.get('show_view_invoice_button', True)" t-att-style="'border-radius: 3px; text-align: center; background: ' + (company.email_secondary_color or '#875A7B') + ';'">
+                <a t-att-href="button_access['url']" style="font-size: 12px; color: #FFFFFF; display: block; padding: 8px 12px 11px; text-decoration: none !important; font-weight: 400;">
+                    <t t-out="button_access['title']"/>
+                </a>
+            </td>
+        </xpath>
+    </template>
+</odoo>
