@@ -44,7 +44,7 @@ class SqliteConnector(models.Model):
         uom_uoms = self.env['uom.uom'].search([])
         stock_picking_type = self.env['stock.picking.type'].search([])
         stock_warehouse = self.env['stock.warehouse'].search([])
-        account_analytic_tags = self.env['account.analytic.tag'].search([])
+        # account_analytic_tags = self.env['account.analytic.tag'].search([])
         account_analytics = self.env['account.analytic.account'].search([])
         mrp_workstations = self.env['mrp.workcenter'].search([])
         res_partners = self.env['res.partner'].search([])
@@ -104,7 +104,7 @@ class SqliteConnector(models.Model):
             couleur = row[6] if row[6] else ''
             if couleur == '' or couleur == 'None':
                 couleur = row[7] if row[7] else ''
-            if couleur == 'Sans' or couleur == 'sans' or couleur == 'RAL':
+            if couleur == 'Sans' or couleur == 'sans' :
                 couleur = ''
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
@@ -166,7 +166,7 @@ class SqliteConnector(models.Model):
                 couleur = str(row[8])
                 if couleur == '' or couleur == ' ' :
                     couleur = str(row[3])
-                    if couleur == 'Sans' or couleur == 'sans' or couleur == 'RAL':
+                    if couleur == 'Sans' or couleur == 'sans':
                         couleur = ''
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
@@ -206,12 +206,10 @@ class SqliteConnector(models.Model):
                 product.x_studio_color_logikal = article['ColorLogikal']
                 product.x_studio_unit_logikal = article['UnitLogikal']
                 product.x_studio_longueur_m = article['LengthLogikal']
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Ref Logikal is updated for product: %s") % ','.join(refs)
+                message = _("Ref Logikal is updated for product: ") + product._get_html_link()
             if product and round(float(article['price']), 4) != round(product.standard_price, 4):
                 product.standard_price = float(article['price'])
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Standard Price is updated for product: %s") % ','.join(refs)
+                message = _("Standard Price is updated for product: ") + product._get_html_link()
                 self.message_post(body=message)
 
         # To check if product already exists in odoo from articles
@@ -223,13 +221,11 @@ class SqliteConnector(models.Model):
                 product.x_studio_color_logikal = profile['ColorLogikal']
                 product.x_studio_unit_logikal = profile['UnitLogikal']
                 product.x_studio_longueur_m = profile['LengthLogikal']
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Ref Logikal is updated for product: %s") % ','.join(refs)
+                message = _("Ref Logikal is updated for product: ") + product._get_html_link()
                 self.message_post(body=message)
             if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
                 product.standard_price = float(profile['prix'])
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Standard Price is updated for product: %s") % ','.join(refs)
+                message = _("Standard Price is updated for product: ") + product._get_html_link()
                 self.message_post(body=message)
 
         # At FMA, they have a concept of tranches, that is to say that the project is divided into
@@ -240,6 +236,8 @@ class SqliteConnector(models.Model):
         PersonBE = ''
         project = ''
         delaifab = 1
+        zero_delay_products = []
+        delaifab_delay_products = []
         
         #_logger.warning("testttttt %s " % )
         
@@ -302,9 +300,8 @@ class SqliteConnector(models.Model):
                     return datetime_str
                 return datetime.now()
             dateliv = convert(date_time)
-        
+
         # Depending on the parameters of the MDB database, I create commercial and analytical labels.
-        
         resultp=cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         etiana = ''
         for row in resultp :
@@ -329,12 +326,12 @@ class SqliteConnector(models.Model):
                   eticom = 'F2M'
                 project = project
         #_logger.warning("projet  2 %s " % projet)
-        account_analytic_tag_id = account_analytic_tags.filtered(lambda t: t.name == etiana)
-        if account_analytic_tag_id:
-            account_analytic_tag_id = account_analytic_tag_id.id
-        else:
-            account_analytic_tag_id = False
-            self.log_request("Unable to find analytic account tag.", etiana, 'Projects Data')
+        # account_analytic_tag_id = account_analytic_tags.filtered(lambda t: t.name == etiana)
+        # if account_analytic_tag_id:
+        #     account_analytic_tag_id = account_analytic_tag_id.id
+        # else:
+        #     account_analytic_tag_id = False
+        #     self.log_request("Unable to find analytic account tag.", etiana, 'Projects Data')
 
         # We come to create the item which is sold
 
@@ -391,11 +388,10 @@ class SqliteConnector(models.Model):
                         "detailed_type": "consu",
                         "purchase_ok": False,
                         "sale_ok": True,
-                        'produce_delay': 0,
                         "invoice_policy":"delivery",
                     })
-                    refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                    message = _("Product has been Created: %s") % ','.join(refs)
+                    zero_delay_products.append(product.product_tmpl_id.id)
+                    message = _("Product has been Created: ") + product._get_html_link()
                     self.message_post(body=message)
                     self.env.cr.commit()
 
@@ -432,11 +428,10 @@ class SqliteConnector(models.Model):
                     "sale_ok": True,
                     "route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('mrp.route_warehouse0_manufacture').id)],
                     # Staging before merge :"route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('__export__.stock_location_route_99_adb9a7a8').id)],
-                    'produce_delay': delaifab,
                     "invoice_policy":"delivery",
                 })
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Product has been Created: %s") % ','.join(refs)
+                delaifab_delay_products.append(product.product_tmpl_id.id)
+                message = _("Product has been Created: ") + product._get_html_link()
                 self.message_post(body=message)
                 self.env.cr.commit()
 
@@ -682,8 +677,7 @@ class SqliteConnector(models.Model):
                     })
                     vals.update({'seller_ids': [(6, 0, [seller.id])]})
                 product = self.env['product.product'].create(vals)
-                refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                message = _("Product has been Created: %s") % ','.join(refs)
+                message = _("Product has been Created: ") + product._get_html_link()
                 self.message_post(body=message)
                 self.env.cr.commit()
                 # created nomenclature
@@ -704,6 +698,7 @@ class SqliteConnector(models.Model):
                 if trouve == 1 :
                     if stock_picking_type_id:
                         #_logger.warning("**********Creation AFFAIRE********* %s " %x_affaire )
+                        analytic_distribution = {account_analytic_id: 100}
                         po_article_vals.append({
                             'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                             'partner_id': idfrs,
@@ -712,11 +707,10 @@ class SqliteConnector(models.Model):
                             'user_id': user_id,
                             'order_line': [(0, 0, {
                                                 'product_id': 'affaire',
-                                                'account_analytic_id': account_analytic_id,
                                                 'price_unit': 0,
                                                 'product_qty': 1,
                                                 'product_uom': False,
-                                                'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                'analytic_distribution': analytic_distribution,
                                                 'date_planned': datejourd,
                                             })]
                         })
@@ -800,6 +794,7 @@ class SqliteConnector(models.Model):
                             #_logger.warning("**********Pas eu de commande a creer avant********* %s "  )
                             if stock_picking_type_id:
                                 x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                                analytic_distribution = {account_analytic_id: 100}
                                 #_logger.warning("**********Creation AFFAIRE********* %s " % x_affaire)
                                 po_article_vals.append({
                                     'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
@@ -809,11 +804,10 @@ class SqliteConnector(models.Model):
                                     'user_id': user_id,
                                     'order_line': [(0, 0, {
                                                         'product_id': 'affaire',
-                                                        'account_analytic_id': account_analytic_id,
                                                         'price_unit': 0,
                                                         'product_qty': 1,
                                                         'product_uom': False,
-                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                        'analytic_distribution': analytic_distribution,
                                                         'date_planned': datejourd,
                                                     })]
                                 })
@@ -940,17 +934,10 @@ class SqliteConnector(models.Model):
                     refartfic = ''
                 
                 for profile in profiles:
-                    #_logger.warning("**********Profile dans la base********* %s " % refart )
-                    #_logger.warning("**********Profile dans la liste********* %s " % profile['article'] )
                     if refart == profile['article']:
                         prix = profile['prix']
                         prixB = float(prix) * float(row[6])
-                        #_logger.warning("**********Profile********* %s " % refart )
-                        #_logger.warning("**********Prix********* %s " % str(prix) )
-                        #_logger.warning("**********Unit********* %s " % str(float(row[6])) )
-                        #_logger.warning("**********Unit********* %s " % str((row[6])) )
-                        #_logger.warning("**********Prix B********* %s " % str(prixB) )
-                
+                        
                 uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
                 if uom:
                     unit = uom.name
@@ -1045,8 +1032,7 @@ class SqliteConnector(models.Model):
                             })
                             vals.update({'seller_ids': [(6, 0, [seller.id])]})
                         product = self.env['product.product'].create(vals)
-                        refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                        message = _("Product has been Created: %s") % ','.join(refs)
+                        message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
                         self.env.cr.commit()
                         # created nomenclature
@@ -1067,6 +1053,7 @@ class SqliteConnector(models.Model):
                         if trouve == 1 :
                             if stock_picking_type_id:
                                 #_logger.warning("**********Creation AFFAIRE********* %s "  )
+                                analytic_distribution = {account_analytic_id: 100}
                                 po_article_vals.append({
                                     'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                     'partner_id': idfrs,
@@ -1075,11 +1062,10 @@ class SqliteConnector(models.Model):
                                     'user_id': user_id,
                                     'order_line': [(0, 0, {
                                                         'product_id': 'affaire',
-                                                        'account_analytic_id': account_analytic_id,
                                                         'price_unit': 0,
                                                         'product_qty': 1,
                                                         'product_uom': False,
-                                                        'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                        'analytic_distribution': analytic_distribution,
                                                         'date_planned': datejourd,
                                                     })]
                                 })
@@ -1165,6 +1151,7 @@ class SqliteConnector(models.Model):
                                 #_logger.warning("**********Pas eu de commande a creer avant********* %s "  )
                                 if stock_picking_type_id:
                                     #_logger.warning("**********Creation AFFAIRE********* %s "  )
+                                    analytic_distribution = {account_analytic_id: 100}
                                     po_article_vals.append({
                                         'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                                         'partner_id': idfrs,
@@ -1173,11 +1160,10 @@ class SqliteConnector(models.Model):
                                         'user_id': user_id,
                                         'order_line': [(0, 0, {
                                                             'product_id': 'affaire',
-                                                            'account_analytic_id': account_analytic_id,
                                                             'price_unit': 0,
                                                             'product_qty': 1,
                                                             'product_uom': False,
-                                                            'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                                            'analytic_distribution': analytic_distribution,
                                                             'date_planned': datejourd,
                                                         })]
                                     })
@@ -1203,8 +1189,7 @@ class SqliteConnector(models.Model):
                     self.log_request('Unable to find product', 'PO Creation', line[2].get('product_id'))                
 
         for purchase in self.env['purchase.order'].create(po_article_vals):
-            refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-            message = _("Purchase Order has been created: %s") % ','.join(refs)
+            message = _("Purchase Order has been created: ") + purchase._get_html_link()
             self.message_post(body=message)
 
         
@@ -1286,7 +1271,7 @@ class SqliteConnector(models.Model):
                 #_logger.warning('fournisseur trouve %s :' % sname)
                         
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
-                    if sname == (part.x_studio_ref_logikal):
+                    if sname.startswith(part.x_studio_ref_logikal):
                         res_partner = part
                         #_logger.warning('----- %s' % res_partner)
                 if res_partner:
@@ -1325,6 +1310,7 @@ class SqliteConnector(models.Model):
                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                     if stock_picking_type_id:
                         #_logger.warning('Dans la creation du PO %s' % res_partner)
+                        analytic_distribution = {account_analytic_id: 100}
                         po_glass_vals.append({
                             'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
                             'partner_id': idfrs,
@@ -1335,12 +1321,11 @@ class SqliteConnector(models.Model):
                             'order_line':
                                 [(0, 0, {
                                     'product_id': 'affaire',
-                                    'account_analytic_id': account_analytic_id,
                                     'date_planned': datetime.now(),
                                     'price_unit': 0,
                                     'product_qty': 1,
                                     'product_uom': False,
-                                    'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                    'analytic_distribution': analytic_distribution,
                                     'date_planned': datejourd,
                                 })]
                         })
@@ -1384,8 +1369,7 @@ class SqliteConnector(models.Model):
                             })
                             vals.update({'seller_ids': [(6, 0, [seller.id])]})
                         product = self.env['product.product'].create(vals)
-                        refs = ["<a href=# data-oe-model=product.product data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in product.name_get()]
-                        message = _("Product has been Created: %s") % ','.join(refs)
+                        message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
                         self.env.cr.commit()
                     # On vient créer la ligne de commande d'appro
@@ -1418,8 +1402,7 @@ class SqliteConnector(models.Model):
                     self.log_request('Unable to find product', 'PO Creation', line[2].get('product_id')) 
 
         for purchase in self.env['purchase.order'].create(po_glass_vals):
-            refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-            message = _("Purchase Order has been created: %s") % ','.join(refs)
+            message = _("Purchase Order has been created: ") + purchase._get_html_link()
             self.message_post(body=message)    
                   
 
@@ -1563,7 +1546,7 @@ class SqliteConnector(models.Model):
                                 'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
-                                "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 })],
                         }
                     else:
@@ -1575,7 +1558,7 @@ class SqliteConnector(models.Model):
                                 'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
-                                "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 }))
             sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
             
@@ -1600,7 +1583,7 @@ class SqliteConnector(models.Model):
                         'name': dimension,
                         'discount': PourRem,
                         'product_uom': pro.uom_id.id,
-                        "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                        # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         }))
         else:
             for row in resultp:
@@ -1658,7 +1641,7 @@ class SqliteConnector(models.Model):
                                     'name': dimension,
                                     'discount': PourRem,
                                     'product_uom': pro.uom_id.id,
-                                    "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                    # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                     })
                                 ],
                             })
@@ -1671,7 +1654,7 @@ class SqliteConnector(models.Model):
                                     'name': dimension,
                                     'discount': PourRem,
                                     'product_uom': pro.uom_id.id,
-                                    "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                    # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                     })
                                 )
         # Now we will create nomenclatures
@@ -1707,11 +1690,13 @@ class SqliteConnector(models.Model):
                 if not pro_t:
                     self.log_request('Unable to find product', datanom1[1], 'Nomenclatures Creation')
                 else:
+                    analytic_distribution = {str(account_analytic_id): 100}
                     nomenclatures_data.append({
                     "product_tmpl_id": pro_t[0].product_tmpl_id.id,
                     "type": "normal",
                     "product_qty": int(datanom1[3]),
-                    "analytic_account_id": account_analytic_id,
+                    # "analytic_account_id": account_analytic_id,
+                    "analytic_distribution": analytic_distribution,
                     "product_uom_id": self.env.ref('uom.product_uom_unit').id,
                     "bom_line_ids": [(0, 0, {
                         'product_id': pro[0].id,
@@ -1807,18 +1792,23 @@ class SqliteConnector(models.Model):
         temp_file.close()
         cursor1.close()
         
+        for bom_data in nomenclatures_data:
+            product_tmpl_id = bom_data.get("product_tmpl_id")
+            if product_tmpl_id in zero_delay_products:
+                bom_data["produce_delay"] = 0
+            elif product_tmpl_id in delaifab_delay_products:
+                bom_data["produce_delay"] = delaifab
+
         for so in so_data:
             for so_to_update in self.env['sale.order'].browse(so):
                 so_to_update.write(so_data[so])
                 # so_to_update.action_confirm()
-                refs = ["<a href=# data-oe-model=sale.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in so_to_update.name_get()]
-                message = _("Sales Order Updated: %s") % ','.join(refs)
+                message = _("Sales Order Updated: ") + so_to_update._get_html_link()
                 self.message_post(body=message)
 
         for bom in self.env['mrp.bom'].create(nomenclatures_data):
             note = "Bill Of Material Created > %s" % (bom.display_name)
-            refs = ["<a href=# data-oe-model=mrp.bom data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in bom.name_get()]
-            message = _("Bill Of Material has been Created: %s") % ','.join(refs)
+            message = _("Bill Of Material has been Created: ") + bom._get_html_link()
             self.message_post(body=message)
 
         self.state = 'done'

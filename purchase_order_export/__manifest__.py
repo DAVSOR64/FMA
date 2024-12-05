@@ -9,12 +9,11 @@
             Task: 3975517
         """,
     'author': 'Odoo PS',
-    'version': '15.0.0.1.1',
+    'version': '17.0.1.0.1',
     'depends': [
         'purchase'
     ],
     'data': [
-        'security/ir.model.access.csv',
         'data/ir_cron.xml',
         'data/purchase_order_export.xml',
         'views/purchase_order_views.xml',
