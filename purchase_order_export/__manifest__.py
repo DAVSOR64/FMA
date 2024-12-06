@@ -11,7 +11,7 @@
     'author': 'Odoo PS',
     'version': '17.0.1.0.1',
     'depends': [
-        'purchase'
+        'purchase', 'stock'
     ],
     'data': [
         'security/ir.model.access.csv',
