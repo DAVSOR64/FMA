@@ -6,6 +6,7 @@ import io
 import logging
 import paramiko
 from odoo import _, fields, models
+from markupsafe import Markup
 
 _logger = logging.getLogger(__name__)
 

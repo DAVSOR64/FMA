@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
-
 import logging
 from odoo import models, fields, api
 
@@ -14,6 +11,6 @@ class SaleOrder(models.Model):
     
 
 
-    # line.product_id.name = re.sub(r'\[.*?\]', '', line.name).strip()
+    line.product_id.name = re.sub(r'\[.*?\]', '', line.name).strip()
 
 

@@ -247,7 +247,7 @@
         <!-- <xpath expr="//p[@name='incoterm']" position="replace" /> -->
         <xpath expr="//div[@id='qrcode']" position="replace" />
 
-        <xpath expr="//div[hasclass('clearfix')]" position="before">
+        <xpath expr="//div[@class='clearfix']" position="before">
             <t t-if="o.inv_show_affacturage">
                 <div class="text-block" style="font-size: 11px;">
                     <!-- Place your custom text block here -->
@@ -434,7 +434,6 @@
         </xpath>
 
         <xpath expr="//div[@id='payment_term']" position="replace">
-            <div></div>
         </xpath>
 
     </template>
