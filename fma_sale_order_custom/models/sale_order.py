@@ -83,16 +83,44 @@ class SaleOrder(models.Model):
                 vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
 
             # Mise à jour de l'entrepôt en fonction des tags
+
+            # if 'tag_ids' in vals:
+            #     tag_updates = vals.get('tag_ids', [])
+            #     if tag_updates and fma_tag.id in tag_updates[0][2]:
+            #         warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+            #         if warehouse_regripiere:
+            #             vals['warehouse_id'] = warehouse_regripiere.id
+            #     if tag_updates and f2m_tag.id in tag_updates[0][2]:
+            #         warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+            #         if warehouse_remaudiere:
+            #             vals['warehouse_id'] = warehouse_remaudiere.id
+
+            #improvement in condition
             if 'tag_ids' in vals:
                 tag_updates = vals.get('tag_ids', [])
-                if tag_updates and fma_tag.id in tag_updates[0][2]:
-                    warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
-                    if warehouse_regripiere:
-                        vals['warehouse_id'] = warehouse_regripiere.id
-                if tag_updates and f2m_tag.id in tag_updates[0][2]:
-                    warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
-                    if warehouse_remaudiere:
-                        vals['warehouse_id'] = warehouse_remaudiere.id
+                if tag_updates:
+                    if isinstance(tag_updates[0], (list, tuple)) and len(tag_updates[0]) > 2 and tag_updates[0][0] == 6:
+                        tag_ids = tag_updates[0][2]
+                        if fma_tag.id in tag_ids:
+                            warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+                            if warehouse_regripiere:
+                                vals['warehouse_id'] = warehouse_regripiere.id
+                        if f2m_tag.id in tag_ids:
+                            warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+                            if warehouse_remaudiere:
+                                vals['warehouse_id'] = warehouse_remaudiere.id
+
+                    elif isinstance(tag_updates[0], (list, tuple)) and len(tag_updates[0]) > 1 and tag_updates[0][0] == 4:
+                        tag_id = tag_updates[0][1]
+                        if fma_tag.id == tag_id:
+                            warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+                            if warehouse_regripiere:
+                                vals['warehouse_id'] = warehouse_regripiere.id
+                        if f2m_tag.id == tag_id:
+                            warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+                            if warehouse_remaudiere:
+                                vals['warehouse_id'] = warehouse_remaudiere.id
+
 
         return super(SaleOrder, self).create(vals_list)
 
