@@ -1034,7 +1034,7 @@ class SqliteConnector(models.Model):
                             }
                         if idfrs:
                             seller = self.env['product.supplierinfo'].create({
-                            'name': idfrs,
+                            'partner_id': idfrs,
                             'price': prix,
                             'delay': delai,
                             })
@@ -1371,7 +1371,7 @@ class SqliteConnector(models.Model):
                         }
                         if idfrs:
                             seller = self.env['product.supplierinfo'].create({
-                                'name': idfrs,
+                                'partner_id': idfrs,
                                 'price': prix,
                                 'delay': 3,
                             })
