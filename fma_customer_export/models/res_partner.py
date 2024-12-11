@@ -160,7 +160,7 @@ class ResPartner(models.Model):
                 'name': file_name,
                 'type': 'binary',
                 'datas': base64.b64encode(file_content.encode('utf-8')),
-                'res_model': 'ir.attachment',
+                'res_model': 'res.partner',
                 'mimetype': 'text/plain',
                 'is_customer_txt': True
             })
@@ -172,7 +172,7 @@ class ResPartner(models.Model):
     def cron_send_customers_file_to_sftp_server(self):
         """Sync the unsynced customer files to SFTP server."""
         attachments = self.env['ir.attachment'].search([
-            ('res_model', '=', 'ir.attachment'),
+            ('res_model', '=', 'res.partner'),
             ('is_customer_txt', '=', True),
             ('is_synced_to_sftp', '=', False)
         ])
