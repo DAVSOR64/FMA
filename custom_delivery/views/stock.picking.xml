@@ -4,18 +4,6 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//sheet/group" position="inside">
-                <group string="Informations supplémentaires" colspan="2">
-                    <group>
-                        <field name="so_acces_bl"/>
-                        <field name="so_type_camion_bl"/>
-                    </group>
-                    <group>
-                        <field name="so_horaire_ouverture_bl"/>
-                        <field name="so_horaire_fermeture_bl"/>
-                    </group>
-                </group>
-            </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Info Colisage">
                     <group>

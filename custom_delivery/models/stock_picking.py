@@ -12,10 +12,6 @@ class StockPicking(models.Model):
 
     # Champ sale_id (s'il n'existe pas déjà)
     sale_id = fields.Many2one('sale.order', string="Commande de Vente", help="Référence à la commande de vente associée")
-    
-    so_acces_bl = fields.Char(string="Accès")
-    so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture', widget='float_time')
-    so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture', widget='float_time')
 
     # Forcer le recalcul après la modification des mouvements
     def write(self, vals):
@@ -29,19 +25,6 @@ class StockPicking(models.Model):
                     picking.sale_id.so_date_de_livraison_prevu = picking.scheduled_date
         return res
 
-    so_type_camion_bl = fields.Selection(
-        [
-            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
-            ('GEODIS','GEODIS'),
-            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
-            ('Semi-remorque (base)','Semi-remorque (base)'),
-            ('Semi-remorque avec hayon (base)','Semi-remorque avec hayon (base)'),
-            ('Semi-remorque plateau (base)','Semi-remorque plateau (base)'),
-            ('Semi-remorque chariot embarqué (650€)','Semi-remorque chariot embarqué (650€)'),
-            ('Autre (sur devis)','Autre (sur devis)'),
-        ],
-        string="Type de camion (Hayon palette maxi 2400mm)",
-    )
 
     # Champs détail colisage
     so_carton_qty = fields.Integer(string='Qté')
