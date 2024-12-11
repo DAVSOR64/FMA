@@ -427,7 +427,7 @@ class SqliteConnector(models.Model):
                     "detailed_type": "product",
                     "purchase_ok": False,
                     "sale_ok": True,
-                    "route_ids": [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('mrp.route_warehouse0_manufacture').id)],
+                    "route_ids": [Command.link(self.env.ref('stock.route_warehouse0_mto').id), Command.link(self.env.ref('mrp.route_warehouse0_manufacture').id)],
                     # Staging before merge :"route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('__export__.stock_location_route_99_adb9a7a8').id)],
                     "invoice_policy":"delivery",
                 })
@@ -1038,7 +1038,7 @@ class SqliteConnector(models.Model):
                             'price': prix,
                             'delay': delai,
                             })
-                            vals.update({'seller_ids': Command.set([seller.id])})
+                            vals.update({'seller_ids': [Command.set([seller.id])]})
                         product = self.env['product.product'].create(vals)
                         message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
@@ -1408,7 +1408,6 @@ class SqliteConnector(models.Model):
                     line[2]['product_uom'] = product.uom_id.id
                 else:
                     self.log_request('Unable to find product', 'PO Creation', line[2].get('product_id')) 
-
         for purchase in self.env['purchase.order'].create(po_glass_vals):
             message = _("Purchase Order has been created: ") + purchase._get_html_link()
             self.message_post(body=message)    
@@ -1559,7 +1558,7 @@ class SqliteConnector(models.Model):
                         }
                     else:
                         if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
-                             so_data[sale_order.id].get('order_line').append(Command.create({
+                            so_data[sale_order.id].get('order_line').append(Command.create({
                                 'product_id': pro.id,
                                 'price_unit': float(row[8]),
                                 'product_uom_qty': float(row[6]),
@@ -1584,7 +1583,7 @@ class SqliteConnector(models.Model):
             if sale_order:
             # stagging before merge if sale_order and so_data:
                if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
-                 so_data[sale_order.id].get('order_line').append(Command.create({
+                    so_data[sale_order.id].get('order_line').append(Command.create({
                         'product_id': pro.id,
                         'price_unit': 0,
                         'product_uom_qty': 1,
