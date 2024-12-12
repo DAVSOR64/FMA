@@ -541,7 +541,7 @@ class SqliteConnector(models.Model):
             UnitLogikal = UnitLogikal.upper()
             LengthLogikal = 0
             LengthLogi = len(row[9])
-            dateliv = datejourd
+            #dateliv = datejourd
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[9]
                 if RefLogikal.startswith("X") :
