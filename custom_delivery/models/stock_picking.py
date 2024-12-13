@@ -12,10 +12,6 @@ class StockPicking(models.Model):
 
     # Champ sale_id (s'il n'existe pas déjà)
     sale_id = fields.Many2one('sale.order', string="Commande de Vente", help="Référence à la commande de vente associée")
-    
-    so_acces_bl = fields.Char(string="Accès")
-    so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture', widget='float_time')
-    so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture', widget='float_time')
 
     # Forcer le recalcul après la modification des mouvements
     def write(self, vals):
@@ -29,33 +25,20 @@ class StockPicking(models.Model):
                     picking.sale_id.so_date_de_livraison_prevu = picking.scheduled_date
         return res
 
-    so_type_camion_bl = fields.Selection(
-        [
-            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
-            ('GEODIS','GEODIS'),
-            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
-            ('Semi-remorque (base)','Semi-remorque (base)'),
-            ('Semi-remorque avec hayon (base)','Semi-remorque avec hayon (base)'),
-            ('Semi-remorque plateau (base)','Semi-remorque plateau (base)'),
-            ('Semi-remorque chariot embarqué (650€)','Semi-remorque chariot embarqué (650€)'),
-            ('Autre (sur devis)','Autre (sur devis)'),
-        ],
-        string="Type de camion (Hayon palette maxi 2400mm)",
-    )
 
     # Champs détail colisage
     so_carton_qty = fields.Integer(string='Qté')
     so_botte_qty = fields.Integer(string='Qté')
-    so_botte_length = fields.Float(string='Longueur (en m)')
-    so_palette_qty = fields.Integer(string='Qté')
-    so_palette_length = fields.Float(string='Longueur (en m)')
-    so_palette_depth = fields.Float(string='Profondeur (en m)')
-    so_palette_height = fields.Float(string='Hauteur (en m)')
+    so_botte_length = fields.Float(string='Longueur (en mm)')
     so_poids_total = fields.Float(string='Poids (en kg)')
 
     # Ajout du champ one2many pour les lignes de colisage
     colisage_line_ids = fields.One2many(
         'picking.colisage.line', 'picking_id', string="Lignes de Colisage"
+    )
+
+    palette_line_ids = fields.One2many(
+        'picking.palette.line', 'picking_id', string="Lignes de Palettes"
     )
 
 class PickingColisageLine(models.Model):
@@ -90,5 +73,34 @@ class PickingColisageLine(models.Model):
         _logger.warning("**********fonction write appelée dans PickingColisageLine *********")  # Log d'avertissement
         res = super(PickingColisageLine, self).write(vals)
         message = "Ligne de colisage mise à jour."
+        self.picking_id.message_post(body=message)
+        return res
+
+    
+class PickingPaletteLine(models.Model):
+    _name = 'picking.palette.line'
+    _description = 'Ligne de Palette'
+    _inherit = ['mail.thread']  # Permet le suivi des modifications dans le fil de discussion Odoo
+    _log_access = True  # Active l'historique des accès
+
+    picking_id = fields.Many2one('stock.picking', string="Palette", ondelete='cascade')
+    qty = fields.Integer(string="Quantité", track_visibility='onchange')
+    length = fields.Float(string="Longueur (mm)", track_visibility='onchange')
+    depth = fields.Float(string="Profondeur (mm)", track_visibility='onchange')
+    height = fields.Float(string="Hauteur (mm)", track_visibility='onchange')
+
+    @api.model
+    def create(self, vals):
+        """Suivi des créations dans le fil de discussion Odoo"""
+        res = super(PickingPaletteLine, self).create(vals)
+        message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
+        res.picking_id.message_post(body=message)
+        return res
+
+    def write(self, vals):
+        """Suivi des modifications dans le fil de discussion Odoo"""
+        _logger.warning("********** Fonction write appelée dans PickingPaletteLine *********")  # Log d'avertissement
+        res = super(PickingPaletteLine, self).write(vals)
+        message = "Ligne de palette mise à jour."
         self.picking_id.message_post(body=message)
         return res

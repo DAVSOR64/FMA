@@ -108,7 +108,7 @@ class SqliteConnector(models.Model):
                 couleur = ''
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
-            #_logger.warning("**********article pour MAJ********* %s " % refart )
+            _logger.warning("**********article pour MAJ********* %s " % refart )
             articles.append({
                 'item': refart,
                 'price': row[1],
@@ -144,6 +144,7 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     RefLogikal = 'S' + RefLogikal
+            _logger.warning("**********AVANT Profile pour MAJ********* %s " % RefLogikal )
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[2][1:]
                 Length= row[9]
@@ -154,6 +155,7 @@ class SqliteConnector(models.Model):
                         RefLogikal = 'W' + RefLogikal.zfill(7)
                     else :
                         RefLogikal = 'W' + RefLogikal
+                _logger.warning("**********APRES Profile pour MAJ********* %s " % RefLogikal )
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen' :
                 refart = 'JAN' + ' ' + row[2]
             refart = refart.replace("RYN","REY")
@@ -172,7 +174,7 @@ class SqliteConnector(models.Model):
                 refart = refart + '.' + couleur
                 #RefLogikal = 'T' + RefLogikal
                 
-            #_logger.warning("**********Profile pour MAJ********* %s " % refart )
+            _logger.warning("**********Profile pour MAJ********* %s " % refart )
             profiles.append({
                 'article': refart,
                 'prix': row[1],
@@ -216,8 +218,10 @@ class SqliteConnector(models.Model):
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
+            _logger.warning("**********Profile dans la MAJ********* %s " % profile['article'] )
             product = self.env['product.product'].search([('default_code', '=', profile['article'])])
             if product:
+                _logger.warning("**********Profile dans la MAJ pour ref logikal********* %s " % profile['RefLogikal'] )
                 product = product[0]
                 product.x_studio_ref_int_logikal = profile['RefLogikal']
                 product.x_studio_color_logikal = profile['ColorLogikal']
@@ -537,6 +541,7 @@ class SqliteConnector(models.Model):
             UnitLogikal = UnitLogikal.upper()
             LengthLogikal = 0
             LengthLogi = len(row[9])
+            #dateliv = datejourd
             if fournisseur == 'TECHNAL' :
                 refart = 'TEC' + ' ' + row[9]
                 if RefLogikal.startswith("X") :
@@ -651,9 +656,10 @@ class SqliteConnector(models.Model):
             categorie = ligne[3]
             categ_id = self.env.ref(categorie)
             # Created new article
-            #_logger.warning("**********Creation Article********* %s " % refart )
             #_logger.warning("**********Prix  Article********* %s " % str(prix) )
+            _logger.warning("**********Article********* %s " % refart )
             if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
+                _logger.warning("**********Creation Article********* %s " % refart )
                 vals = {
                     'default_code': refart,
                     'name': nom,
