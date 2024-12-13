@@ -29,7 +29,7 @@ class StockPicking(models.Model):
     # Champs détail colisage
     so_carton_qty = fields.Integer(string='Qté')
     so_botte_qty = fields.Integer(string='Qté')
-    so_botte_length = fields.Float(string='Longueur (en m)')
+    so_botte_length = fields.Float(string='Longueur (en mm)')
     so_poids_total = fields.Float(string='Poids (en kg)')
 
     # Ajout du champ one2many pour les lignes de colisage
@@ -85,9 +85,9 @@ class PickingPaletteLine(models.Model):
 
     picking_id = fields.Many2one('stock.picking', string="Palette", ondelete='cascade')
     qty = fields.Integer(string="Quantité", track_visibility='onchange')
-    length = fields.Float(string="Longueur (m)", track_visibility='onchange')
-    depth = fields.Float(string="Profondeur (m)", track_visibility='onchange')
-    height = fields.Float(string="Hauteur (m)", track_visibility='onchange')
+    length = fields.Float(string="Longueur (mm)", track_visibility='onchange')
+    depth = fields.Float(string="Profondeur (mm)", track_visibility='onchange')
+    height = fields.Float(string="Hauteur (mm)", track_visibility='onchange')
 
     @api.model
     def create(self, vals):
