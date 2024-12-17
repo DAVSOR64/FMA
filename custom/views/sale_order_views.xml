@@ -51,6 +51,12 @@
                     <field name="so_statut_avancement_production"/>
                     <field name="so_delai_confirme_en_semaine"/>
                 </group>
+                <group string="Informations supplémentaires">
+                        <field name="so_acces_bl"/>
+                        <field name="so_type_camion_bl"/>
+                        <field name="so_horaire_ouverture_bl"/>
+                        <field name="so_horaire_fermeture_bl"/>
+                </group>
             </xpath>
 
             <!-- Exemple pour ajouter les pages existantes -->
