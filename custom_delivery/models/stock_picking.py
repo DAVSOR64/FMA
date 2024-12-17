@@ -29,7 +29,7 @@ class StockPicking(models.Model):
     # Champs détail colisage
     so_carton_qty = fields.Integer(string='Qté')
     so_botte_qty = fields.Integer(string='Qté')
-    so_botte_length = fields.Float(string='Longueur (en m)')
+    so_botte_length = fields.Float(string='Longueur (en mm)')
     so_poids_total = fields.Float(string='Poids (en kg)')
 
     # Ajout du champ one2many pour les lignes de colisage
@@ -77,30 +77,30 @@ class PickingColisageLine(models.Model):
         return res
         
 
-    class PickingPaletteLine(models.Model):
-        _name = 'picking.palette.line'
-        _description = 'Ligne de Palette'
-        _inherit = ['mail.thread']  # Permet le suivi des modifications dans le fil de discussion Odoo
-        _log_access = True  # Active l'historique des accès
+class PickingPaletteLine(models.Model):
+    _name = 'picking.palette.line'
+    _description = 'Ligne de Palette'
+    _inherit = ['mail.thread']  # Permet le suivi des modifications dans le fil de discussion Odoo
+    _log_access = True  # Active l'historique des accès
 
-        picking_id = fields.Many2one('stock.picking', string="Palette", ondelete='cascade')
-        qty = fields.Integer(string="Quantité", track_visibility='onchange')
-        length = fields.Float(string="Longueur (m)", track_visibility='onchange')
-        depth = fields.Float(string="Profondeur (m)", track_visibility='onchange')
-        height = fields.Float(string="Hauteur (m)", track_visibility='onchange')
+    picking_id = fields.Many2one('stock.picking', string="Palette", ondelete='cascade')
+    qty = fields.Integer(string="Quantité", track_visibility='onchange')
+    length = fields.Float(string="Longueur (mm)", track_visibility='onchange')
+    depth = fields.Float(string="Profondeur (mm)", track_visibility='onchange')
+    height = fields.Float(string="Hauteur (mm)", track_visibility='onchange')
 
-        @api.model
-        def create(self, vals):
-            """Suivi des créations dans le fil de discussion Odoo"""
-            res = super(PickingPaletteLine, self).create(vals)
-            message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
-            res.picking_id.message_post(body=message)
-            return res
+    @api.model
+    def create(self, vals):
+        """Suivi des créations dans le fil de discussion Odoo"""
+        res = super(PickingPaletteLine, self).create(vals)
+        message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
+        res.picking_id.message_post(body=message)
+        return res
 
-        def write(self, vals):
-            """Suivi des modifications dans le fil de discussion Odoo"""
-            _logger.warning("********** Fonction write appelée dans PickingPaletteLine *********")  # Log d'avertissement
-            res = super(PickingPaletteLine, self).write(vals)
-            message = "Ligne de palette mise à jour."
-            self.picking_id.message_post(body=message)
-            return res
+    def write(self, vals):
+        """Suivi des modifications dans le fil de discussion Odoo"""
+        _logger.warning("********** Fonction write appelée dans PickingPaletteLine *********")  # Log d'avertissement
+        res = super(PickingPaletteLine, self).write(vals)
+        message = "Ligne de palette mise à jour."
+        self.picking_id.message_post(body=message)
+        return res
