@@ -31,7 +31,7 @@ class ResPartner(models.Model):
             line = ['PCC',
                     'I',
                     str(partner.part_code_tiers).ljust(9) or '         ',
-                    partner.name.ljust(30) or '                                   ',
+                    str(partner.name).ljust(30) or '                                   ',
                     '0',
                     'N',
                     'N',
