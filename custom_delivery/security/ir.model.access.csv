@@ -1,3 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_picking_colisage_line_user,picking.colisage.line user,model_picking_colisage_line,stock.group_stock_user,1,1,1,1
 access_picking_colisage_line_manager,picking.colisage.line manager,model_picking_colisage_line,stock.group_stock_manager,1,1,1,1
+access_picking_palette_line_user,picking.palette.line user,model_picking_palette_line,stock.group_stock_user,1,1,1,1
+access_picking_palette_line_manager,picking.palette.line manager,model_picking_palette_line,stock.group_stock_manager,1,1,1,1

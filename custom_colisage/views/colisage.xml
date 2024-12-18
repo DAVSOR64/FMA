@@ -1,6 +1,7 @@
 <odoo>
     <template id="report_colisage_document_report" inherit_id="studio_customization.studio_report_docume_0c00e955-3dfa-46dc-9669-1de4fb64f4a5" priority="100">
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
+            <!-- En-tête -->
             <div class="header_table" style="display: flex; justify-content: flex-end; font-family: 'DejaVu Sans', sans-serif; width: 100%;">
                 <div class="company_info" style="flex: 1; text-align: right; font-size: 15px;">
                     <p><strong>Numéro de dossier FMA :</strong> <span t-field="doc.origin" /></p>
@@ -12,8 +13,13 @@
 
             <div style="margin-bottom: 40px;"></div>
 
-            <!-- Section Table des produits -->
-            <table class="table table-sm" t-if="doc.state!='done'" name="stock_move_table" style="margin-top: 20px; width: 100%;">
+            <!-- Section titre Lignes Colisage -->
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; page-break-inside: avoid;">
+                Lignes Colisage
+            </div>
+
+            <!-- Tableau des lignes de colisage -->
+            <table class="table table-sm" t-if="doc.state!='done'" name="stock_move_table" style="margin-top: 20px; width: 100%; page-break-inside: avoid;">
                 <thead>
                     <tr>
                         <th>Réf./Repère</th>
@@ -26,7 +32,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Utilisation des lignes de colisage définies dans le champ One2many -->
                     <tr t-foreach="doc.colisage_line_ids" t-as="line">
                         <td>
                             <span t-field="line.so_repere" />
@@ -46,7 +51,6 @@
                         <td>
                             <span t-field="line.so_qte_livree" />
                         </td>
-                        <!-- Colonne Reliquat : différence entre Qté Commandée et Qté Livrée -->
                         <td>
                             <span t-esc="line.so_qte_commandee - line.so_qte_livree" />
                         </td>
@@ -56,22 +60,52 @@
 
             <div style="margin-bottom: 40px;"></div>
 
-            <!-- Nouvelle section Carton(s), Botte(s), et Palette(s) -->
-            <table class="table table-sm table-bordered" style="margin-top: 20px; width: 100%;">
+            <!-- Section titre Palettes -->
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; page-break-inside: avoid;">
+                Palettes
+            </div>
+
+            <!-- Tableau des lignes de palettes -->
+            <table class="table table-sm table-bordered" style="margin-top: 20px; width: 100%; page-break-inside: avoid;">
+                <thead>
+                    <tr>
+                        <th>Quantité</th>
+                        <th>Longueur (m)</th>
+                        <th>Profondeur (m)</th>
+                        <th>Hauteur (m)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="doc.palette_line_ids" t-as="line">
+                        <td style="text-align: center;">
+                            <span t-field="line.qty" />
+                        </td>
+                        <td style="text-align: center;">
+                            <span t-field="line.length" />
+                        </td>
+                        <td style="text-align: center;">
+                            <span t-field="line.depth" />
+                        </td>
+                        <td style="text-align: center;">
+                            <span t-field="line.height" />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="margin-bottom: 40px;"></div>
+
+            <!-- Section Carton(s), Botte(s) -->
+            <table class="table table-sm table-bordered" style="margin-top: 20px; width: 100%; page-break-inside: avoid;">
                 <thead>
                     <tr>
                         <th colspan="1" style="text-align: center;">Cartons</th>
                         <th colspan="2" style="text-align: center;">Botte(s)</th>
-                        <th colspan="4" style="text-align: center;">Palette(s)</th>
                     </tr>
                     <tr>
                         <th style="text-align: center;">Qté</th>
                         <th style="text-align: center;">Qté</th>
                         <th style="text-align: center;">Lg (en m)</th>
-                        <th style="text-align: center;">Qté</th>
-                        <th style="text-align: center;">Longueur (en m)</th>
-                        <th style="text-align: center;">Profondeur (en m)</th>
-                        <th style="text-align: center;">Hauteur (en m)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -82,20 +116,13 @@
                         <!-- Botte(s) -->
                         <td style="text-align: center;"><span t-field="doc.so_botte_qty" /></td>
                         <td style="text-align: center;"><span t-field="doc.so_botte_length" /></td>
-
-                        <!-- Palette(s) -->
-                        <td style="text-align: center;"><span t-field="doc.so_palette_qty" /></td>
-                        <td style="text-align: center;"><span t-field="doc.so_palette_length" /></td>
-                        <td style="text-align: center;"><span t-field="doc.so_palette_depth" /></td>
-                        <td style="text-align: center;"><span t-field="doc.so_palette_height" /></td>
                     </tr>
                 </tbody>
             </table>
 
             <!-- Section poids total -->
             <div class="total_weight_section" 
-                 style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
-                <t t-set="total_weight" t-value="sum(line.so_qte_livree * 0 for line in doc.colisage_line_ids)" />
+                 style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center; page-break-inside: avoid;">
                 ⚖️ Poids total : <span t-field="doc.so_poids_total"/> kg
             </div>
         </xpath>

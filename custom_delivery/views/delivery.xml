@@ -53,13 +53,13 @@
             <div class="custom_info" style="display: flex; justify-content: space-between; margin-top: 20px;">
                 <!-- Colonne de gauche --> 
                 <div style="flex: 1; padding-right: 20px;">
-                    <p><strong> Accès : </strong><span t-field="o.so_acces_bl" /></p>
-                    <p><strong> Type de camion : </strong><span t-field="o.so_type_camion_bl" /></p>
+                    <p><strong> Accès : </strong><span t-field="o.sale_id.so_acces_bl" /></p>
+                    <p><strong> Type de camion : </strong><span t-field="o.sale_id.so_type_camion_bl" /></p>
                 </div>
                 <!-- Colonne de droite -->
                 <div style="flex: 1; padding-left: 20px; text-align: right;">
-                    <p><strong>🕒 Horaire d'ouverture : </strong><span t-field="o.so_horaire_ouverture_bl" t-options='{"widget": "float_time"}'/></p>
-                    <p><strong>🕕 Horaire de fermeture : </strong><span t-field="o.so_horaire_fermeture_bl" t-options='{"widget": "float_time"}'/></p>
+                    <p><strong>🕒 Horaire d'ouverture : </strong><span t-field="o.sale_id.so_horaire_ouverture_bl" t-options='{"widget": "float_time"}'/></p>
+                    <p><strong>🕕 Horaire de fermeture : </strong><span t-field="o.sale_id.so_horaire_fermeture_bl" t-options='{"widget": "float_time"}'/></p>
                 </div>
             </div>
 
@@ -78,7 +78,7 @@
                 </thead>
                 <tbody>
                     <!-- Boucle à travers les lignes de mouvement de stock -->   
-                    <tr t-foreach="o.move_ids_without_package" t-as="line" t-if="not (line.product_id.default_code.startswith('A2') or line.product_id.default_code.startswith('ECO'))">
+                    <tr t-foreach="o.move_ids_without_package" t-as="line" t-if="line.product_id.default_code and not (line.product_id.default_code.startswith('A2') or line.product_id.default_code.startswith('ECO'))">
                         <td>
                             <!-- Référence du produit -->
                             <span t-field="line.product_id.default_code" />

@@ -4,18 +4,6 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//sheet/group" position="inside">
-                <group string="Informations supplémentaires" colspan="2">
-                    <group>
-                        <field name="so_acces_bl"/>
-                        <field name="so_type_camion_bl"/>
-                    </group>
-                    <group>
-                        <field name="so_horaire_ouverture_bl"/>
-                        <field name="so_horaire_fermeture_bl"/>
-                    </group>
-                </group>
-            </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Info Colisage">
                     <group>
@@ -40,6 +28,25 @@
                             </form>
                         </field>
                     </group>
+                    <!-- Tableau des palettes ajouté sous les lignes de colisage -->
+                    <group>
+                        <field name="palette_line_ids">
+                            <tree editable="bottom">
+                                <field name="qty"/>
+                                <field name="length"/>
+                                <field name="depth"/>
+                                <field name="height"/>
+                            </tree>
+                            <form>
+                                <group>
+                                    <field name="qty"/>
+                                    <field name="length"/>
+                                    <field name="depth"/>
+                                    <field name="height"/>
+                                </group>
+                            </form>
+                        </field>
+                    </group>
                     <group string="Details Colisage">
                         <group string="Poids">
                             <field name="so_poids_total"/>
@@ -50,12 +57,6 @@
                         <group string="Botte(s)">
                             <field name="so_botte_qty"/>
                             <field name="so_botte_length"/>
-                        </group>
-                        <group string="Palette(s)">
-                            <field name="so_palette_qty"/>
-                            <field name="so_palette_length"/>
-                            <field name="so_palette_depth"/>
-                            <field name="so_palette_height"/>
                         </group>
                     </group>
                 </page>
