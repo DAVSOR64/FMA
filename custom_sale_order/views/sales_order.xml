@@ -251,5 +251,7 @@
             </div>
         </xpath>
         <!-- SUppression des conditions de paiement en pied de page -->
+        <xpath expr="//t[@t-set='address']" position="replace">
+        </xpath>
     </template>
 </odoo>

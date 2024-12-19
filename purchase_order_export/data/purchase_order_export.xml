@@ -39,7 +39,7 @@
                                 t-att-ItemCount="(line_index+1)*10"
                                 t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
                                 t-att-ArticlesQuantity="line.product_qty or ''"
-                                t-att-SalesUnitOfMeasure="line.product_id.x_studio_unit_logikal.upper() if line.product_id.x_studio_unit_logikal else ''"
+                                t-att-SalesUnitOfMeasure="(line.product_id.x_studio_unit_logikal and line.product_id.x_studio_unit_logikal.upper()) or ''"
                                 t-att-Length="line.product_id.x_studio_longueur_m or ''"
                                 t-att-ExternalColor="external_color"
                                 t-att-InternalColor="internal_color"
