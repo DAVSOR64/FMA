@@ -112,8 +112,10 @@
                         <span>TVA</span>
                     </th>
                     <th name="th_subtotal" class="text-end">
-                            <span>Montant H.T.</span>
-                            <span>Total H.T.</span>
+                        <span>Montant H.T.</span>
+                    </th>
+                    <th class="text-end">
+                        <span>Total H.T.</span>
                     </th>
                 </tr>
             </thead>
@@ -167,6 +169,8 @@
                             </td>
                             <td class="text-end o_price_total">
                                 <span class="text-nowrap" t-field="line.price_subtotal" />
+                            </td>
+                            <td class="text-end">
                                 <span class="text-nowrap" t-field="line.price_total" />
                             </td>
                         </tr>
