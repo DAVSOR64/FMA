@@ -131,6 +131,8 @@
                     </th>
                     <th name="th_subtotal" class="text-end">
                         <span>Montant HT</span>
+                    </th>
+                    <th class="text-end">
                         <span>Prix Total</span>
                     </th>
                 </tr>
@@ -199,6 +201,8 @@
                             </td>
                             <td class="text-end o_price_total">
                                 <span class="text-nowrap" t-field="line.price_subtotal" />
+                            </td>
+                            <td class="text-end">
                                 <span class="text-nowrap" t-field="line.price_total" />
                             </td>
                         </tr>
