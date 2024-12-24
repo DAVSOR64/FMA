@@ -14,7 +14,7 @@
     'website': "http://www.yourcompany.com",
 
     'category': 'Uncategorized',
-    'version': '0.1',
+    'version': '1.1',
 
     # any module necessary for this one to work correctly
     'depends': ['base', 'stock'],
