@@ -44,8 +44,8 @@ class SaleOrder(models.Model):
     )
 
     so_acces_bl = fields.Char(string="Accès")
-    so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture', widget='float_time')
-    so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture', widget='float_time')
+    so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture')
+    so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture')
 
     x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
     is_all_service = fields.Boolean(string="Is All Service")
@@ -78,7 +78,7 @@ class SaleOrder(models.Model):
     so_date_de_modification = fields.Date(string="Date de modification")
     so_date_de_commande = fields.Date(string="Date de la commande")
     so_date_bpe = fields.Date(string="BPE du : ")
-    so_date_de_reception_devis = fields.Date(string="Demande reçue le :", required=True)
+    so_date_de_reception_devis = fields.Date(string="Demande reçue le :")
     so_date_du_devis = fields.Date(string="Devis fait le : ")
     so_date_de_modification_devis = fields.Date(string="Devis modifié le : ")
     so_date_devis_valide = fields.Date(string="Devis validé le : ")
@@ -105,7 +105,6 @@ class SaleOrder(models.Model):
             ('WICONA','WICONA'),
         ],
         string="GAMME",
-        required=True,
     )
 
     so_serie = fields.Selection(
@@ -233,7 +232,6 @@ class SaleOrder(models.Model):
             ('WT50.RC3', 'WT50.RC3'),
         ],
         string="SERIE",
-        required=True,
     )
 
 
