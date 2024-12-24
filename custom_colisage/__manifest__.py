@@ -10,14 +10,14 @@
         Long description of module's purpose
     """,
 
-    'author': "Odoo PS",
+    'author': "My Company",
     'website': "http://www.yourcompany.com",
 
     'category': 'Uncategorized',
-    'version': '17.0.1.0.1',
+    'version': '0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock', 'custom_delivery'],
+    'depends': ['base', 'stock'],
 
     # always loaded
     'data': [

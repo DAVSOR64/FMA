@@ -10,11 +10,10 @@
             Task: 4022500
         """,
     'author': 'Odoo PS',
-    'version': '17.0.1.0.1',
+    'version': '15.0.0.1.0',
     'depends': [
         'account_accountant',
-        'sale_management',
-        'custom'
+        'sale_management'
     ],
     'data': [
         'data/ir_cron.xml',

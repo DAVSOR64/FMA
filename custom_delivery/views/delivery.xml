@@ -118,9 +118,5 @@
                 ⚖️ Poids total : <span t-esc="total_weight"/> kg
             </div>
         </xpath>
-        <xpath expr="//t[@t-set='address']" position="replace">
-        </xpath>
-        <xpath expr="//t[@t-set='information_block']" position="replace">
-        </xpath>
     </template>
 </odoo>

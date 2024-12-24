@@ -1,5 +1,5 @@
 import logging
-from odoo import models, fields, api
+from odoo import models, fields, api, re
 
 class SaleOrder(models.Model):
     _inherit = ['sale.order', 'delivery']
