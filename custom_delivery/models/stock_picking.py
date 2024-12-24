@@ -48,12 +48,12 @@ class PickingColisageLine(models.Model):
     _log_access = True  # Active l'historique des accès (qui a modifié et quand)
 
     picking_id = fields.Many2one('stock.picking', string="Colisage", ondelete='cascade')
-    so_repere = fields.Char(string="Réf./Repère", track_visibility='onchange')
-    so_designation = fields.Char(string="Désignation", track_visibility='onchange')
-    so_largeur = fields.Float(string="Largeur", track_visibility='onchange')
-    so_hauteur = fields.Float(string="Hauteur", track_visibility='onchange')
-    so_qte_commandee = fields.Integer(string="Qté Commandée", track_visibility='onchange')
-    so_qte_livree = fields.Integer(string="Qté Livrée", track_visibility='onchange')
+    so_repere = fields.Char(string="Réf./Repère")
+    so_designation = fields.Char(string="Désignation")
+    so_largeur = fields.Float(string="Largeur")
+    so_hauteur = fields.Float(string="Hauteur")
+    so_qte_commandee = fields.Integer(string="Qté Commandée")
+    so_qte_livree = fields.Integer(string="Qté Livrée")
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
     #_sql_constraints = [

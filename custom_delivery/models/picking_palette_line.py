@@ -10,10 +10,10 @@ class PickingPaletteLine(models.Model):
     _log_access = True  # Active l'historique des accès
 
     picking_id = fields.Many2one('stock.picking', string="Palette", ondelete='cascade')
-    qty = fields.Integer(string="Quantité", track_visibility='onchange')
-    length = fields.Float(string="Longueur (mm)", track_visibility='onchange')
-    depth = fields.Float(string="Profondeur (mm)", track_visibility='onchange')
-    height = fields.Float(string="Hauteur (mm)", track_visibility='onchange')
+    qty = fields.Integer(string="Quantité")
+    length = fields.Float(string="Longueur (mm)")
+    depth = fields.Float(string="Profondeur (mm)")
+    height = fields.Float(string="Hauteur (mm)")
 
     @api.model
     def create(self, vals):
