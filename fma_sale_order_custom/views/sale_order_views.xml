@@ -8,17 +8,18 @@
                 <field name="state" widget="statusbar" statusbar_visible="draft,sent,validated,sale"/>
             </xpath>
             <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" invisible="state not in ('send', 'draft', 'validated')"/>
+    <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" 
+        attrs="{'invisible': [('state', 'not in', ('send', 'draft', 'validated'))]}" />
             </xpath>
             <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
-                <attribute name="invisible">state not in ['validated']</attribute>
+                <attribute name="attrs">{'invisible': [('state', 'not in', ['validated'])]}</attribute>
             </xpath>
             <!-- Ajouter le champ disable_confirm_button invisible pour les attrs -->
             <xpath expr="//sheet" position="inside">
                 <field name="disable_confirm_button" invisible="1"/>
             </xpath>
             <xpath expr="//header/button[@name='action_quotation_send'][3]" position="after">
-                <button name="action_validation" string="Validé" type="object" invisible="state in ['cancel', 'validated', 'sale', 'done']"/>
+                <button name="action_validation" string="Validé" type="object" attrs="{'invisible': [('state', 'in', ['cancel', 'validated', 'sale', 'done'])]}" />
             </xpath>
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>

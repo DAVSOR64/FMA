@@ -11,10 +11,10 @@
 
     'author': "My Company",
     'category': 'Uncategorized',
-    'version': '17.0.1.0.1',
+    'version': '0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['sale','custom'],
+    'depends': ['sale'],
 
     # always loaded
     'data': [

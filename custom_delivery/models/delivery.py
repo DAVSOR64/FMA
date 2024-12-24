@@ -1,4 +1,4 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, re
 
 class SaleOrder(models.Model):
     _inherit = ['delivery', 'sale.order']

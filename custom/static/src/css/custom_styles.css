@@ -31,24 +31,5 @@
 }
 
 .o_form_view .field-name-so_date_de_livraison_prevu .o_field_widget {
-  color: orange !important;
-}
-
-.field-red {
-  color: red !important;
-}
-.label-blue {
-  color: blue !important;
-}
-
-.label-green {
-  color: green !important;
-}
-
-.label-orange {
-  color: orange !important;
-}
-
-.label-red {
-  color: red !important;
+    color: orange !important;
 }
