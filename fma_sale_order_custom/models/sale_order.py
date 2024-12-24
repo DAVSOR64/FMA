@@ -32,7 +32,12 @@ class SaleOrder(models.Model):
             order.x_studio_date_de_la_commande = fields.Datetime.today()
             order.so_date_devis_valide = fields.Datetime.today()
             order.x_studio_avancement = '5'  # Mettre x_studio_avancement à '5'
-            
+    
+    #Extra: Checks if the sale order can be confirmed, considering both its state and 'validated' state.
+    def _can_be_confirmed(self):
+        self.ensure_one()
+        can_be_confirmed = super()._can_be_confirmed()
+        return can_be_confirmed or self.state == 'validated'
             
     # Init date BPE lors de la confirmation du devis
     def action_confirm(self):
@@ -83,16 +88,44 @@ class SaleOrder(models.Model):
                 vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
 
             # Mise à jour de l'entrepôt en fonction des tags
+
+            # if 'tag_ids' in vals:
+            #     tag_updates = vals.get('tag_ids', [])
+            #     if tag_updates and fma_tag.id in tag_updates[0][2]:
+            #         warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+            #         if warehouse_regripiere:
+            #             vals['warehouse_id'] = warehouse_regripiere.id
+            #     if tag_updates and f2m_tag.id in tag_updates[0][2]:
+            #         warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+            #         if warehouse_remaudiere:
+            #             vals['warehouse_id'] = warehouse_remaudiere.id
+
+            #improvement in condition
             if 'tag_ids' in vals:
                 tag_updates = vals.get('tag_ids', [])
-                if tag_updates and fma_tag.id in tag_updates[0][2]:
-                    warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
-                    if warehouse_regripiere:
-                        vals['warehouse_id'] = warehouse_regripiere.id
-                if tag_updates and f2m_tag.id in tag_updates[0][2]:
-                    warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
-                    if warehouse_remaudiere:
-                        vals['warehouse_id'] = warehouse_remaudiere.id
+                if tag_updates:
+                    if isinstance(tag_updates[0], (list, tuple)) and len(tag_updates[0]) > 2 and tag_updates[0][0] == 6:
+                        tag_ids = tag_updates[0][2]
+                        if fma_tag.id in tag_ids:
+                            warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+                            if warehouse_regripiere:
+                                vals['warehouse_id'] = warehouse_regripiere.id
+                        if f2m_tag.id in tag_ids:
+                            warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+                            if warehouse_remaudiere:
+                                vals['warehouse_id'] = warehouse_remaudiere.id
+
+                    elif isinstance(tag_updates[0], (list, tuple)) and len(tag_updates[0]) > 1 and tag_updates[0][0] == 4:
+                        tag_id = tag_updates[0][1]
+                        if fma_tag.id == tag_id:
+                            warehouse_regripiere = self.env['stock.warehouse'].search([('name', '=', 'LA REGRIPPIERE')], limit=1)
+                            if warehouse_regripiere:
+                                vals['warehouse_id'] = warehouse_regripiere.id
+                        if f2m_tag.id == tag_id:
+                            warehouse_remaudiere = self.env['stock.warehouse'].search([('name', '=', 'LA REMAUDIERE')], limit=1)
+                            if warehouse_remaudiere:
+                                vals['warehouse_id'] = warehouse_remaudiere.id
+
 
         return super(SaleOrder, self).create(vals_list)
 
@@ -137,97 +170,97 @@ class SaleOrder(models.Model):
                     order.warehouse_id = warehouse_remaudiere.id
 
 
-    # Init date de livraison prévue et synchronisation avec commitment_date
-    @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
-    def _compute_so_date_de_livraison(self):
-        for order in self:
-            if order.so_date_bpe and order.so_delai_confirme_en_semaine:
-                # Calculer la date de livraison prévue
-                order.so_date_de_livraison = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
-                # Synchroniser avec commitment_date
-                order.commitment_date = order.so_date_de_livraison
-            else:
-                # Réinitialiser si les valeurs nécessaires sont manquantes
-                order.so_date_de_livraison = False
-                order.commitment_date = False
+    # # Init date de livraison prévue et synchronisation avec commitment_date
+    # @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
+    # def _compute_so_date_de_livraison(self):
+    #     for order in self:
+    #         if order.so_date_bpe and order.so_delai_confirme_en_semaine:
+    #             # Calculer la date de livraison prévue
+    #             order.so_date_de_livraison = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+    #             # Synchroniser avec commitment_date
+    #             order.commitment_date = order.so_date_de_livraison
+    #         else:
+    #             # Réinitialiser si les valeurs nécessaires sont manquantes
+    #             order.so_date_de_livraison = False
+    #             order.commitment_date = False
                 
-    # Calcul des marges et coûts pour le devis
-    @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
-    def _compute_so_marge_brute_devis(self):
-        for order in self:
-            order.so_marge_brute_devis = order.so_mtt_facturer_devis - order.so_achat_vitrage_devis - order.so_achat_matiere_devis
+    # # Calcul des marges et coûts pour le devis
+    # @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
+    # def _compute_so_marge_brute_devis(self):
+    #     for order in self:
+    #         order.so_marge_brute_devis = order.so_mtt_facturer_devis - order.so_achat_vitrage_devis - order.so_achat_matiere_devis
 
-    @api.depends('so_marge_brute_devis', 'so_mtt_facturer_devis')
-    def _compute_so_prc_marge_brute_devis(self):
-        for order in self:
-            if order.so_mtt_facturer_devis:
-                order.so_prc_marge_brute_devis = (order.so_marge_brute_devis / order.so_mtt_facturer_devis) * 100
-            else:
-                order.so_prc_marge_brute_devis = 0.0
+    # @api.depends('so_marge_brute_devis', 'so_mtt_facturer_devis')
+    # def _compute_so_prc_marge_brute_devis(self):
+    #     for order in self:
+    #         if order.so_mtt_facturer_devis:
+    #             order.so_prc_marge_brute_devis = (order.so_marge_brute_devis / order.so_mtt_facturer_devis) * 100
+    #         else:
+    #             order.so_prc_marge_brute_devis = 0.0
 
-    @api.depends('so_marge_brute_devis', 'so_cout_mod_devis')
-    def _compute_so_mcv_devis(self):
-        for order in self:
-            order.so_mcv_devis = order.so_marge_brute_devis - order.so_cout_mod_devis
+    # @api.depends('so_marge_brute_devis', 'so_cout_mod_devis')
+    # def _compute_so_mcv_devis(self):
+    #     for order in self:
+    #         order.so_mcv_devis = order.so_marge_brute_devis - order.so_cout_mod_devis
 
-    @api.depends('so_mcv_devis', 'so_mtt_facturer_devis')
-    def _compute_so_prc_mcv_devis(self):
-        for order in self:
-            if order.so_mtt_facturer_devis:
-                order.so_prc_mcv_devis = (order.so_mcv_devis / order.so_mtt_facturer_devis) * 100
-            else:
-                order.so_prc_mcv_devis = 0.0
+    # @api.depends('so_mcv_devis', 'so_mtt_facturer_devis')
+    # def _compute_so_prc_mcv_devis(self):
+    #     for order in self:
+    #         if order.so_mtt_facturer_devis:
+    #             order.so_prc_mcv_devis = (order.so_mcv_devis / order.so_mtt_facturer_devis) * 100
+    #         else:
+    #             order.so_prc_mcv_devis = 0.0
 
-    # Calcul des marges et coûts pour BE
-    @api.depends('so_mtt_facturer_be', 'so_achat_vitrage_be', 'so_achat_matiere_be')
-    def _compute_so_marge_brute_be(self):
-        for order in self:
-            order.so_marge_brute_be = order.so_mtt_facturer_be - order.so_achat_vitrage_be - order.so_achat_matiere_be
+    # # Calcul des marges et coûts pour BE
+    # @api.depends('so_mtt_facturer_be', 'so_achat_vitrage_be', 'so_achat_matiere_be')
+    # def _compute_so_marge_brute_be(self):
+    #     for order in self:
+    #         order.so_marge_brute_be = order.so_mtt_facturer_be - order.so_achat_vitrage_be - order.so_achat_matiere_be
 
-    @api.depends('so_marge_brute_be', 'so_mtt_facturer_be')
-    def _compute_so_prc_marge_brute_be(self):
-        for order in self:
-            if order.so_mtt_facturer_be:
-                order.so_prc_marge_brute_be = (order.so_marge_brute_be / order.so_mtt_facturer_be) * 100
-            else:
-                order.so_prc_marge_brute_be = 0.0
+    # @api.depends('so_marge_brute_be', 'so_mtt_facturer_be')
+    # def _compute_so_prc_marge_brute_be(self):
+    #     for order in self:
+    #         if order.so_mtt_facturer_be:
+    #             order.so_prc_marge_brute_be = (order.so_marge_brute_be / order.so_mtt_facturer_be) * 100
+    #         else:
+    #             order.so_prc_marge_brute_be = 0.0
 
-    @api.depends('so_marge_brute_be', 'so_cout_mod_be')
-    def _compute_so_mcv_be(self):
-        for order in self:
-            order.so_mcv_be = order.so_marge_brute_be - order.so_cout_mod_be
+    # @api.depends('so_marge_brute_be', 'so_cout_mod_be')
+    # def _compute_so_mcv_be(self):
+    #     for order in self:
+    #         order.so_mcv_be = order.so_marge_brute_be - order.so_cout_mod_be
 
-    @api.depends('so_mcv_be', 'so_mtt_facturer_be')
-    def _compute_so_prc_mcv_be(self):
-        for order in self:
-            if order.so_mtt_facturer_be:
-                order.so_prc_mcv_be = (order.so_mcv_be / order.so_mtt_facturer_be) * 100
-            else:
-                order.so_prc_mcv_be = 0.0
+    # @api.depends('so_mcv_be', 'so_mtt_facturer_be')
+    # def _compute_so_prc_mcv_be(self):
+    #     for order in self:
+    #         if order.so_mtt_facturer_be:
+    #             order.so_prc_mcv_be = (order.so_mcv_be / order.so_mtt_facturer_be) * 100
+    #         else:
+    #             order.so_prc_mcv_be = 0.0
 
-    # Calcul des marges et coûts pour le réel
-    @api.depends('so_mtt_facturer_reel', 'so_achat_vitrage_reel', 'so_achat_matiere_reel')
-    def _compute_so_marge_brute_reel(self):
-        for order in self:
-            order.so_marge_brute_reel = order.so_mtt_facturer_reel - order.so_achat_vitrage_reel - order.so_achat_matiere_reel
+    # # Calcul des marges et coûts pour le réel
+    # @api.depends('so_mtt_facturer_reel', 'so_achat_vitrage_reel', 'so_achat_matiere_reel')
+    # def _compute_so_marge_brute_reel(self):
+    #     for order in self:
+    #         order.so_marge_brute_reel = order.so_mtt_facturer_reel - order.so_achat_vitrage_reel - order.so_achat_matiere_reel
 
-    @api.depends('so_marge_brute_reel', 'so_mtt_facturer_reel')
-    def _compute_so_prc_marge_brute_reel(self):
-        for order in self:
-            if order.so_mtt_facturer_reel:
-                order.so_prc_marge_brute_reel = (order.so_marge_brute_reel / order.so_mtt_facturer_reel) * 100
-            else:
-                order.so_prc_marge_brute_reel = 0.0
+    # @api.depends('so_marge_brute_reel', 'so_mtt_facturer_reel')
+    # def _compute_so_prc_marge_brute_reel(self):
+    #     for order in self:
+    #         if order.so_mtt_facturer_reel:
+    #             order.so_prc_marge_brute_reel = (order.so_marge_brute_reel / order.so_mtt_facturer_reel) * 100
+    #         else:
+    #             order.so_prc_marge_brute_reel = 0.0
 
-    @api.depends('so_marge_brute_reel', 'so_cout_mod_reel')
-    def _compute_so_mcv_reel(self):
-        for order in self:
-            order.so_mcv_reel = order.so_marge_brute_reel - order.so_cout_mod_reel
+    # @api.depends('so_marge_brute_reel', 'so_cout_mod_reel')
+    # def _compute_so_mcv_reel(self):
+    #     for order in self:
+    #         order.so_mcv_reel = order.so_marge_brute_reel - order.so_cout_mod_reel
 
-    @api.depends('so_mcv_reel', 'so_mtt_facturer_reel')
-    def _compute_so_prc_mcv_reel(self):
-        for order in self:
-            if order.so_mtt_facturer_reel:
-                order.so_prc_mcv_reel = (order.so_mcv_reel / order.so_mtt_facturer_reel) * 100
-            else:
-                order.so_prc_mcv_reel = 0.0
+    # @api.depends('so_mcv_reel', 'so_mtt_facturer_reel')
+    # def _compute_so_prc_mcv_reel(self):
+    #     for order in self:
+    #         if order.so_mtt_facturer_reel:
+    #             order.so_prc_mcv_reel = (order.so_mcv_reel / order.so_mtt_facturer_reel) * 100
+    #         else:
+    #             order.so_prc_mcv_reel = 0.0

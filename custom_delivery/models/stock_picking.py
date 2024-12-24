@@ -6,8 +6,8 @@ _logger = logging.getLogger(__name__)
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
-    def __init__(self, pool, cr):
-        super(StockPicking, self).__init__(pool, cr)
+    def __init__(self, env, ids, prefetch_ids):
+        super(StockPicking, self).__init__(env, ids, prefetch_ids)
         _logger.warning("Le modèle StockPicking est chargé avec succès")
 
     # Champ sale_id (s'il n'existe pas déjà)
@@ -56,9 +56,9 @@ class PickingColisageLine(models.Model):
     so_qte_livree = fields.Integer(string="Qté Livrée", track_visibility='onchange')
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
-    #_sql_constraints = [
-    #    ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique !'),
-    #]
+    # _sql_constraints = [
+    #     ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique !'),
+    # ]
 
     @api.model
     def create(self, vals):
@@ -75,8 +75,8 @@ class PickingColisageLine(models.Model):
         message = "Ligne de colisage mise à jour."
         self.picking_id.message_post(body=message)
         return res
+        
 
-    
 class PickingPaletteLine(models.Model):
     _name = 'picking.palette.line'
     _description = 'Ligne de Palette'
