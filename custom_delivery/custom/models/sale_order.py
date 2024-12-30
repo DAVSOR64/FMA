@@ -39,8 +39,8 @@ class SaleOrder(models.Model):
         string="Type de camion (Hayon palette maxi 2400mm)",
     )
     so_acces = fields.Char(string="Accès")
-    so_horaire_ouverture = fields.Float(string='Horaire ouverture', widget='float_time')
-    so_horaire_fermeture = fields.Float(string='Horaire fermeture', widget='float_time')
+    so_horaire_ouverture = fields.Float(string='Horaire ouverture')
+    so_horaire_fermeture = fields.Float(string='Horaire fermeture')
     x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
     is_all_service = fields.Boolean(string="Is All Service")
     delivery_set = fields.Boolean(string="Delivery Set")
