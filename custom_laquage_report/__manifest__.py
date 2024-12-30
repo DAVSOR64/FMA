@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': "custom_laquage_report",
     'summary': """
@@ -6,8 +7,8 @@
     'description': """
         Ce module ajoute un rapport PDF personnalisé pour les commandes d'achat.
     """,
-    'author': "My Company",
-    'version': '0.1',
+    'author': "Odoo PS",
+    'version': '17.0.1.0.1',
 
     # any module necessary for this one to work correctly
     'depends': ['base', 'stock', 'purchase'],  # Ajout de 'purchase' comme dépendance

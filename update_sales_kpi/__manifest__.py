@@ -10,7 +10,7 @@
     """,
 
     'category': 'Uncategorized',
-    'version': '17.0.2',
+    'version': '17.0.1.0.1',
 
     # any module necessary for this one to work correctly
     'depends': ['base','sale','mrp', 'custom' ],
