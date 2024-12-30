@@ -48,12 +48,12 @@ class PickingColisageLine(models.Model):
     _log_access = True  # Active l'historique des accès (qui a modifié et quand)
 
     picking_id = fields.Many2one('stock.picking', string="Colisage", ondelete='cascade')
-    so_repere = fields.Char(string="Réf./Repère")
-    so_designation = fields.Char(string="Désignation")
-    so_largeur = fields.Float(string="Largeur")
-    so_hauteur = fields.Float(string="Hauteur")
-    so_qte_commandee = fields.Integer(string="Qté Commandée")
-    so_qte_livree = fields.Integer(string="Qté Livrée")
+    so_repere = fields.Char(string="Réf./Repère", track_visibility='onchange')
+    so_designation = fields.Char(string="Désignation", track_visibility='onchange')
+    so_largeur = fields.Float(string="Largeur", track_visibility='onchange')
+    so_hauteur = fields.Float(string="Hauteur", track_visibility='onchange')
+    so_qte_commandee = fields.Integer(string="Qté Commandée", track_visibility='onchange')
+    so_qte_livree = fields.Integer(string="Qté Livrée", track_visibility='onchange')
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
     # _sql_constraints = [
@@ -84,10 +84,10 @@ class PickingPaletteLine(models.Model):
     _log_access = True  # Active l'historique des accès
 
     picking_id = fields.Many2one('stock.picking', string="Palette", ondelete='cascade')
-    qty = fields.Integer(string="Quantité")
-    length = fields.Float(string="Longueur (mm)")
-    depth = fields.Float(string="Profondeur (mm)")
-    height = fields.Float(string="Hauteur (mm)")
+    qty = fields.Integer(string="Quantité", track_visibility='onchange')
+    length = fields.Float(string="Longueur (mm)", track_visibility='onchange')
+    depth = fields.Float(string="Profondeur (mm)", track_visibility='onchange')
+    height = fields.Float(string="Hauteur (mm)", track_visibility='onchange')
 
     @api.model
     def create(self, vals):
