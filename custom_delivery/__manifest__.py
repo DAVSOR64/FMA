@@ -14,10 +14,10 @@
     'website': "http://www.yourcompany.com",
 
     'category': 'Uncategorized',
-    'version': '1.1',
+    'version': '17.0.1.0.1',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'stock'],
+    'depends': ['base', 'stock', 'custom'],
 
     # always loaded
     'data': [
@@ -42,5 +42,4 @@
     'demo': [
         'demo/demo.xml',
     ],
-    'license': 'LGPL-3',
 }

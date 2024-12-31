@@ -9,9 +9,9 @@
             Task: 3975517
         """,
     'author': 'Odoo PS',
-    'version': '15.0.0.1.1',
+    'version': '17.0.1.0.1',
     'depends': [
-        'purchase'
+        'purchase', 'stock'
     ],
     'data': [
         'security/ir.model.access.csv',

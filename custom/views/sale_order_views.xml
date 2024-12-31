@@ -6,48 +6,48 @@
         <field name="arch" type="xml">
             <!-- Ajout après les détails du partenaire -->
             <xpath expr="//sheet//group[@name='partner_details']" position="after">
-                <group string="Chronologie"> 
-                    
-                    <label for="so_date_de_reception_devis" string="Demande reçue le :" style="color:blue;"/>
-                    <field name="so_date_de_reception_devis" nolabel="1" required="1"/>
-                    
-                    <label for="so_date_du_devis" string="Devis fait le :" style="color:blue;"/>
+                <group string="Chronologie">
+
+                    <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
+                    <field name="so_date_de_reception_devis" nolabel="1"/>
+
+                    <label for="so_date_du_devis" string="Devis fait le :" class="label-blue"/>
                     <field name="so_date_du_devis" nolabel="1"/>
-                    
-                    <label for="so_date_de_modification_devis" string="Devis modifié le :" style="color:blue;"/>
+
+                    <label for="so_date_de_modification_devis" string="Devis modifié le :" class="label-blue"/>
                     <field name="so_date_de_modification_devis" nolabel="1"/>
-                    
-                    <label for="so_date_devis_valide" string="Devis validé le :" style="color:blue;"/>
+
+                    <label for="so_date_devis_valide" string="Devis validé le :" class="label-blue"/>
                     <field name="so_date_devis_valide" nolabel="1"/>
 
-                    <label for="so_date_ARC" string="ARC du :" style="color:green;"/>
+                    <label for="so_date_ARC" string="ARC du :" class="label-green"/>
                     <field name="so_date_ARC" nolabel="1"/>
-                    
-                    <label for="so_date_bpe" string="BPE du :" style="color:green;"/>
+
+                    <label for="so_date_bpe" string="BPE du :" class="label-green"/>
                     <field name="so_date_bpe" nolabel="1"/>
-                    
-                    <label for="so_date_bon_pour_fab" string="Bon pour Fab. le :" style="color:orange;"/>
+
+                    <label for="so_date_bon_pour_fab" string="Bon pour Fab. le :" class="label-orange"/>
                     <field name="so_date_bon_pour_fab" nolabel="1"/>
-                    
-                    <label for="so_date_de_fin_de_production_reel" string="Fin de production du :" style="color:orange;"/>
+
+                    <label for="so_date_de_fin_de_production_reel" string="Fin de production du :" class="label-orange"/>
                     <field name="so_date_de_fin_de_production_reel" nolabel="1"/>
 
-                    <label for="so_date_de_livraison" string="Date de livraison prévue :" style="color:orange;"/>
+                    <label for="so_date_de_livraison" string="Date de livraison prévue :" class="label-orange"/>
                     <field name="so_date_de_livraison" nolabel="1"/>
-                    
-                    <label for="so_date_de_livraison_prevu" string="Date de livraison :" style="color:orange;"/>
+
+                    <label for="so_date_de_livraison_prevu" string="Date de livraison :" class="label-orange"/>
                     <field name="so_date_de_livraison_prevu" nolabel="1"/>
 
                 </group>
-                
+
                 <!-- Autres groupes -->
                 <group string="Informations principales">
                     <field name="so_commercial"/>
                     <field name="so_commande_client"/>
-                    <label for="so_gamme" string="GAMME :" style="color:blue;" required="1"/>
-                    <field name="so_gamme" nolabel="1" required="1"/>
-                    <label for="so_serie" string="SERIE :" style="color:blue;"/>
-                    <field name="so_serie" nolabel="1" required="1"/>
+                    <label for="so_gamme" string="GAMME :" class="label-blue"/>
+                    <field name="so_gamme" nolabel="1"/>
+                    <label for="so_serie" string="SERIE :" class="label-blue"/>
+                    <field name="so_serie" nolabel="1"/>
                     <field name="so_statut_avancement_production"/>
                     <field name="so_delai_confirme_en_semaine"/>
                 </group>

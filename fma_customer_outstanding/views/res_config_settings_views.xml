@@ -6,15 +6,12 @@
         <field name="inherit_id" ref="base_setup.res_config_settings_view_form" />
         <field name="arch" type="xml">
             <xpath expr="//div[@id=('languages')]" position="after">
-                <h2>Import Customers Credit File</h2>
-                <div class="row mt16 o_settings_container" name="ftp_server_configurations_container">
-                    <div class="col-12 col-lg-6 o_setting_box" id="ftp_server_configurations_box">
-                        <div class="o_setting_right_pane" id="ftp_settings">
-                            <span class="o_form_label">FTP server credentials</span>
-                            <div class="text-muted">
-                                Setup the FTP server configurations for file import.
-                            </div>
-                            <div class="content-group" id="ftp_settings_group" >
+                <div id="import_customers_credit_file">
+                    <block title="Import Customers Credit File" name="customer_credit_setting_container">
+                        <setting id="ftp_server_configurations_setting">
+                            <span class="o_form_label">FTP Server Credentials</span>
+                            <div class="text-muted">Setup the FTP server configurations for file import.</div>
+                            <div class="content-group" id="ftp_settings_group">
                                 <div class="mt16 row">
                                     <label for="ftp_server_host" string="FTP Server Host" class="col-5 o_light_label"/>
                                     <field name="ftp_server_host" class="col-7"/>
@@ -26,8 +23,8 @@
                                     <field name="ftp_server_file_path" class="col-7"/>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </setting>
+                    </block>
                 </div>
             </xpath>
         </field>
