@@ -132,9 +132,9 @@
                     <th name="th_subtotal" class="text-end">
                         <span>Montant HT</span>
                     </th>
-                    <th class="text-end">
+                   <!-- <th class="text-end">
                         <span>Prix Total</span>
-                    </th>
+                    </th>-->
                 </tr>
             </thead>
         </xpath>
@@ -199,12 +199,12 @@
                             <td class="text-end">
                                 <span t-field="line.tax_ids" />
                             </td>
-                            <td class="text-end o_price_total">
+                            <td class="text-end">
                                 <span class="text-nowrap" t-field="line.price_subtotal" />
                             </td>
-                            <td class="text-end">
+                           <!-- <td class="text-end">
                                 <span class="text-nowrap" t-field="line.price_total" />
-                            </td>
+                            </td> -->
                         </tr>
                     </t>
                 </t>
@@ -236,10 +236,12 @@
                             <td class="text-end">
                                 <span t-field="line.tax_ids" />
                             </td>
-                            <td class="text-end o_price_total">
+                            <td class="text-end">
                                 <span class="text-nowrap" t-field="line.price_subtotal" />
-                                <span class="text-nowrap" t-field="line.price_total" />
                             </td>
+                          <!--  <td class="text-end">
+                                <span class="text-nowrap" t-field="line.price_total" />
+                            </td> -->
                         </tr>
                     </t>
                 </t>
