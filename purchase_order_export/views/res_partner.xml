@@ -5,8 +5,9 @@
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//form//group//field[@name='company_id']" position="after">
-                <field name="shipping_number"></field>
+            <xpath expr="//form//field[@name='category_id']" position="after">
+                <field name="shipping_number"/>
+                <field name="po_xml_export_sftp_path"/>
             </xpath>
         </field>
     </record>
