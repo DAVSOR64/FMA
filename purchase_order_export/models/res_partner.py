@@ -8,3 +8,4 @@ class ResPartner(models.Model):
     _inherit = 'res.partner'
 
     shipping_number = fields.Char()
+    po_xml_export_sftp_path = fields.Char("File Path", help="SFTP server file path for the PO XML file.")
