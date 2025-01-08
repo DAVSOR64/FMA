@@ -60,47 +60,71 @@ class PurchaseOrder(models.Model):
                 po.write({'is_xml_created': False})
                 _logger.exception("Failed to export purchase order %s: %s", po.name, e)
 
-    def _sync_file(self, attachment):
+    def _sync_file(self, sftp_obj, attachment, order, sftp_server_file_path):
         attachment_content = base64.b64decode(attachment.datas)
-        get_param = self.env['ir.config_parameter'].sudo().get_param
-        ftp_server_host = get_param('purchase_order_export.ftp_server_host')
-        ftp_server_username = get_param('purchase_order_export.ftp_server_username')
-        ftp_server_password = get_param('purchase_order_export.ftp_server_password')
-        ftp_server_file_path = get_param('purchase_order_export.ftp_server_file_path')
-        if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
-            _logger.error("Missing one or more FTP server credentials.")
-            return
+        transport = None
+        try:
+            partner_path = getattr(order.partner_id, 'po_xml_export_sftp_path', '')
+            if not partner_path:
+                order.write({'sftp_synced_time': False})
+                _logger.error(f"Missing File Path at the Vendor {order.partner_id.name} of {order.name}.")
+                return
+            partner_path = partner_path.strip('/')
+            full_path = f"/{sftp_server_file_path.strip('/')}/{partner_path}" + '/'
+            sftp_obj.chdir(full_path)
+            with io.BytesIO(attachment_content) as file_obj:
+                sftp_obj.putfo(file_obj, attachment.name)  # Upload file
+                order.write({'sftp_synced_time': fields.Datetime.now()})
 
-        with ftplib.FTP(ftp_server_host, ftp_server_username, ftp_server_password) as session:
-            try:
-                session.cwd(ftp_server_file_path)
-                session.storbinary('STOR ' + attachment.name, io.BytesIO(attachment_content))
-                self.log_request('FTP Sync Success', f"File {attachment.name} uploaded successfully to {ftp_server_file_path}", f'Sync File {attachment.name}')
+            self.log_request('SFTP Sync Success',
+                f"File {attachment.name} uploaded successfully to {sftp_server_file_path}",
+                f'Sync File {attachment.name}')
 
-            except ftplib.all_errors as ftp_error:
-                _logger.error("FTP error while uploading file %s: %s", attachment.name, ftp_error)
-            except Exception as upload_error:
-                _logger.error("Unexpected error while uploading file %s: %s", attachment.name, upload_error)
+        except FileNotFoundError as e:
+            _logger.error(f"SFTP Sync Error: Error locating the directory {full_path}. Exception: {e}")
+        except paramiko.SSHException as ssh_error:
+            _logger.error(f"SSH error while uploading file {attachment.name}: {ssh_error}")
+        except IOError as io_error:
+            _logger.error(f"I/O error during file upload for {attachment.name}: {io_error}")
+        except Exception as e:
+            order.write({'sftp_synced_time': False})
+            _logger.error(f"Unexpected error while uploading file {attachment.name}: {e}")
 
-    def cron_send_po_xml_to_ftp(self):
-        """Sync the unsynced POs to the FTP server."""
+    def cron_send_po_xml_to_sftp(self):
+        """Sync the unsynced POs to the SFTP server."""
         purchase_orders = self.env['purchase.order'].search([('is_xml_created', '=', True)])
         attachment_model = self.env['ir.attachment']
-        for order in purchase_orders:
-            try:
-                with self.env.cr.savepoint():
-                    attachment = attachment_model.search([
-                        ('res_model', '=', 'purchase.order'),
-                        ('res_id', '=', order.id),
-                        ('is_po_xml', '=', True)
-                    ], limit=1)
-                    if attachment:
-                        self._sync_file(attachment)
-                        order.write({'ftp_synced_time': fields.Datetime.now()})
-                    else:
-                        _logger.warning(f"No attachment found for Purchase Order {order.name}.")
-            except Exception as e:
-                _logger.error(f"Failed to sync Purchase Order {order.name} to FTP: {e}")
+
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+        sftp_server_host = get_param('purchase_order_export.sftp_host_po_xml_export')
+        sftp_server_username = get_param('purchase_order_export.sftp_username_po_xml_export')
+        sftp_server_password = get_param('purchase_order_export.sftp_password_po_xml_export')
+        sftp_server_file_path = get_param('purchase_order_export.sftp_file_path_po_xml_export')
+        if not all([sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path]):
+            _logger.error("Missing one or more SFTP server credentials.")
+            return
+
+        try:
+            transport = paramiko.Transport((sftp_server_host, 22))
+            transport.connect(username=sftp_server_username, password=sftp_server_password)
+            with paramiko.SFTPClient.from_transport(transport) as sftp:
+                for order in purchase_orders:
+                    with self.env.cr.savepoint():
+                        attachment = attachment_model.search([
+                            ('res_model', '=', 'purchase.order'),
+                            ('res_id', '=', order.id),
+                            ('is_po_xml', '=', True)
+                        ], limit=1)
+                        if attachment:
+                            self._sync_file(sftp, attachment, order, sftp_server_file_path)
+                        else:
+                            _logger.warning(f"No attachment found for Purchase Order {order.name}.")
+        except Exception as e:
+            order.write({'sftp_synced_time': False})
+            _logger.error(f"Failed to sync Purchase Order {order.name} to SFTP server: {e}")
+        finally:
+            if transport:
+                transport.close()
 
     def log_request(self, operation, ref, path, level=None):
         db_name = self.env.cr.dbname
