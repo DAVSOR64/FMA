@@ -20,7 +20,7 @@
             <xpath expr="//field[@name='user_id']" position="after">
                 <field name="is_xml_created" string="Is Exported"/>
                 <field name="xml_creation_time"/>
-                <field name="ftp_synced_time"/>
+                <field name="sftp_synced_time"/>
             </xpath>
         </field>
     </record>

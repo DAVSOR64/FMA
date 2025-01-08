@@ -6,7 +6,6 @@
         <field name="inherit_id" ref="purchase.res_config_settings_view_form_purchase" />
         <field name="arch" type="xml">
             <xpath expr="//block[@name=('matrix_setting_container')]" position="after">
-
                 <block title="Export Purchase Order" name="purchase_order_export_setting_container">
                     <setting id="po_export_setting">
                         <span class="o_form_label">SFTP server credentials</span>
@@ -15,14 +14,14 @@
                             </div>
                             <div class="content-group" id="sftp_settings_group">
                                 <div class="mt16 row">
-                                    <label for="ftp_server_host" string="FTP Server Host" class="col-5 o_light_label"/>
-                                    <field name="ftp_server_host" class="col-7"/>
-                                    <label for="ftp_server_username" string="FTP Server Username" class="col-5 o_light_label"/>
-                                    <field name="ftp_server_username" class="col-7"/>
-                                    <label for="ftp_server_password" string="FTP Server Password" class="col-5 o_light_label"/>
-                                    <field name="ftp_server_password" class="col-7"/>
-                                    <label for="ftp_server_file_path" string="FTP Server File Path" class="col-5 o_light_label"/>
-                                    <field name="ftp_server_file_path" class="col-7"/>
+                                    <label for="sftp_host_po_xml_export" string="SFTP Server Host" class="col-5 o_light_label"/>
+                                    <field name="sftp_host_po_xml_export" class="col-7"/>
+                                    <label for="sftp_username_po_xml_export" string="SFTP Server Username" class="col-5 o_light_label"/>
+                                    <field name="sftp_username_po_xml_export" class="col-7"/>
+                                    <label for="sftp_password_po_xml_export" string="SFTP Server Password" class="col-5 o_light_label"/>
+                                    <field name="sftp_password_po_xml_export" class="col-7"/>
+                                    <label for="sftp_file_path_po_xml_export" string="SFTP Server File Path" class="col-5 o_light_label"/>
+                                    <field name="sftp_file_path_po_xml_export" class="col-7"/>
                                 </div>
                             </div>
                     </setting>

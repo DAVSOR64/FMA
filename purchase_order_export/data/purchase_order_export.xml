@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-	<template id="purchase_order_ftp_export_template">
+	<template id="purchase_order_sftp_export_template">
 	<CCS xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 		<Internal Type="Order" Version="617" Build="2.46.241" Job="3175" ItemSet="0000003643">
 			<PriceList>
@@ -34,8 +34,8 @@
                         <t t-foreach="filtered_lines" t-as="line">
                             <t t-set="external_color" t-value="line.product_id.x_studio_color_logikal.split('/')[0] if line.product_id.x_studio_color_logikal and '/' in line.product_id.x_studio_color_logikal else line.product_id.x_studio_color_logikal " />
                             <t t-set="internal_color" t-value="line.product_id.x_studio_color_logikal.split('/')[1] if line.product_id.x_studio_color_logikal and '/' in line.product_id.x_studio_color_logikal else ''" />
-                            
-                            <Article 
+
+                            <Article
                                 t-att-ItemCount="(line_index+1)*10"
                                 t-att-ArticleID="line.product_id.x_studio_ref_int_logikal or ''"
                                 t-att-ArticlesQuantity="line.product_qty or ''"
