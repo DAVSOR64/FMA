@@ -106,7 +106,6 @@ class SaleOrder(models.Model):
             ('WICONA','WICONA'),
         ],
         string="GAMME",
-        default="FORSTER",
         required=True,
     )
 
@@ -132,7 +131,7 @@ class SaleOrder(models.Model):
             ('ECO 60', 'ECO 60'),
             ('ARTE 2.0', 'ARTE 2.0'),
             ('JANISOL 2', 'JANISOL 2'),
-            ('C4', 'C4'),
+            ('JANISOL C4', 'JANISOL C4'),
             ('JANISOL HI', 'JANISOL HI'),
             ('SOLEAL GY 55', 'SOLEAL GY 55'),
             ('ART 15', 'ART 15'),
@@ -141,6 +140,7 @@ class SaleOrder(models.Model):
             ('CD45Pa', 'CD45Pa'),
             ('CD68', 'CD68'),
             ('CF77', 'CF77'),
+            ('CF68', 'CF68'),
             ('CP130', 'CP130'),
             ('CP45', 'CP45'),
             ('CP68', 'CP68'),
@@ -235,7 +235,6 @@ class SaleOrder(models.Model):
             ('WT50.RC3', 'WT50.RC3'),
         ],
         string="SERIE",
-        default="UNICO",
         required=True,
     )
 
