@@ -78,7 +78,7 @@
                 </thead>
                 <tbody>
                     <!-- Boucle à travers les lignes de mouvement de stock -->   
-                    <tr t-foreach="o.move_ids_without_package" t-as="line" t-if="line.product_id.default_code and not (line.product_id.default_code.startswith('A2') or line.product_id.default_code.startswith('ECO'))">
+                    <tr t-foreach="o.move_ids_without_package" t-as="line" t-if="line.product_id.default_code and not line.product_id.default_code.startswith('ECO') and not any(route.sequence == 2 for route in line.product_id.route_ids)">
                         <td>
                             <!-- Référence du produit -->
                             <span t-field="line.product_id.default_code" />
