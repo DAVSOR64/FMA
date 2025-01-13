@@ -1,5 +1,5 @@
 <odoo>
-    <template id="report_purchaseorder_document_inherit" inherit_id="studio_customization.studio_report_docume_c211b0a7-48e2-467e-912b-88f342ba8caf">
+    <template id="report_purchaseorder_document_inherit_1" inherit_id="studio_customization.studio_report_docume_c211b0a7-48e2-467e-912b-88f342ba8caf">
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <div class="page">
                 <!-- En-tête avec logo et informations de l'entreprise -->

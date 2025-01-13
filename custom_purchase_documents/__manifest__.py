@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
-    'name': "custom_laquage_report",
+    'name': "custom_purchase_documents",
     'summary': """
-        Custom laquage report""",
+        Custom purchase documents""",
     'description': """
-        Ce module ajoute un rapport PDF personnalisé pour les commandes d'achat.
+        Ce module ajoute des rapports PDF personnalisés pour les commandes d'achat.
     """,
     'author': "Odoo PS",
     'version': '17.0.1.0.1',
@@ -17,6 +17,8 @@
     'data': [
         # 'security/ir.model.access.csv',  # Si vous avez des règles de sécurité, sinon laissez commenté
         'views/custom_laquage.xml',       # Template QWeb pour le PDF
+        'views/custom_invoice_filling.xml',
+        'views/custom_invoice.xml',
     ],
 
     # only loaded in demonstration mode
@@ -27,7 +29,7 @@
         # Section pour inclure les fichiers statiques
     'assets': {
         'web.assets_backend': [
-            'custom_laquage_report/static/src/img/F2M.png', # Chemin vers l'image à inclure
+            'custom_purchase_documents/static/src/img/F2M.png', # Chemin vers l'image à inclure
         ],
     },
 
