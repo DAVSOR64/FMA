@@ -1,5 +1,5 @@
 <odoo>
-    <template id="report_purchaseorder_document_inherit_3" inherit_id="studio_customization.studio_report_docume_7b9761c4-0ce5-4321-b590-1509b25f8864">
+    <template id="report_purchaseorder_document_inherit_3" inherit_id="studio_customization.studio_report_docume_1c729120-d66b-48c4-9408-abe885559c62">
         <xpath expr="//div[contains(@class, 'page')]" position="inside">
             <!-- Contexte Langue -->
             <t t-set="doc" t-value="doc.with_context(lang=doc.partner_id.lang)"/>
