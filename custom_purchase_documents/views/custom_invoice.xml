@@ -1,0 +1,142 @@
+<odoo>
+    <template id="report_purchaseorder_document_inherit_3" inherit_id="studio_customization.studio_report_docume_1c729120-d66b-48c4-9408-abe885559c62">
+        <xpath expr="//div[contains(@class, 'page')]" position="inside">
+            <!-- Contexte Langue -->
+            <t t-set="doc" t-value="doc.with_context(lang=doc.partner_id.lang)"/>
+
+            <!-- Adresses (Adresse de livraison et Adresse fournisseur côte à côte) -->
+            <div class="row mt-3">
+                <div class="col-6 pe-3">
+                    <strong>Adresse de Livraison :</strong>
+                    <br/>
+                    <!-- Nom de la société -->
+                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.name" t-if="doc.picking_type_id.warehouse_id.partner_id"/>
+                    <br t-if="doc.picking_type_id.warehouse_id.partner_id.name"/>
+                    
+                    <!-- Adresse (Rue) -->
+                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.street" t-if="doc.picking_type_id.warehouse_id.partner_id.street"/>
+                    <br t-if="doc.picking_type_id.warehouse_id.partner_id.street"/>
+                    
+                    <!-- Code postal et ville -->
+                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.zip" t-if="doc.picking_type_id.warehouse_id.partner_id.zip"/>
+                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.city" t-if="doc.picking_type_id.warehouse_id.partner_id.city"/>
+                    <br t-if="doc.picking_type_id.warehouse_id.partner_id.city or doc.picking_type_id.warehouse_id.partner_id.zip"/>
+                    
+                    <!-- Pays -->
+                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.country_id.name" t-if="doc.picking_type_id.warehouse_id.partner_id.country_id.name"/>
+                    <br t-if="doc.picking_type_id.warehouse_id.partner_id.country_id.name"/>
+                    
+                    <!-- Numéro de téléphone -->
+                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.phone" t-if="doc.picking_type_id.warehouse_id.partner_id.phone"/>
+                </div>
+
+
+                <!-- Adresse fournisseur -->
+                <div class="col-6 ps-3 text-end">
+                    <strong>Adresse fournisseur:</strong>
+                    <br/>
+                    <span t-esc="doc.partner_id.name"/><br/>
+                    <span t-esc="doc.partner_id.street"/><br/>
+                    <span t-esc="doc.partner_id.city"/> <span t-esc="doc.partner_id.zip"/>, <span t-esc="doc.partner_id.country_id.name"/><br/>
+                    <span t-esc="doc.partner_id.vat"/><br/>
+                    <span class="text-end" t-esc="doc.partner_id.phone"/> <!-- Assurez-vous que cette ligne est bien alignée -->
+                </div>
+
+            </div>
+
+            <!-- Titre et Informations -->
+            <div>
+                <div class="oe_structure"/>
+
+                <!-- Titre -->
+                <div class="mt-4">
+                    <h2 t-if="doc.state in ['draft', 'sent', 'to approve']">
+                        Demande de Prix #<span t-field="doc.name"/>
+                    </h2>
+                    <h2 t-if="doc.state in ['purchase', 'done']">
+                        Bon de Commande #<span t-field="doc.name"/>
+                    </h2>
+                    <h2 t-if="doc.state == 'cancel'">
+                        Bon de Commande Annulé #<span t-field="doc.name"/>
+                    </h2>
+                </div>
+
+                <!-- Affaire -->
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <strong>Affaire :</strong>
+                        <br/>
+                        <span t-field="doc.x_studio_many2one_field_LCOZX"/>
+                    </div>
+                </div>
+
+                <!-- Informations Supplémentaires -->
+                <div id="informations" class="row mt-4 mb32">
+                    <div t-if="doc.user_id" class="col-3 bm-2">
+                        <strong>Acheteur:</strong>
+                        <p t-field="doc.user_id" class="m-0"/>
+                    </div>
+                    <div t-if="doc.partner_ref" class="col-3 bm-2">
+                        <strong>Référence de Commande:</strong>
+                        <p t-field="doc.partner_ref" class="m-0"/>
+                    </div>
+                    <div t-if="doc.date_planned" class="col-3">
+                        <strong>Arrivée Prévue:</strong>
+                        <p t-field="doc.date_planned" class="m-0"/>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Commentaire -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <strong>Commentaire Livraison Vitrage :</strong>
+                    <br/>
+                    <span t-field="doc.x_studio_commentaire_livraison_vitrage_"/>
+                </div>
+            </div>
+
+            <!-- Tableau des Produits -->
+            <table class="table table-sm mt-4" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th class="text-start"><span>Description</span></th>
+                        <th class="text-start"><span>Qté</span></th>
+                        <th class="text-start"><span>Prix Unitaire</span></th>
+                        <th class="text-start"><span>Montant</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="doc.order_line" t-as="line">
+                        <t t-if="line.product_id.default_code != 'affaire'">
+                            <tr>
+                                <td><span t-field="line.name"/></td>
+                                <td><span t-field="line.product_qty"/></td>
+                                <td><span t-field="line.price_unit" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/></td>
+                                <td><span t-field="line.price_subtotal" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/></td>
+                            </tr>
+                        </t>
+                    </t>
+                </tbody>
+            </table>
+
+            <!-- Montant Total HT -->
+            <div class="col-12 mb-2 text-end">
+                <strong>Montant Total HT :</strong>
+                <span t-field="doc.amount_untaxed" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+            </div>
+    
+            <!-- Montant Total TVA -->
+            <div t-if="doc.amount_tax != 0" class="col-12 mb-2 text-end">
+                <strong>Montant Total TVA :</strong>
+                <span t-field="doc.amount_tax" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+            </div>
+
+            <!-- Prix Total TTC -->
+            <div class="col-12 text-end">
+                <strong>Prix Total TTC :</strong>
+                <span t-field="doc.amount_total" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+            </div>
+        </xpath>
+    </template>
+</odoo>

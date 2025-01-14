@@ -173,7 +173,7 @@
                         <!-- Traitement pour un autre produit -->
                         <t t-set="nb_line_invoice" t-value="nb_line_invoice + 1" />
                     </t>
-                    <t t-if=" line.product_id.default_code and isinstance(line.product_id.default_code, str) and line.product_id.default_code != 'Acpt20' and line.product_id.default_code != 'Acpt10' and line.product_id.default_code != 'Acpt5' and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and not line.product_id.default_code.startswith('A24') and not line.product_id.default_code.startswith('A25') and line.display_type == 'product'">
+                    <t t-if=" line.product_id.default_code and isinstance(line.product_id.default_code, str) and line.product_id.default_code != 'Acpt20' and line.product_id.default_code != 'Acpt10' and line.product_id.default_code != 'Acpt5' and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and not any(route.sequence == 2 for route in line.product_id.route_ids)">
                         <tr>
                             <td name="account_invoice_line_name">
                                 <span t-out="line.product_id.name + ' ' + line.name"
