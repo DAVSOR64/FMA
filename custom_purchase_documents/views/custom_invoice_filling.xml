@@ -51,13 +51,13 @@
                 <!-- Titre -->
                 <div class="mt-4">
                     <h2 t-if="doc.state in ['draft', 'sent', 'to approve']">
-                        Demande de Prix #<span t-field="doc.name"/>
+                        Demande de Prix <span t-field="doc.name"/>
                     </h2>
                     <h2 t-if="doc.state in ['purchase', 'done']">
-                        Bon de Commande #<span t-field="doc.name"/>
+                        Bon de Commande <span t-field="doc.name"/>
                     </h2>
                     <h2 t-if="doc.state == 'cancel'">
-                        Bon de Commande Annulé #<span t-field="doc.name"/>
+                        Bon de Commande Annulé <span t-field="doc.name"/>
                     </h2>
                 </div>
 
