@@ -3,7 +3,7 @@
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <!-- Structure en deux colonnes avec du flexbox -->
             <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif;">
-
+                
                 <!-- Bloc de la société FMA-F2M avec émoticônes -->
                 <div class="company_info" style="flex: 1;">
                     <strong t-field="o.company_id.name" /><br />
@@ -13,14 +13,14 @@
                     <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="o.company_id.phone" /><br />
                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" />
                 </div>
-
+                
                 <!-- Bloc des informations de livraison avec émoticônes aligné à droite -->
                 <div class="delivery_info" style="flex: 1; text-align: right;">
                     <p><strong>Numéro de dossier FMA :</strong> <span t-field="o.origin" /></p>
                     <!-- Nouvelle ligne pour afficher la date de livraison -->
                     <strong>Livraison le : </strong>
                     <span t-field="o.scheduled_date" t-options="{'widget': 'date'}" /><br /><br />
-
+                    
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
                     N°: 
                     <t t-if="'OUT' in o.name">
@@ -58,7 +58,22 @@
                 </div>
                 <!-- Colonne de droite -->
                 <div style="flex: 1; padding-left: 20px; text-align: right;">
-	@@ -77,50 +79,37 @@
+                    <p><strong>🕒 Horaire d'ouverture : </strong><span t-field="o.sale_id.so_horaire_ouverture_bl" t-options='{"widget": "float_time"}'/></p>
+                    <p><strong>🕕 Horaire de fermeture : </strong><span t-field="o.sale_id.so_horaire_fermeture_bl" t-options='{"widget": "float_time"}'/></p>
+                </div>
+            </div>
+
+            <!-- Table avec en-tête de colonne -->
+            <table class="table table-sm" name="stock_move_table" style="margin-top: 20px;">
+                <thead>
+                    <tr>
+                        <th>Référence</th>
+                        <th>Description</th>
+                        <th>Largeur</th>
+                        <th>Hauteur</th>
+                        <th>Qte Commandé</th>
+                        <th>Qte Livré</th>
+                        <th>Reliquat</th>
                     </tr>
                 </thead>
                 <tbody>
