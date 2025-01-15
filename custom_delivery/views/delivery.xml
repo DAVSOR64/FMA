@@ -1,6 +1,6 @@
 <odoo>
     <template id="report_delivery_document_inherit" inherit_id="studio_customization.studio_report_docume_45012290-890a-43d5-a966-b552761500ed">
-        <xpath expr="//div[contains(@class, 'page')]" position="replace">
+        <xpath expr="//div[contains(@class, 'page')]" position="replace"> 
             <!-- Conteneur principal avec flexbox pour aligner FMA et le client côte à côte -->
             <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif;">
                 
