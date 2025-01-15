@@ -4,11 +4,15 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//header/field[@name='state']" position="replace">
-                <field name="state" widget="statusbar" statusbar_visible="draft,sent,validated,sale"/>
+            <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
+                <!-- Bouton "Validé" placé avant "Confirmer" -->
+                <button name="action_validation" string="Validé" type="object" 
+                        invisible="state in ['cancel', 'validated', 'sale', 'done']"/>
             </xpath>
             <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" invisible="state not in ('send', 'draft', 'validated')"/>
+                <!-- Bouton "Confirmer" -->
+                <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" 
+                        invisible="state not in ('send', 'draft', 'validated')"/>
             </xpath>
             <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
                 <attribute name="invisible">state not in ['validated']</attribute>
@@ -16,9 +20,6 @@
             <!-- Ajouter le champ disable_confirm_button invisible pour les attrs -->
             <xpath expr="//sheet" position="inside">
                 <field name="disable_confirm_button" invisible="1"/>
-            </xpath>
-            <xpath expr="//header/button[@name='action_quotation_send'][3]" position="after">
-                <button name="action_validation" string="Validé" type="object" invisible="state in ['cancel', 'validated', 'sale', 'done']"/>
             </xpath>
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>
