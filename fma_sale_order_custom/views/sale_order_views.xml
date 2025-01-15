@@ -4,28 +4,36 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
+            <!-- Bouton "Validé" positionné après "Envoyer par e-mail" -->
             <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <!-- Bouton "Validé" placé avant "Confirmer" -->
-                <button name="action_validation" string="Validé" type="object" 
+                <button name="action_validation" string="Valider" type="object" 
                         invisible="state in ['cancel', 'validated', 'sale', 'done']"/>
             </xpath>
-            <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <!-- Bouton "Confirmer" -->
+
+            <!-- Bouton "Confirmer" positionné après "Validé" -->
+            <xpath expr="//header/button[@name='action_validation']" position="after">
                 <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" 
                         invisible="state not in ('send', 'draft', 'validated')"/>
             </xpath>
+
+            <!-- Modifier l'invisibilité du bouton "Confirmer" -->
             <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
                 <attribute name="invisible">state not in ['validated']</attribute>
             </xpath>
+
             <!-- Ajouter le champ disable_confirm_button invisible pour les attrs -->
             <xpath expr="//sheet" position="inside">
                 <field name="disable_confirm_button" invisible="1"/>
             </xpath>
+
+            <!-- Ajout du champ "date_bpe" après "tag_ids" -->
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>
             </xpath>
         </field>
     </record>
+
+    <!-- Modifier les filtres de la vue liste -->
     <record id="view_sales_order_filter_inherit" model="ir.ui.view">
         <field name="name">sale.view.sales.order.filter.inherit.fma.sale.order.custom</field>
         <field name="model">sale.order</field>
