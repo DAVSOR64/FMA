@@ -1,5 +1,5 @@
 <odoo>
-    <template id="report_delivery_document_inherit" inherit_id="studio_customization.studio_report_docume_45012290-890a-43d5-a966-b552761500ed">
+    <template id="report_delivery_document_inherit" inherit_id="studio_customization.studio_report_docume_36622d8d-7938-4941-9a8c-c8acab520cd0">
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <!-- Conteneur principal avec flexbox pour aligner FMA et le client côte à côte -->
             <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif;">
@@ -23,6 +23,8 @@
                     <strong>Email :</strong> <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="enveloppe" /> <span t-field="doc.partner_id.commercial_partner_id.email" />
                 </div>
 
+            </div> <!-- Fermeture du div header_table -->
+
             <!-- Bloc des informations de dossier -->
             <div style="margin-top: 20px;">
                 <p><strong>Numéro de dossier FMA :</strong> <span t-field="doc.origin" /></p>
@@ -40,7 +42,7 @@
 
             <!-- Bloc des informations de livraison déplacé ici -->
             <div class="delivery_info" style="margin-top: 20px;">
-            <img src="/custom_delivery/static/src/img/camion.png" style="height: 16px; width: 16px;" alt="camion" /> <strong>Adresse de livraison :</strong><br />
+                <img src="/custom_delivery/static/src/img/camion.png" style="height: 16px; width: 16px;" alt="camion" /> <strong>Adresse de livraison :</strong><br />
                 <span t-field="doc.partner_id.name" /><br />
                 <span t-field="doc.partner_id.street" /><br />
                 <span t-field="doc.partner_id.zip" /> <span t-field="doc.partner_id.city" /><br />
