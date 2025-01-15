@@ -4,39 +4,27 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <!-- Modification du champ state -->
             <xpath expr="//header/field[@name='state']" position="replace">
                 <field name="state" widget="statusbar" statusbar_visible="draft,sent,validated,sale"/>
             </xpath>
-
-            <!-- Bouton "Confirmer" -->
             <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" 
-                        attrs="{'invisible': [('state', 'not in', ('send', 'draft', 'validated'))]}" />
+                <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" invisible="state not in ('send', 'draft', 'validated')"/>
             </xpath>
             <xpath expr="//header/button[@name='action_confirm'][1]" position="attributes">
-                <attribute name="attrs">{'invisible': [('state', 'not in', ['validated'])]}</attribute>
+                <attribute name="invisible">state not in ['validated']</attribute>
             </xpath>
-
-            <!-- Ajouter le champ disable_confirm_button -->
+            <!-- Ajouter le champ disable_confirm_button invisible pour les attrs -->
             <xpath expr="//sheet" position="inside">
                 <field name="disable_confirm_button" invisible="1"/>
             </xpath>
-
-            <!-- Bouton "Validé" placé après "Envoyer la facture PRO FORMA" -->
-            <xpath expr="//header/button[@id='send_proforma_primary']" position="after">
-                <button name="action_validation" string="Validé" type="object" class="btn-secondary" 
-                        attrs="{'invisible': [('state', 'in', ['cancel', 'validated', 'sale', 'done'])]}" />
+            <xpath expr="//header/button[@name='action_quotation_send'][3]" position="after">
+                <button name="action_validation" string="Validé" type="object" invisible="state in ['cancel', 'validated', 'sale', 'done']"/>
             </xpath>
-
-            <!-- Champ "date_bpe" -->
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>
             </xpath>
         </field>
     </record>
-
-    <!-- Filtre personnalisé dans la vue des commandes -->
     <record id="view_sales_order_filter_inherit" model="ir.ui.view">
         <field name="name">sale.view.sales.order.filter.inherit.fma.sale.order.custom</field>
         <field name="model">sale.order</field>
