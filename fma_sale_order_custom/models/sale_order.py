@@ -40,10 +40,10 @@ class SaleOrder(models.Model):
         return can_be_confirmed or self.state == 'validated'
             
     # Init date BPE lors de la confirmation du devis
-    def action_confirm(self):
-        for order in self:
-            order.so_date_bon_pour_fab = fields.Datetime.today()  # Ajout de la deuxième initialisation de date
-        return super(SaleOrder, self).action_confirm()
+    #def action_confirm(self):
+        #for order in self:
+            #order.so_date_bon_pour_fab = fields.Datetime.today()  # Ajout de la deuxième initialisation de date
+        #return super(SaleOrder, self).action_confirm()
     
     # Champ booléen pour désactiver le bouton de confirmation
     disable_confirm_button = fields.Boolean(string="Désactiver le bouton de confirmation", compute='_compute_disable_confirm_button')
