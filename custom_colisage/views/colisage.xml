@@ -19,7 +19,7 @@
             </div>
 
             <!-- Tableau des lignes de colisage -->
-            <table class="table table-sm" t-if="doc.state!='done'" name="stock_move_table" style="margin-top: 20px; width: 100%; page-break-inside: avoid;">
+            <table class="table table-sm" name="stock_move_table" style="margin-top: 20px; width: 100%; page-break-inside: avoid;">
                 <thead>
                     <tr>
                         <th>Réf./Repère</th>
