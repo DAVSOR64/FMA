@@ -20,6 +20,7 @@ class PurchaseOrder(models.Model):
     sftp_synced_time = fields.Datetime("Send to SFTP", readonly=True)
     shipping_partner_id = fields.Many2one('res.partner')
     customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address', readonly=False)
+    so_ral = fields.Char(string="RAL :")
 
     @api.depends('shipping_partner_id')
     def _get_default_customer_delivery_address(self):
@@ -189,7 +190,6 @@ class PurchaseOrderLaquageLine(models.Model):
     so_palette_length = fields.Float(string="Longueur Palette")
     so_palette_depth = fields.Float(string="Profondeur Palette")
     so_palette_height = fields.Float(string="Hauteur Palette")
-    so_ral = fields.Char(string="RAL :")
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
     _sql_constraints = [
