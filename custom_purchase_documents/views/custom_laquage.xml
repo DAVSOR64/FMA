@@ -58,7 +58,7 @@
                 <p style="font-weight: bold; font-style: italic; font-size: 15px;">
                     Nous vous remercions de reporter ces références sur vos BL et Factures
                 </p>
-                <p style="margin-bottom: 5px; font-size: 25px;"><strong> RAL (Champs à définir) : </strong><span t-field="so_ral" /></p>
+                <p style="margin-bottom: 5px; font-size: 25px;"><strong> RAL (Champs à définir) : </strong><span t-field="o.so_ral" /></p>
                 <p style="margin-bottom: 5px; font-size: 25px;"><strong> RICHE EN ZINC (Champs à définir) : </strong><span t-field="doc.partner_ref" /></p>
             </div>
              <table class="table table-sm" t-if="doc.state!='done'" name="order.table" style="margin-top: 20px;">
