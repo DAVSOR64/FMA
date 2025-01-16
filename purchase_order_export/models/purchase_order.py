@@ -189,6 +189,7 @@ class PurchaseOrderLaquageLine(models.Model):
     so_palette_length = fields.Float(string="Longueur Palette")
     so_palette_depth = fields.Float(string="Profondeur Palette")
     so_palette_height = fields.Float(string="Hauteur Palette")
+    so_ral = fields.Char(string="RAL :")
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
     _sql_constraints = [
