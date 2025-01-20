@@ -1,14 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Action pour l'exportation de commande -->
     <record id="action_export_order" model="ir.actions.server">
         <field name="name">Export Order</field>
         <field name="model_id" ref="purchase.model_purchase_order"/>
         <field name="binding_model_id" ref="purchase.model_purchase_order"/>
+        <field name="binding_view_types">list,form</field>
         <field name="state">code</field>
-        <field name="code">
-            for record in records:
-                record.action_export_order()
-        </field>
+        <field name="code">action = records.action_export()</field>
     </record>
 
     <!-- Héritage de la vue Tree avec ajout des champs -->
@@ -39,7 +38,7 @@
         </field>
     </record>
 
-    <!-- Ajout de l'onglet Infos Laquage avec champ so_ral -->
+    <!-- Ajout de l'onglet Infos Laquage -->
     <record id="view_purchase_order_form_inherit_with_infos_laquage" model="ir.ui.view">
         <field name="name">purchase.order.form.inherit.with.infos.laquage</field>
         <field name="model">purchase.order</field>
@@ -62,10 +61,6 @@
                                 </group>
                             </form>
                         </field>
-                    </group>
-                    <!-- Ajout du champ so_ral après les lignes de laquage -->
-                    <group>
-                        <field name="so_ral" string="RAL"/>
                     </group>
                 </page>
             </xpath>

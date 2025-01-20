@@ -11,15 +11,17 @@
     'author': 'Odoo PS',
     'version': '17.0.0.2.0',
     'depends': [
-        'purchase', 'stock'
+        'purchase'
     ],
     'data': [
         'security/ir.model.access.csv',
         'data/ir_cron.xml',
         'data/purchase_order_export.xml',
+        'views/product_views.xml',
         'views/purchase_order_views.xml',
         'views/res_config_settings.xml',
-        'views/res_partner.xml'
+        'views/res_partner.xml',
+        'wizard/po_export_wizard_view.xml',
     ],
     'license': 'LGPL-3',
 }
