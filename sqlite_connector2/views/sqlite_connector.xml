@@ -20,7 +20,7 @@
                 <form>
                     <header>
                         <field name="state" widget="statusbar"/>
-                        <button name="export_data_from_db" type="object" string="Export" attrs="{'invisible': [('state', '!=', 'new')]}"/>
+                        <button name="export_data_from_db" type="object" string="Export" invisible="state != 'new'"/>
                     </header>
                     <sheet>
                         <group>
