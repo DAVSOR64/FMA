@@ -17,7 +17,7 @@ class ResPartner(models.Model):
             ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
         ],
         string="Mode de Règlement",
-    default = 'VIREMENT BANCAIRE',)
+        default = 'VIREMENT BANCAIRE',)
     
     part_mode_de_reglement = fields.Selection(
         [
@@ -33,7 +33,7 @@ class ResPartner(models.Model):
             ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
         ],
         string="Mode de Règlement",
-    default = 'VIREMENT BANCAIRE',)
+        default = 'VIREMENT BANCAIRE',)
 
     part_commercial = fields.Selection(
         [
@@ -82,7 +82,7 @@ class ResPartner(models.Model):
             ('Vincent PERROT','Vincent PERROT'),
             ('Client Direct','Client Direct'),
             ('Sans Affectation','Sans Affectation'),
-        ],
+        ]),
     part_civilite = fields.Selection(
         [
             ('SARL','SARL'),
@@ -99,8 +99,9 @@ class ResPartner(models.Model):
             ('SELARL','SELARL'),
             ('LLC','LLC'),
             ('COLLECTIVITE','COLLECTIVITE'),
-        ],string="Civilité",
-    default = "SARL",)
+        ],
+        string="Civilité",
+        default = "SARL",)
 
     part_siren = fields.Char(string="SIREN")
     part_bic = fields.Char(string="BIC")
