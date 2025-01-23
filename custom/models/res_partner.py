@@ -82,7 +82,7 @@ class ResPartner(models.Model):
             ('Vincent PERROT','Vincent PERROT'),
             ('Client Direct','Client Direct'),
             ('Sans Affectation','Sans Affectation'),
-        ]),
+        ])
     part_civilite = fields.Selection(
         [
             ('SARL','SARL'),
