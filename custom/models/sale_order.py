@@ -45,8 +45,8 @@ class SaleOrder(models.Model):
     )
 
     so_acces_bl = fields.Char(string="Accès")
-    so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture', widget='float_time')
-    so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture', widget='float_time')
+    so_horaire_ouverture_bl = fields.Float(string='Horaire ouverture')
+    so_horaire_fermeture_bl = fields.Float(string='Horaire fermeture')
 
     x_studio_date_de_la_commande = fields.Date(string="Date de la Commande")
     is_all_service = fields.Boolean(string="Is All Service")
