@@ -26,7 +26,7 @@
         'views/templates.xml',
         'views/delivery.xml',
         'views/stock.picking.xml',
-        'views/delivery_change.xml',
+        # 'views/delivery_change.xml',
     ],
 
     # Section pour inclure les fichiers statiques
