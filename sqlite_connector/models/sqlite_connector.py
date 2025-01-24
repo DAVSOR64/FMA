@@ -459,12 +459,13 @@ class SqliteConnector(models.Model):
         if warehouse:
             stock_picking_type_id = stock_picking_type.filtered(lambda p: p.name == operation.strip() and p.warehouse_id.id == warehouse.id)
             if stock_picking_type_id:
-                stock_picking_type_id = stock_picking_type_id.id
+                stock_picking_type_id = stock_picking_type_id[0].id
             else:
                 self.log_request("Unable to find stock picking type.", operation.strip(), 'Project Data')
         else:
             self.log_request("Unable to find warehouse.", warehouse, 'Project Data')
 
+        
         # Now to collect final data of articles
 
         datejourd = fields.Date.today()
