@@ -122,8 +122,7 @@ class PurchaseOrder(models.Model):
                         else:
                             _logger.warning(f"No attachment found for Purchase Order {order.name}.")
         except Exception as e:
-            order.write({'sftp_synced_time': False})
-            _logger.error(f"Failed to sync Purchase Order {order.name} to SFTP server: {e}")
+            _logger.error(f"Failed to sync Purchase Order to SFTP server: {e}")
         finally:
             if transport:
                 transport.close()
