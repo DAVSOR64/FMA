@@ -108,7 +108,7 @@ class SqliteConnector(models.Model):
                 couleur = ''
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
-            _logger.warning("**********article pour MAJ********* %s " % refart )
+            #_logger.warning("**********article pour MAJ********* %s " % refart )
             articles.append({
                 'item': refart,
                 'price': row[1],
