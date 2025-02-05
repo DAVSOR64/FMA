@@ -58,7 +58,10 @@ class SqliteConnector(models.Model):
         cursor1 = con.cursor()
         date_time = datetime.now()
 
-        article_data = cursor.execute("select ArticleCode, Price, PUSize, Units_Unit, ArticleCode_Supplier, ArticleCode_BaseNumber,ColorInfoInternal, Color, ArticleCode_Number from Articles")
+        # On vient regarder tous les articles pour mettre à jour les tarifs, la référence LOGIKAL ainsi que la couleur LOGIKAL pour envoyer à COMMALU et avoir la notion de MAJ tarifaire. 
+        # Modif du script pour prendre en compte le prix brut et la remise sur les conditions d'achat
+        
+        article_data = cursor.execute("select ArticleCode, PriceGross, PUSize, Units_Unit, ArticleCode_Supplier, ArticleCode_BaseNumber,ColorInfoInternal, Color, ArticleCode_Number, Discount from Articles")
         for row in article_data:
             refart = row[0]
             couleur = ''
@@ -112,6 +115,7 @@ class SqliteConnector(models.Model):
             articles.append({
                 'item': refart,
                 'price': row[1],
+                'discount': row[9]
                 'unit': row[2],
                 'condi': row[3],
                 'RefLogikal' : RefLogikal,
@@ -120,8 +124,10 @@ class SqliteConnector(models.Model):
                 'UnitLogikal' : UnitLog
             })
 
-
-        profile_data = cursor.execute("select Profiles.ArticleCode, Profiles.Price, Profiles.ArticleCode_Number, Profiles.Color, Profiles.ArticleCode_Supplier, Profiles.ArticleCode_BaseNumber, Profiles.OuterColorInfoInternal, Profiles.InnerColorInfoInternal, Profiles.ColorInfoInternal, AllProfiles.Length from Profiles INNER JOIN AllProfiles ON AllProfiles.ArticleCode = Profiles.ArticleCode")
+        # On vient regarder tous les profiles pour mettre à jour les tarifs, la référence LOGIKAL ainsi que la couleur LOGIKAL pour envoyer à COMMALU et avoir la notion de MAJ tarifaire. 
+        # Modif du script pour prendre en compte le prix brut et la remise sur les conditions d'achat
+        
+        profile_data = cursor.execute("select Profiles.ArticleCode, Profiles.PriceGross, Profiles.ArticleCode_Number, Profiles.Color, Profiles.ArticleCode_Supplier, Profiles.ArticleCode_BaseNumber, Profiles.OuterColorInfoInternal, Profiles.InnerColorInfoInternal, Profiles.ColorInfoInternal, AllProfiles.Length, Profiles.Price  from Profiles INNER JOIN AllProfiles ON AllProfiles.ArticleCode = Profiles.ArticleCode")
         for row in profile_data:
             refart = row[0]
             couleur = ''
@@ -159,7 +165,9 @@ class SqliteConnector(models.Model):
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen' :
                 refart = 'JAN' + ' ' + row[2]
             refart = refart.replace("RYN","REY")
-                
+
+            discount = row[1]/row[10]
+            
             couleurext = row[6] if row[6] else ''
             couleurint = row[7] if row[7] else ''
             if couleurext not in ['', None] and couleurint not in  ['', None] :
@@ -178,6 +186,7 @@ class SqliteConnector(models.Model):
             profiles.append({
                 'article': refart,
                 'prix': row[1],
+                'discount': discount,
                 'RefLogikal' : RefLogikal,
                 'ColorLogikal' : couleur,
                 'LengthLogikal' : Length,
@@ -211,6 +220,7 @@ class SqliteConnector(models.Model):
                 message = _("Ref Logikal is updated for product: ") + product._get_html_link()
             if product and round(float(article['price']), 4) != round(product.standard_price, 4):
                 product.standard_price = float(article['price'])
+                product.standard_discount = float(article['discount'])
                 message = _("Standard Price is updated for product: ") + product._get_html_link()
                 self.message_post(body=message)
 
@@ -229,6 +239,7 @@ class SqliteConnector(models.Model):
                 self.message_post(body=message)
             if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
                 product.standard_price = float(profile['prix'])
+                product.standard_discount = float(profile['discount'])
                 message = _("Standard Price is updated for product: ") + product._get_html_link()
                 self.message_post(body=message)
 
@@ -247,6 +258,8 @@ class SqliteConnector(models.Model):
         
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo, PersonInCharge from Projects")
 
+        # A modifier car le deviseur et le BE seront des users maintenant.
+        
         for row in resultp :
             project = row[1]
             pro = project.split('/')
@@ -270,6 +283,8 @@ class SqliteConnector(models.Model):
         for key, val in key_vals.items():
             if key == PersonBE.strip():
                 bureau_etudes = key
+
+        # Voir comment faire pour l'analytics avec Methode Matthieu
         
         account_analytic_id = account_analytics.filtered(lambda a: a.name.strip() in projet.strip())
         #_logger.warning("*****************************COMPTE ANALYTIQUE**************** %s " % account_analytic_id)
@@ -284,6 +299,8 @@ class SqliteConnector(models.Model):
         # each item.
         address = ''
 
+        # recup du délai de fabrication pour la production : temps de traversée dans l'atelier mais différent du temps de production 
+        
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
           if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
@@ -306,6 +323,8 @@ class SqliteConnector(models.Model):
             dateliv = convert(date_time)
         
         # Depending on the parameters of the MDB database, I create commercial and analytical labels.
+        # On vient voir si nous avons une affaire pour FMA ou F2M. On tague les affaires FMA ou F2M grâce à une étiquette
+        # on vient églament regarder si nous sommes sur un projet à tranche ou pas pour indiquer cela dans l étiquette analytique. A voir demain comment faire. 
         
         resultp=cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         etiana = ''
@@ -330,6 +349,7 @@ class SqliteConnector(models.Model):
                   etiana = 'ACIER Tranche ' + project.split('/')[1]
                   eticom = 'F2M'
                 project = project
+                
         #_logger.warning("projet  2 %s " % projet)
         # account_analytic_tag_id = account_analytic_tags.filtered(lambda t: t.name == etiana)
         # if account_analytic_tag_id:
@@ -377,6 +397,8 @@ class SqliteConnector(models.Model):
                     categorie = row[2]
                     refint =  row[1] + '_' + projet
                     idrefart = ''
+                # Rajouter la variable Position sur le devis et mettre dedans le name de ELEVATION. Mettre ensuite un compteur pour la référence de l elevation avec le numero de l affaire
+                # Mettre hauteur et largeur dans la fiche article 
                 
                 categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
                 if not categ:
@@ -412,6 +434,7 @@ class SqliteConnector(models.Model):
                 refart = refart.strip()
                 idrefart = ''
             p = self.env['product.product'].search([('default_code', '=', refart)])
+            # A voir pour virer la notion affaire 
             if not p:
                 sale_order = self.env['sale.order'].search([('name', '=', refart), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 if sale_order :
