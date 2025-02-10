@@ -52,7 +52,7 @@ class ResPartner(models.Model):
             ('David CHARPENTIER','David CHARPENTIER'),
             ('Franck SARAZIN','Franck SARAZIN'),
             ('Frédéric DUCHEMIN','Frédéric DUCHEMIN'),
-            ('Gregory GIROLLET','Grégory GIROLLET'),
+            ('Grégory GIROLLET','Grégory GIROLLET'),
             ('Guillaume GALLARDO','Guillaume GALLARDO'),
             ('Hubert BOURDARAIS','Hubert BOURDARIAS'),
             ('Jean JUSTAFRE','Jean JUSTAFRE'),
