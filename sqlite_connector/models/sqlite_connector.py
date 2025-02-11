@@ -96,9 +96,9 @@ class SqliteConnector(models.Model):
                 if RefLogikal.startswith("X") :
                     RefLogikal = RefLogikal
                 else :
-                    if int(LengthLogikal) < 7 :
-                        RefLogikal = 'W' + RefLogikal.zfill(7)
-                    else :
+                    if len(LengthLogikal) < 7:
+                        RefLogikal = 'W' + RefLogikal.rjust(7, '0')
+                    else:
                         RefLogikal = 'W' + RefLogikal
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen':
                 refart = 'JAN' + ' ' + row[8]
@@ -157,9 +157,9 @@ class SqliteConnector(models.Model):
                 if RefLogikal.startswith("X") :
                     RefLogikal = RefLogikal
                 else :
-                    if int(LengthLogikal) < 7 :
-                        RefLogikal = 'W' + RefLogikal.zfill(7)
-                    else :
+                    if len(LengthLogikal) < 7:
+                        RefLogikal = 'W' + RefLogikal.rjust(7, '0')
+                    else:
                         RefLogikal = 'W' + RefLogikal
                 _logger.warning("**********APRES Profile pour MAJ********* %s " % RefLogikal )
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen' :
