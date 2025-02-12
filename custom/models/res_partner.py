@@ -133,4 +133,5 @@ class ResPartner(models.Model):
     
     def _prepare_order(self):
         order_vals = super(ResPartner, self)._prepare_order()
-        order_vals['x_studio_mode_de_rglement'] = self.x_stu
+        order_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
+        return order_vals
