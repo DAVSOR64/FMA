@@ -46,12 +46,12 @@ class ResPartner(models.Model):
             ('Cédric SEGUIN','Cédric SEGUIN'),
             ('Carlos DA TORRE','Carlos DA TORRE'),
             ('Cédric SANDRE','Cédric SANDRE'),
-            ('Christian GUILLARD','Christian GUILHARD'),
+            ('Christian GUILLARD','Christian GUIHARD'),
             ('Cyril JACQUEMET','Cyril JACQUEMET'),
             ('David JOUGLARD','David JOUGLARD'),
             ('David CHARPENTIER','David CHARPENTIER'),
             ('Franck SARAZIN','Franck SARAZIN'),
-            ('Fréderic DUCHEMIN','Fréderic DUCHEMIN'),
+            ('Frédéric DUCHEMIN','Frédéric DUCHEMIN'),
             ('Grégory GIROLLET','Grégory GIROLLET'),
             ('Guillaume GALLARDO','Guillaume GALLARDO'),
             ('Hubert BOURDARAIS','Hubert BOURDARIAS'),
@@ -133,5 +133,4 @@ class ResPartner(models.Model):
     
     def _prepare_order(self):
         order_vals = super(ResPartner, self)._prepare_order()
-        order_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
-        return order_vals
+        order_vals['x_studio_mode_de_rglement'] = self.x_stu
