@@ -150,7 +150,7 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     RefLogikal = 'S' + RefLogikal
-            _logger.warning("**********AVANT Profile pour MAJ********* %s " % RefLogikal )
+            #_logger.warning("**********AVANT Profile pour MAJ********* %s " % RefLogikal )
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[2][1:]
                 Length= row[9]
