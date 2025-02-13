@@ -93,7 +93,7 @@ class SqliteConnector(models.Model):
                 if RefLogikal.startswith("X") :
                     RefLogikal = RefLogikal
                 else :
-                    if len(LengthLogikal) < 7:
+                    if len(str(LengthLogikal)) < 7:
                         RefLogikal = 'W' + RefLogikal.rjust(7, '0')
                     else:
                         RefLogikal = 'W' + RefLogikal
@@ -129,7 +129,7 @@ class SqliteConnector(models.Model):
             fournisseur = row[4]
             fournisseur = fournisseur.upper()
             RefLogikal = row[5]
-            Discount = float(row[1] / row[11]) if row[11] != 0 else 0.0  
+            Discount = float(row[1] / row[10]) if row[10] != 0 else 0.0  
             Length = 0
             LengthLogikal = len(row[5])
             if fournisseur == 'TECHNAL' :
@@ -153,7 +153,7 @@ class SqliteConnector(models.Model):
                 if RefLogikal.startswith("X") :
                     RefLogikal = RefLogikal
                 else :
-                    if int(LengthLogikal) < 7 :
+                    if int(str(LengthLogikal)) < 7 :
                         RefLogikal = 'W' + RefLogikal.zfill(7)
                     else :
                         RefLogikal = 'W' + RefLogikal
