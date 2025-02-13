@@ -1726,13 +1726,13 @@ class SqliteConnector(models.Model):
                 if not pro_t:
                     self.log_request('Unable to find product', datanom1[1], 'Nomenclatures Creation')
                 else:
-                    analytic_distribution = {str(account_analytic_id): 100}
+                    #analytic_distribution = {str(account_analytic_id): 100}
                     nomenclatures_data.append({
                     "product_tmpl_id": pro_t[0].product_tmpl_id.id,
                     "type": "normal",
                     "product_qty": int(datanom1[3]),
                     # "analytic_account_id": account_analytic_id,
-                    "analytic_distribution": analytic_distribution,
+                    #"analytic_distribution": analytic_distribution,
                     "product_uom_id": self.env.ref('uom.product_uom_unit').id,
                     "bom_line_ids": [Command.create({
                         'product_id': pro[0].id,
