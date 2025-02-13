@@ -1516,9 +1516,9 @@ class SqliteConnector(models.Model):
                         #dimension = 'Frais de livraison'
                 else :
                     if (row[9] == None or row[7] == None) :
-                        #dimension = ''
+                        dimension = ''
                     else:
-                        #dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
+                        dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
                         refart = '[' + str(NbrLig) + '_' + projet + ']'
                 #data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
