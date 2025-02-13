@@ -129,7 +129,7 @@ class SqliteConnector(models.Model):
             fournisseur = row[4]
             fournisseur = fournisseur.upper()
             RefLogikal = row[5]
-            Discount = float(row[1] / row[10]) if row[10] != 0 else 0.0  
+            Discount = float(row[1]) / float(row[10]) if float(row[10]) != 0 else 0.0  
             Length = 0
             LengthLogikal = len(row[5])
             if fournisseur == 'TECHNAL' :
