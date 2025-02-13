@@ -58,7 +58,7 @@ class SqliteConnector(models.Model):
         cursor1 = con.cursor()
         date_time = datetime.now()
 
-        article_data = cursor.execute("select ArticleCode, Price, PUSize, Units_Unit, ArticleCode_Supplier, ArticleCode_BaseNumber,ColorInfoInternal, Color, ArticleCode_Number from Articles")
+        article_data = cursor.execute("select ArticleCode, PriceGross, PUSize, Units_Unit, ArticleCode_Supplier, ArticleCode_BaseNumber,ColorInfoInternal, Color, ArticleCode_Number, Discount from Articles")
         for row in article_data:
             refart = row[0]
             couleur = ''
@@ -112,6 +112,7 @@ class SqliteConnector(models.Model):
             articles.append({
                 'item': refart,
                 'price': row[1],
+                'Discount': row[9],
                 'unit': row[2],
                 'condi': row[3],
                 'RefLogikal' : RefLogikal,
@@ -121,13 +122,14 @@ class SqliteConnector(models.Model):
             })
 
 
-        profile_data = cursor.execute("select Profiles.ArticleCode, Profiles.Price, Profiles.ArticleCode_Number, Profiles.Color, Profiles.ArticleCode_Supplier, Profiles.ArticleCode_BaseNumber, Profiles.OuterColorInfoInternal, Profiles.InnerColorInfoInternal, Profiles.ColorInfoInternal, AllProfiles.Length from Profiles INNER JOIN AllProfiles ON AllProfiles.ArticleCode = Profiles.ArticleCode")
+        profile_data = cursor.execute("select Profiles.ArticleCode, Profiles.PriceGross, Profiles.ArticleCode_Number, Profiles.Color, Profiles.ArticleCode_Supplier, Profiles.ArticleCode_BaseNumber, Profiles.OuterColorInfoInternal, Profiles.InnerColorInfoInternal, Profiles.ColorInfoInternal, AllProfiles.Length, Profiles.Price from Profiles INNER JOIN AllProfiles ON AllProfiles.ArticleCode = Profiles.ArticleCode")
         for row in profile_data:
             refart = row[0]
             couleur = ''
             fournisseur = row[4]
             fournisseur = fournisseur.upper()
             RefLogikal = row[5]
+            Discount = float(row[1] / row[11]) if row[11] != 0 else 0.0  
             Length = 0
             LengthLogikal = len(row[5])
             if fournisseur == 'TECHNAL' :
@@ -178,6 +180,7 @@ class SqliteConnector(models.Model):
             profiles.append({
                 'article': refart,
                 'prix': row[1],
+                'Discount' : Discount,
                 'RefLogikal' : RefLogikal,
                 'ColorLogikal' : couleur,
                 'LengthLogikal' : Length,
@@ -209,10 +212,11 @@ class SqliteConnector(models.Model):
                 product.x_studio_unit_logikal = article['UnitLogikal']
                 product.x_studio_longueur_m = article['LengthLogikal']
                 message = _("Ref Logikal is updated for product: ") + product._get_html_link()
-            if product and round(float(article['price']), 4) != round(product.standard_price, 4):
-                product.standard_price = float(article['price'])
-                message = _("Standard Price is updated for product: ") + product._get_html_link()
-                self.message_post(body=message)
+            #product = self.env['product.supplierinfo'].search([('default_code', '=', article['item'])])
+            #if product and round(float(article['price']), 4) != round(product.supplierinfo.price, 4):
+                #product.standard_price = float(article['price'])
+                #message = _("Standard Price is updated for product: ") + product._get_html_link()
+                #self.message_post(body=message)
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
@@ -227,10 +231,10 @@ class SqliteConnector(models.Model):
                 product.x_studio_longueur_m = profile['LengthLogikal']
                 message = _("Ref Logikal is updated for product: ") + product._get_html_link()
                 self.message_post(body=message)
-            if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
-                product.standard_price = float(profile['prix'])
-                message = _("Standard Price is updated for product: ") + product._get_html_link()
-                self.message_post(body=message)
+            #if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
+            #    product.standard_price = float(profile['prix'])
+            #    message = _("Standard Price is updated for product: ") + product._get_html_link()
+            #    self.message_post(body=message)
 
         # At FMA, they have a concept of tranches, that is to say that the project is divided into
         # several phases (they call it tranches). So I come to see if it is a project with installments or
@@ -390,8 +394,8 @@ class SqliteConnector(models.Model):
                     product = self.env['product.product'].create({
                         "name": refart,
                         "default_code": refint,
-                        "list_price": 0,
-                        "standard_price": row[7],
+                        "list_price": row[7],
+                        #"standard_price": row[7],
                         'categ_id': categ.id if categ else self.env.ref('product.product_category_all').id,
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
                         "uom_po_id": self.env.ref('uom.product_uom_unit').id,
@@ -1481,14 +1485,18 @@ class SqliteConnector(models.Model):
             for row in resultp:
                 deviseur = row[13]
                 NbrLig = NbrLig + 1
+                # On vient mettre les données de l entete
                 if clientID != row[2] :
                     clientID = row[2]
                     if LstArt != '' :
-                        data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom,dateliv]
+                        #data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom,dateliv]
+                        data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom]
                     else :
-                        data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
+                        #data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
+                        data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom]
                 else :
-                    data1 =['','','','','','','','','','','','','']
+                    #data1 =['','','','','','','','','','','','','']
+                    data1 =['','','','','','','','','','','','']
                 if ( row[8] == None ) :
                     PrixTot = PrixTot + 0
                 else :
@@ -1497,23 +1505,28 @@ class SqliteConnector(models.Model):
                     QteTot = QteTot + 0
                 else :
                     QteTot = float(row[6]) + QteTot
+                # En position texte on ne prend que ECO CONTRIBUTION sinon on passe tout en FRAIS DE LIVRAISON
                 if row[5] == 'Position texte':
                     if row[11] == 'ECO-CONTRIBUTION' :
                         refart = 'ECO-CONTRIBUTION'
                         PourRem = 0
-                        dimension = 'ECO-CONTRIBUTION'
+                        #dimension = 'ECO-CONTRIBUTION'
                     else :
                         refart = 'Frais de livraison'
-                        dimension = 'Frais de livraison'
+                        #dimension = 'Frais de livraison'
                 else :
                     if (row[9] == None or row[7] == None) :
-                        dimension = ''
+                        #dimension = ''
                     else:
-                        dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
-                        refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
-                data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
+                        #dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
+                        #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
+                        refart = '[' + str(NbrLig) + '_' + projet + ']'
+                #data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
+                data2 = [refart,etiana,PourRem]
+                
                 if NbrLig == 1:
-                    data1 =['','','','','','','','','','','','','']
+                    #data1 =['','','','','','','','','','','','','']
+                    data1 =['','','','','','','','','','','','']
                     proj = ''
                     if Tranche != '0' :
                         proj = projet.strip() + '/' + str(Tranche)
@@ -1524,7 +1537,8 @@ class SqliteConnector(models.Model):
                     data = data1 + [proj,0, 1,proj,etiana,PourRem]
                     #_logger.warning("DESCRIPTION ARTICLE %s " % proj )
                 if refart != 'ECO-CONTRIBUTION':
-                    pro_name = row[11] + '_' + projet
+                    #pro_name = row[11] + '_' + projet
+                    pro_name = str(NbrLig) + '_' + projet
                 else:
                     pro_name = 'ECO-CONTRIBUTION'
                 part = res_partners.filtered(lambda p: p.name == row[2])
@@ -1564,7 +1578,7 @@ class SqliteConnector(models.Model):
                                 'product_id': pro.id,
                                 'price_unit': float(row[8]),
                                 'product_uom_qty': float(row[6]),
-                                'name': dimension,
+                                #'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
@@ -1576,7 +1590,7 @@ class SqliteConnector(models.Model):
                                 'product_id': pro.id,
                                 'price_unit': float(row[8]),
                                 'product_uom_qty': float(row[6]),
-                                'name': dimension,
+                                #'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
