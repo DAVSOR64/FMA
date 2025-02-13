@@ -419,15 +419,16 @@ class SqliteConnector(models.Model):
         for row in resultp:
             refart = str(row[1])
             categ = self.env.ref('product.product_category_all')
+            affaire = row[0]
             if BP == 'BPA':
                 refart = refart + '_BPA'
                 refart = refart.strip()
                 idrefart = ''
             p = self.env['product.product'].search([('default_code', '=', refart)])
             if not p:
-                sale_order = self.env['sale.order'].search([('name', '=', refart), ('state', 'not in', ['done', 'cancel'])], limit=1)
-                if sale_order :
-                    affaire = sale_order.x_studio_ref_affaire 
+                #sale_order = self.env['sale.order'].search([('name', '=', refart), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                #if sale_order :
+                #    affaire = sale_order.x_studio_ref_affaire 
                 
                 #_logger.warning("**************ARTCILE NOMENCLATURE*************  2 %s " % affaire) 
                 #_logger.warning("**************ARTCILE NOMENCLATURE*************  2 %s " % refart)
