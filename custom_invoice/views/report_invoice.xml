@@ -95,7 +95,7 @@
         <xpath expr="//div[@id='informations']" position="after">
             <div class="source-reference" style="color:red; font-size : 20px">
                 <p><strong>Référence :</strong> <span t-field="o.invoice_origin"/> <span
-                t-field="o.x_studio_rfrence_affaire"/></p>
+                t-field="o.x_studio_mtn_projet"/></p>
             </div>
         </xpath>
         <!-- Affichage de inv_commande_client s'il n'est pas vide -->
