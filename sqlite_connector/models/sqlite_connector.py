@@ -1473,6 +1473,7 @@ class SqliteConnector(models.Model):
         NbrLig = 0
         catergorie = ''
         entrepot = ''
+        NumLig = 0
 
         if 'ALU' in etiana :
             if address == 'LRE' :
@@ -1518,10 +1519,12 @@ class SqliteConnector(models.Model):
                 else :
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
+                        NumLig = NumLig + 1
+                        refart = '[' + str(NumLig) + '_' + projet + ']'
                     else:
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
-                        refart = '[' + str(NbrLig) + '_' + projet + ']'
+                        refart = '[' + str(NumLig) + '_' + projet + ']'
                 #data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
                 data2 = [refart,etiana,PourRem]
                 
@@ -1539,7 +1542,7 @@ class SqliteConnector(models.Model):
                     #_logger.warning("DESCRIPTION ARTICLE %s " % proj )
                 if refart != 'ECO-CONTRIBUTION':
                     #pro_name = row[11] + '_' + projet
-                    pro_name = str(NbrLig) + '_' + projet
+                    pro_name = str(NumLig) + '_' + projet
                 else:
                     pro_name = 'ECO-CONTRIBUTION'
                 part = res_partners.filtered(lambda p: p.name == row[2])
