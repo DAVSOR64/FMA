@@ -1542,6 +1542,7 @@ class SqliteConnector(models.Model):
                     #_logger.warning("DESCRIPTION ARTICLE %s " % proj )
                 if refart != 'ECO-CONTRIBUTION':
                     #pro_name = row[11] + '_' + projet
+                    NumLig = NumLig + 1
                     pro_name = str(NumLig) + '_' + projet
                 else:
                     pro_name = 'ECO-CONTRIBUTION'
