@@ -61,7 +61,7 @@
                     <tbody>
                         <tr>
                             <td>
-                                <span t-field="doc.date_order" />
+                                <span t-field="doc.date_order" t-options="{'widget': 'date'}"/>
                             </td>
                             <td class="text-start">
                                 <span t-field="doc.so_code_tiers" />
