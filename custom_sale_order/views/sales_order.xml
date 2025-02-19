@@ -84,7 +84,7 @@
         </xpath>
         <!-- Modifier le bloc h2 pour ajouter "Valable 1 mois" pour les devis -->
         <xpath expr="//h2[@class='mt-4']" position="replace">
-            <h2 class="mt-4">
+            <h2 class="mt-4" style="font-size: 14px;">
                 <!-- Ajout du nouveau champ personnalisé à la place du N° de devis -->
                 <span t-field="doc.x_studio_mtn_projet" />
         
