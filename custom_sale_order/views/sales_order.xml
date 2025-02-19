@@ -83,14 +83,20 @@
             </div>
         </xpath>
         <!-- Modifier le bloc h2 pour ajouter "Valable 1 mois" pour les devis -->
-        <xpath expr="//h2[@class='mt-4']" position="inside">
-            <t t-if="doc.state in ['draft','sent']">
-                <!-- Ajouter la mention valable 1 mois pour les devis -->
-                <span class="text-muted" style="font-size: 14px; margin-left: 10px;">
-                    (Valable 1 mois)
-                </span>
-            </t>
+        <xpath expr="//h2[@class='mt-4']" position="replace">
+            <h2 class="mt-4">
+                <!-- Ajout du nouveau champ personnalisé à la place du N° de devis -->
+                <span t-field="doc.x_studio_mtn_projet" />
+        
+                <!-- Ajout de la mention "Valable 1 mois" uniquement pour les devis -->
+                <t t-if="doc.state in ['draft', 'sent']">
+                    <span class="text-muted" style="font-size: 14px; margin-left: 10px;">
+                        (Valable 1 mois)
+                    </span>
+                </t>
+            </h2>
         </xpath>
+
         <!-- Modif du tableau des lignes-->
         <xpath expr="//table[hasclass('o_main_table')]/thead" position="replace">
             <thead>
