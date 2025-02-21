@@ -16,7 +16,7 @@
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
                     N°: 
                     <t t-if="'OUT' in o.name">
-                        <t t-esc="o.name.replace('OUT', 'BL')"/>
+                        <t t-esc="o.name.replace('OUT', 'BL')"/> 
                     </t>
                     <t t-else="">
                         <t t-esc="o.name"/> 
