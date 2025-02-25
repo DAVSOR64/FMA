@@ -21,6 +21,10 @@ class PurchaseOrder(models.Model):
     shipping_partner_id = fields.Many2one('res.partner')
     customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address', readonly=False)
     so_ral = fields.Char(string="RAL :")
+    so_riche_en_zinc = fields.Selection([
+        ('yes', 'Oui'),
+        ('no', 'Non')
+    ], string="Riche en Zinc", default='no', required=True)
 
     @api.depends('shipping_partner_id')
     def _get_default_customer_delivery_address(self):
