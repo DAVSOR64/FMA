@@ -444,8 +444,8 @@ class SqliteConnector(models.Model):
                     "detailed_type": "product",
                     "purchase_ok": False,
                     "sale_ok": True,
-                    "route_ids": [Command.link(self.env.ref('stock.route_warehouse0_mto').id), Command.link(self.env.ref('mrp.route_warehouse0_manufacture').id)],
-                    # Staging before merge :"route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('__export__.stock_location_route_99_adb9a7a8').id)],
+                    "_ids": [Command.link(self.env.ref('stock._warehouse0_mto').id), Command.link(self.env.ref('mrp._warehouse0_manufacture').id)],
+                    # Staging before merge :"_ids": [(4, self.env.ref('stock._warehouse0_mto').id), (4,self.env.ref('__export__.stock_location__99_adb9a7a8').id)],
                     "invoice_policy":"delivery",
                 })
                 delaifab_delay_products.append(product.product_tmpl_id.id)
@@ -680,7 +680,7 @@ class SqliteConnector(models.Model):
                     'sale_ok': True,
                     'detailed_type': 'product',
                     'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                    'route_ids': [Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
+                    'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
                     'x_studio_hauteur_mm': 0,
                     'x_studio_largeur_mm': 0,
                     'x_studio_ref_int_logikal' : ligne[10],
@@ -1042,7 +1042,7 @@ class SqliteConnector(models.Model):
                             'sale_ok': True,
                             'detailed_type': 'product',
                             'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'route_ids': [Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
+                            'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
                             'x_studio_hauteur_mm': 0,
                             'x_studio_largeur_mm': 0,
                             'x_studio_ref_int_logikal' : ligne[10],
