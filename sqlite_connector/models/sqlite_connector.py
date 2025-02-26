@@ -1284,15 +1284,17 @@ class SqliteConnector(models.Model):
                         sname = sup['name']
                 
                 #_logger.warning('fournisseur trouve %s :' % sname)
-                        
-                for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
-                    if sname == (part.x_studio_ref_logikal):
-                        res_partner = part
-                        #_logger.warning('----- %s' % res_partner)
-                if res_partner:
-                    frsnomf = res_partner[0].name
-                else:
-                    self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
+                 if sname == ' ' or sname == '' or sname is None :
+                    frsnomf = 'Non Def'
+                else :       
+                    for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
+                        if sname == (part.x_studio_ref_logikal):
+                            res_partner = part
+                            #_logger.warning('----- %s' % res_partner)
+                    if res_partner:
+                        frsnomf = res_partner[0].name
+                    else:
+                        self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
                 
                 #_logger.warning('Envoi pour les vitrages fournisseur %s' % frsnomf)
                 #_logger.warning('Envoi pour les vitrages livraison %s' % Info2)
