@@ -1284,7 +1284,7 @@ class SqliteConnector(models.Model):
                         sname = sup['name']
                 
                 #_logger.warning('fournisseur trouve %s :' % sname)
-                 if sname == ' ' or sname == '' or sname is None :
+                 if sname == ' ' or sname is None :
                     frsnomf = 'Non Def'
                 else :       
                     for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
