@@ -444,7 +444,7 @@ class SqliteConnector(models.Model):
                     "detailed_type": "product",
                     "purchase_ok": False,
                     "sale_ok": True,
-                    "_ids": [Command.link(self.env.ref('stock._warehouse0_mto').id), Command.link(self.env.ref('mrp._warehouse0_manufacture').id)],
+                    "route_ids": [Command.link(self.env.ref('stock.route_warehouse0_mto').id), Command.link(self.env.ref('mrp.route_warehouse0_manufacture').id)],
                     # Staging before merge :"_ids": [(4, self.env.ref('stock._warehouse0_mto').id), (4,self.env.ref('__export__.stock_location__99_adb9a7a8').id)],
                     "invoice_policy":"delivery",
                 })
