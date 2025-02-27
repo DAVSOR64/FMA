@@ -12,12 +12,12 @@
                     <span t-field="o.company_id.zip" /> <span t-field="o.company_id.city" /><br />
                     <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="o.company_id.phone" /><br />
                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" /><br />
-                    <br /><br />
+                    <br /><br /> 
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
                     N°: 
                     <t t-if="'OUT' in o.name">
-                        <t t-esc="o.name.replace('OUT', 'BL')"/> 
-                    </t>
+                        <t t-esc="o.name.replace('OUT', 'BL')"/>
+                    </t> 
                     <t t-else="">
                         <t t-esc="o.name"/> 
                     </t>
@@ -27,6 +27,9 @@
                         <img src="/custom_delivery/static/src/img/camion.png" style="height: 16px; width: 16px;" alt="camion" /><strong> Adresse de livraison :</strong><br />
                         <span t-field="o.partner_id.name" /><br />
                         <span t-field="o.partner_id.street" /><br />
+                        <t t-if="o.partner_id.street2">
+                            <span t-field="o.partner_id.street2"/><br />
+                        </t>
                         <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
                     </t>
                 </div>
@@ -35,6 +38,9 @@
                 <div class="customer_info" style="flex: 1; padding-left: 20px; text-align: right;position: absolute; top: 60px; right: 20px;">
                     <strong t-field="o.sale_id.partner_id.name" /><br />
                     <span><span t-field="o.sale_id.partner_id.street" /></span><br />
+                    <t t-if="o.sale_id.partner_id.street2">
+                        <span><span t-field="o.sale_id.partner_id.street2" /></span><br />
+                    </t>
                     <span t-field="o.sale_id.partner_id.zip" /> <span t-field="o.sale_id.partner_id.city" /><br />
                     ☎️ Téléphone: <span t-field="o.sale_id.partner_id.phone" /><br />
                      Mobile: <span t-field="o.sale_id.partner_id.mobile" /><br />
