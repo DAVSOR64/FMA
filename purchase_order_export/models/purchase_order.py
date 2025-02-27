@@ -6,7 +6,7 @@ import logging
 import paramiko
 import psycopg2
 
-from odoo import SUPERUSER_ID, api, fields, models, registry
+from odoo import SUPERUSER_ID, api, fields, models, registry, _
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
