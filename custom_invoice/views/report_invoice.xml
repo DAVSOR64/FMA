@@ -94,8 +94,8 @@
         <!-- Nouvelle ligne ajoutée pour la source et la référence -->
         <xpath expr="//div[@id='informations']" position="after">
             <div class="source-reference" style="color:red; font-size : 20px">
-                <p><strong>Référence :</strong> <span t-field="o.invoice_origin"/> <span
-                t-field="o.x_studio_mtn_projet"/></p>
+                <p><strong>Référence :</strong><!--<span t-field="o.invoice_origin"/> --> <span
+                t-field="o.x_studio_mtn_projet_facture"/></p>
             </div>
         </xpath>
         <!-- Affichage de inv_commande_client s'il n'est pas vide -->
