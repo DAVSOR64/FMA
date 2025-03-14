@@ -196,9 +196,9 @@ class PurchaseOrderLaquageLine(models.Model):
     so_palette_height = fields.Float(string="Hauteur Palette")
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
-    _sql_constraints = [
-        ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique pour une ligne de laquage !'),
-    ]
+    #_sql_constraints = [
+    #    ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique pour une ligne de laquage !'),
+    #]
 
     @api.model
     def create(self, vals):
