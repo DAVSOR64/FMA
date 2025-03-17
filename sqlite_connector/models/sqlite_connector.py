@@ -687,6 +687,7 @@ class SqliteConnector(models.Model):
                     'x_studio_color_logikal' : ligne[11],
                     'x_studio_unit_logikal' : ligne[12],
                     'x_studio_longueur_m' : ligne[13],
+                    'x_studio_cration_auto' : True,
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
@@ -1049,6 +1050,7 @@ class SqliteConnector(models.Model):
                             'x_studio_color_logikal' : ligne[11],
                             'x_studio_unit_logikal' : ligne[12],
                             'x_studio_longueur_m' : ligne[13],
+                            'x_studio_cration_auto' : True,
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
@@ -1386,6 +1388,7 @@ class SqliteConnector(models.Model):
                             'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
+                            'x_studio_cration_auto' : True,
                             # 'x_studio_positionn': Posint,
                         }
                         if idfrs:
