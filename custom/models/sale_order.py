@@ -92,9 +92,9 @@ class SaleOrder(models.Model):
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 
-    #so_gamme = fields.Selection(
-    #    [
-     #       ('FORSTER','FORSTER'),
+    so_gamme = fields.Selection(
+        [
+            ('FORSTER','FORSTER'),
      #       ('RP TECHNIK','RP TECHNIK'),
     #        ('JANSEN','JANSEN'),
     #        ('MIXTE','MIXTE'),
@@ -104,14 +104,14 @@ class SaleOrder(models.Model):
     #        ('SEPALUMIC','SEPALUMIC'),
     #        ('TECHNAL','TECHNAL'), 
     #        ('WICONA','WICONA'),
-    #    ],
-    #    string="GAMME",
-    #    required=True,
-    #)
+        ],
+        string="GAMME",
+        required=True,
+    )
 
-    #so_serie = fields.Selection(
-    #    [
-    #        ('UNICO XS', 'UNICO XS'),
+    so_serie = fields.Selection(
+        [
+            ('UNICO XS', 'UNICO XS'),
     #        ('UNICO', 'UNICO'),
     #        ('PRESTO', 'PRESTO'),
     #        ('FUEGO LIGHT', 'FUEGO LIGHT'),
@@ -233,10 +233,10 @@ class SaleOrder(models.Model):
     #        ('WT50 - MR', 'WT50 - MR'),
     #        ('WT50 - VERRIERE', 'WT50 - VERRIERE'),
     #        ('WT50.RC3', 'WT50.RC3'),
-    #    ],
-    #    string="SERIE",
-    #    required=True,
-    #)
+        ],
+        string="SERIE",
+        required=True,
+    )
 
 
 
