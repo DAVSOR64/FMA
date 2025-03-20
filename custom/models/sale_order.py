@@ -109,9 +109,9 @@ class SaleOrder(models.Model):
         required=True,
     )
 
-    #so_serie = fields.Selection(
-    #    [
-    #        ('UNICO XS', 'UNICO XS'),
+    so_serie = fields.Selection(
+        [
+            ('UNICO XS', 'UNICO XS'),
     #        ('UNICO', 'UNICO'),
     #        ('PRESTO', 'PRESTO'),
     #        ('FUEGO LIGHT', 'FUEGO LIGHT'),
@@ -234,9 +234,9 @@ class SaleOrder(models.Model):
     #        ('WT50 - VERRIERE', 'WT50 - VERRIERE'),
     #        ('WT50.RC3', 'WT50.RC3'),
     #    ],
-    #    string="SERIE",
-    #    required=True,
-    #)
+        string="SERIE",
+        required=True,
+    )
 
 
 
