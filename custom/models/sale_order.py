@@ -233,7 +233,7 @@ class SaleOrder(models.Model):
     #        ('WT50 - MR', 'WT50 - MR'),
     #        ('WT50 - VERRIERE', 'WT50 - VERRIERE'),
     #        ('WT50.RC3', 'WT50.RC3'),
-    #    ],
+        ],
         string="SERIE",
         required=True,
     )
