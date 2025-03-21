@@ -702,7 +702,7 @@ class SqliteConnector(models.Model):
                 self.message_post(body=message)
                 self.env.cr.commit()
                 # created nomenclature
-                creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
+                creation_nomenclature(Nomenclature, refart, idun, Qte)
                 # created Purchase Order
                 #trouve = 1
                 #x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
