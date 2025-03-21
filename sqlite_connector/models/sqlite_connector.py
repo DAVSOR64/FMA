@@ -757,16 +757,16 @@ class SqliteConnector(models.Model):
             UV = ligne[5]
             QteBesoin = float(ligne[6])
             Qte = float(ligne[6])
-            #Qte = (float(ligne[6])) / float(UV) if UV else float(ligne[6])
-            #x = Qte
-            #n = 0
-            #resultat = math.ceil(x * 10**n)/ 10**n
-            #Qte = (resultat * float(UV))
+            Qte = (float(ligne[6])) / float(UV) if UV else float(ligne[6])
+            x = Qte
+            n = 0
+            resultat = math.ceil(x * 10**n)/ 10**n
+            Qte = (resultat * float(UV))
             refart = ligne[0]
             # created nomenclature
             #_logger.warning("**********Article********* %s " % refart )
             #_logger.warning("**********Article********* %s " % str(QteBesoin) )
-            creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
+            creation_nomenclature(Nomenclature, refart, idun, Qte)
             #QteStk = 0
             #resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
             #if resultat:
