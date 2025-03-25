@@ -855,6 +855,7 @@ class SqliteConnector(models.Model):
                 regle = 0
 
                 #_logger.warning("**********Unite de mesure********* %s " % str(unit) )
+                categorie = '__export__.product_category_19_b8423373'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
                     creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
