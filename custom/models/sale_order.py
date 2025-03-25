@@ -215,7 +215,7 @@ class SaleOrder(models.Model):
             if order.so_date_bpe and order.so_delai_confirme_en_semaine:
                 # Calculer la date de livraison prévue
                 order.so_date_de_livraison = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
-                 order.so_date_de_livraison_prevu = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+                order.so_date_de_livraison_prevu = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
                 # Synchroniser avec commitment_date
                 order.commitment_date = order.so_date_de_livraison
             else:
