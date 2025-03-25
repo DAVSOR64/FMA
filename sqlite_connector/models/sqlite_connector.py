@@ -211,7 +211,7 @@ class SqliteConnector(models.Model):
                 product.x_studio_color_logikal = article['ColorLogikal']
                 product.x_studio_unit_logikal = article['UnitLogikal']
                 product.x_studio_longueur_m = article['LengthLogikal']
-                message = _("Ref Logikal is updated for product: ") + product._get_html_link()
+                #message = _("Ref Logikal is updated for product: ") + product._get_html_link()
             #product = self.env['product.supplierinfo'].search([('default_code', '=', article['item'])])
             #if product and round(float(article['price']), 4) != round(product.supplierinfo.price, 4):
                 #product.standard_price = float(article['price'])
@@ -229,8 +229,8 @@ class SqliteConnector(models.Model):
                 product.x_studio_color_logikal = profile['ColorLogikal']
                 product.x_studio_unit_logikal = profile['UnitLogikal']
                 product.x_studio_longueur_m = profile['LengthLogikal']
-                message = _("Ref Logikal is updated for product: ") + product._get_html_link()
-                self.message_post(body=message)
+                #message = _("Ref Logikal is updated for product: ") + product._get_html_link()
+                #self.message_post(body=message)
             #if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
             #    product.standard_price = float(profile['prix'])
             #    message = _("Standard Price is updated for product: ") + product._get_html_link()
@@ -263,12 +263,12 @@ class SqliteConnector(models.Model):
                 Tranche = project.split('/')[1]
             proj = ['', projet]
         _logger.warning("Projet %s " % projet )
-        #user_id = res_users.filtered(lambda p: p.name == re.sub(' +', ' ', PersonBE.strip()))
-        #if user_id:
-        #    user_id = user_id.id
-        #else:
-        #    user_id = False
-        #    self.log_request("Unable to find user Id.", PersonBE, 'Project Data')
+        user_id = res_users.filtered(lambda p: p.name == re.sub(' +', ' ', PersonBE.strip()))
+        if user_id:
+            user_id = user_id.id
+        else:
+            user_id = False
+            self.log_request("Unable to find user Id.", PersonBE, 'Project Data')
         #key_vals = dict(self.env['sale.order']._fields['x_studio_bureau_etudes'].selection)
         #bureau_etudes = False
         #for key, val in key_vals.items():
