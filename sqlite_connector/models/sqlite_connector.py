@@ -382,8 +382,8 @@ class SqliteConnector(models.Model):
                     refint =  str(cpt) + '_' + projet
                     elevID = row[1]
                     idrefart = ''
-                    HautNumDec = float(row[4]) if row[4] is not None else 0.0
-                    largNumDec = float(row[5]) if row[5] is not None else 0.0
+                    HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
+                    largNumDec = float(row[5]) if row[5] not in (None, '', ' ') else 0.0
                     HautNum = int(HautNumDec)
                     largNum = int(largNumDec)
                 
