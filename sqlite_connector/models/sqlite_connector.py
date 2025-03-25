@@ -299,15 +299,15 @@ class SqliteConnector(models.Model):
                 address = 'REM'
           if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
                 delaifab = float(row[2])
-          if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
-            date_time = row[2]
-            def convert(date_time):
-                if date_time:
-                    format = '%d/%m/%Y'  # The format
-                    datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
-                    return datetime_str
-                return datetime.now()
-            dateliv = convert(date_time)
+          #if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
+          #  date_time = row[2]
+          #  def convert(date_time):
+          #      if date_time:
+          #          format = '%d/%m/%Y'  # The format
+          #          datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
+          #          return datetime_str
+          #      return datetime.now()
+          #  dateliv = convert(date_time)
         
         # Depending on the parameters of the MDB database, I create commercial and analytical labels.
         
@@ -1370,7 +1370,7 @@ class SqliteConnector(models.Model):
                     largNum = int(largNumDec)
                     spacer = ligne[7]
                     delai = ligne[9]
-                    dateliv = datejourd + timedelta(days=delai)
+                    #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
                     if not self.env['product.product'].search([('default_code', '=', refinterne)], limit=1):
@@ -1438,7 +1438,7 @@ class SqliteConnector(models.Model):
         # We then create the customer quote with delivery dates and possible discounts.
         # We come to create the quote
         address = ''
-        dateliv = date_time
+       # dateliv = date_time
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
             if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
@@ -1448,16 +1448,16 @@ class SqliteConnector(models.Model):
                     address = 'CBM'
                 if (row[2] == '2') :
                     address = 'REM'
-            if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
-                date_time = row[2]
-                def convert(date_time):
-                    if date_time:
-                        format = '%d/%m/%Y'  # The format
-                        datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
-                        return datetime_str
-                    else:
-                        return datetime.now()
-                dateliv = convert(date_time)
+            #if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
+            #    date_time = row[2]
+            #    def convert(date_time):
+            #        if date_time:
+            #            format = '%d/%m/%Y'  # The format
+            #            datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
+            #            return datetime_str
+            #        else:
+            #            return datetime.now()
+            #    dateliv = convert(date_time)
 
         PourRem = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
@@ -1565,9 +1565,9 @@ class SqliteConnector(models.Model):
                         "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
                         "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
                         "date_order": fields.Date.today(),
-                        "x_studio_bureau_etudes": bureau_etudes,
-                        "analytic_account_id": ana_acc.id if ana_acc else False ,
-                        'x_studio_bureau_etudes': bureau_etudes,
+                        #"x_studio_bureau_etudes": bureau_etudes,
+                        #"analytic_account_id": ana_acc.id if ana_acc else False ,
+                        #'x_studio_bureau_etudes': bureau_etudes,
                         "activity_ids": [Command.create({
                             'summary': data1[6],
                             "res_model": 'sale.order',
@@ -1578,10 +1578,10 @@ class SqliteConnector(models.Model):
                             'date_deadline': datetime.now(),
                         })],
                         # "x_studio_deviseur_1": row[13],
-                        "x_studio_bureau_etude": data1[9],
+                        #"x_studio_bureau_etude": data1[9],
                         #"tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         #"tag_ids": eticom,
-                        "commitment_date": dateliv,
+                        #"commitment_date": dateliv,
                         "order_line": [Command.create({
                                 'product_id': pro.id,
                                 'price_unit': float(row[8]),
@@ -1661,9 +1661,9 @@ class SqliteConnector(models.Model):
                                 "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
                                 "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
                                 "date_order": fields.Date.today(),
-                                "x_studio_bureau_etudes": bureau_etudes,
-                                "analytic_account_id": ana_acc.id if ana_acc else False ,
-                                'x_studio_bureau_etudes': bureau_etudes,
+                                #"x_studio_bureau_etudes": bureau_etudes,
+                                #"analytic_account_id": ana_acc.id if ana_acc else False ,
+                                #'x_studio_bureau_etudes': bureau_etudes,
                                 "activity_ids": [Command.create({
                                     'summary': data1[6],
                                     "res_model": 'sale.order',
@@ -1674,9 +1674,9 @@ class SqliteConnector(models.Model):
                                     'date_deadline': datetime.now(),
                                 })],
                                 # "x_studio_deviseur_1": row[13],
-                                "x_studio_bureau_etude": data1[9],
+                                #"x_studio_bureau_etude": data1[9],
                                 #"tag_ids": [(6, 0, data1[11])],
-                                "commitment_date": dateliv,
+                                #"commitment_date": dateliv,
                                 "order_line": [Command.create({
                                     'product_id': pro[0].id if pro else False,
                                     'price_unit': float(row[8]),
