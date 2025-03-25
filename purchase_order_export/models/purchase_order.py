@@ -98,7 +98,7 @@ class PurchaseOrder(models.Model):
 
     def cron_send_po_xml_to_sftp(self):
         """Sync the unsynced POs to the SFTP server."""
-        purchase_orders = self.env['purchase.order'].search([('is_xml_created', '=', True),('sftp_synced_time', '=', False])
+        purchase_orders = self.env['purchase.order'].search([('is_xml_created', '=', True),('sftp_synced_time', '=', False)])
         attachment_model = self.env['ir.attachment']
 
         get_param = self.env['ir.config_parameter'].sudo().get_param
