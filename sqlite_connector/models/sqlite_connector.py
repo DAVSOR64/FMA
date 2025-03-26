@@ -259,17 +259,17 @@ class SqliteConnector(models.Model):
                 Tranche = project.split('/')[1]
             proj = ['', projet]
         _logger.warning("Projet %s " % projet )
-       # user_id = res_users.filtered(lambda p: p.name == re.sub(' +', ' ', PersonBE.strip()))
-       # if user_id:
-       #     user_id = user_id.id
-       # else:
-       #     user_id = False
-       #     self.log_request("Unable to find user Id.", PersonBE, 'Project Data')
-       # key_vals = dict(self.env['sale.order']._fields['x_studio_bureau_etudes'].selection)
-       # bureau_etudes = False
-       # for key, val in key_vals.items():
-       #     if key == PersonBE.strip():
-       #         bureau_etudes = key
+        user_id = res_users.filtered(lambda p: p.name == re.sub(' +', ' ', PersonBE.strip()))
+        if user_id:
+            user_id = user_id.id
+        else:
+            user_id = False
+            self.log_request("Unable to find user Id.", PersonBE, 'Project Data')
+        key_vals = dict(self.env['sale.order']._fields['x_studio_bureau_etudes'].selection)
+        bureau_etudes = False
+        for key, val in key_vals.items():
+            if key == PersonBE.strip():
+                bureau_etudes = key
         
         account_analytic_id = account_analytics.filtered(lambda a: a.name.strip() in projet.strip())
         #_logger.warning("*****************************COMPTE ANALYTIQUE**************** %s " % account_analytic_id)
