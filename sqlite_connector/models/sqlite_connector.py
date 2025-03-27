@@ -151,8 +151,8 @@ class SqliteConnector(models.Model):
                 if RefLogikal.startswith("X") :
                     RefLogikal = RefLogikal
                 else :
-                    if len(str(LengthLogikal)) < 7:
-                        RefLogikal = 'W' + RefLogikal.rjust(7, '0')
+                    if int(str(LengthLogikal)) < 7 :
+                        RefLogikal = 'W' + RefLogikal.zfill(7)
                     else:
                         RefLogikal = 'W' + RefLogikal
                 _logger.warning("**********APRES Profile pour MAJ********* %s " % RefLogikal )
@@ -1538,9 +1538,9 @@ class SqliteConnector(models.Model):
                         "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
                         "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
                         "date_order": fields.Date.today(),
-                        "x_studio_bureau_etudes": bureau_etudes,
-                        "analytic_account_id": ana_acc.id if ana_acc else False ,
-                        'x_studio_bureau_etudes': bureau_etudes,
+                        #"x_studio_bureau_etudes": bureau_etudes,
+                        #"analytic_account_id": ana_acc.id if ana_acc else False ,
+                        #'x_studio_bureau_etudes': bureau_etudes,
                         #"activity_ids": [Command.create({
                         #    'summary': data1[6],
                         #    "res_model": 'sale.order',
@@ -1634,9 +1634,9 @@ class SqliteConnector(models.Model):
                                 "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
                                 "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
                                 "date_order": fields.Date.today(),
-                                "x_studio_bureau_etudes": bureau_etudes,
-                                "analytic_account_id": ana_acc.id if ana_acc else False ,
-                                'x_studio_bureau_etudes': bureau_etudes,
+                                #"x_studio_bureau_etudes": bureau_etudes,
+                                #"analytic_account_id": ana_acc.id if ana_acc else False ,
+                                #'x_studio_bureau_etudes': bureau_etudes,
                                 #"activity_ids": [Command.create({
                                 #    'summary': data1[6],
                                 #    "res_model": 'sale.order',
