@@ -58,7 +58,7 @@ class SqliteConnector(models.Model):
         cursor1 = con.cursor()
         date_time = datetime.now()
 
-        article_data = cursor.execute("select ArticleCode, Price, PUSize, Units_Unit, ArticleCode_Supplier, ArticleCode_BaseNumber,ColorInfoInternal, Color, ArticleCode_Number from Articles")
+        article_data = cursor.execute("select ArticleCode, PriceGross, PUSize, Units_Unit, ArticleCode_Supplier, ArticleCode_BaseNumber,ColorInfoInternal, Color, ArticleCode_Number, Discount from Articles")
         for row in article_data:
             refart = row[0]
             couleur = ''
@@ -112,6 +112,7 @@ class SqliteConnector(models.Model):
             articles.append({
                 'item': refart,
                 'price': row[1],
+                'Discount': row[9],
                 'unit': row[2],
                 'condi': row[3],
                 'RefLogikal' : RefLogikal,
@@ -121,13 +122,14 @@ class SqliteConnector(models.Model):
             })
 
 
-        profile_data = cursor.execute("select Profiles.ArticleCode, Profiles.Price, Profiles.ArticleCode_Number, Profiles.Color, Profiles.ArticleCode_Supplier, Profiles.ArticleCode_BaseNumber, Profiles.OuterColorInfoInternal, Profiles.InnerColorInfoInternal, Profiles.ColorInfoInternal, AllProfiles.Length from Profiles INNER JOIN AllProfiles ON AllProfiles.ArticleCode = Profiles.ArticleCode")
+        profile_data = cursor.execute("select Profiles.ArticleCode, Profiles.PriceGross, Profiles.ArticleCode_Number, Profiles.Color, Profiles.ArticleCode_Supplier, Profiles.ArticleCode_BaseNumber, Profiles.OuterColorInfoInternal, Profiles.InnerColorInfoInternal, Profiles.ColorInfoInternal, AllProfiles.Length, Profiles.Price from Profiles INNER JOIN AllProfiles ON AllProfiles.ArticleCode = Profiles.ArticleCode")
         for row in profile_data:
             refart = row[0]
             couleur = ''
             fournisseur = row[4]
             fournisseur = fournisseur.upper()
             RefLogikal = row[5]
+            Discount = float(row[1]) / float(row[10]) if float(row[10]) != 0 else 0.0  
             Length = 0
             LengthLogikal = len(row[5])
             if fournisseur == 'TECHNAL' :
@@ -178,6 +180,7 @@ class SqliteConnector(models.Model):
             profiles.append({
                 'article': refart,
                 'prix': row[1],
+                'Discount' : Discount,
                 'RefLogikal' : RefLogikal,
                 'ColorLogikal' : couleur,
                 'LengthLogikal' : Length,
@@ -208,11 +211,12 @@ class SqliteConnector(models.Model):
                 product.x_studio_color_logikal = article['ColorLogikal']
                 product.x_studio_unit_logikal = article['UnitLogikal']
                 product.x_studio_longueur_m = article['LengthLogikal']
-                message = _("Ref Logikal is updated for product: ") + product._get_html_link()
-            if product and round(float(article['price']), 4) != round(product.standard_price, 4):
-                product.standard_price = float(article['price'])
-                message = _("Standard Price is updated for product: ") + product._get_html_link()
-                self.message_post(body=message)
+                #message = _("Ref Logikal is updated for product: ") + product._get_html_link()
+            #product = self.env['product.supplierinfo'].search([('default_code', '=', article['item'])])
+            #if product and round(float(article['price']), 4) != round(product.supplierinfo.price, 4):
+                #product.standard_price = float(article['price'])
+                #message = _("Standard Price is updated for product: ") + product._get_html_link()
+                #self.message_post(body=message)
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
@@ -225,12 +229,12 @@ class SqliteConnector(models.Model):
                 product.x_studio_color_logikal = profile['ColorLogikal']
                 product.x_studio_unit_logikal = profile['UnitLogikal']
                 product.x_studio_longueur_m = profile['LengthLogikal']
-                message = _("Ref Logikal is updated for product: ") + product._get_html_link()
-                self.message_post(body=message)
-            if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
-                product.standard_price = float(profile['prix'])
-                message = _("Standard Price is updated for product: ") + product._get_html_link()
-                self.message_post(body=message)
+                #message = _("Ref Logikal is updated for product: ") + product._get_html_link()
+                #self.message_post(body=message)
+            #if product and round(float(profile['prix']), 4) != round(product.standard_price, 4):
+            #    product.standard_price = float(profile['prix'])
+            #    message = _("Standard Price is updated for product: ") + product._get_html_link()
+            #    self.message_post(body=message)
 
         # At FMA, they have a concept of tranches, that is to say that the project is divided into
         # several phases (they call it tranches). So I come to see if it is a project with installments or
@@ -265,11 +269,11 @@ class SqliteConnector(models.Model):
         else:
             user_id = False
             self.log_request("Unable to find user Id.", PersonBE, 'Project Data')
-        key_vals = dict(self.env['sale.order']._fields['x_studio_bureau_etudes'].selection)
-        bureau_etudes = False
-        for key, val in key_vals.items():
-            if key == PersonBE.strip():
-                bureau_etudes = key
+        #key_vals = dict(self.env['sale.order']._fields['x_studio_bureau_etudes'].selection)
+        #bureau_etudes = False
+        #for key, val in key_vals.items():
+        #    if key == PersonBE.strip():
+        #        bureau_etudes = key
         
         account_analytic_id = account_analytics.filtered(lambda a: a.name.strip() in projet.strip())
         #_logger.warning("*****************************COMPTE ANALYTIQUE**************** %s " % account_analytic_id)
@@ -295,15 +299,15 @@ class SqliteConnector(models.Model):
                 address = 'REM'
           if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
                 delaifab = float(row[2])
-          if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
-            date_time = row[2]
-            def convert(date_time):
-                if date_time:
-                    format = '%d/%m/%Y'  # The format
-                    datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
-                    return datetime_str
-                return datetime.now()
-            dateliv = convert(date_time)
+          #if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
+          #  date_time = row[2]
+          #  def convert(date_time):
+          #      if date_time:
+          #          format = '%d/%m/%Y'  # The format
+          #          datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
+          #          return datetime_str
+          #      return datetime.now()
+          #  dateliv = convert(date_time)
         
         # Depending on the parameters of the MDB database, I create commercial and analytical labels.
         
@@ -375,8 +379,13 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
-                    refint =  row[1] + '_' + projet
+                    refint =  str(cpt) + '_' + projet
+                    elevID = row[1]
                     idrefart = ''
+                    HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
+                    largNumDec = float(row[5]) if row[5] not in (None, '', ' ') else 0.0
+                    HautNum = int(HautNumDec)
+                    largNum = int(largNumDec)
                 
                 categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
                 if not categ:
@@ -385,11 +394,14 @@ class SqliteConnector(models.Model):
                     product = self.env['product.product'].create({
                         "name": refart,
                         "default_code": refint,
-                        "list_price": 0,
-                        "standard_price": row[7],
+                        "list_price": row[7],
+                        #"standard_price": row[7],
                         'categ_id': categ.id if categ else self.env.ref('product.product_category_all').id,
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
                         "uom_po_id": self.env.ref('uom.product_uom_unit').id,
+                        "x_studio_position": elevID,
+                        "x_studio_hauteur_mm": HautNum,
+                        "x_studio_largeur_mm": largNum,
                         "detailed_type": "consu",
                         "purchase_ok": False,
                         "sale_ok": True,
@@ -407,15 +419,16 @@ class SqliteConnector(models.Model):
         for row in resultp:
             refart = str(row[1])
             categ = self.env.ref('product.product_category_all')
+            affaire = row[0]
             if BP == 'BPA':
                 refart = refart + '_BPA'
                 refart = refart.strip()
                 idrefart = ''
             p = self.env['product.product'].search([('default_code', '=', refart)])
             if not p:
-                sale_order = self.env['sale.order'].search([('name', '=', refart), ('state', 'not in', ['done', 'cancel'])], limit=1)
-                if sale_order :
-                    affaire = sale_order.x_studio_ref_affaire 
+                #sale_order = self.env['sale.order'].search([('name', '=', refart), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                #if sale_order :
+                #    affaire = sale_order.x_studio_ref_affaire 
                 
                 #_logger.warning("**************ARTCILE NOMENCLATURE*************  2 %s " % affaire) 
                 #_logger.warning("**************ARTCILE NOMENCLATURE*************  2 %s " % refart)
@@ -432,7 +445,7 @@ class SqliteConnector(models.Model):
                     "purchase_ok": False,
                     "sale_ok": True,
                     "route_ids": [Command.link(self.env.ref('stock.route_warehouse0_mto').id), Command.link(self.env.ref('mrp.route_warehouse0_manufacture').id)],
-                    # Staging before merge :"route_ids": [(4, self.env.ref('stock.route_warehouse0_mto').id), (4,self.env.ref('__export__.stock_location_route_99_adb9a7a8').id)],
+                    # Staging before merge :"_ids": [(4, self.env.ref('stock._warehouse0_mto').id), (4,self.env.ref('__export__.stock_location__99_adb9a7a8').id)],
                     "invoice_policy":"delivery",
                 })
                 delaifab_delay_products.append(product.product_tmpl_id.id)
@@ -485,22 +498,21 @@ class SqliteConnector(models.Model):
             if not trouve:
                 Article.append([refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
                 
-       # On vient créer une fonction permettant de créer les Purchase Order   
+        # On vient créer une fonction permettant de créer les Purchase Order   
         def creation_commande(Commande, refinterne, unstk, fournisseur, prix, delai, UV, Qte):
             trouve = False
             for item in Commande:
-                # Si l'article existe déjà on ne fait rien
                 if item[0] == refinterne :
-                    QteArt = float(item[6])
-                    QteArt += float(Qte)
-                    item[6] = str(QteArt)
+        #            QteArt = float(item[6])
+        #            QteArt += float(Qte)
+        #            item[6] = str(QteArt)
                     trouve = True
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
                 Commande.append([refinterne, unstk, fournisseur, prix, delai, UV, Qte])
         
-        # On vient créer une fonction permettant de créer les Purchase Order   
+        # On vient créer une fonction permettant de créer les Nomenclatures   
         def creation_nomenclature(Nomenclature, refinterne, unstk,  Qte):
             trouve = False
             for item in Nomenclature:
@@ -637,16 +649,7 @@ class SqliteConnector(models.Model):
                     LstArt = LstArt + ' , ' + refart
                 #self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
             
-                
-            #    ida = refart.replace(" ","_")
-            #    if ida == '' :
-            #        ida = nom.replace(" ", "_")
-            #        refart = nom
-            #    tache = 1
-            #    if LstArt == '':
-            #        LstArt = refart
-            #    else :
-            #        LstArt = LstArt + ',' + refart
+                   
             refart = ligne[0]
             nom = ligne[1]
             prix = float (ligne[5])
@@ -668,13 +671,14 @@ class SqliteConnector(models.Model):
                     'sale_ok': True,
                     'detailed_type': 'product',
                     'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                    'route_ids': [Command.link(self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                    'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
                     'x_studio_hauteur_mm': 0,
                     'x_studio_largeur_mm': 0,
                     'x_studio_ref_int_logikal' : ligne[10],
                     'x_studio_color_logikal' : ligne[11],
                     'x_studio_unit_logikal' : ligne[12],
                     'x_studio_longueur_m' : ligne[13],
+                    'x_studio_cration_auto' : True,
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
@@ -689,48 +693,8 @@ class SqliteConnector(models.Model):
                 self.message_post(body=message)
                 self.env.cr.commit()
                 # created nomenclature
-                creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
-                # created Purchase Order
-                trouve = 1
-                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                for po in po_article_vals:
-                    if po.get('partner_id') == idfrs:
-                        trouve = 0
-                        po.get('order_line').append(Command.create({
-                            'product_id': refart,
-                            'price_unit': prix,
-                            'product_qty': Qte,
-                            'product_uom': False,
-                            'date_planned': dateliv,
-                        }))
-                if trouve == 1 :
-                    if stock_picking_type_id:
-                        #_logger.warning("**********Creation AFFAIRE********* %s " %x_affaire )
-                        analytic_distribution = {account_analytic_id: 100}
-                        po_article_vals.append({
-                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                            'partner_id': idfrs,
-                            'picking_type_id': stock_picking_type_id,
-                            'date_order': datetime.now(),
-                            'user_id': user_id,
-                            'order_line': [Command.create({
-                                                'product_id': 'affaire',
-                                                'price_unit': 0,
-                                                'product_qty': 1,
-                                                'product_uom': False,
-                                                'analytic_distribution': analytic_distribution,
-                                                'date_planned': datejourd,
-                                            })]
-                        })
-                        for po in po_article_vals:
-                            if po.get('partner_id') == idfrs:
-                                po.get('order_line').append(Command.create({
-                                    'product_id': refart,
-                                    'price_unit': prix,
-                                    'product_qty': Qte,
-                                    'product_uom': False,
-                                    'date_planned': dateliv,
-                                }))
+                creation_nomenclature(Nomenclature, refart, idun, Qte)
+               
         for ligne in Commande :
             idfrs = ''
             idun = ''
@@ -741,112 +705,34 @@ class SqliteConnector(models.Model):
                 idun = uom.id
             # we are looking for the ID of supplier
             fournisseur = ligne[2]
-            UV = ligne[5]
-            QteBesoin = float(ligne[6])
-            Qte = float(ligne[6])
-            #Qte = (float(ligne[6])) / float(UV) if UV else float(ligne[6])
-            #x = Qte
-            #n = 0
-            #resultat = math.ceil(x * 10**n)/ 10**n
-            #Qte = (resultat * float(UV))
+
+            # On cherche l'article correspondant via sa référence interne
             refart = ligne[0]
+            product = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
+
+            if product:
+                #  On vérifie si la route MTO est présente
+                mto_route = self.env.ref('stock.route_warehouse0_mto', raise_if_not_found=False)
+                if mto_route and mto_route in product.route_ids:
+                    _logger.info(f"L'article {refart} est configuré en MTO.")
+                    UV = ligne[5]
+                    Qte = (float(ligne[6])) / float(UV) if UV else float(ligne[6])
+                    x = Qte
+                    n = 0
+                    resultat = math.ceil(x * 10**n)/ 10**n
+                    Qte = (resultat * float(UV))        
+                    # Tu peux faire un traitement spécifique ici
+                else:
+                    Qte = float(ligne[6])
+                    _logger.info(f"L'article {refart} n'est PAS configuré en MTO.")
+            
+            #QteBesoin = float(ligne[6])
             # created nomenclature
             #_logger.warning("**********Article********* %s " % refart )
             #_logger.warning("**********Article********* %s " % str(QteBesoin) )
-            creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
-            QteStk = 0
-            resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
-            if resultat:
-                idfrs = resultat[0].id
-            else:
-                self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
-            prix = float (ligne[3])
-            x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-            regle = 0
-            trouve = 1
-            if idfrs != '' :
-                #_logger.warning("**********Article********* %s " % refart )
-                for product in self.env['product.product'].search([('default_code', '=', refart)]):
-                    #refartodoo = product.default_code
-                    #delai = product.produce_delay
-                    #if delai == None :
-                    #    delay = 1
-                    consoaff = product.x_studio_conso_laffaire
-                    QteStk = product.free_qty
-                    #_logger.warning("**********Qte STock********* %s " %str(QteStk) )
-                    if product.orderpoint_ids:
-                        #_logger.warning("**********regle de reappro********* %s "  )
-                        regle = 1
-                        
-                if (regle == 0 ) :
-                    Qte = Qte - QteStk
-                if (regle == 0 ) or consoaff == True :
-                    if Qte > 0 :  
-                        Qte = (Qte / float(UV)) if UV else Qte
-                        x = Qte
-                        n = 0
-                        resultat = math.ceil(x * 10**n)/ 10**n
-                        Qte = (resultat * float(UV))
-                        #_logger.warning("**********MAJ Commande appro********* %s " % str(Qte))
-                        for po in po_article_vals:
-                            if po.get('partner_id') == idfrs:
-                                trouve = 0
-                                po.get('order_line').append(Command.create({
-                                    'product_id': refart,
-                                    'price_unit': prix,
-                                    'product_qty': Qte,
-                                    'product_uom': False,
-                                    'date_planned': dateliv,
-                                }))
-                        if trouve == 1 :
-                            #_logger.warning("**********Pas eu de commande a creer avant********* %s "  )
-                            if stock_picking_type_id:
-                                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                                analytic_distribution = {account_analytic_id: 100}
-                                #_logger.warning("**********Creation AFFAIRE********* %s " % x_affaire)
-                                po_article_vals.append({
-                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                    'partner_id': idfrs,
-                                    'picking_type_id': stock_picking_type_id,
-                                    'date_order': datetime.now(),
-                                    'user_id': user_id,
-                                    'order_line': [Command.create({
-                                                        'product_id': 'affaire',
-                                                        'price_unit': 0,
-                                                        'product_qty': 1,
-                                                        'product_uom': False,
-                                                        'analytic_distribution': analytic_distribution,
-                                                        'date_planned': datejourd,
-                                                    })]
-                                })
-                                for po in po_article_vals:
-                                    if po.get('partner_id') == idfrs:
-                                        po.get('order_line').append(Command.create({
-                                            'product_id': refart,
-                                            'price_unit': prix,
-                                            'product_qty': Qte,
-                                            'product_uom': False,
-                                            'date_planned': dateliv,
-                                        }))
-                
-        #for purchase in po_article_vals:
-        #    _logger.warning("**********dans les purchase********* %s "  )
-        #    for line in purchase.get('order_line'):
-        #        _logger.warning("**********dans les lignes de purchase********* %s " % line[2].get('product_id') )
-        #        product = self.env['product.product'].search([('default_code', '=', line[2].get('product_id'))], limit=1)
-        #        if product:
-        #            line[2]['product_id'] = product.id
-        #            line[2]['product_uom'] = product.uom_id.id
-        #        else:
-        #            self.log_request('Unable to find product', 'PO Creation', line.get('product_id'))
-
-        #for purchase in self.env['purchase.order'].create(po_article_vals):
-        #    refs = ["<a href=# data-oe-model=purchase.order data-oe-id=%s>%s</a>" % tuple(name_get) for name_get in purchase.name_get()]
-        #    message = _("Purchase Order has been created: %s") % ','.join(refs)
-        #    self.message_post(body=message)
-
-
-        
+            creation_nomenclature(Nomenclature, refart, idun, Qte)
+            
+       
         # Process data for profile
         resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         BP = ''
@@ -969,6 +855,7 @@ class SqliteConnector(models.Model):
                 regle = 0
 
                 #_logger.warning("**********Unite de mesure********* %s " % str(unit) )
+                categorie = '__export__.product_category_19_b8423373'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
                     creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
@@ -1030,13 +917,14 @@ class SqliteConnector(models.Model):
                             'sale_ok': True,
                             'detailed_type': 'product',
                             'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'route_ids': [Command.link(self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                            'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
                             'x_studio_hauteur_mm': 0,
                             'x_studio_largeur_mm': 0,
                             'x_studio_ref_int_logikal' : ligne[10],
                             'x_studio_color_logikal' : ligne[11],
                             'x_studio_unit_logikal' : ligne[12],
                             'x_studio_longueur_m' : ligne[13],
+                            'x_studio_cration_auto' : True,
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
@@ -1053,46 +941,46 @@ class SqliteConnector(models.Model):
                         # created nomenclature
                         creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
                         # created Purchase Order
-                        trouve = 1
-                        x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                        for po in po_article_vals:
-                            if po.get('partner_id') == idfrs:
-                                trouve = 0
-                                po.get('order_line').append(Command.create({
-                                    'product_id': refart,
-                                    'price_unit': prix,
-                                    'product_qty': Qte,
-                                    'product_uom': False,
-                                    'date_planned': dateliv,
-                                }))
-                        if trouve == 1 :
-                            if stock_picking_type_id:
+                        #trouve = 1
+                        #x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                        #for po in po_article_vals:
+                        #    if po.get('partner_id') == idfrs:
+                        #        trouve = 0
+                        #        po.get('order_line').append(Command.create({
+                        #            'product_id': refart,
+                        #            'price_unit': prix,
+                        #            'product_qty': Qte,
+                        #            'product_uom': False,
+                        #            'date_planned': dateliv,
+                        #        }))
+                        #if trouve == 1 :
+                        #    if stock_picking_type_id:
                                 #_logger.warning("**********Creation AFFAIRE********* %s "  )
-                                analytic_distribution = {account_analytic_id: 100}
-                                po_article_vals.append({
-                                    'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                    'partner_id': idfrs,
-                                    'picking_type_id': stock_picking_type_id,
-                                    'date_order': datetime.now(),
-                                    'user_id': user_id,
-                                    'order_line': [Command.create({
-                                                        'product_id': 'affaire',
-                                                        'price_unit': 0,
-                                                        'product_qty': 1,
-                                                        'product_uom': False,
-                                                        'analytic_distribution': analytic_distribution,
-                                                        'date_planned': datejourd,
-                                                    })]
-                                })
-                                for po in po_article_vals:
-                                    if po.get('partner_id') == idfrs:
-                                        po.get('order_line').append(Command.create({
-                                            'product_id': refart,
-                                            'price_unit': prix,
-                                            'product_qty': Qte,
-                                            'product_uom': False,
-                                            'date_planned': dateliv,
-                                        }))
+                        #        analytic_distribution = {account_analytic_id: 100}
+                        #        po_article_vals.append({
+                        #            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                        #            'partner_id': idfrs,
+                        #            'picking_type_id': stock_picking_type_id,
+                        #            'date_order': datetime.now(),
+                        #            'user_id': user_id,
+                        #            'order_line': [Command.create({
+                        #                                'product_id': 'affaire',
+                        #                                'price_unit': 0,
+                        #                                'product_qty': 1,
+                        #                                'product_uom': False,
+                        #                                'analytic_distribution': analytic_distribution,
+                        #                                'date_planned': datejourd,
+                        #                            })]
+                        #        })
+                        #        for po in po_article_vals:
+                        #            if po.get('partner_id') == idfrs:
+                        #                po.get('order_line').append(Command.create({
+                        #                    'product_id': refart,
+                        #                    'price_unit': prix,
+                        #                    'product_qty': Qte,
+                        #                    'product_uom': False,
+                        #                    'date_planned': dateliv,
+                        #                }))
             for ligne in Commande :
                 idfrs = ''
                 idun = ''
@@ -1117,95 +1005,95 @@ class SqliteConnector(models.Model):
                 refart = ligne[0]
                 # created nomenclature
                 creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
-                QteStk = 0
-                resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
-                if resultat:
-                    idfrs = resultat[0].id
-                else:
-                    self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
-                prix = float (ligne[3])
-                x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                regle = 0
-                trouve = 1
-                if idfrs != '' :
-                    for product in self.env['product.product'].search([('default_code', '=', refart)]):
-                        #refartodoo = product.default_code
+                #QteStk = 0
+                #resultat = res_partners.filtered(lambda p: p.x_studio_ref_logikal and p.x_studio_ref_logikal.upper() == fournisseur)
+                #if resultat:
+                #    idfrs = resultat[0].id
+                #else:
+                #    self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
+                #prix = float (ligne[3])
+                #x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
+                #regle = 0
+                #trouve = 1
+                #if idfrs != '' :
+                #    for product in self.env['product.product'].search([('default_code', '=', refart)]):
+                #        #refartodoo = product.default_code
                         #delai = product.produce_delay
                         #if delai == None :
                         #    delay = 1
-                        consoaff = product.x_studio_conso_laffaire
-                        QteStk = product.free_qty
+                #        consoaff = product.x_studio_conso_laffaire
+                #        QteStk = product.free_qty
                         #_logger.warning("**********Article********* %s " % refart )
                         #_logger.warning("**********Qte STock********* %s " %str(QteStk) )
-                        if product.orderpoint_ids:
+                #        if product.orderpoint_ids:
                             #_logger.warning("**********regle de reappro********* %s "  )
-                            regle = 1
+                #            regle = 1
                             
-                    if (regle == 0 ) :
-                        Qte = Qte - QteStk
-                    if (regle == 0 ) or consoaff == True :
+                #    if (regle == 0 ) :
+                #        Qte = Qte - QteStk
+                #    if (regle == 0 ) or consoaff == True :
                         #_logger.warning("**********Qte a commander ********* %s " %str(Qte) )
-                        if Qte > 0 :
-                            Qte = (Qte / float(UV)) if UV else Qte
-                            x = Qte
-                            n = 0
-                            resultat = math.ceil(x * 10**n)/ 10**n
-                            Qte = (resultat * float(UV))
-                            for po in po_article_vals:
-                                if po.get('partner_id') == idfrs:
-                                    trouve = 0
-                                    po.get('order_line').append(Command.create({
-                                        'product_id': refart,
-                                        'price_unit': prix,
-                                        'product_qty': Qte,
-                                        'product_uom': False,
-                                        'date_planned': dateliv,
-                                    }))
+                #        if Qte > 0 :
+                #            Qte = (Qte / float(UV)) if UV else Qte
+                #            x = Qte
+                #            n = 0
+                #            resultat = math.ceil(x * 10**n)/ 10**n
+                #            Qte = (resultat * float(UV))
+                #            for po in po_article_vals:
+                #                if po.get('partner_id') == idfrs:
+                #                    trouve = 0
+                #                    po.get('order_line').append(Command.create({
+                #                        'product_id': refart,
+                #                        'price_unit': prix,
+                #                        'product_qty': Qte,
+                #                        'product_uom': False,
+                #                        'date_planned': dateliv,
+                #                    }))
                             #_logger.warning("**********Tourver ********* %s " %str(trouve) )
-                            if trouve == 1 :
+                #            if trouve == 1 :
                                 #_logger.warning("**********Pas eu de commande a creer avant********* %s "  )
-                                if stock_picking_type_id:
+                #                if stock_picking_type_id:
                                     #_logger.warning("**********Creation AFFAIRE********* %s "  )
-                                    analytic_distribution = {account_analytic_id: 100}
-                                    po_article_vals.append({
-                                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                                        'partner_id': idfrs,
-                                        'picking_type_id': stock_picking_type_id,
-                                        'date_order': datetime.now(),
-                                        'user_id': user_id,
-                                        'order_line': [Command.create({
-                                                            'product_id': 'affaire',
-                                                            'price_unit': 0,
-                                                            'product_qty': 1,
-                                                            'product_uom': False,
-                                                            'analytic_distribution': analytic_distribution,
-                                                            'date_planned': datejourd,
-                                                        })]
-                                    })
-                                    for po in po_article_vals:
-                                        if po.get('partner_id') == idfrs:
-                                            po.get('order_line').append(Command.create({
-                                                'product_id': refart,
-                                                'price_unit': prix,
-                                                'product_qty': Qte,
-                                                'product_uom': False,
-                                                'date_planned': dateliv,
-                                            }))
+                #                    analytic_distribution = {account_analytic_id: 100}
+                #                    po_article_vals.append({
+                #                        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                #                        'partner_id': idfrs,
+                #                        'picking_type_id': stock_picking_type_id,
+                #                        'date_order': datetime.now(),
+                #                        'user_id': user_id,
+                #                        'order_line': [Command.create({
+                #                                            'product_id': 'affaire',
+                #                                            'price_unit': 0,
+                #                                            'product_qty': 1,
+                #                                            'product_uom': False,
+                #                                            'analytic_distribution': analytic_distribution,
+                #                                            'date_planned': datejourd,
+                #                                        })]
+                #                    })
+                #                    for po in po_article_vals:
+                #                        if po.get('partner_id') == idfrs:
+                #                            po.get('order_line').append(Command.create({
+                #                                'product_id': refart,
+                #                                'price_unit': prix,
+                #                                'product_qty': Qte,
+                #                                'product_uom': False,
+                #                                'date_planned': dateliv,
+                 #                           }))
 
                         
-        for purchase in po_article_vals:
-            for line in purchase.get('order_line'):
-                product = self.env['product.product'].search([('default_code', '=', line[2].get('product_id'))], limit=1)
-                if product:
-                    #_logger.warning("**********UNITE a mettre a jour********* %s "  % product.uom_id)
-                    line[2]['product_id'] = product.id
-                    line[2]['product_uom'] = product.uom_id.id
-                else:
-                    self.log_request('Unable to find product', 'PO Creation', line[2].get('product_id'))                
+        #for purchase in po_article_vals:
+        #    for line in purchase.get('order_line'):
+        #        product = self.env['product.product'].search([('default_code', '=', line[2].get('product_id'))], limit=1)
+        #        if product:
+        #            #_logger.warning("**********UNITE a mettre a jour********* %s "  % product.uom_id)
+        #            line[2]['product_id'] = product.id
+        #            line[2]['product_uom'] = product.uom_id.id
+        #        else:
+        #            self.log_request('Unable to find product', 'PO Creation', line[2].get('product_id'))                
 
-        for purchase in self.env['purchase.order'].create(po_article_vals):
-            message = _("Purchase Order has been created: ") + purchase._get_html_link()
-            self.message_post(body=message)
+        #for purchase in self.env['purchase.order'].create(po_article_vals):
+        #    message = _("Purchase Order has been created: ") + purchase._get_html_link()
+        #    self.message_post(body=message)
 
         
         # To process glass data
@@ -1325,27 +1213,27 @@ class SqliteConnector(models.Model):
                     idfrs = res_partner.id
                 if fournisseur != ligne[0] or info_livraison != ligne[1] :
                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                    if stock_picking_type_id:
+                    #if stock_picking_type_id:
                         #_logger.warning('Dans la creation du PO %s' % res_partner)
-                        analytic_distribution = {account_analytic_id: 100}
-                        po_glass_vals.append({
-                            'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                            'partner_id': idfrs,
-                            'picking_type_id': stock_picking_type_id,
-                            'x_studio_commentaire_livraison_vitrage_': ligne[1],
-                            'date_order': datetime.now(),
-                            'user_id': user_id,
-                            'order_line':
-                                [Command.create({
-                                    'product_id': 'affaire',
-                                    'date_planned': datetime.now(),
-                                    'price_unit': 0,
-                                    'product_qty': 1,
-                                    'product_uom': False,
-                                    'analytic_distribution': analytic_distribution,
-                                    'date_planned': datejourd,
-                                })]
-                        })
+                    #    analytic_distribution = {account_analytic_id: 100}
+                    #    po_glass_vals.append({
+                    #        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
+                    #        'partner_id': idfrs,
+                    #        'picking_type_id': stock_picking_type_id,
+                    #        'x_studio_commentaire_livraison_vitrage_': ligne[1],
+                    #        'date_order': datetime.now(),
+                    #        'user_id': user_id,
+                    #        'order_line':
+                    #            [Command.create({
+                    #                'product_id': 'affaire',
+                    #                'date_planned': datetime.now(),
+                    #                'price_unit': 0,
+                    #                'product_qty': 1,
+                    #                'product_uom': False,
+                    #                'analytic_distribution': analytic_distribution,
+                    #                'date_planned': datejourd,
+                    #            })]
+                    #    })
                 if vitrage != (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5])) :
                     refinterne = proj + "_" + str(cpt)
                     vitrage = ligne[3]
@@ -1358,7 +1246,7 @@ class SqliteConnector(models.Model):
                     largNum = int(largNumDec)
                     spacer = ligne[7]
                     delai = ligne[9]
-                    dateliv = datejourd + timedelta(days=delai)
+                    #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
                     if not self.env['product.product'].search([('default_code', '=', refinterne)], limit=1):
@@ -1373,9 +1261,10 @@ class SqliteConnector(models.Model):
                             'sale_ok': True,
                             'detailed_type': 'product',
                             'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'route_ids': [Command.link(self.env.ref('purchase_stock.route_warehouse0_buy').id)],
+                            'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
+                            'x_studio_cration_auto' : True,
                             # 'x_studio_positionn': Posint,
                         }
                         if idfrs:
@@ -1390,42 +1279,42 @@ class SqliteConnector(models.Model):
                         self.message_post(body=message)
                         self.env.cr.commit()
                     # On vient créer la ligne de commande d'appro
-                    for po in po_glass_vals:
-                        if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == ligne[1]:
-                            po.get('order_line').append(Command.create({
-                                'product_id': refinterne,
-                                'date_planned': datetime.now(),
-                                'price_unit': prix,
-                                'product_qty': Qte,
-                                'product_uom': False,
-                                'x_studio_posit': position,
-                                'x_studio_hauteur': HautNum,
-                                'x_studio_largeur': largNum,
-                                'x_studio_spacer': spacer,
+                    #for po in po_glass_vals:
+                    #    if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == ligne[1]:
+                    #        po.get('order_line').append(Command.create({
+                    #            'product_id': refinterne,
+                    #            'date_planned': datetime.now(),
+                    #            'price_unit': prix,
+                    #            'product_qty': Qte,
+                    #            'product_uom': False,
+                    #            'x_studio_posit': position,
+                    #            'x_studio_hauteur': HautNum,
+                    #            'x_studio_largeur': largNum,
+                    #            'x_studio_spacer': spacer,
                                 #'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                'date_planned': dateliv,
-                                    }))
+                    #            'date_planned': dateliv,
+                    #                }))
                 fournisseur = ligne[0]
                 info_livraison = ligne[1]
                 vitrage = (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5]))
             
-        for purchase in po_glass_vals:
-            for line in purchase.get('order_line'):
-                product = self.env['product.product'].search([('default_code', '=', line[2].get('product_id'))], limit=1)
-                if product:
-                    line[2]['product_id'] = product.id
-                    line[2]['product_uom'] = product.uom_id.id
-                else:
-                    self.log_request('Unable to find product', 'PO Creation', line[2].get('product_id')) 
-        for purchase in self.env['purchase.order'].create(po_glass_vals):
-            message = _("Purchase Order has been created: ") + purchase._get_html_link()
-            self.message_post(body=message)    
+        #for purchase in po_glass_vals:
+        #    for line in purchase.get('order_line'):
+        #        product = self.env['product.product'].search([('default_code', '=', line[2].get('product_id'))], limit=1)
+        #        if product:
+        #            line[2]['product_id'] = product.id
+        #            line[2]['product_uom'] = product.uom_id.id
+        #        else:
+        #            self.log_request('Unable to find product', 'PO Creation', line[2].get('product_id')) 
+        #for purchase in self.env['purchase.order'].create(po_glass_vals):
+        #    message = _("Purchase Order has been created: ") + purchase._get_html_link()
+        #    self.message_post(body=message)    
                   
 
         # We then create the customer quote with delivery dates and possible discounts.
         # We come to create the quote
         address = ''
-        dateliv = date_time
+       # dateliv = date_time
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
             if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
@@ -1435,16 +1324,16 @@ class SqliteConnector(models.Model):
                     address = 'CBM'
                 if (row[2] == '2') :
                     address = 'REM'
-            if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
-                date_time = row[2]
-                def convert(date_time):
-                    if date_time:
-                        format = '%d/%m/%Y'  # The format
-                        datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
-                        return datetime_str
-                    else:
-                        return datetime.now()
-                dateliv = convert(date_time)
+            #if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
+            #    date_time = row[2]
+            #    def convert(date_time):
+            #        if date_time:
+            #            format = '%d/%m/%Y'  # The format
+            #            datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
+            #            return datetime_str
+            #        else:
+            #            return datetime.now()
+            #    dateliv = convert(date_time)
 
         PourRem = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
@@ -1463,6 +1352,7 @@ class SqliteConnector(models.Model):
         NbrLig = 0
         catergorie = ''
         entrepot = ''
+        NumLig = 0
 
         if 'ALU' in etiana :
             if address == 'LRE' :
@@ -1476,14 +1366,18 @@ class SqliteConnector(models.Model):
             for row in resultp:
                 deviseur = row[13]
                 NbrLig = NbrLig + 1
+                # On vient mettre les données de l entete
                 if clientID != row[2] :
                     clientID = row[2]
                     if LstArt != '' :
-                        data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom,dateliv]
+                        #data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom,dateliv]
+                        data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom]
                     else :
-                        data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
+                        #data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
+                        data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom]
                 else :
-                    data1 =['','','','','','','','','','','','','']
+                    #data1 =['','','','','','','','','','','','','']
+                    data1 =['','','','','','','','','','','','']
                 if ( row[8] == None ) :
                     PrixTot = PrixTot + 0
                 else :
@@ -1492,23 +1386,30 @@ class SqliteConnector(models.Model):
                     QteTot = QteTot + 0
                 else :
                     QteTot = float(row[6]) + QteTot
+                # En position texte on ne prend que ECO CONTRIBUTION sinon on passe tout en FRAIS DE LIVRAISON
                 if row[5] == 'Position texte':
                     if row[11] == 'ECO-CONTRIBUTION' :
                         refart = 'ECO-CONTRIBUTION'
                         PourRem = 0
-                        dimension = 'ECO-CONTRIBUTION'
+                        #dimension = 'ECO-CONTRIBUTION'
                     else :
                         refart = 'Frais de livraison'
-                        dimension = 'Frais de livraison'
+                        #dimension = 'Frais de livraison'
                 else :
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
+                        NumLig = NumLig + 1
+                        refart = '[' + str(NumLig) + '_' + projet + ']'
                     else:
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
-                        refart = '[' + row[11] + '_' + projet + ']' + row[12]
-                data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
+                        #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
+                        refart = '[' + str(NumLig) + '_' + projet + ']'
+                #data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
+                data2 = [refart,etiana,PourRem]
+                
                 if NbrLig == 1:
-                    data1 =['','','','','','','','','','','','','']
+                    #data1 =['','','','','','','','','','','','','']
+                    data1 =['','','','','','','','','','','','']
                     proj = ''
                     if Tranche != '0' :
                         proj = projet.strip() + '/' + str(Tranche)
@@ -1519,7 +1420,9 @@ class SqliteConnector(models.Model):
                     data = data1 + [proj,0, 1,proj,etiana,PourRem]
                     #_logger.warning("DESCRIPTION ARTICLE %s " % proj )
                 if refart != 'ECO-CONTRIBUTION':
-                    pro_name = row[11] + '_' + projet
+                    #pro_name = row[11] + '_' + projet
+                    NumLig = NumLig + 1
+                    pro_name = str(NumLig) + '_' + projet
                 else:
                     pro_name = 'ECO-CONTRIBUTION'
                 part = res_partners.filtered(lambda p: p.name == row[2])
@@ -1551,15 +1454,15 @@ class SqliteConnector(models.Model):
                         #    'date_deadline': datetime.now(),
                         #})],
                         # "x_studio_deviseur_1": row[13],
-                        "x_studio_bureau_etude": data1[9],
+                        #"x_studio_bureau_etude": data1[9],
                         #"tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         #"tag_ids": eticom,
-                        "commitment_date": dateliv,
+                        #"commitment_date": dateliv,
                         "order_line": [Command.create({
                                 'product_id': pro.id,
                                 'price_unit': float(row[8]),
                                 'product_uom_qty': float(row[6]),
-                                'name': dimension,
+                                #'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
@@ -1571,7 +1474,7 @@ class SqliteConnector(models.Model):
                                 'product_id': pro.id,
                                 'price_unit': float(row[8]),
                                 'product_uom_qty': float(row[6]),
-                                'name': dimension,
+                                #'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
@@ -1647,9 +1550,9 @@ class SqliteConnector(models.Model):
                                 #    'date_deadline': datetime.now(),
                                 #})],
                                 # "x_studio_deviseur_1": row[13],
-                                "x_studio_bureau_etude": data1[9],
+                                #"x_studio_bureau_etude": data1[9],
                                 #"tag_ids": [(6, 0, data1[11])],
-                                "commitment_date": dateliv,
+                                #"commitment_date": dateliv,
                                 "order_line": [Command.create({
                                     'product_id': pro[0].id if pro else False,
                                     'price_unit': float(row[8]),
@@ -1706,13 +1609,13 @@ class SqliteConnector(models.Model):
                 if not pro_t:
                     self.log_request('Unable to find product', datanom1[1], 'Nomenclatures Creation')
                 else:
-                    analytic_distribution = {str(account_analytic_id): 100}
+                    #analytic_distribution = {str(account_analytic_id): 100}
                     nomenclatures_data.append({
                     "product_tmpl_id": pro_t[0].product_tmpl_id.id,
                     "type": "normal",
                     "product_qty": int(datanom1[3]),
                     # "analytic_account_id": account_analytic_id,
-                    "analytic_distribution": analytic_distribution,
+                    #"analytic_distribution": analytic_distribution,
                     "product_uom_id": self.env.ref('uom.product_uom_unit').id,
                     "bom_line_ids": [Command.create({
                         'product_id': pro[0].id,

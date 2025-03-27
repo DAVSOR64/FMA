@@ -11,41 +11,46 @@
                     <span t-field="o.company_id.street" /><br />
                     <span t-field="o.company_id.zip" /> <span t-field="o.company_id.city" /><br />
                     <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="o.company_id.phone" /><br />
-                    <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" />
-                </div>
-                
-                <!-- Bloc des informations de livraison avec émoticônes aligné à droite -->
-                <div class="delivery_info" style="flex: 1; text-align: right;">
-                    <p><strong>Numéro de dossier FMA :</strong> <span t-field="o.origin" /></p>
-                    <!-- Nouvelle ligne pour afficher la date de livraison -->
-                    <strong>Livraison le : </strong>
-                    <span t-field="o.scheduled_date" t-options="{'widget': 'date'}" /><br /><br />
-                    
+                    <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" /><br />
+                    <br /><br /> 
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
                     N°: 
                     <t t-if="'OUT' in o.name">
                         <t t-esc="o.name.replace('OUT', 'BL')"/>
-                    </t>
+                    </t> 
                     <t t-else="">
                         <t t-esc="o.name"/> 
                     </t>
                     <br />
                     <br />
                     <t t-if="o.partner_id">
-                        <img src="/custom_delivery/static/src/img/camion.png" style="height: 16px; width: 16px;" alt="camion" /> Adresse de livraison :<br />
+                        <img src="/custom_delivery/static/src/img/camion.png" style="height: 16px; width: 16px;" alt="camion" /><strong> Adresse de livraison :</strong><br />
                         <span t-field="o.partner_id.name" /><br />
                         <span t-field="o.partner_id.street" /><br />
+                        <t t-if="o.partner_id.street2">
+                            <span t-field="o.partner_id.street2"/><br />
+                        </t>
                         <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
-                        Contact: ☎️ <span t-field="o.partner_id.phone" /><br />
-                        <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> <span t-field="o.partner_id.email" />
                     </t>
                 </div>
 
                 <!-- Nouveau bloc d'information concernant le client, aligné à droite -->
-                <div class="customer_info" style="position: absolute; top: 60px; right: 20px; text-align: right; font-size: 12px;">
-                    <strong t-field="o.partner_id.name" /><br />
-                    <span><strong class="bold_text">Adresse:</strong> <span t-field="o.partner_id.street" /></span><br />
-                    <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
+                <div class="customer_info" style="flex: 1; padding-left: 20px; text-align: right;position: absolute; top: 60px; right: 20px;">
+                    <strong t-field="o.sale_id.partner_id.name" /><br />
+                    <span><span t-field="o.sale_id.partner_id.street" /></span><br />
+                    <t t-if="o.sale_id.partner_id.street2">
+                        <span><span t-field="o.sale_id.partner_id.street2" /></span><br />
+                    </t>
+                    <span t-field="o.sale_id.partner_id.zip" /> <span t-field="o.sale_id.partner_id.city" /><br />
+                    ☎️ Téléphone: <span t-field="o.sale_id.partner_id.phone" /><br />
+                     Mobile: <span t-field="o.sale_id.partner_id.mobile" /><br />
+                    <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> <span t-field="o.sale_id.partner_id.email" />
+                    <br /><br />
+                    <p><strong>Numéro de dossier FMA :</strong> <span t-field="o.origin" /></p>
+                    <p><strong>Référence Affaire :</strong> <span t-field="o.x_studio_many2one_field_Vc214" /></p>
+                    <!-- Nouvelle ligne pour afficher la date de livraison -->
+                    <strong>Livraison le : </strong>
+                    <span t-field="o.scheduled_date" t-options="{'widget': 'date'}" /><br /><br />
                 </div>
             </div>
 
@@ -115,7 +120,28 @@
             <div class="total_weight_section" 
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
                 <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in o.move_ids_without_package)" />
-                ⚖️ Poids total : <span t-esc="total_weight"/> kg
+                ⚖️ Poids total : <span t-field="o.so_poids_total"/> kg
+            </div>
+            <!-- Pied de page -->
+            <div class="footer_section" style="margin-top: 50px; padding: 10px; font-size: 12px; border-top: 2px dashed black;">
+                <p style="font-size: 12px;">
+                    <strong style="color: red;">Merci de bien vérifier la marchandise en présence du transporteur.</strong><br />
+                    Pour toute réclamation, suivez le protocole de réserve joint.<br />
+                    <strong>La marchandise reste la propriété de FMA jusqu'à son paiement.</strong>
+                </p>
+
+                <!-- Bloc signature -->
+                <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                    <div style="flex: 1;">
+                        <p><strong>Marchandise reçue conforme le :</strong></p>
+                        <p><strong>DATE :</strong> ___________________________</p>
+                        <p><strong>NOM :</strong> ___________________________</p>
+                    </div>
+                    <div style="flex: 1; text-align: right;">
+                        <p><strong>Signature et/ou cachet du client</strong></p>
+                        <p>___________________________</p>
+                    </div>
+                </div>
             </div>
         </xpath>
         <xpath expr="//t[@t-set='address']" position="replace">
