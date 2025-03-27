@@ -26,8 +26,8 @@
 					PreferedLanguage="FR"
 					Worktype="03"
 					FinalCusttype="03">
-					<Remarks></Remarks>
-					<InternalRemarks></InternalRemarks>
+					<Remarks t-esc="po.x.studio_commentaire_livraison_vitrage_ if po.x.studio_commentaire_livraison_vitrage_ else ''"/>
+					<InternalRemarks t-esc="po.x.studio_commentaire_livraison_vitrage_ if po.x.studio_commentaire_livraison_vitrage_ else ''"/>
 					<Address />
 				</Header>
 				<Articles>
