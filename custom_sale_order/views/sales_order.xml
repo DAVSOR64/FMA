@@ -33,7 +33,7 @@
                 <div style="text-align: right;">
                     <br>
                         <strong>Commercial :</strong>
-                        #<span t-field="doc.so_commercial" />
+                        #<span t-field="doc.x_studio_commercial_mtn_1" />
                     </br>
                 </div>
             </div>
@@ -86,7 +86,7 @@
         <xpath expr="//h2[@class='mt-4']" position="replace">
             <h2 class="mt-4" style="font-size: 20px;">
                 <!-- Ajout du nouveau champ personnalisé à la place du N° de devis -->
-                <span t-field="doc.x_studio_mtn_projet" />
+                <span t-field="doc.x_studio_projet" />
         
                 <!-- Ajout de la mention "Valable 1 mois" uniquement pour les devis -->
                 <t t-if="doc.state in ['draft', 'sent']">
