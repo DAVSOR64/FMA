@@ -26,6 +26,7 @@
 					PreferedLanguage="FR"
 					Worktype="03"
 					FinalCusttype="03">
+					<Remarks></Remarks>
 					<InternalRemarks></InternalRemarks>
 					<Address />
 				</Header>
