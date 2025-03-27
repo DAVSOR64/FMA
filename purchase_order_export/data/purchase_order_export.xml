@@ -26,8 +26,8 @@
 					PreferedLanguage="FR"
 					Worktype="03"
 					FinalCusttype="03">
-					<Remarks t-esc="'TESTS'"/>
-					<InternalRemarks t-esc="'TESTS'"/>
+					<t t-tag="Remarks" t-esc="po.x_studio_commentaire_livraison_vitrage_ or ''"/>
+					<t t-tag="InternalRemarks" t-esc="po.x_studio_commentaire_livraison_vitrage_ or ''"/>
 					<Address />
 				</Header>
 				<Articles>
