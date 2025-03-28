@@ -1265,7 +1265,7 @@ class SqliteConnector(models.Model):
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
                             'x_studio_cration_auto' : True,
-                            # 'x_studio_positionn': Posint,
+                            'x_studio_position': Posint,
                         }
                         if idfrs:
                             seller = self.env['product.supplierinfo'].create({
