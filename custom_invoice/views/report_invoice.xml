@@ -198,10 +198,10 @@
                                     t-options="{'widget': 'text'}" />
                             </td>
                             <td class="text-end">
-                                <span t-field="line.x_studio_hauteur_mm" />
+                                <span t-field="line.x_studio_hauteur" />
                             </td>
                             <td class="text-end">
-                                <span t-field="line.x_studio_largeur_mm" />
+                                <span t-field="line.x_studio_largeur" />
                             </td>
                             <td class="text-end">
                                 <span t-field="line.quantity" />
