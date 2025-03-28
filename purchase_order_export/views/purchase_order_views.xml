@@ -66,6 +66,7 @@
                     <!-- Ajout du champ so_ral après les lignes de laquage -->
                     <group>
                         <field name="so_ral" string="RAL"/>
+                        <field name="so_riche_en_zinc" string=" Riche en Zinc ?"/>
                     </group>
                 </page>
             </xpath>

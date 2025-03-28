@@ -66,7 +66,7 @@
                     <div class="col-12">
                         <strong>Affaire :</strong>
                         <br/>
-                        <span t-field="doc.x_studio_many2one_field_LCOZX" t-if="doc.x_studio_many2one_field_LCOZX"/>
+                        <span t-field="doc.x_studio_rfrence" />
                     </div>
                 </div>
 
@@ -114,7 +114,7 @@
                     <t t-foreach="doc.order_line" t-as="line">
                         <t t-if="line.product_id.default_code != 'affaire'">
                             <tr>
-                                <td><span t-field="line.x_studio_posit" t-if="line.x_studio_posit"/></td>
+                                <td><span t-field="line.x_studio_posit" t-if="line.x_studio_posit"/> <t t-else=""><span t-field="line.x_studio_position"/></t></td>
                                 <td><span t-field="line.name"/></td>
                                 <td><span t-field="line.x_studio_hauteur" t-if="line.x_studio_hauteur"/></td>
                                 <td><span t-field="line.x_studio_largeur" t-if="line.x_studio_largeur"/></td>

@@ -7,7 +7,7 @@
                 <!-- Bloc du logo de l'entreprise -->
                 <div class="row" style="text-align: left;">
                     <div class="col-12" style="margin-bottom: 10px;">
-                        <img src="/custom_laquage_report/static/src/img/F2M.png" style="max-height: 50px;" alt="F2M" />
+                        <img src="/custom_purchase_documents/static/src/img/F2M.png" style="max-height: 50px;" alt="F2M" />
                     </div>
                 </div>
 
@@ -49,7 +49,7 @@
                 </div>
                 
                 <div style="margin-bottom: 20px;"></div>
-                
+                 
                 <!-- Détails du bon de laquage avec espacement réduit -->
                 <p style="margin-bottom: 5px;"><strong> OBJET : </strong><span t-field="doc.x_studio_many2one_field_LCOZX" /></p>
                 <p style="margin-top: 0; margin-bottom: 20px;"><strong> Référence : </strong><span t-field="doc.x_studio_rfrence" /></p>
@@ -59,7 +59,7 @@
                     Nous vous remercions de reporter ces références sur vos BL et Factures
                 </p>
                 <p style="margin-bottom: 5px; font-size: 25px;"><strong> RAL : </strong><span t-field="doc.so_ral" /></p>
-                <p style="margin-bottom: 5px; font-size: 25px;"><strong> RICHE EN ZINC (Champs à définir) : </strong><span t-field="doc.partner_ref" /></p>
+                <p style="margin-bottom: 5px; font-size: 25px;"><strong> RICHE EN ZINC : </strong><span t-field="doc.so_riche_en_zinc" /></p>
             </div>
              <table class="table table-sm" t-if="doc.state!='done'" name="order.table" style="margin-top: 20px;">
                 <thead>
@@ -71,24 +71,23 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Boucle à travers les lignes de commande d'achat -->
-                    <tr t-foreach="doc.order_line" t-as="line">
+                <!-- Boucle à travers les lignes de laquage -->
+                <tr t-foreach="doc.laquage_line_ids" t-as="line">
                         <td>
-                            <!-- Référence du produit -->
-                            <span t-field="line.product_id.default_code" />
+                            <!-- Référence/Repère -->
+                            <span t-field="line.so_repere" />
                         </td>
                         <td>
                             <!-- Quantité commandée -->
-                            <span t-field="line.product_qty" />
+                            <span t-field="line.so_qte_commandee" />
                         </td>
                         <td>
                             <!-- Reliquat -->
-                            <t t-set="difference" t-value="line.product_qty - line.qty_received" />
-                            <span t-esc="difference" />
+                            <span t-field="line.so_reliquat" />
                         </td>
                         <td>
                             <!-- Date -->
-                            <span t-field="line.create_date" />
+                            <span t-field="line.create_date" t-field-options="{'date_only': True}"/>
                         </td>
                     </tr>
                 </tbody>

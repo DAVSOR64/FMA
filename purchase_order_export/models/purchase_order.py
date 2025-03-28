@@ -6,7 +6,7 @@ import logging
 import paramiko
 import psycopg2
 
-from odoo import SUPERUSER_ID, api, fields, models, registry
+from odoo import SUPERUSER_ID, api, fields, models, registry, _
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
@@ -21,6 +21,10 @@ class PurchaseOrder(models.Model):
     shipping_partner_id = fields.Many2one('res.partner')
     customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address', readonly=False)
     so_ral = fields.Char(string="RAL :")
+    so_riche_en_zinc = fields.Selection([
+        ('yes', 'Oui'),
+        ('no', 'Non')
+    ], string="Riche en Zinc", default='no', required=True)
 
     @api.depends('shipping_partner_id')
     def _get_default_customer_delivery_address(self):
@@ -191,9 +195,9 @@ class PurchaseOrderLaquageLine(models.Model):
     so_palette_height = fields.Float(string="Hauteur Palette")
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
-    _sql_constraints = [
-        ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique pour une ligne de laquage !'),
-    ]
+    #_sql_constraints = [
+    #    ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique pour une ligne de laquage !'),
+    #]
 
     @api.model
     def create(self, vals):

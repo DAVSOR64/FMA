@@ -23,15 +23,17 @@
                         <span t-field="doc.partner_id.zip" />
                         <span t-field="doc.partner_id.city" />
                     </br>
-                    <br></br>
-                    <br>TVA : <span t-field="doc.partner_id.vat" />
+                    <br>
+                        TVA : <span t-field="doc.partner_id.vat" />
                     </br>
-                    <br>SIRET : <span t-field="doc.partner_id.siret" /></br>
+                    <br>
+                        SIRET : <span t-field="doc.partner_id.siret" />
+                    </br>
                 </div>
                 <div style="text-align: right;">
                     <br>
                         <strong>Commercial :</strong>
-                        <span t-field="doc.so_commercial" />
+                        #<span t-field="doc.x_studio_commercial_mtn_1" />
                     </br>
                 </div>
             </div>
@@ -59,7 +61,7 @@
                     <tbody>
                         <tr>
                             <td>
-                                <span t-field="doc.date_order" />
+                                <span t-field="doc.date_order" t-options="{'widget': 'date'}"/>
                             </td>
                             <td class="text-start">
                                 <span t-field="doc.so_code_tiers" />
@@ -81,20 +83,35 @@
             </div>
         </xpath>
         <!-- Modifier le bloc h2 pour ajouter "Valable 1 mois" pour les devis -->
-        <xpath expr="//h2[@class='mt-4']" position="inside">
-            <t t-if="doc.state in ['draft','sent']">
-                <!-- Ajouter la mention valable 1 mois pour les devis -->
-                <span class="text-muted" style="font-size: 14px; margin-left: 10px;">
-                    (Valable 1 mois)
-                </span>
-            </t>
+        <xpath expr="//h2[@class='mt-4']" position="replace">
+            <h2 class="mt-4" style="font-size: 20px;">
+                <!-- Ajout du nouveau champ personnalisé à la place du N° de devis -->
+                <span t-field="doc.x_studio_projet" />
+        
+                <!-- Ajout de la mention "Valable 1 mois" uniquement pour les devis -->
+                <t t-if="doc.state in ['draft', 'sent']">
+                    <span class="text-muted" style="font-size: 14px; margin-left: 10px;">
+                        (Valable 1 mois)
+                    </span>
+                </t>
+            </h2>
         </xpath>
+
         <!-- Modif du tableau des lignes-->
         <xpath expr="//table[hasclass('o_main_table')]/thead" position="replace">
             <thead>
                 <tr>
+                    <th name="th_position" class="text-start">
+                        <span>Position</span>
+                    </th>
                     <th name="th_description" class="text-start">
                         <span>Description</span>
+                    </th>
+                    <th name="th_hauteur" class="text-start">
+                        <span>Hauteur</span>
+                    </th>
+                    <th name="th_largeur" class="text-start">
+                        <span>Largeur</span>
                     </th>
                     <th name="th_quantity" class="text-end">
                         <span>Quantité</span>
@@ -143,9 +160,18 @@
                     <t
                         t-if="line.product_id.name != 'Acompte' and line.product_id.name != 'Devis' and line.product_id.name != 'Chiffrage' and not line.product_id.default_code.startswith('A2') and not line.display_type">
                         <tr>
+                            <td class="text-end">
+                                <span t-field="line.x_studio_position" />
+                            </td>
                             <td name="account_invoice_line_name">
-                                <span t-out="line.product_id.name + ' ' + line.name"
+                                <span t-out="line.product_id.name"
                                     t-options="{'widget': 'text'}" />
+                            </td>
+                            <td class="text-end">
+                                <span t-field="line.x_studio_hauteur_mm_1" />
+                            </td>
+                            <td class="text-end">
+                                <span t-field="line.x_studio_largeur_mm_1" />
                             </td>
                             <td class="text-end">
                                 <span t-field="line.product_uom_qty" />
