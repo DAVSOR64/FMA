@@ -30,7 +30,7 @@
 						<t t-esc="po.x_studio_commentaire_livraison_vitrage_ or ''"/>
 				    	</Remarks>
 				    	<InternalRemarks>
-						<t t-esc="po.x_studio_commentaire_livraison_interne_ or ''"/>
+						<t t-esc="po.x_studio_commentaire_interne_ or ''"/>
 				    	</InternalRemarks>
 					<Address />
 				</Header>
