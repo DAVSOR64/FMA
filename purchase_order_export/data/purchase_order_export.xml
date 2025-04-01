@@ -26,7 +26,7 @@
 					PreferedLanguage="FR"
 					Worktype="03"
 					FinalCusttype="03">
-					<<Remarks t-esc="po.x_studio_commentaire_livraison_vitrage_ or ''"/>
+					<Remarks t-esc="po.x_studio_commentaire_livraison_vitrage_ or ''"/>
    					<InternalRemarks t-esc="po.x_studio_commentaire_livraison_vitrage_ or ''"/>
 					<Address />
 				</Header>
