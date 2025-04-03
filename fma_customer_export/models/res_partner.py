@@ -28,10 +28,11 @@ class ResPartner(models.Model):
         """Get customer details for the .txt file based on given fields."""
         content_lines = []
         for partner in partners:
-            line = ['PCC',
+            line = [
+                    'PCC',
                     'I',
-                    str(partner.part_code_tiers).ljust(9) or '         ',
-                    str(partner.name).ljust(30) or '                                   ',
+                    str(partner.part_code_tiers or '').ljust(9),  # Code tiers
+                    str(partner.name or '').ljust(30),            # Nom
                     '0NNNN0',
                     '     ',
                     'ODNNON',
@@ -42,24 +43,24 @@ class ResPartner(models.Model):
                     '     ',
                     'A41',
                     '               ',
-                    (str(partner.part_civilite or '').ljust(5) + str(partner.name or '').ljust(20)) or '                              ',
+                    (str(partner.part_civilite or '').ljust(5) + str(partner.name or '').ljust(20)),  # Civilité + nom
                     '                                                              ',
                     '0',
                     '                            ',
                     'FRA',
-                    str(partner.phone).ljust(20) or '                      ',
+                    str(partner.phone or '').ljust(20),
                     '                                              ',
-                    str(partner.x_studio_char_field_G6qIE).ljust(14) or '              ',
+                    str(partner.x_studio_char_field_G6qIE or '').ljust(14),
                     '                                              ',
                     str(partner.part_commercial or '').ljust(50),
                     '             ',
                     'EUR',
-                    partner.x_studio_mode_de_rglement_1 or '',
+                    str(partner.x_studio_mode_de_rglement_1 or ''),
                     '  ',
                     '                        ',
                     '                         ',
-                    (str(partner.bank_ids[0].bank_id.name).ljust(5) if (partner.bank_ids and partner.bank_ids[0].bank_id and partner.bank_ids[0].bank_id.name) else '') or '     ',
-                    (str(partner.bank_ids[0].acc_number).ljust(5) if (partner.bank_ids and partner.bank_ids[0].bank_id and partner.bank_ids[0].acc_number) else '') or '     ',
+                    str(partner.bank_ids[0].bank_id.name or '').ljust(5) if partner.bank_ids and partner.bank_ids[0].bank_id else '     ',
+                    str(partner.bank_ids[0].acc_number or '').ljust(5) if partner.bank_ids and partner.bank_ids[0].acc_number else '     ',
                     '           ',
                     '  ',
                     ' ',
@@ -75,7 +76,7 @@ class ResPartner(models.Model):
                     '     ',
                     'NO1',
                     '                               ',
-                    str(partner.invoice_ids[0].partner_id.zip).ljust(20) if partner.invoice_ids else str(partner.zip).ljust(20) or '                    ',
+                    str(partner.invoice_ids[0].partner_id.zip if partner.invoice_ids else partner.zip or '').ljust(20),
                     '                              ',
                     '@                             ',
                     '@                       ',
@@ -104,15 +105,16 @@ class ResPartner(models.Model):
                     '                                                            ',
                     '      ',
                     '@        ',
-                    (str(partner.invoice_ids[0].partner_id.street).ljust(38) if partner.invoice_ids else str(partner.street).ljust(38)) or '                                      ',
-                    (str(partner.invoice_ids[0].partner_id.street2).ljust(38) if (partner.invoice_ids and partner.invoice_ids[0].partner_id.street2) else str(partner.street2).ljust(38)) or '                                       ',
-                    (str(partner.invoice_ids[0].partner_id.state_id.name).ljust(38) if ( partner.invoice_ids and partner.invoice_ids[0].partner_id.state_id.name) else str(partner.state_id.name).ljust(38)) or '                                         ',
-                    str(partner.email).ljust(100) or '                                                                                                                                                   ',
+                    str(partner.invoice_ids[0].partner_id.street if partner.invoice_ids else partner.street or '').ljust(38),
+                    str(partner.invoice_ids[0].partner_id.street2 if partner.invoice_ids and partner.invoice_ids[0].partner_id.street2 else partner.street2 or '').ljust(38),
+                    str(partner.invoice_ids[0].partner_id.state_id.name if partner.invoice_ids and partner.invoice_ids[0].partner_id.state_id else partner.state_id.name or '').ljust(38),
+                    str(partner.email or '').ljust(100),
                     '                            ',
-                    (str(partner.invoice_ids[0].partner_id.city).ljust(26) if partner.invoice_ids else str(partner.city).ljust(26)) or '                             ',
+                    str(partner.invoice_ids[0].partner_id.city if partner.invoice_ids else partner.city or '').ljust(26),
                     '00001',
                     'papier ',
-                    '                                                                                    ']
+                    '                                                                                    '
+                ]
             content_lines.append(''.join(map(str, line)))
 
         return '\n'.join(content_lines)
