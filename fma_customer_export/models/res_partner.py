@@ -58,7 +58,7 @@ class ResPartner(models.Model):
                     str(partner.bank_ids[0].acc_number or '').ljust(5) if partner.bank_ids and partner.bank_ids[0].acc_number else '     ',
                     'OOO',
                     '             ',
-                    '00000',
+                    'O0000',
                     '                     ',
                     '0',
                     '            ',
