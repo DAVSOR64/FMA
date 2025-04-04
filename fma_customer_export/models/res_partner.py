@@ -40,7 +40,7 @@ class ResPartner(models.Model):
                     '          ',
                     '0',
                     '     ',
-                    'NNO',
+                    'NN0',
                     '     ',
                     'A41',
                     '               ',
