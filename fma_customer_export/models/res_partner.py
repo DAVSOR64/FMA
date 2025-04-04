@@ -43,13 +43,11 @@ class ResPartner(models.Model):
                     '     ',
                     'A41',
                     '               ',
-                    (str(partner.part_civilite or '').ljust(5) + str(partner.name or '').ljust(20)),  # Civilité + nom
-                    '                                                                 ',
+                    (str(partner.part_civilite or '').ljust(5) + str(partner.name or '').ljust(85)),  # Civilité + nom
                     '0',
                     '                            ',
                     'FRA',
-                    str(partner.phone or '').ljust(20),
-                    '                                            ',
+                    str(partner.phone or '').ljust(64),
                     str(partner.x_studio_char_field_G6qIE or '').ljust(14),
                     '                                             ',
                     str(partner.part_commercial or '').ljust(50),
