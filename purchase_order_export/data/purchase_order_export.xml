@@ -11,7 +11,7 @@
 			<Order>
 				<Header DocumentType="ZOR"
 					PuchOrderType="Z009"
-					t-att-BrandID="
+					BrandID="
 						'20' if po.partner_id.name == 'TECHNAL' else
 						'30' if po.partner_id.name == 'WICONA HBS' else
 						'60' if po.partner_id.name == 'SAPA' else ''"
