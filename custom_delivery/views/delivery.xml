@@ -31,6 +31,8 @@
                             <span t-field="o.partner_id.street2"/><br />
                         </t>
                         <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
+                        ☎️ Téléphone: <span t-field="o.partner_id.phone" /><br />
+                        Mobile: <span t-field="o.partner_id.mobile" /><br />
                     </t>
                 </div>
 
@@ -47,7 +49,12 @@
                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> <span t-field="o.sale_id.partner_id.email" />
                     <br /><br />
                     <p><strong>Numéro de dossier FMA :</strong> <span t-field="o.origin" /></p>
-                    <p><strong>Référence Affaire :</strong> <span t-field="o.x_studio_many2one_field_Vc214" /></p>
+                    <t t-if="o.sale_id.x_studio_projet">
+                        <strong>Référence Affaire :</strong> <span t-field="o.sale_id.x_studio_projet" /><br />
+                    </t>
+                    <t t-else="">
+                        <strong>Référence Affaire :</strong> <span t-field="o.x_studio_many2one_field_Vc214" /><br />
+                    </t>
                     <!-- Nouvelle ligne pour afficher la date de livraison -->
                     <strong>Livraison le : </strong>
                     <span t-field="o.scheduled_date" t-options="{'widget': 'date'}" /><br /><br />
