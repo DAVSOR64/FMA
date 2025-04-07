@@ -5,14 +5,14 @@ class ResPartner(models.Model):
 
     x_studio_mode_de_rglement_1 = fields.Selection(
         [
-            ('ESPECES','ESPECES'),
-            ('CHEQUE BANCAIRE','CHEQUE BANCAIRE'),
-            ('VIREMENT BANCAIRE','VIREMENT BANCAIRE'),
-            ('L.C.R. DIRECTE','L.C.R. DIRECTE'),
-            ('L.C.R. A L ACCEPTATION','L.C.R. A L ACCEPTATION'),
-            ('PRELEVEMENT','PRELEVEMENT'),
+            ('01','ESPECES'),
+            ('03','CHEQUE BANCAIRE'),
+            ('11','VIREMENT BANCAIRE'),
+            ('12','L.C.R. DIRECTE'),
+            ('13','L.C.R. A L ACCEPTATION'),
+            ('15','PRELEVEMENT'),
             ('L.C.R. MAGNETIQUE','L.C.R. MAGNETIQUE'),
-            ('BOR','BOR'),
+            ('18','BOR'),
             ('CARTE BANCAIRE','CARTE BANCAIRE'),
             ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
         ],
@@ -21,14 +21,14 @@ class ResPartner(models.Model):
     
     part_mode_de_reglement = fields.Selection(
         [
-            ('ESPECES','ESPECES'),
-            ('CHEQUE BANCAIRE','CHEQUE BANCAIRE'),
-            ('VIREMENT BANCAIRE','VIREMENT BANCAIRE'),
-            ('L.C.R. DIRECTE','L.C.R. DIRECTE'),
-            ('L.C.R. A L ACCEPTATION','L.C.R. A L ACCEPTATION'),
-            ('PRELEVEMENT','PRELEVEMENT'),
+            ('01','ESPECES'),
+            ('03','CHEQUE BANCAIRE'),
+            ('11','VIREMENT BANCAIRE'),
+            ('12','L.C.R. DIRECTE'),
+            ('13','L.C.R. A L ACCEPTATION'),
+            ('15','PRELEVEMENT'),
             ('L.C.R. MAGNETIQUE','L.C.R. MAGNETIQUE'),
-            ('BOR','BOR'),
+            ('18','BOR'),
             ('CARTE BANCAIRE','CARTE BANCAIRE'),
             ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
         ],
