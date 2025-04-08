@@ -31,7 +31,7 @@ class ResPartner(models.Model):
             line = [
                     'PCC',
                     'I',
-                    str(partner.part_code_tiers or '').ljust(9),  # Code tiers
+                    str(partner.x_studio_compte_proginov or '').ljust(9),  # Code tiers
                     str(partner.name or '').ljust(35),            # Nom
                     '0NNNN0',
                     '     ',
