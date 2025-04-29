@@ -82,10 +82,6 @@ class SaleOrder(models.Model):
             if 'so_date_du_devis' in vals:
                 vals['so_date_de_modification_devis'] = vals['so_date_du_devis']
 
-            # Si un partner_id est présent, mettre à jour le mode de règlement
-            if 'partner_id' in vals:
-                partner = self.env['res.partner'].browse(vals['partner_id'])
-                vals['x_studio_mode_de_rglement_1'] = partner.x_studio_mode_de_rglement_1
 
             # Mise à jour de l'entrepôt en fonction des tags
 
