@@ -76,7 +76,7 @@
                             <td>
                                 <span t-field="o.invoice_date_due" />
                             </td>
-                            <td><span t-field="o.partner_id.part_mode_de_reglement"/></td>
+                            <td><span t-field=""/></td>
                             <td>
                                 <span t-field="o.invoice_payment_term_id.display_name" />
                             </td>
