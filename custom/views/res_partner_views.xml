@@ -13,7 +13,6 @@
             </xpath>
             <xpath expr="//page[@name='sales_purchases']/group" position="inside">
                 <group>
-                    <field name="part_mode_de_reglement" string="Mode de Réglement"/>
                     <field name="part_siren" string="SIREN"/>
                     <field name="part_bic" string="BIC"/>
                     <field name="part_iban" string="IBAN"/>
