@@ -7,9 +7,7 @@ class AccountMove(models.Model):
     x_studio_imputation_2 = fields.Char(string="Référence Commande Client")
     x_studio_delegation_fac = fields.Boolean(string="Déléagtion")
     x_studio_com_delegation_fac = fields.Char(string="Commentaire Délégation :")
-    
     x_studio_related_field_m8sZb = fields.Char(string="test")
-    x_studio_mode_de_rglement_1 = fields.Char(string="Mode de réglement")
 
     
     inv_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
