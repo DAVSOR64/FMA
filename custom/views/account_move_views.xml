@@ -6,7 +6,6 @@
         <field name="arch" type="xml">
             <xpath expr="//sheet//group" position="inside">
                 <group>
-                    <field name="inv_mode_de_reglement"/>
                     <field name="inv_code_tiers"/>
                     <field name="inv_affacturage"/>
                     <field name="inv_commande_client"/>
