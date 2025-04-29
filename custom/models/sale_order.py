@@ -38,7 +38,6 @@ class SaleOrder(models.Model):
     delivery_set = fields.Boolean(string="Delivery Set")
     recompute_delivery_price = fields.Boolean(string="Delivery Price")
 
-    so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
     so_commande_client = fields.Char(string="N° Commande Client")
@@ -187,7 +186,6 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_imputation_2'] = self.x_studio_imputation
         invoice_vals['x_studio_delegation_fac'] = self.x_studio_delegation
         invoice_vals['x_studio_com_delegation_fac'] = self.x_studio_com_delegation
-        invoice_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
         return invoice_vals
 
