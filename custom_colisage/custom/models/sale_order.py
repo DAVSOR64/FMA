@@ -11,21 +11,7 @@ class SaleOrder(models.Model):
     x_studio_imputation = fields.Char(string="Numéro Commande Client")
     x_studio_delegation = fields.Boolean(string="Délégation")
     x_studio_com_delegation = fields.Char(string="Commentaire Délégation:")
-    x_studio_mode_de_rglement_1 = fields.Selection(
-        [
-            ('ESPECES','ESPECES'),
-            ('CHEQUE BANCAIRE','CHEQUE BANCAIRE'),
-            ('VIREMENT BANCAIRE','VIREMENT BANCAIRE'),
-            ('L.C.R. DIRECTE','L.C.R. DIRECTE'),
-            ('L.C.R. A L ACCEPTATION','L.C.R. A L ACCEPTATION'),
-            ('PRELEVEMENT','PRELEVEMENT'),
-            ('L.C.R. MAGNETIQUE','L.C.R. MAGNETIQUE'),
-            ('BOR','BOR'),
-            ('CARTE BANCAIRE','CARTE BANCAIRE'),
-            ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
-        ],
-        string="Mode de Règlement",
-    )
+   
     so_type_camion = fields.Selection(
         [
             ('Semi-remorque (base)','Semi-remorque (base)'),
@@ -46,7 +32,7 @@ class SaleOrder(models.Model):
     delivery_set = fields.Boolean(string="Delivery Set")
     recompute_delivery_price = fields.Boolean(string="Delivery Price")
 
-    so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
+
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
     so_commande_client = fields.Char(string="N° Commande Client")
@@ -103,7 +89,6 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_imputation_2'] = self.x_studio_imputation
         invoice_vals['x_studio_delegation_fac'] = self.x_studio_delegation
         invoice_vals['x_studio_com_delegation_fac'] = self.x_studio_com_delegation
-        invoice_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
         return invoice_vals
 
