@@ -31,7 +31,7 @@ class ResPartner(models.Model):
             line = [
                     'PCC',
                     'I',
-                    str(partner.x_studio_compte_proginov or '').ljust(9),  # Code tiers
+                    str(partner.property_account_receivable_id.code or '').ljust(9),  # Code tiers
                     str(partner.name or '').ljust(35),            # Nom
                     '0NNNN0',
                     '     ',
@@ -53,7 +53,7 @@ class ResPartner(models.Model):
                     str(partner.part_commercial or '').ljust(50),
                     '             ',
                     'EUR',
-                    str(partner.property_account_receivable_id.code or '').ljust(65),
+                    str(partner.x_studio_mode_de_rglement_dsa.x_name or '').ljust(65),
                     str(partner.bank_ids[0].bank_id.name or '').ljust(5) if partner.bank_ids and partner.bank_ids[0].bank_id else '     ',
                     str(partner.bank_ids[0].acc_number or '').ljust(5) if partner.bank_ids and partner.bank_ids[0].acc_number else '     ',
                     'OOO',
