@@ -194,8 +194,8 @@ class SqliteConnector(models.Model):
             name = str(row[1])
             if name in ['', None,'None'] :
                 name = 'NonDef'
-            _logger.warning('fournisseur ID %s' % row[0])
-            _logger.warning('fournisseur Nom %s' % name)
+            #_logger.warning('fournisseur ID %s' % row[0])
+            #_logger.warning('fournisseur Nom %s' % name)
             suppliers.append({
                 'id': row[0],
                 'name' : name
@@ -220,7 +220,7 @@ class SqliteConnector(models.Model):
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
-            _logger.warning("**********Profile dans la MAJ********* %s " % profile['article'] )
+            #_logger.warning("**********Profile dans la MAJ********* %s " % profile['article'] )
             product = self.env['product.product'].search([('default_code', '=', profile['article'])])
             if product:
                 _logger.warning("**********Profile dans la MAJ pour ref logikal********* %s " % profile['RefLogikal'] )
@@ -262,7 +262,7 @@ class SqliteConnector(models.Model):
                 projet = project.split('/')[0]
                 Tranche = project.split('/')[1]
             proj = ['', projet]
-        _logger.warning("Projet %s " % projet )
+        #_logger.warning("Projet %s " % projet )
         user_id = res_users.filtered(lambda p: p.name == re.sub(' +', ' ', PersonBE.strip()))
         if user_id:
             user_id = user_id.id
@@ -747,6 +747,7 @@ class SqliteConnector(models.Model):
                     BP = 'BPA-BPE'
 
         if BP == 'BPA' or BP == 'BPE':
+            _logger.warning("Profile %s " % BP )
             resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number, AllProfiles.PUSize, AllProfiles.Length  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
             idun =''
             idfrs = ''
@@ -755,6 +756,7 @@ class SqliteConnector(models.Model):
             Commande = []
 
             for row in resultpf:
+                _logger.warning("Profile %s " % row[0] )
                 refart = row[0]
                 refartini = row[0]
                 name = row[1]
@@ -859,6 +861,7 @@ class SqliteConnector(models.Model):
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
                     creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
+                    _logger.warning("Profil existant %s " % refart )
                     creation_commande(Commande, refart, unit, fournisseur,prixB ,delai, UV, Qte)
             
             for ligne in Article :
