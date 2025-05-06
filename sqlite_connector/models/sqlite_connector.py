@@ -734,7 +734,7 @@ class SqliteConnector(models.Model):
             
        
         # Process data for profile
-        BP = ''
+        #BP = ''
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
             if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
