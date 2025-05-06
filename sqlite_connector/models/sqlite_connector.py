@@ -710,6 +710,8 @@ class SqliteConnector(models.Model):
             
        
         # Process data for profile
+        value = ''
+        BP = ''
         resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         BP = ''
 
