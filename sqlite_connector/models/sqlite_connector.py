@@ -734,17 +734,18 @@ class SqliteConnector(models.Model):
             
        
         # Process data for profile
-        #resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-        #BP = ''
-        #for row in resultBP:
-        #    if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
-        #        if (row[2] == '1')  :
-        #            BP = 'BPA'
-        #        if (row[2] == '3') :
-        #            BP = 'BPE'
-        #        if (row[2] == '2') :
-        #            BP = 'BPA-BPE'
-        #_logger.warning("Type de dossier %s " % BP )
+        BP = ''
+        resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
+        for row in resultBP :
+            _logger.warning("Profile %s " % BP )
+            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
+                if (row[2] == '1')  :
+                    BP = 'BPA'
+            if (row[2] == '3') :
+                BP = 'BPE'
+            if (row[2] == '2') :
+                BP = 'BPA-BPE'
+
         if BP == 'BPA' or BP == 'BPE':
             #_logger.warning("Profile %s " % BP )
             resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number, AllProfiles.PUSize, AllProfiles.Length  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
@@ -753,7 +754,7 @@ class SqliteConnector(models.Model):
             UV = 0
             Article = []
             Commande = []
-
+    
             for row in resultpf:
                 _logger.warning("Profile %s " % row[0] )
                 refart = row[0]
@@ -807,7 +808,7 @@ class SqliteConnector(models.Model):
                 couleurint = row[10] if row[10] else ''
                 if fournisseur == 'RPT' or fournisseur == 'rpt' :
                     fournisseur = 'KDI'
-
+    
                 if couleurext != '' and couleurext != 'None' and couleurint != '' and couleurint !='None' :
                     couleur = couleurext + '/' + couleurint
                 else :
@@ -818,7 +819,7 @@ class SqliteConnector(models.Model):
                             couleur = ''
                 if eticom == 'F2M' :
                     couleur =''
-
+    
                 ColorLogikal = couleur
                 
                 
@@ -854,7 +855,7 @@ class SqliteConnector(models.Model):
                 trouve = 1
                 tache = 0
                 regle = 0
-
+    
                 #_logger.warning("**********Unite de mesure********* %s " % str(unit) )
                 categorie = '__export__.product_category_19_b8423373'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
