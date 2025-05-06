@@ -746,7 +746,7 @@ class SqliteConnector(models.Model):
                 if (row[2] == '2') :
                     BP = 'BPA-BPE'
 
-        if BP =! 'BPA-BPE':
+        if BP != 'BPA-BPE':
             resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number, AllProfiles.PUSize, AllProfiles.Length  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
             idun =''
             idfrs = ''
