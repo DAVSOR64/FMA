@@ -348,17 +348,35 @@ class SqliteConnector(models.Model):
         # BPA, or BPE, or BPA-BPE. This parameter is very important because if you are in BPA, we will
         # only create purchase orders and not bills of materials.
 
+        #BP = ''
+        #resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
+        #for row in resultBP :
+        #    if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
+        #        if (row[2] == '1')  :
+        #            BP = 'BPA'
+        #        if (row[2] == '3') :
+        #            BP = 'BPE'
+        #        if (row[2] == '2') :
+        #            BP = 'BPA-BPE'
+        value = ''
         BP = ''
         resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-        for row in resultBP :
-            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
-                if (row[2] == '1')  :
+        rows = resultBP.fetchall()
+        _logger.warning("Nombre de lignes dans REPORTVARIABLES : %d" % len(rows))
+        
+        for row in rows:
+            _logger.warning("Ligne : %s" % str(row))
+            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1'):
+                value = row[2].strip().replace(' ', '')
+                _logger.warning("Valeur nettoyée : %s" % value)
+                if value == '1':
                     BP = 'BPA'
-                if (row[2] == '3') :
+                elif value == '3':
                     BP = 'BPE'
-                if (row[2] == '2') :
+                elif value == '2':
                     BP = 'BPA-BPE'
-
+                
+        _logger.warning("Profile %s " % value )
         # If we are not in BPA, we come and create the items that we will put in the customer quote.
         # This we put in the articlesm.xlsx files
 
@@ -734,27 +752,27 @@ class SqliteConnector(models.Model):
             
        
         # Process data for profile
-        value = ''
-        BP = ''
-        resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-        rows = resultBP.fetchall()
-        _logger.warning("Nombre de lignes dans REPORTVARIABLES : %d" % len(rows))
+        #value = ''
+        #BP = ''
+        #resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
+        #rows = resultBP.fetchall()
+        #_logger.warning("Nombre de lignes dans REPORTVARIABLES : %d" % len(rows))
         
-        for row in rows:
-            _logger.warning("Ligne : %s" % str(row))
-            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1'):
-                value = row[2].strip().replace(' ', '')
-                _logger.warning("Valeur nettoyée : %s" % value)
-                if value == '1':
-                    BP = 'BPA'
-                elif value == '3':
-                    BP = 'BPE'
-                elif value == '2':
-                    BP = 'BPA-BPE'
+        #for row in rows:
+        #    _logger.warning("Ligne : %s" % str(row))
+        #    if (row[0] == 'UserVars') and (row[1] == 'UserInteger1'):
+        #        value = row[2].strip().replace(' ', '')
+        #        _logger.warning("Valeur nettoyée : %s" % value)
+        #        if value == '1':
+        #            BP = 'BPA'
+        #        elif value == '3':
+        #            BP = 'BPE'
+        #        elif value == '2':
+        #            BP = 'BPA-BPE'
                 
-        _logger.warning("Profile %s " % value )
-        BP = 'BPE'
-        if BP == 'BPA' or BP == 'BPE':
+        #_logger.warning("Profile %s " % value )
+        #BP = 'BPE'
+        if BP =! 'BPA-BPE':
             resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number, AllProfiles.PUSize, AllProfiles.Length  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
             idun =''
             idfrs = ''
