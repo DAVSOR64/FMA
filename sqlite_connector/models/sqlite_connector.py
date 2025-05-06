@@ -734,20 +734,20 @@ class SqliteConnector(models.Model):
             
        
         # Process data for profile
-        value = ''
-        BP = ''
-        resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-        for row in resultBP :
-            _logger.warning("Table variable %s " % row[0] )
-            _logger.warning("Table variable %s " % row[1] )
-            _logger.warning("Table variable %s " % row[2] )
-            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
+        resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
+        rows = resultBP.fetchall()
+        _logger.warning("Nombre de lignes dans REPORTVARIABLES : %d" % len(rows))
+        
+        for row in rows:
+            _logger.warning("Ligne : %s" % str(row))
+            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1'):
                 value = row[2].strip().replace(' ', '')
-                if (value == '1') :
+                _logger.warning("Valeur nettoyée : %s" % value)
+                if value == '1':
                     BP = 'BPA'
-                if (value == '3') :
+                elif value == '3':
                     BP = 'BPE'
-                if (value == '2') :
+                elif value == '2':
                     BP = 'BPA-BPE'
                 
         _logger.warning("Profile %s " % value )
