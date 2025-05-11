@@ -6,6 +6,7 @@
         <field name="arch" type="xml">
             <xpath expr="//page[@name='sales_purchases']/group" position="inside">
                 <group>
+                    <field name="part_siren" string="SIREN"/>
                     <field name="part_bic" string="BIC"/>
                     <field name="part_iban" string="IBAN"/>
                     <field name="part_affacturage" string="Affacturage"/>
