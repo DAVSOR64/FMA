@@ -1691,7 +1691,7 @@ class SqliteConnector(models.Model):
                         }))
                 else :
                     name = row[2]
-                    name = name.strip()
+                    name = name.strip() if name is not None else ""
             else:
                 if cpt == 0 :
                     cpt = cpt + 1
