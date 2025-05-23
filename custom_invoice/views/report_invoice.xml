@@ -76,7 +76,7 @@
                             <td>
                                 <span t-field="o.invoice_date_due" />
                             </td>
-                            <td><span t-field=""/></td>
+                            <td><span t-field="o.x_studio_related_field_s5_1ira4dini"/></td>
                             <td>
                                 <span t-field="o.invoice_payment_term_id.display_name" />
                             </td>
