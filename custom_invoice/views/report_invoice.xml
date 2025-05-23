@@ -76,7 +76,14 @@
                             <td>
                                 <span t-field="o.invoice_date_due" />
                             </td>
-                            <td><span t-field="o.partner_id.part_mode_de_reglement"/></td>
+                            <td>
+                                <t t-if="o.x_studio_libelle_1">
+                                    <span t-field="o.x_studio_libelle_1"/>
+                                </t>
+                                <t t-else="">
+                                    <span t-field="o.inv_mode_de_reglement"/>
+                                </t>
+                            </td>
                             <td>
                                 <span t-field="o.invoice_payment_term_id.display_name" />
                             </td>
