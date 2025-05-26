@@ -1680,7 +1680,7 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
         
-        resu = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name FROM LabourTimes")
+        resu = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name FROM LabourTimes order by LabourTimess.LabourTime")
         name = ''
         ope = ''
         temps = 0
@@ -1694,7 +1694,7 @@ class SqliteConnector(models.Model):
                 name = row[2].strip() + ' ' + eticom
                 _logger.warning("**********Poste********* %s " % name )
         
-            if reference is not None and reference != '' : 
+            if row[1] is not None and row[1] != '' : 
                 ope = name + ' ' + eticom
                 _logger.warning("**********opération********* %s " % ope )
                 if ope in aggregated_data:
