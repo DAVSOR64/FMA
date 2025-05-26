@@ -1685,48 +1685,48 @@ class SqliteConnector(models.Model):
         ope = ''
         temps = 0
         reference = ''
-        _logger.warning("**********Eticom********* %s " % eticom )
+        
         for row in resu:
             temps = float(row[0])
             reference = row[1].strip() if row[1] else ''
-            _logger.warning("**********ROW********* %s " % row[2].strip() )
+            #_logger.warning("**********ROW********* %s " % row[2].strip() )
             _logger.warning("**********ID********* %s " % str(row[3]) )
             if row[2] is not None and row[2] != '' :
                 if row[2].strip() == 'Parcloses ALU' or row[2].strip() == 'Emballage':
-                    _logger.warning("**********REmontage********* %s "  )
+                    #_logger.warning("**********REmontage********* %s "  )
                     name = 'Remontage'  + ' ' + eticom
                 else :
                     if row[2].strip() == 'Prépa' :
-                        _logger.warning("**********PREPA********* %s " )
+                        #_logger.warning("**********PREPA********* %s " )
                         name = 'Usinage'  + ' ' + eticom
                     else :
                         if row[2].strip() == 'Parcloses ACIER' :
-                            _logger.warning("**********DEBIT********* %s "  )
+                            #_logger.warning("**********DEBIT********* %s "  )
                             name = 'Débit'  + ' ' + eticom
                         else :
-                            _logger.warning("**********AUTRE********* %s "  )
+                            #_logger.warning("**********AUTRE********* %s "  )
                             name = row[2].strip() + ' ' + eticom
             
             _logger.warning("**********Poste********* %s " % name )
         
             if row[1] is not None and row[1] != '' : 
                 ope = name
-                _logger.warning("**********opération********* %s " % ope )
+                #_logger.warning("**********opération********* %s " % ope )
                 if ope in aggregated_data:
-                    _logger.warning("**********Opération trouvée********* %s " % str(row[0]) )
+                    #_logger.warning("**********Opération trouvée********* %s " % str(row[0]) )
                     aggregated_data[ope]['temps'] += temps
                 else:
-                    _logger.warning("**********Création oépration********* %s " % str(row[0]) )
+                    #_logger.warning("**********Création oépration********* %s " % str(row[0]) )
                     aggregated_data[ope] = {'temps': temps, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
         for ope, data in aggregated_data.items():
-            _logger.warning("**********Poste de travail********* %s " % data['name']  )
+            #_logger.warning("**********Poste de travail********* %s " % data['name']  )
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
-                _logger.warning(f"Workcenter '{data['name']}' introuvable.")
+                #_logger.warning(f"Workcenter '{data['name']}' introuvable.")
                 continue
-            _logger.warning("**********OPE********* %s " % ope  )
+            #_logger.warning("**********OPE********* %s " % ope  )
             operation_data = {
                 'name': ope,
                 'time_cycle_manual': data['temps'],
