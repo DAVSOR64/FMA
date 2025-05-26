@@ -1693,16 +1693,21 @@ class SqliteConnector(models.Model):
             _logger.warning("**********ID********* %s " % str(row[3]) )
             if row[2] is not None and row[2] != '' :
                 if row[2].strip == 'Parcloses ALU' or row[2].strip == 'Emballage':
+                     _logger.warning("**********REmontage********* %s "  )
                     name = 'Remontage'  + ' ' + eticom
                 else :
                     if row[2].strip == 'Prépa' :
+                         _logger.warning("**********PREPA********* %s " )
                         name = 'Usinage'  + ' ' + eticom
                     else :
                         if row[2].strip == 'Parcloses ACIER' :
+                             _logger.warning("**********DEBIT********* %s "  )
                             name = 'Débit'  + ' ' + eticom
                         else :
+                             _logger.warning("**********AUTRE********* %s " %  )
                             name = row[2].strip() + ' ' + eticom
-                _logger.warning("**********Poste********* %s " % name )
+            
+            _logger.warning("**********Poste********* %s " % name )
         
             if row[1] is not None and row[1] != '' : 
                 ope = name
