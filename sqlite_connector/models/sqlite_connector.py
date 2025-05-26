@@ -1691,11 +1691,18 @@ class SqliteConnector(models.Model):
             reference = row[1].strip() if row[1] else ''
             _logger.warning("**********ROW********* %s " % row[2] )
             if row[2] is not None and row[2] != '' :
+                if row[2] == 'Parcloses ALU' or row[2] == 'Emballage':
+                    name = 'Remontage'
+                if row[2] == 'Prépa' :
+                    name = 'Usinage'
+                if row[2] == 'Parcloses ALU' :
+                    name = 'Débit'
+            
                 name = row[2].strip() + ' ' + eticom
                 _logger.warning("**********Poste********* %s " % name )
         
             if row[1] is not None and row[1] != '' : 
-                ope = name + ' ' + eticom
+                ope = name
                 _logger.warning("**********opération********* %s " % ope )
                 if ope in aggregated_data:
                     _logger.warning("**********Opération trouvée********* %s " % str(row[0]) )
