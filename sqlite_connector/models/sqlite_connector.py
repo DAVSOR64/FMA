@@ -1710,9 +1710,9 @@ class SqliteConnector(models.Model):
             if not workcenter:
                 _logger.warning(f"Workcenter '{data['name']}' introuvable.")
                 continue
-        
+            _logger.warning("**********OPE********* %s " % ope  )
             operation_data = {
-                'name': data['ope'],
+                'name': ope,
                 'time_cycle_manual': data['temps'],
                 'workcenter_id': workcenter.id
             }
