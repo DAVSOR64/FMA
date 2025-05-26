@@ -1677,61 +1677,44 @@ class SqliteConnector(models.Model):
                 
         #For operations
         
-        resu=cursor.execute("select LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name from LabourTimes")
+        # Étape 1: Lire la table SQL et agréger les données
+        aggregated_data = {}
         
-        cpt = 0
-        cpt1 = 0
+        resu = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name FROM LabourTimes")
         name = ''
         ope = ''
-        for row in resu :
-            cpt1 = cpt1 + 1
-            ope = row[1]
-            if ope is not None:
-                ope = ope.strip()
-            #ope = ope.strip()
+        temps = 0
+        reference = ''
+
+        for row in resu:
             temps = float(row[0])
-            dataope = ''
-            if ope == '' :
-                if str(row[2]) == '' :
-                    name = name.strip()
-                    if name == 'Débit' :
-                        ope = 'Débit profilé normaux'
-                    else :
-                        ope = 'par défaut'
-                        if cpt == 0 :
-                            cpt = cpt + 1
-                            proj = '[' + proj + ']'+ ' ' + proj
-                            dataope = ['',proj,temps,ope,name]
-                        else :
-                            dataope = ['','',temps,ope,name]
-                        #_logger.warning('WorkCenter %s', name)
-                        workcenter = self.env['mrp.workcenter'].search([('name', '=', name)], limit=1)
-                        if nomenclatures_data and workcenter :
-                            nomenclatures_data[0]['operation_ids'].append(Command.create({
-                            'name': ope,
-                            'time_cycle_manual': dataope[2],
-                            #'name': dataope[4],
-                            'workcenter_id': workcenter.id
-                        }))
-                else :
-                    name = row[2]
-                    name = name.strip() if name is not None else ""
-            else:
-                if cpt == 0 :
-                    cpt = cpt + 1
-                    dataope = ['', proj, temps, ope, name]
-                else :
-                    dataope = ['','',temps,ope,name]
-                if dataope:
-                    #_logger.warning('WorkCenter 2%s', name)
-                    workcenter = self.env['mrp.workcenter'].search([('name', '=', name)], limit=1)
-                    if nomenclatures_data and workcenter:
-                        nomenclatures_data[0]['operation_ids'].append(Command.create({
-                            'name': ope,
-                            'time_cycle_manual': dataope[2],
-                            #'name': dataope[4],
-                            'workcenter_id': workcenter.id
-                        }))
+            reference = row[1].strip() if row[1] else ''
+            if row[2] is not None :
+                name = row[2].strip() 
+            ope = name + ' ' + eticom
+        
+            if reference is not None : 
+                if ope in aggregated_data:
+                    aggregated_data[ope]['temps'] += temps
+                else:
+                    aggregated_data[ope] = {'temps': temps, 'name': name}
+        
+        # Étape 2: Créer les opérations dans Odoo
+        for ope, data in aggregated_data.items():
+            workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
+            if not workcenter:
+                _logger.warning(f"Workcenter '{data['name']}' introuvable.")
+                continue
+        
+            operation_data = {
+                'name': reference,
+                'time_cycle_manual': data['temps'],
+                'workcenter_id': workcenter.id
+            }
+        
+            if nomenclatures_data:
+                nomenclatures_data[0]['operation_ids'].append(Command.create(operation_data))
+
 
         cursor.close()
         temp_file.close()
