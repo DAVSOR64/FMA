@@ -1694,20 +1694,25 @@ class SqliteConnector(models.Model):
             ope = name + ' ' + eticom
         
             if reference is not None : 
+                _logger.warning("**********Poste********* %s " % name )
+                _logger.warning("**********opération********* %s " % ope )
                 if ope in aggregated_data:
+                    _logger.warning("**********Opération trouvée********* %s "  )
                     aggregated_data[ope]['temps'] += temps
                 else:
+                    _logger.warning("**********Création oépration********* %s "  )
                     aggregated_data[ope] = {'temps': temps, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
         for ope, data in aggregated_data.items():
+            _logger.warning("**********Poste de travail********* %s " % data['name']  )
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
                 _logger.warning(f"Workcenter '{data['name']}' introuvable.")
                 continue
         
             operation_data = {
-                'name': reference,
+                'name': data['ope'],
                 'time_cycle_manual': data['temps'],
                 'workcenter_id': workcenter.id
             }
