@@ -1698,10 +1698,10 @@ class SqliteConnector(models.Model):
                 ope = name + ' ' + eticom
                 _logger.warning("**********opération********* %s " % ope )
                 if ope in aggregated_data:
-                    _logger.warning("**********Opération trouvée********* %s " % str(row[0])  )
+                    _logger.warning("**********Opération trouvée********* %s " % str(row[0]) )
                     aggregated_data[ope]['temps'] += temps
                 else:
-                    _logger.warning("**********Création oépration********* %s " str(row[0])  )
+                    _logger.warning("**********Création oépration********* %s " % str(row[0]) )
                     aggregated_data[ope] = {'temps': temps, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
