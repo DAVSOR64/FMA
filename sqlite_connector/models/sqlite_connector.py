@@ -1680,7 +1680,7 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
         
-        resu = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name FROM LabourTimes order by LabourTimess.LabourTime")
+        resu = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name FROM LabourTimes order by LabourTimes.LabourTime")
         name = ''
         ope = ''
         temps = 0
