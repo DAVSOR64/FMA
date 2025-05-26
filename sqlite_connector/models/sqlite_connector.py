@@ -1685,11 +1685,12 @@ class SqliteConnector(models.Model):
         ope = ''
         temps = 0
         reference = ''
-
+        _logger.warning("**********Eticom********* %s " % eticom )
         for row in resu:
             temps = float(row[0])
             reference = row[1].strip() if row[1] else ''
-            if row[2] is not None :
+            _logger.warning("**********ROW********* %s " % row[2] )
+            if row[2] is not None and row[2] != '' :
                 name = row[2].strip() + ' ' + eticom
                 _logger.warning("**********Poste********* %s " % name )
         
