@@ -1704,7 +1704,7 @@ class SqliteConnector(models.Model):
                             _logger.warning("**********DEBIT********* %s "  )
                             name = 'Débit'  + ' ' + eticom
                         else :
-                            _logger.warning("**********AUTRE********* %s " %  )
+                            _logger.warning("**********AUTRE********* %s "  )
                             name = row[2].strip() + ' ' + eticom
             
             _logger.warning("**********Poste********* %s " % name )
