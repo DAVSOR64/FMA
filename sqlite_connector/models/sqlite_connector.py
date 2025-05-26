@@ -1680,7 +1680,7 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
         
-        resu = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name FROM LabourTimes order by LabourTimes.LabourTimeId")
+        resu = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId FROM LabourTimes order by LabourTimes.LabourTimeId")
         name = ''
         ope = ''
         temps = 0
@@ -1690,15 +1690,18 @@ class SqliteConnector(models.Model):
             temps = float(row[0])
             reference = row[1].strip() if row[1] else ''
             _logger.warning("**********ROW********* %s " % row[2] )
+            _logger.warning("**********ID********* %s " % str(row[4]) )
             if row[2] is not None and row[2] != '' :
                 if row[2].strip == 'Parcloses ALU' or row[2].strip == 'Emballage':
-                    name = 'Remontage'
-                if row[2].strip == 'Prépa' :
-                    name = 'Usinage'
-                if row[2].strip == 'Parcloses ALU' :
-                    name = 'Débit'
-            
-                name = row[2].strip() + ' ' + eticom
+                    name = 'Remontage'  + ' ' + eticom
+                else :
+                    if row[2].strip == 'Prépa' :
+                        name = 'Usinage'  + ' ' + eticom
+                    else :
+                        if row[2].strip == 'Parcloses ALU' :
+                            name = 'Débit'  + ' ' + eticom
+                        else :
+                            name = row[2].strip() + ' ' + eticom
                 _logger.warning("**********Poste********* %s " % name )
         
             if row[1] is not None and row[1] != '' : 
