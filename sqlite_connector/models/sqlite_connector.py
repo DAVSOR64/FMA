@@ -521,9 +521,9 @@ class SqliteConnector(models.Model):
             trouve = False
             for item in Commande:
                 if item[0] == refinterne :
-        #            QteArt = float(item[6])
-        #            QteArt += float(Qte)
-        #            item[6] = str(QteArt)
+                    QteArt = float(item[6])
+                    QteArt += float(Qte)
+                    item[6] = str(QteArt)
                     trouve = True
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
