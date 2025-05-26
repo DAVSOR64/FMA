@@ -1691,11 +1691,11 @@ class SqliteConnector(models.Model):
             reference = row[1].strip() if row[1] else ''
             _logger.warning("**********ROW********* %s " % row[2] )
             if row[2] is not None and row[2] != '' :
-                if row[2] == 'Parcloses ALU' or row[2] == 'Emballage':
+                if row[2].strip == 'Parcloses ALU' or row[2].strip == 'Emballage':
                     name = 'Remontage'
-                if row[2] == 'Prépa' :
+                if row[2].strip == 'Prépa' :
                     name = 'Usinage'
-                if row[2] == 'Parcloses ALU' :
+                if row[2].strip == 'Parcloses ALU' :
                     name = 'Débit'
             
                 name = row[2].strip() + ' ' + eticom
