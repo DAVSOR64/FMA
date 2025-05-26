@@ -616,8 +616,8 @@ class SqliteConnector(models.Model):
                     couleur = row[4] if row[4] else ''
                 if couleur == 'Sans' or couleur == 'sans' :
                     couleur = ''
-                if eticom == 'F2M' :
-                    couleur =''
+                #if eticom == 'F2M' :
+                #    couleur =''
                 if couleur not in ['', None, 'None']:
                     refart = refart + '.' + couleur
                 ColorLogikal = couleur
