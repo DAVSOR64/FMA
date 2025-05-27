@@ -1676,6 +1676,16 @@ class SqliteConnector(models.Model):
                 }))
                 
         #For operations
+
+        cursor.execute("SELECT COUNT(*) FROM LabourTimes order by LabourTimes.LabourTimeId")
+        result = cursor.fetchone()  # Récupère la première ligne du résultat
+        
+        # Le résultat est un tuple (count,)
+        if result:
+            count = result[0]
+            _logger.warning("**********Nombre de ligne********* %s " % str(count) )
+        else:
+            _logger.warning("**********0 ligne trouvée********* %s " )
         
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
@@ -1689,44 +1699,31 @@ class SqliteConnector(models.Model):
         for rowOpe in resuOpe:
             temps = float(rowOpe[0])
             reference = rowOpe[1].strip() if rowOpe[1] else ''
-            #_logger.warning("**********ROW********* %s " % rowOpe[2].strip() )
             _logger.warning("**********ID********* %s " % str(rowOpe[3]) )
             if rowOpe[2] is not None and rowOpe[2] != '' :
                 if rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage':
-                    #_logger.warning("**********REmontage********* %s "  )
                     name = 'Remontage'  + ' ' + eticom
                 else :
                     if rowOpe[2].strip() == 'Prépa' :
-                        #_logger.warning("**********PREPA********* %s " )
                         name = 'Usinage'  + ' ' + eticom
                     else :
                         if rowOpe[2].strip() == 'Parcloses ACIER' :
-                            #_logger.warning("**********DEBIT********* %s "  )
                             name = 'Débit'  + ' ' + eticom
                         else :
-                            #_logger.warning("**********AUTRE********* %s "  )
                             name = rowOpe[2].strip() + ' ' + eticom
-            
-            _logger.warning("**********Poste********* %s " % name )
         
             if rowOpe[1] is not None and rowOpe[1] != '' : 
                 ope = name
-                #_logger.warning("**********opération********* %s " % ope )
                 if ope in aggregated_data:
-                    #_logger.warning("**********Opération trouvée********* %s " % str(rowOpe[0]) )
                     aggregated_data[ope]['temps'] += temps
                 else:
-                    #_logger.warning("**********Création oépration********* %s " % str(rowOpe[0]) )
                     aggregated_data[ope] = {'temps': temps, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
         for ope, data in aggregated_data.items():
-            #_logger.warning("**********Poste de travail********* %s " % data['name']  )
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
-                #_logger.warning(f"Workcenter '{data['name']}' introuvable.")
                 continue
-            #_logger.warning("**********OPE********* %s " % ope  )
             operation_data = {
                 'name': ope,
                 'time_cycle_manual': data['temps'],
