@@ -1687,7 +1687,7 @@ class SqliteConnector(models.Model):
         reference = ''
         
         for rowOpe in resuOpe:
-            temps = float(row[0])
+            temps = float(rowOpe[0])
             reference = row[1].strip() if row[1] else ''
             #_logger.warning("**********ROW********* %s " % row[2].strip() )
             _logger.warning("**********ID********* %s " % str(row[3]) )
