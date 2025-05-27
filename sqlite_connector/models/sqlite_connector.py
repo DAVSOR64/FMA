@@ -1680,43 +1680,43 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
         
-        resu = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId FROM LabourTimes order by LabourTimes.LabourTimeId").fetchall()
+        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId FROM LabourTimes order by LabourTimes.LabourTimeId").fetchall()
         name = ''
         ope = ''
         temps = 0
         reference = ''
         
-        for row in resu:
+        for rowOpe in resuOpe:
             temps = float(row[0])
             reference = row[1].strip() if row[1] else ''
             #_logger.warning("**********ROW********* %s " % row[2].strip() )
             _logger.warning("**********ID********* %s " % str(row[3]) )
-            if row[2] is not None and row[2] != '' :
-                if row[2].strip() == 'Parcloses ALU' or row[2].strip() == 'Emballage':
+            if rowOpe[2] is not None and rowOpe[2] != '' :
+                if rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage':
                     #_logger.warning("**********REmontage********* %s "  )
                     name = 'Remontage'  + ' ' + eticom
                 else :
-                    if row[2].strip() == 'Prépa' :
+                    if rowOpe[2].strip() == 'Prépa' :
                         #_logger.warning("**********PREPA********* %s " )
                         name = 'Usinage'  + ' ' + eticom
                     else :
-                        if row[2].strip() == 'Parcloses ACIER' :
+                        if rowOpe[2].strip() == 'Parcloses ACIER' :
                             #_logger.warning("**********DEBIT********* %s "  )
                             name = 'Débit'  + ' ' + eticom
                         else :
                             #_logger.warning("**********AUTRE********* %s "  )
-                            name = row[2].strip() + ' ' + eticom
+                            name = rowOpe[2].strip() + ' ' + eticom
             
             _logger.warning("**********Poste********* %s " % name )
         
-            if row[1] is not None and row[1] != '' : 
+            if rowOpe[1] is not None and rowOpe[1] != '' : 
                 ope = name
                 #_logger.warning("**********opération********* %s " % ope )
                 if ope in aggregated_data:
-                    #_logger.warning("**********Opération trouvée********* %s " % str(row[0]) )
+                    #_logger.warning("**********Opération trouvée********* %s " % str(rowOpe[0]) )
                     aggregated_data[ope]['temps'] += temps
                 else:
-                    #_logger.warning("**********Création oépration********* %s " % str(row[0]) )
+                    #_logger.warning("**********Création oépration********* %s " % str(rowOpe[0]) )
                     aggregated_data[ope] = {'temps': temps, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
