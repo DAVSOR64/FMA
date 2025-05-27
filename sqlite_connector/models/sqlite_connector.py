@@ -1688,9 +1688,9 @@ class SqliteConnector(models.Model):
         
         for rowOpe in resuOpe:
             temps = float(rowOpe[0])
-            reference = row[1].strip() if row[1] else ''
-            #_logger.warning("**********ROW********* %s " % row[2].strip() )
-            _logger.warning("**********ID********* %s " % str(row[3]) )
+            reference = rowOpe[1].strip() if rowOpe[1] else ''
+            #_logger.warning("**********ROW********* %s " % rowOpe[2].strip() )
+            _logger.warning("**********ID********* %s " % str(rowOpe[3]) )
             if rowOpe[2] is not None and rowOpe[2] != '' :
                 if rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage':
                     #_logger.warning("**********REmontage********* %s "  )
