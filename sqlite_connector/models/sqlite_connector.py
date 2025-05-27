@@ -1676,17 +1676,6 @@ class SqliteConnector(models.Model):
                 }))
                 
         #For operations
-
-        cursor.execute("SELECT COUNT(*) FROM LabourTimes order by LabourTimes.LabourTimeId")
-        result = cursor.fetchone()  # Récupère la première ligne du résultat
-        
-        # Le résultat est un tuple (count,)
-        if result:
-            count = result[0]
-            _logger.warning("**********Nombre de ligne********* %s " % str(count) )
-        else:
-            _logger.warning("**********0 ligne trouvée********* %s " )
-        
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
         
