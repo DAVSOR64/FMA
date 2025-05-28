@@ -38,7 +38,7 @@ class MrpWorkorder(models.Model):
     def _shift_entire_of_and_dependents(self, delta):
         """Décale tout l'OF + les OFs suivants."""
         # Décaler tous les WOs de l'OF courant
-        for wo in self.order_id.workorder_ids:
+        for wo in self.production_id.workorder_ids:
             if wo.date_start:
                 wo.date_start += delta
             if wo.date_finished:
