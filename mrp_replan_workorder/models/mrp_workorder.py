@@ -52,13 +52,17 @@ class MrpWorkorder(models.Model):
                 next_wo._shift_entire_of_and_dependents(delta)
 
     def _shift_partial_of(self, delta):
-        """Décale ce WO et les suivants dans l'OF."""
-        wos_to_shift = self.order_id.workorder_ids.filtered(lambda w: w.sequence >= self.sequence)
+        """Décale ce WO et les suivants dans l’OF."""
+        self.ensure_one()
+        wos_to_shift = self.production_id.workorder_ids.filtered(
+            lambda w: (w.operation_id.sequence or 0) >= (self.operation_id.sequence or 0)
+        )
         for wo in wos_to_shift:
             if wo.date_start:
                 wo.date_start += delta
             if wo.date_finished:
                 wo.date_finished += delta
+
 
     def manual_swap(self, other_wo):
         """Permuter cet ordre de travail avec un autre sur le même poste."""
