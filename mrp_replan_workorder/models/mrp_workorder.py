@@ -1,4 +1,4 @@
-from odoo import models
+from odoo import models, fields
 
 class MrpWorkorder(models.Model):
     _inherit = 'mrp.workorder'
@@ -10,7 +10,8 @@ class MrpWorkorder(models.Model):
         deltas = {}
         for wo in self:
             old_date = wo.date_start
-            new_date = values.get('date_start', old_date)
+            new_date_raw = values.get('date_start', old_date)
+            new_date = fields.Datetime.from_string(new_date_raw) if isinstance(new_date_raw, str) else new_date_raw
             if old_date and new_date and old_date != new_date:
                 delta = new_date - old_date
                 deltas[wo.id] = delta
@@ -27,6 +28,7 @@ class MrpWorkorder(models.Model):
                 else:
                     wo._shift_partial_of(delta)
         return res
+
 
 
     def is_first_workorder(self):
