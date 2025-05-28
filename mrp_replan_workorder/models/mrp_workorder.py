@@ -32,7 +32,7 @@ class MrpWorkorder(models.Model):
 
     def is_first_workorder(self):
         self.ensure_one()
-        return self == self.production_id.workorder_ids.sorted('sequence')[0]
+        return self == self.production_id.workorder_ids.sorted(lambda wo: wo.operation_id.sequence or 0)[0]
 
 
     def _shift_entire_of_and_dependents(self, delta):
