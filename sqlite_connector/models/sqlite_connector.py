@@ -1146,11 +1146,11 @@ class SqliteConnector(models.Model):
 
             # On vient créer une fonction permettant de créer la liste des vitrages 
             
-            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai):
+            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type):
                 trouve = False
                 for item in Glass:
                     # Si le vitrage existe déjà on vient mettre à jour la quantité
-                    if item[0] == fournisseur and item[1] == livraison and item [2] == position and item [3] == nom and item [4] == largeur and item[5] == hauteur :
+                    if item[0] == fournisseur and item[1] == livraison and item [2] == position and item [3] == nom and item [4] == largeur and item[5] == hauteur and item[11] == type:
                         #_logger.warning('Vitrage trouve %s' % fournisseur)
                         #_logger.warning('Vitrage trouve %s' % livraison)
                         #_logger.warning('Vitrage trouve %s' % position)
@@ -1163,7 +1163,7 @@ class SqliteConnector(models.Model):
             
                 # Si le vitrage n'est pas trouvé, ajouter une nouvelle ligne
                 if not trouve:
-                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai])
+                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type])
                        
             Glass = []
             position = ''
@@ -1173,7 +1173,7 @@ class SqliteConnector(models.Model):
             delai = 0
             sname = ''
             
-            resultg=cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
+            resultg=cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId, Glass.ModelType from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
             
             for row in resultg:
                 if row[13] != 'Glass' :
@@ -1191,6 +1191,7 @@ class SqliteConnector(models.Model):
                 
                 Frsid = row[17]
                 #_logger.warning('fournisseur %s :' % str(Frsid))
+                Type = row[18]
                 
                 res_partner = False
                 for sup in suppliers:
@@ -1217,7 +1218,7 @@ class SqliteConnector(models.Model):
                 #_logger.warning('Envoi pour les vitrages largeur %s' % str(row[4]))
                 #_logger.warning('Envoi pour les vitrages hauteur %s' % str(row[5]))
                 #_logger.warning('Envoi pour les vitrages Qte %s' % str(row[10]))
-                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai)
+                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,row[18])
             
             fournisseur = ''
             info_livraison =''
@@ -1272,6 +1273,7 @@ class SqliteConnector(models.Model):
                     largNum = int(largNumDec)
                     spacer = ligne[7]
                     delai = ligne[9]
+                    type = ligne[10]
                     #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
@@ -1291,6 +1293,7 @@ class SqliteConnector(models.Model):
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
                             'x_studio_cration_auto' : True,
+                            'x_studio_type' : type,
                             # 'x_studio_positionn': Posint,
                         }
                         if idfrs:
