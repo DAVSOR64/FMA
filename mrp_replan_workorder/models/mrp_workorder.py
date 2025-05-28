@@ -20,3 +20,4 @@ class MrpWorkorder(models.Model):
             for needed in wo.needed_by_workorder_ids:
                 needed._plan_workorder(replan=True)
                 needed._replan_workorder()
+
