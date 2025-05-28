@@ -1274,6 +1274,10 @@ class SqliteConnector(models.Model):
                     spacer = ligne[7]
                     delai = ligne[9]
                     type = ligne[10]
+                    if type == '0' :
+                        type = 'RECTANGULAIRE'
+                    else :
+                        type = 'FORME SPECIALE'
                     #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
@@ -1293,6 +1297,7 @@ class SqliteConnector(models.Model):
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
                             'x_studio_cration_auto' : True,
+                            'x_studio_spacer' : spacer,
                             'x_studio_type' : type,
                             # 'x_studio_positionn': Posint,
                         }
