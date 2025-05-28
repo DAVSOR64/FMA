@@ -1,26 +1,33 @@
-from odoo import models, fields, api
+from odoo import models
 
 class MrpWorkorder(models.Model):
     _inherit = 'mrp.workorder'
 
     def write(self, values):
         context = self.env.context
+
+        # Calculer le delta AVANT d'écrire
+        deltas = {}
+        for wo in self:
+            old_date = wo.date_start
+            new_date = values.get('date_start', old_date)
+            if old_date and new_date and old_date != new_date:
+                delta = new_date - old_date
+                deltas[wo.id] = delta
+
+        # Appeler l'écriture standard
         res = super().write(values)
 
-        # Ne rien faire si on est en mode manuel (ex: permutation sur poste)
-        if context.get('manual_swap'):
-            return res
-
-        trigger_fields = {'date_start', 'date_finished'}
-        if trigger_fields & set(values.keys()):
-            for wo in self:
-                delta = (wo.date_start - wo._origin.date_start) if wo._origin.date_start and wo.date_start else None
-                if delta:
-                    if wo.is_first_workorder():
-                        wo._shift_entire_of_and_dependents(delta)
-                    else:
-                        wo._shift_partial_of(delta)
+        # Après l'écriture, appliquer la logique
+        for wo in self:
+            delta = deltas.get(wo.id)
+            if delta:
+                if wo.is_first_workorder() or context.get('from_gantt'):
+                    wo._shift_entire_of_and_dependents(delta)
+                else:
+                    wo._shift_partial_of(delta)
         return res
+
 
     def is_first_workorder(self):
         self.ensure_one()
