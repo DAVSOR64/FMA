@@ -30,10 +30,10 @@ class MrpWorkorder(models.Model):
         return res
 
 
-
     def is_first_workorder(self):
         self.ensure_one()
-        return self == self.order_id.workorder_ids.sorted('sequence')[0]
+        return self == self.production_id.workorder_ids.sorted('sequence')[0]
+
 
     def _shift_entire_of_and_dependents(self, delta):
         """Décale tout l'OF + les OFs suivants."""
