@@ -1191,7 +1191,12 @@ class SqliteConnector(models.Model):
                 
                 Frsid = row[17]
                 #_logger.warning('fournisseur %s :' % str(Frsid))
-                Type = row[18]
+                type = row[18]
+                if type == '0':
+                    type = 'RECTANGULAIRE'
+                else :
+                    type = 'FORME SPECIALE'
+                _logger.warning('Type : ' % type)
                 
                 res_partner = False
                 for sup in suppliers:
@@ -1272,12 +1277,9 @@ class SqliteConnector(models.Model):
                     HautNum = int(HautNumDec)
                     largNum = int(largNumDec)
                     spacer = ligne[7]
+                    _logger.warning('Spacer' % spacer)
                     delai = ligne[9]
                     type = ligne[10]
-                    if type == '0' :
-                        type = 'RECTANGULAIRE'
-                    else :
-                        type = 'FORME SPECIALE'
                     #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
