@@ -1277,7 +1277,7 @@ class SqliteConnector(models.Model):
                     HautNum = int(HautNumDec)
                     largNum = int(largNumDec)
                     spacer = ligne[7]
-                    _logger.warning('Spacer' % spacer)
+                    _logger.warning('Spacer %s' % spacer)
                     delai = ligne[9]
                     type = ligne[10]
                     #dateliv = datejourd + timedelta(days=delai)
