@@ -1196,7 +1196,7 @@ class SqliteConnector(models.Model):
                     type = 'RECTANGULAIRE'
                 else :
                     type = 'FORME SPECIALE'
-                _logger.warning('Type : ' % type)
+                _logger.warning('Type %s : ' % type)
                 
                 res_partner = False
                 for sup in suppliers:
