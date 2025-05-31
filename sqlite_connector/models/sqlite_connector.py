@@ -1389,13 +1389,13 @@ class SqliteConnector(models.Model):
             reference = rowOpe[1].strip() if rowOpe[1] else ''
             _logger.warning("**********ID********* %s " % str(rowOpe[3]) )
             if rowOpe[2] is not None and rowOpe[2] != '' :
-                if rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage':
+                if ( rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage') and eticom == 'F2M':
                     name = 'Remontage'  + ' ' + eticom
                 else :
-                    if rowOpe[2].strip() == 'Prépa' :
+                    if rowOpe[2].strip() == 'Prépa'  and eticom == 'F2M':
                         name = 'Usinage'  + ' ' + eticom
                     else :
-                        if rowOpe[2].strip() == 'Parcloses ACIER' :
+                        if rowOpe[2].strip() == 'Parcloses ACIER'  and eticom == 'F2M':
                             name = 'Débit'  + ' ' + eticom													  
                         else :
                             name = rowOpe[2].strip() + ' ' + eticom
