@@ -116,19 +116,37 @@ class ResPartner(models.Model):
     part_code_tiers = fields.Integer(string="Code Tiers")
     
     @api.model
-    def create(self, vals):
-        # Vérifier si le contact est une société
-        if vals.get('is_company', False):
-            # Récupérer la dernière valeur de 'part_code_tiers' parmi les sociétés uniquement
-            last_record = self.search([('is_company', '=', True)], order='part_code_tiers desc', limit=1)
-            last_code = last_record.part_code_tiers if last_record else 0
+     def create(self, vals):
+        # Vérifie si le booléen est coché
+        if vals.get('x_studio_gneration_n_compte_1', False):
+            # Récupère la dernière valeur de x_studio_compte (chez les sociétés uniquement)
+            last_record = self.search([('is_company', '=', True), ('x_studio_compte', '!=', False)], order='x_studio_compte desc', limit=1)
+            last_code = last_record.x_studio_compte if last_record else 0
             new_code = last_code + 1
-            
-            # Attribuer la nouvelle valeur de 'part_code_tiers'
-            vals['part_code_tiers'] = new_code
-        
-        # Appel de la méthode create de la super-classe avec les valeurs modifiées
+
+            # Attribue la nouvelle valeur de x_studio_compte
+            vals['x_studio_compte'] = new_code
+
+            # Décoche le booléen (pratique)
+            vals['x_studio_gneration_n_compte_1'] = False
+
+        # Appel de la méthode parent
         return super(ResPartner, self).create(vals)
+
+    def write(self, vals):
+        for partner in self:
+            # Si la case est cochée, génère le numéro uniquement si pas déjà défini
+            if vals.get('x_studio_gneration_n_compte_1', False) and not partner.x_studio_compte:
+                last_record = self.search([('is_company', '=', True), ('x_studio_compte', '!=', False)], order='x_studio_compte desc', limit=1)
+                last_code = last_record.x_studio_compte if last_record else 0
+                new_code = last_code + 1
+
+                partner.x_studio_compte = new_code
+
+                # Décoche le booléen après génération
+                vals['x_studio_gneration_n_compte_1'] = False
+
+        return super(ResPartner, self).write(vals)
  
     
     def _prepare_order(self):
