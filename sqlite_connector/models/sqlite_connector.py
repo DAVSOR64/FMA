@@ -1190,7 +1190,7 @@ class SqliteConnector(models.Model):
                     position = str(row[9])
                 
                 Frsid = row[17]
-                #_logger.warning('fournisseur %s :' % str(Frsid))
+                _logger.warning('fournisseur %s :' % str(spacer))
                 type = row[18]
                 if type == '0':
                     type = 'RECTANGULAIRE'
@@ -1199,13 +1199,9 @@ class SqliteConnector(models.Model):
                 _logger.warning('Type %s : ' % type)
                 
                 res_partner = False
-                for sup in suppliers:
-                    #_logger.warning('fournisseur dans la liste : %s ' % sup['name'])
-                    #_logger.warning('ID fournisseur dans la liste : %s ' % sup['id'])
+                for sup in suppliers :
                     if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
                         sname = sup['name']
-                
-                #_logger.warning('fournisseur trouve %s :' % sname)
                         
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
                     if sname == (part.x_studio_ref_logikal):
@@ -1216,14 +1212,7 @@ class SqliteConnector(models.Model):
                 else:
                     self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
                 
-                #_logger.warning('Envoi pour les vitrages fournisseur %s' % frsnomf)
-                #_logger.warning('Envoi pour les vitrages livraison %s' % Info2)
-                #_logger.warning('Envoi pour les vitrages position %s' % position)
-                #_logger.warning('Envoi pour les vitrages nom %s' % str(row[1]))
-                #_logger.warning('Envoi pour les vitrages largeur %s' % str(row[4]))
-                #_logger.warning('Envoi pour les vitrages hauteur %s' % str(row[5]))
-                #_logger.warning('Envoi pour les vitrages Qte %s' % str(row[10]))
-                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,row[18])
+                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,type)
             
             fournisseur = ''
             info_livraison =''
@@ -1245,27 +1234,7 @@ class SqliteConnector(models.Model):
                     idfrs = res_partner.id
                 if fournisseur != ligne[0] or info_livraison != ligne[1] :
                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                    #if stock_picking_type_id:
-                        #_logger.warning('Dans la creation du PO %s' % res_partner)
-                    #    analytic_distribution = {account_analytic_id: 100}
-                    #    po_glass_vals.append({
-                    #        'x_studio_many2one_field_LCOZX': x_affaire.id if x_affaire else False,
-                    #        'partner_id': idfrs,
-                    #        'picking_type_id': stock_picking_type_id,
-                    #        'x_studio_commentaire_livraison_vitrage_': ligne[1],
-                    #        'date_order': datetime.now(),
-                    #        'user_id': user_id,
-                    #        'order_line':
-                    #            [Command.create({
-                    #                'product_id': 'affaire',
-                    #                'date_planned': datetime.now(),
-                    #                'price_unit': 0,
-                    #                'product_qty': 1,
-                    #                'product_uom': False,
-                    #                'analytic_distribution': analytic_distribution,
-                    #                'date_planned': datejourd,
-                    #            })]
-                    #    })
+                   
                 if vitrage != (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5])) :
                     refinterne = proj + "_" + str(cpt)
                     vitrage = ligne[3]
@@ -1314,38 +1283,11 @@ class SqliteConnector(models.Model):
                         message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
                         self.env.cr.commit()
-                    # On vient créer la ligne de commande d'appro
-                    #for po in po_glass_vals:
-                    #    if po.get('partner_id') == idfrs and po.get('x_studio_commentaire_livraison_vitrage_') == ligne[1]:
-                    #        po.get('order_line').append(Command.create({
-                    #            'product_id': refinterne,
-                    #            'date_planned': datetime.now(),
-                    #            'price_unit': prix,
-                    #            'product_qty': Qte,
-                    #            'product_uom': False,
-                    #            'x_studio_posit': position,
-                    #            'x_studio_hauteur': HautNum,
-                    #            'x_studio_largeur': largNum,
-                    #            'x_studio_spacer': spacer,
-                                #'analytic_tag_ids': [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                    #            'date_planned': dateliv,
-                    #                }))
+                   
                 fournisseur = ligne[0]
                 info_livraison = ligne[1]
                 vitrage = (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5]))
-            
-        #for purchase in po_glass_vals:
-        #    for line in purchase.get('order_line'):
-        #        product = self.env['product.product'].search([('default_code', '=', line[2].get('product_id'))], limit=1)
-        #        if product:
-        #            line[2]['product_id'] = product.id
-        #            line[2]['product_uom'] = product.uom_id.id
-        #        else:
-        #            self.log_request('Unable to find product', 'PO Creation', line[2].get('product_id')) 
-        #for purchase in self.env['purchase.order'].create(po_glass_vals):
-        #    message = _("Purchase Order has been created: ") + purchase._get_html_link()
-        #    self.message_post(body=message)    
-                  
+                     
 
         # We then create the customer quote with delivery dates and possible discounts.
         # We come to create the quote
@@ -1360,17 +1302,7 @@ class SqliteConnector(models.Model):
                     address = 'CBM'
                 if (row[2] == '2') :
                     address = 'REM'
-            #if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
-            #    date_time = row[2]
-            #    def convert(date_time):
-            #        if date_time:
-            #            format = '%d/%m/%Y'  # The format
-            #            datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
-            #            return datetime_str
-            #        else:
-            #            return datetime.now()
-            #    dateliv = convert(date_time)
-
+            
         PourRem = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultrem:
