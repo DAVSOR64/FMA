@@ -116,7 +116,8 @@ class ResPartner(models.Model):
     part_code_tiers = fields.Integer(string="Code Tiers")
     
     @api.model
-     def create(self, vals):
+     
+    def create(self, vals):
         # Vérifie si le booléen est coché
         if vals.get('x_studio_gneration_n_compte_1', False):
             # Récupère la dernière valeur de x_studio_compte (chez les sociétés uniquement)
