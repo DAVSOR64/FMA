@@ -15,7 +15,7 @@ class SaleAdvancePaymentInv(models.TransientModel):
                     # Remplace 'x_studio_champ' par le nom technique exact de ton champ Studio à vérifier
                     if not sale.so_commande_client:
                         raise UserError(
-                            f"Le champ requis n'est pas rempli pour le client {partner.name}. Impossible de créer la facture."
+                            f"Le N° de commande n'est pas rempli pour le client {partner.name}. Impossible de créer la facture."
                         )
 
         # Si tout est OK, on appelle la méthode standard
