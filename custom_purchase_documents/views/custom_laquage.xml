@@ -2,8 +2,7 @@
     <template id="report_purchaseorder_document_inherit_1" inherit_id="studio_customization.studio_report_docume_379f6e34-a4f5-4ed0-8564-7a4c51cf63c0">
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <div class="page">
-                <!-- En-tête avec logo et informations de l'entreprise -->
-                
+
                 <!-- Bloc du logo de l'entreprise -->
                 <div class="row" style="text-align: left;">
                     <div class="col-12" style="margin-bottom: 10px;">
@@ -11,87 +10,83 @@
                     </div>
                 </div>
 
-                <!-- Bloc avec la phrase et les informations de l'entreprise -->
-                <div class="row" style="text-align: left;">
-                    <div class="col-12">
-                        <!-- Phrase d'accroche entre le logo et les infos -->
+                <!-- Bloc avec les infos F2M à gauche et fournisseur à droite -->
+                <div class="row" style="margin-bottom: 20px;">
+                    <!-- Infos F2M -->
+                    <div class="col-6" style="text-align: left;">
                         <p style="font-weight:bold; font-size:14px; margin: 0 0 15px 0;">
                             <em>FABRICATION MENUISERIE METALLIQUE</em>
                         </p>
-                        
-                        <!-- Informations de l'entreprise avec moins d'espace entre les lignes -->
-                        <p style="margin: 0 0 2px 0;">10, RUE DE L'INDUSTRIE</p>
-                        <p style="margin: 0 0 2px 0;">ZI DES DORICES</p>
-                        <p style="margin: 0 0 2px 0;">44330 VALLET</p>
-                        
-                        <!-- SIRET en italique et plus petit -->
+                        <p style="margin: 0 0 2px 0;">LA BASSE GAGNERIE</p>
+                        <p style="margin: 0 0 2px 0;">44430 LA REMAUDIERE</p>
                         <p style="margin: 0 0 15px 0; font-size: 12px;">
                             <em>SIRET 510 402 704 000 41</em>
                         </p>
-                        
-                        <!-- Ajout d'un espace entre le SIRET et les numéros de contact -->
                         <p style="margin: 0 0 2px 0;">TEL: 02.28.03.02.33</p>
                         <p style="margin: 0;">FAX: 02.40.56.57.63</p>
                     </div>
+
+                    <!-- Infos fournisseur -->
+                    <div class="col-6" style="text-align: right;">
+                        <p t-if="doc.partner_id.name" style="margin: 0 0 2px 0;"><span t-field="doc.partner_id.name"/></p>
+                        <p t-if="doc.partner_id.street" style="margin: 0 0 2px 0;"><span t-field="doc.partner_id.street"/></p>
+                        <p t-if="doc.partner_id.street2" style="margin: 0 0 2px 0;"><span t-field="doc.partner_id.street2"/></p>
+                        <p t-if="doc.partner_id.zip or doc.partner_id.city" style="margin: 0 0 2px 0;">
+                            <span t-field="doc.partner_id.zip"/> <span t-field="doc.partner_id.city"/>
+                        </p>
+                        <p t-if="doc.partner_id.country_id.name" style="margin: 0 0 2px 0;">
+                            <span t-field="doc.partner_id.country_id.name"/>
+                        </p>
+                        <p t-if="doc.partner_id.phone" style="margin: 0 0 2px 0;">Tél : <span t-field="doc.partner_id.phone"/></p>
+                        <p t-if="doc.partner_id.email" style="margin: 0;">Email : <span t-field="doc.partner_id.email"/></p>
+                    </div>
                 </div>
 
-                <!-- Espacement supplémentaire entre le bloc des infos entreprise et le bon de laquage -->
-                <div style="margin-bottom: 20px;"></div>
-
-                <!-- En-tête du bon de laquage avec VALLET et la date à droite -->
+                <!-- En-tête du bon de laquage avec ville et date -->
                 <div class="row">
                     <div class="col-6">
                         <h2 style="text-align: left;">Bon de laquage</h2>
                     </div>
                     <div class="col-6" style="text-align: right;">
-                        <p>VALLET, le <span t-esc="datetime.datetime.today().strftime('%d/%m/%Y')" /></p>
+                        <p>LA REMAUDIERE, le </p>
                     </div>
                 </div>
-                
+
                 <div style="margin-bottom: 20px;"></div>
-                 
-                <!-- Détails du bon de laquage avec espacement réduit -->
+
+                <!-- Détails du bon de laquage -->
                 <p style="margin-bottom: 5px;"><strong> OBJET : </strong><span t-field="doc.x_studio_many2one_field_LCOZX" /></p>
                 <p style="margin-top: 0; margin-bottom: 20px;"><strong> Référence : </strong><span t-field="doc.x_studio_rfrence" /></p>
-                
-                <!-- Phrase en gras italique avec une petite police -->
+
+                <!-- Message de rappel -->
                 <p style="font-weight: bold; font-style: italic; font-size: 15px;">
                     Nous vous remercions de reporter ces références sur vos BL et Factures
                 </p>
+
+                <!-- RAL et Zinc -->
                 <p style="margin-bottom: 5px; font-size: 25px;"><strong> RAL : </strong><span t-field="doc.so_ral" /></p>
                 <p style="margin-bottom: 5px; font-size: 25px;"><strong> RICHE EN ZINC : </strong><span t-field="doc.so_riche_en_zinc" /></p>
+
+                <!-- Tableau des lignes -->
+                <table class="table table-sm" t-if="doc.state!='done'" name="order.table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Repère</th>
+                            <th>Quantité</th>
+                            <th>Reliquat</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="doc.laquage_line_ids" t-as="line">
+                            <td><span t-field="line.so_repere" /></td>
+                            <td><span t-field="line.so_qte_commandee" /></td>
+                            <td><span t-field="line.so_reliquat" /></td>
+                            <td><span t-field="line.create_date" t-field-options="{'date_only': True}"/></td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-             <table class="table table-sm" t-if="doc.state!='done'" name="order.table" style="margin-top: 20px;">
-                <thead>
-                    <tr>
-                        <th>Repère</th>
-                        <th>Quantité</th>
-                        <th>Reliquat</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <!-- Boucle à travers les lignes de laquage -->
-                <tr t-foreach="doc.laquage_line_ids" t-as="line">
-                        <td>
-                            <!-- Référence/Repère -->
-                            <span t-field="line.so_repere" />
-                        </td>
-                        <td>
-                            <!-- Quantité commandée -->
-                            <span t-field="line.so_qte_commandee" />
-                        </td>
-                        <td>
-                            <!-- Reliquat -->
-                            <span t-field="line.so_reliquat" />
-                        </td>
-                        <td>
-                            <!-- Date -->
-                            <span t-field="line.create_date" t-field-options="{'date_only': True}"/>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
         </xpath>
     </template>
 </odoo>
