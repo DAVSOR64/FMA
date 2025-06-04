@@ -5,6 +5,9 @@ import io
 import logging
 import paramiko
 import psycopg2
+import xlsxwriter
+from io import BytesIO
+
 
 from odoo import SUPERUSER_ID, api, fields, models, registry, _
 from odoo.exceptions import ValidationError
@@ -25,7 +28,7 @@ class PurchaseOrder(models.Model):
         ('yes', 'Oui'),
         ('no', 'Non')
     ], string="Riche en Zinc", default='no', required=True)
-
+    
     @api.depends('shipping_partner_id')
     def _get_default_customer_delivery_address(self):
         shipping_number_to_address = {
@@ -37,29 +40,86 @@ class PurchaseOrder(models.Model):
                 delivery_address = order.shipping_partner_id.shipping_number
                 order.customer_delivery_address = shipping_number_to_address.get(delivery_address, '')
 
-    def action_export_order(self):
-        """Attach the purchase order XML template."""
+    def _generate_xml_content(self, po):
+        """Generate XML content for the purchase order."""
+        xml_content = self.env['ir.qweb']._render(
+            'purchase_order_export.purchase_order_sftp_export_template',
+            {'po': po}
+        )
+        return xml_content.encode('utf-8'), 'text/xml', 'xml'
+
+    def _generate_xlsx_content(self, po):
+        """Generate an Excel file for the purchase order."""
+        output = BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Purchase Order')
+
+        # Define headers
+        headers = ['Clientnr', 'Article', 'Clc1', 'Cls1', 'Clc2', 'Cls2', 'Leng', 'Quality', 'L-prof', 'Reference', 'Ordernumber', 'Line', 'Expdeldate', 'Textinfo', 'PD', 'UnitPrice', 'TotalPrice', 'Discount', 'Required']
+
+        # Write headers in the first row (horizontal)
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header)
+
+        # Write purchase order lines data
+        for row, line in enumerate(po.order_line, start=1):
+            worksheet.write(row, 0, 'LK001320')
+            worksheet.write(row, 1, line.product_id.x_studio_color_logikal or '')
+            worksheet.write(row, 2, line.product_id.clc1 or '')
+            worksheet.write(row, 3, line.product_id.cls1 or '')
+            worksheet.write(row, 4, line.product_id.clc2 or '')
+            worksheet.write(row, 5, line.product_id.cls2 or '')
+            worksheet.write(row, 6, line.product_id.x_studio_longueur_m or 0.0)
+            worksheet.write(row, 7, line.product_qty or 0.0)
+            worksheet.write(row, 8, '3')
+            worksheet.write(row, 9, 'CLG PONCIN porte double')
+            worksheet.write(row, 10, po.name or '')
+            worksheet.write(row, 11, row)
+            worksheet.write(row, 12, str(po.date_planned)  or '')
+            worksheet.write(row, 13, line.product_id.name or '')
+            worksheet.write(row, 14, 'test')
+            worksheet.write(row, 15, line.price_unit or 0.0)
+            worksheet.write(row, 16, line.price_subtotal or 0.0)
+            worksheet.write(row, 17, line.discount or 0.0)
+            worksheet.write(row, 18, '5,37')
+
+        workbook.close()
+        output.seek(0)
+        return output.read(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx'
+
+    @api.model
+    def action_export(self):
+        action = self.env["ir.actions.actions"]._for_xml_id("purchase_order_export.po_export_action")
+        action['context'] = {'active_id': self.env.context['active_id'],
+                             'active_model': self.env.context['active_model']}
+        return action
+
+    def action_export_order(self, export_format):
+        """Export the purchase order in the selected format."""
         for po in self:
             if po.state in ['done', 'cancel']:
                 raise ValidationError("Purchase order state should not be in 'Cancelled' or 'Done' state.")
 
+            if not export_format or export_format not in ['xlsx', 'xml']:
+                    raise ValidationError("Unsupported export format.")
+
             try:
-                xml_content = self.env['ir.qweb']._render(
-                    'purchase_order_export.purchase_order_sftp_export_template',
-                    {'po': po}
-                )
+                if export_format == 'xlsx':
+                    content, mimetype, file_extension = self._generate_xlsx_content(po)
+                elif export_format == 'xml':
+                    content, mimetype, file_extension = self._generate_xml_content(po)
+                    po.write({
+                        'xml_creation_time': fields.Datetime.now(),
+                        'is_xml_created': True
+                    })
+
                 attachment = self.env['ir.attachment'].create({
-                    'name': 'ZOR_%s.xml' % po.name,
+                    'name': f'Purchase Order Export-{po.name}.{file_extension}',
                     'type': 'binary',
-                    'datas': base64.b64encode(xml_content.encode('utf-8')),
+                    'datas': base64.b64encode(content),
                     'res_model': 'purchase.order',
                     'res_id': po.id,
-                    'mimetype': 'text/xml',
-                    'is_po_xml': True
-                })
-                po.write({
-                    'xml_creation_time': fields.Datetime.now(),
-                    'is_xml_created': True
+                    'mimetype': mimetype,
                 })
 
             except Exception as e:
@@ -98,7 +158,7 @@ class PurchaseOrder(models.Model):
 
     def cron_send_po_xml_to_sftp(self):
         """Sync the unsynced POs to the SFTP server."""
-        purchase_orders = self.env['purchase.order'].search([('is_xml_created', '=', True),('sftp_synced_time', '=', False)])
+        purchase_orders = self.env['purchase.order'].search([('is_xml_created', '=', True)])
         attachment_model = self.env['ir.attachment']
 
         get_param = self.env['ir.config_parameter'].sudo().get_param
@@ -196,9 +256,9 @@ class PurchaseOrderLaquageLine(models.Model):
     so_palette_height = fields.Float(string="Hauteur Palette")
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
-    #_sql_constraints = [
-    #    ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique pour une ligne de laquage !'),
-    #]
+    _sql_constraints = [
+        ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique pour une ligne de laquage !'),
+    ]
 
     @api.model
     def create(self, vals):
