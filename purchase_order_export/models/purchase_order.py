@@ -55,7 +55,7 @@ class PurchaseOrder(models.Model):
         worksheet = workbook.add_worksheet('Purchase Order')
 
         # Define headers
-        headers = ['Clientnr', 'Article', 'Clc1', 'Cls1', 'Clc2', 'Cls2', 'Leng', 'Quality', 'L-prof', 'Reference', 'Ordernumber', 'Line', 'Expdeldate', 'Textinfo', 'PD', 'UnitPrice', 'TotalPrice', 'Discount', 'Required']
+        headers = ['Clientnr', 'Article', 'Clc1', 'Cls1', 'Clc2', 'Cls2', 'Leng', 'Quantity', 'L-prof', 'Reference', 'Ordernumber', 'Line', 'Expdeldate', 'Textinfo', 'PD', 'UnitPrice', 'TotalPrice', 'Discount', 'Required']
 
         # Write headers in the first row (horizontal)
         for col, header in enumerate(headers):
