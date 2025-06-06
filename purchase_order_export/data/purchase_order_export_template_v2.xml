@@ -1,0 +1,115 @@
+<odoo>
+  <template id="purchase_order_sftp_export_template_v2">
+    <t t-name="purchase_order_export.purchase_order_sftp_export_template_v2">
+      <Liste_commandes>
+        <Commande>
+          <En-tete>
+            <version_edi>1.0</version_edi>
+            <site>JANNEAU</site>
+            <date_envoi>
+              <t t-esc="po.date_order.strftime('%d/%m/%Y') if po.date_order else ''"/>
+            </date_envoi>
+            <commande>
+              <t t-esc="po.name"/>
+            </commande>
+            <fournisseur>
+              <t t-esc="po.partner_id.name or ''"/>
+            </fournisseur>
+            <Lieu_livraison>
+              <t t-esc="po.shipping_partner_id.shipping_number or ''"/>
+            </Lieu_livraison>
+            <quantite_totale>
+              <t t-esc="sum(line.product_qty for line in po.order_line)"/>
+            </quantite_totale>
+            <date_livraison>
+              <t t-esc="po.date_planned.strftime('%d/%m/%y') if po.date_planned else ''"/>
+            </date_livraison>
+            <agres_de_livraison>CHARIOT</agres_de_livraison>
+          </En-tete>
+
+          <t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.product_id.default_code != 'affaire')"/>
+          <t t-foreach="enumerate(filtered_lines)" t-as="loop_item">
+            <t t-set="index" t-value="loop_item[0]"/>
+            <t t-set="line" t-value="loop_item[1]"/>
+
+            <ligne>
+              <donnees_generales>
+                <numero_ligne_OA>
+                  <t t-esc="'%03d' % (index + 1)"/>
+                </numero_ligne_OA>
+                <quantite>
+                  <t t-esc="line.product_qty"/>
+                </quantite>
+                <montant_net>
+                  <t t-esc="'%.4f' % line.price_subtotal"/>
+                </montant_net>
+                <affaire/>
+                <commentaire/>
+              </donnees_generales>
+
+              <donnees_logistiques>
+                <num_commande_client>
+                  <t t-esc="po.origin or ''"/>
+                </num_commande_client>
+                <ligne_commande_client>
+                  <t t-esc="'%03d' % (index + 1)"/>
+                </ligne_commande_client>
+                <num_programme>139108</num_programme>
+                <num_repere_programme>
+                  <t t-esc="'%03d' % (index + 1)"/>
+                </num_repere_programme>
+                <nom_client>
+                  <t t-esc="po.partner_id.name or ''"/>
+                </nom_client>
+                <famille/>
+                <code_barres>
+                  <t t-esc="line.product_id.default_code or ''"/>001OUVFR
+                </code_barres>
+                <chantier>Alexis / Branchereau</chantier>
+                <type_cde>Commandes Normales</type_cde>
+                <nature_defaut/>
+                <numero_arc_origine/>
+                <numero_ligne_arc_origine/>
+                <numero_cde_origine/>
+                <ligne_commande_origine/>
+                <altitude/>
+                <sens_depose_vi_sur_chariot/>
+                <tri_chariot>OUVFR</tri_chariot>
+                <filmage/>
+                <emballage/>
+              </donnees_logistiques>
+
+              <donnees_techniques>
+                <largeur>781</largeur>
+                <hauteur>524</hauteur>
+                <schema_forme>F00</schema_forme>
+                <cote_W/>
+                <cote_W1/>
+                <cote_W2/>
+                <cote_H/>
+                <cote_H1/>
+                <cote_H2/>
+                <cote_R/>
+                <cote_R1/>
+                <cote_R2/>
+                <cote_D/>
+                <code_composition_vitrage/>
+                <designation_composition_vitrage>4 FE/16NOIR T ARG/44.2</designation_composition_vitrage>
+                <type_petits_bois/>
+                <couleur_petits_bois/>
+                <nombre_barre_horizontale/>
+                <nombre_barre_verticale/>
+                <schema_petits_bois_horizontale/>
+                <schema_petits_bois_vertical/>
+                <positionnement_barre_horizontale/>
+                <positionnement_barre_verticale/>
+                <PLAN/>
+                <decor/>
+              </donnees_techniques>
+            </ligne>
+          </t>
+        </Commande>
+      </Liste_commandes>
+    </t>
+  </template>
+</odoo>
