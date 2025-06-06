@@ -48,6 +48,14 @@ class PurchaseOrder(models.Model):
         )
         return xml_content.encode('utf-8'), 'text/xml', 'xml'
 
+    def _generate_xml_v2_content(self, po):
+        """Génère un second format XML pour la commande d'achat."""
+        xml_content = self.env['ir.qweb']._render(
+            'purchase_order_export.purchase_order_sftp_export_template_v2',
+            {'po': po}
+        )
+        return xml_content.encode('utf-8'), 'text/xml', 'xml'
+
     def _generate_xlsx_content(self, po):
         """Generate an Excel file for the purchase order."""
         output = BytesIO()
@@ -100,7 +108,7 @@ class PurchaseOrder(models.Model):
             if po.state in ['done', 'cancel']:
                 raise ValidationError("Purchase order state should not be in 'Cancelled' or 'Done' state.")
 
-            if not export_format or export_format not in ['xlsx', 'xml']:
+            if not export_format or export_format not in ['xlsx', 'xml','xml_v2']:
                     raise ValidationError("Unsupported export format.")
 
             try:
@@ -108,6 +116,13 @@ class PurchaseOrder(models.Model):
                     content, mimetype, file_extension = self._generate_xlsx_content(po)
                 elif export_format == 'xml':
                     content, mimetype, file_extension = self._generate_xml_content(po)
+                    po.write({
+                        'xml_creation_time': fields.Datetime.now(),
+                        'is_xml_created': True
+                    })
+
+                elif export_format == 'xml_v2':
+                    content, mimetype, file_extension = self._generate_xml_v2_content(po)
                     po.write({
                         'xml_creation_time': fields.Datetime.now(),
                         'is_xml_created': True
