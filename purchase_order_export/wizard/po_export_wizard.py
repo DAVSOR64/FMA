@@ -10,7 +10,7 @@ class PoExportWizard(models.TransientModel):
     export_format = fields.Selection([
         ('xlsx', 'Excel'),
         ('xml', 'XML'),
-        ('xml_v2', 'XML (Version 2)')
+        ('xml_v2', 'XML (REYNAERS)')
     ], string='Export Format', default='xlsx')
 
     def action_export(self):
