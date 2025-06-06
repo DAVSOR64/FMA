@@ -8,9 +8,9 @@ class PoExportWizard(models.TransientModel):
     _description = 'Export Order Wizard'
 
     export_format = fields.Selection([
-        ('xlsx', 'Excel'),
-        ('xml', 'XML'),
-        ('xml_v2', 'XML (REYNAERS)')
+        ('xlsx', 'Excel (REYNAERS)'),
+        ('xml', 'XML (ComAlu)'),
+        ('xml_v2', 'XML (TIV)')
     ], string='Export Format', default='xlsx')
 
     def action_export(self):
