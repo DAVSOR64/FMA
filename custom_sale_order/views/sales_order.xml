@@ -85,13 +85,15 @@
         <!-- Modifier le bloc h2 pour ajouter "Valable 1 mois" pour les devis -->
         <xpath expr="//h2[@class='mt-4']" position="replace">
             <h2 class="mt-4" style="font-size: 20px;">
-                <!-- Ajout du nouveau champ personnalisé à la place du N° de devis -->
-                <span t-field="doc.x_studio_projet" />
-        
-                <!-- Ajout de la mention "Valable 1 mois" uniquement pour les devis -->
+                <!-- Affichage conditionnel de "Commande N°" ou "Devis N°" -->
+                <t t-if="doc.state in ['sale', 'done']">
+                    Commande N° : <span t-field="doc.x_studio_projet" />
+                </t>
                 <t t-if="doc.state in ['draft', 'sent']">
+                    Devis N° : <span t-field="doc.x_studio_projet" />
+                    <!-- Ajout de la mention "Valable 1 mois" uniquement pour les devis -->
                     <span class="text-muted" style="font-size: 14px; margin-left: 10px;">
-                        (Devis Valable 1 mois)
+                        (Valable 1 mois)
                     </span>
                 </t>
             </h2>
