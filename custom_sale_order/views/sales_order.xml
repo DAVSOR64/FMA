@@ -86,7 +86,7 @@
         <xpath expr="//h2[@class='mt-4']" position="replace">
             <h2 class="mt-4" style="font-size: 20px;">
                 <!-- Affichage conditionnel de "Commande N°" ou "Devis N°" -->
-                <t t-if="doc.state in ['sale', 'done']">
+                <t t-if="doc.state in ['sale', 'done','validated']">
                     Commande N° : <span t-field="doc.x_studio_projet" />
                 </t>
                 <t t-if="doc.state in ['draft', 'sent']">
