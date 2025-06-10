@@ -33,7 +33,7 @@
                 <div style="text-align: right;">
                     <br>
                         <strong>Commercial :</strong>
-                        #<span t-field="doc.x_studio_commercial_mtn_1" />
+                        #<span t-field="doc.x_studio_commercial_1" />
                     </br>
                 </div>
             </div>
