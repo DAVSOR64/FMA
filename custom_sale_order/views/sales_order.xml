@@ -91,7 +91,7 @@
                 <!-- Ajout de la mention "Valable 1 mois" uniquement pour les devis -->
                 <t t-if="doc.state in ['draft', 'sent']">
                     <span class="text-muted" style="font-size: 14px; margin-left: 10px;">
-                        (Valable 1 mois)
+                        (Devis Valable 1 mois)
                     </span>
                 </t>
             </h2>
