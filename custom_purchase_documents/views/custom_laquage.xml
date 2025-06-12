@@ -55,7 +55,7 @@
                 <div style="margin-bottom: 20px;"></div>
 
                 <!-- Détails du bon de laquage -->
-                <p style="margin-bottom: 5px;"><strong> OBJET : </strong><span t-field="doc.x_studio_many2one_field_LCOZX" /></p>
+                <p style="margin-bottom: 5px;"><strong> OBJET : </strong><span t-field="doc.x_studio_projet_du_so" /></p>
                 <p style="margin-top: 0; margin-bottom: 20px;"><strong> Référence : </strong><span t-field="doc.x_studio_rfrence" /></p>
 
                 <!-- Message de rappel -->
@@ -82,7 +82,6 @@
                             <td><span t-field="line.so_repere" /></td>
                             <td><span t-field="line.so_qte_commandee" /></td>
                             <td><span t-field="line.so_reliquat" /></td>
-                            <td><span t-field="line.create_date" t-field-options="{'date_only': True}"/></td>
                         </tr>
                     </tbody>
                 </table>
