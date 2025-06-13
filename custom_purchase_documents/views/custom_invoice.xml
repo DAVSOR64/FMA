@@ -6,30 +6,33 @@
 
             <!-- Adresses (Adresse de livraison et Adresse fournisseur côte à côte) -->
             <div class="row mt-3">
+                <!-- Adresse de Livraison -->
                 <div class="col-6 pe-3">
                     <strong>Adresse de Livraison :</strong>
                     <br/>
-                    <!-- Nom de la société -->
-                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.name" t-if="doc.picking_type_id.warehouse_id.partner_id"/>
-                    <br t-if="doc.picking_type_id.warehouse_id.partner_id.name"/>
-                    
-                    <!-- Adresse (Rue) -->
-                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.street" t-if="doc.picking_type_id.warehouse_id.partner_id.street"/>
-                    <br t-if="doc.picking_type_id.warehouse_id.partner_id.street"/>
-                    
+                    <!-- Détermination de l'adresse à afficher -->
+                    <t t-set="delivery_partner" t-value="doc.dest_address_id or doc.picking_type_id.warehouse_id.partner_id"/>
+        
+                    <!-- Nom -->
+                    <span t-esc="delivery_partner.name" t-if="delivery_partner.name"/>
+                    <br t-if="delivery_partner.name"/>
+        
+                    <!-- Rue -->
+                    <span t-esc="delivery_partner.street" t-if="delivery_partner.street"/>
+                    <br t-if="delivery_partner.street"/>
+        
                     <!-- Code postal et ville -->
-                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.zip" t-if="doc.picking_type_id.warehouse_id.partner_id.zip"/>
-                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.city" t-if="doc.picking_type_id.warehouse_id.partner_id.city"/>
-                    <br t-if="doc.picking_type_id.warehouse_id.partner_id.city or doc.picking_type_id.warehouse_id.partner_id.zip"/>
-                    
+                    <span t-esc="delivery_partner.zip" t-if="delivery_partner.zip"/>
+                    <span t-esc="delivery_partner.city" t-if="delivery_partner.city"/>
+                    <br t-if="delivery_partner.city or delivery_partner.zip"/>
+        
                     <!-- Pays -->
-                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.country_id.name" t-if="doc.picking_type_id.warehouse_id.partner_id.country_id.name"/>
-                    <br t-if="doc.picking_type_id.warehouse_id.partner_id.country_id.name"/>
-                    
-                    <!-- Numéro de téléphone -->
-                    <span t-esc="doc.picking_type_id.warehouse_id.partner_id.phone" t-if="doc.picking_type_id.warehouse_id.partner_id.phone"/>
+                    <span t-esc="delivery_partner.country_id.name" t-if="delivery_partner.country_id.name"/>
+                    <br t-if="delivery_partner.country_id.name"/>
+        
+                    <!-- Téléphone -->
+                    <span t-esc="delivery_partner.phone" t-if="delivery_partner.phone"/>
                 </div>
-
 
                 <!-- Adresse fournisseur -->
                 <div class="col-6 ps-3 text-end">
@@ -39,9 +42,8 @@
                     <span t-esc="doc.partner_id.street"/><br/>
                     <span t-esc="doc.partner_id.city"/> <span t-esc="doc.partner_id.zip"/>, <span t-esc="doc.partner_id.country_id.name"/><br/>
                     <span t-esc="doc.partner_id.vat"/><br/>
-                    <span class="text-end" t-esc="doc.partner_id.phone"/> <!-- Assurez-vous que cette ligne est bien alignée -->
+                    <span class="text-end" t-esc="doc.partner_id.phone"/>
                 </div>
-
             </div>
 
             <!-- Titre et Informations -->
