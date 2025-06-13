@@ -5,7 +5,7 @@
         <Commande>
           <En-tete>
             <version_edi>1.0</version_edi>
-            <site>JANNEAU</site>
+            <site>FMA-F2M</site>
             <date_envoi>
               <t t-esc="po.date_order.strftime('%d/%m/%Y') if po.date_order else ''"/>
             </date_envoi>
@@ -16,7 +16,7 @@
               <t t-esc="po.partner_id.name or ''"/>
             </fournisseur>
             <Lieu_livraison>
-              <t t-esc="po.shipping_partner_id.shipping_number or ''"/>
+              <t t-esc="po.x_studio_related_field_sKHUz"/>
             </Lieu_livraison>
             <quantite_totale>
               <t t-esc="sum(line.product_qty for line in po.order_line)"/>
@@ -24,7 +24,7 @@
             <date_livraison>
               <t t-esc="po.date_planned.strftime('%d/%m/%y') if po.date_planned else ''"/>
             </date_livraison>
-            <agres_de_livraison>CHARIOT</agres_de_livraison>
+            <agres_de_livraison></agres_de_livraison>
           </En-tete>
 
           <t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.product_id.default_code != 'affaire')"/>
@@ -43,7 +43,9 @@
                 <montant_net>
                   <t t-esc="'%.4f' % line.price_subtotal"/>
                 </montant_net>
-                <affaire/>
+                <affaire>
+                  <t t-esc="po.x_studio_many2one_field_LCOZX"/>
+                </affaire>
                 <commentaire/>
               </donnees_generales>
 
@@ -65,7 +67,9 @@
                 <code_barres>
                   <t t-esc="line.product_id.default_code or ''"/>001OUVFR
                 </code_barres>
-                <chantier>Alexis / Branchereau</chantier>
+                <chantier>
+                    <t t-esc="po.x_studio_project_po"/>
+                </chantier>
                 <type_cde>Commandes Normales</type_cde>
                 <nature_defaut/>
                 <numero_arc_origine/>
@@ -74,35 +78,45 @@
                 <ligne_commande_origine/>
                 <altitude/>
                 <sens_depose_vi_sur_chariot/>
-                <tri_chariot>OUVFR</tri_chariot>
+                <tri_chariot></tri_chariot>
                 <filmage/>
                 <emballage/>
               </donnees_logistiques>
 
               <donnees_techniques>
-                <largeur>781</largeur>
-                <hauteur>524</hauteur>
-                <schema_forme>F00</schema_forme>
-                <cote_W/>
-                <cote_W1/>
-                <cote_W2/>
-                <cote_H/>
-                <cote_H1/>
-                <cote_H2/>
-                <cote_R/>
-                <cote_R1/>
-                <cote_R2/>
-                <cote_D/>
+                <largeur>
+                    <t t-esc="line.x_studio_largeur or ''"/>
+                </largeur>
+                <hauteur>
+                    <t t-esc="line.x_studio_hauteur or ''"/>
+                </hauteur>
+                <schema_forme></schema_forme>
                 <code_composition_vitrage/>
-                <designation_composition_vitrage>4 FE/16NOIR T ARG/44.2</designation_composition_vitrage>
-                <type_petits_bois/>
-                <couleur_petits_bois/>
-                <nombre_barre_horizontale/>
-                <nombre_barre_verticale/>
-                <schema_petits_bois_horizontale/>
-                <schema_petits_bois_vertical/>
-                <positionnement_barre_horizontale/>
-                <positionnement_barre_verticale/>
+                <designation_composition_vitrage></designation_composition_vitrage>
+                <type_petits_bois>
+                    <t t-esc="line.product_id.x_studio_type_pb"/>
+                </type_petits_bois>
+                <couleur_petits_bois>
+                    <t t-esc="line.product_id.x_studio_couleur_pb_intext"/>
+                </couleur_petits_bois>
+                <nombre_barre_horizontale>
+                    <t t-esc="line.product_id.x_studio_nbr_pb_horizontal"/>
+                </nombre_barre_horizontale>
+                <nombre_barre_verticale>
+                  <t t-esc="line.product_id.x_studio_nbr_pb_vertical"/>
+                </nombre_barre_verticale>
+                <positionnement_x_barre_horizontale>
+                  <t t-esc="line.product_id.x_studio_position_en_x_pb_horizontal_1"/>
+                </positionnement_x_barre_horizontale>
+                <positionnement_y_barre_horizontale>
+                  <t t-esc="line.product_id.x_studio_position_en_y_pb_horizontal_1"/>
+                </positionnement_y_barre_horizontale>
+                <positionnement_x_barre_verticale>
+                  <t t-esc="line.product_id.x_studio_position_en_x_pb_vertical_1"/>
+                </positionnement_x_barre_verticale>
+                <positionnement_y_barre_verticale>
+                    <t t-esc="line.product_id.x_studio_position_en_y_pb_vertical_1"/>
+                </positionnement_y_barre_verticale>
                 <PLAN/>
                 <decor/>
               </donnees_techniques>
