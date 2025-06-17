@@ -1594,10 +1594,11 @@ class SqliteConnector(models.Model):
         # Étape 4 – Ajouter dans la nomenclature
         if nomenclatures_data:
             nomenclatures_data[0].update({
-                'operation_ids': operation_ids,
-                'duration_expected': total_duration,  # en minutes
-                'consumption': 'flexible',
+                #'operation_ids': operation_ids,
+                'produce_delay': total_duration,  # en minutes
+                'consumption': 'warning',
                 'ready_to_produce': 'asap',
+                'allow_operation_dependencies': True,
             })
 
         cursor.close()
