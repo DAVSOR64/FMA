@@ -974,6 +974,7 @@ class SqliteConnector(models.Model):
                     position = str(row[9])
                 
                 Frsid = row[17]
+                Id = str(row[16])
                 #_logger.warning('fournisseur %s :' % str(Frsid))
                 typeglass = ''
                 type = row[18]
@@ -1000,7 +1001,7 @@ class SqliteConnector(models.Model):
                     else:
                         self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
                 
-                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,typeglass)
+                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,typeglass,Id)
             
             fournisseur = ''
             info_livraison =''
@@ -1036,13 +1037,14 @@ class SqliteConnector(models.Model):
                     spacer = ligne[7]
                     delai = ligne[9]
                     type = ligne[10]
+                    Id = ligne[10]
                     #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
                     if not self.env['product.product'].search([('default_code', '=', refinterne)], limit=1):
                         vals = {
                             'default_code': refinterne,
-                            'name': vitrage,
+                            'name': vitrage + " " + Id,
                             'lst_price': 1,
                             'standard_price': prix,
                             'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
