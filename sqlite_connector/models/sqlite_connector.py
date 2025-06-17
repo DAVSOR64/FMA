@@ -1565,7 +1565,7 @@ class SqliteConnector(models.Model):
         
             # Rechercher le délai inter-opérations dans ton modèle Studio
             if previous_wc:
-                delay = self.env['x_delai_entre_operatio_line_10114'].search([
+                delay = self.env['x_delai_entre_operatio'].search([
                     ('x_studio_poste_de_travail_deb', '=', previous_wc.id),
                     ('x_studio_poste_de_travail_fin', '=', workcenter.id)
                 ], limit=1)
