@@ -1563,7 +1563,7 @@ class SqliteConnector(models.Model):
                 nomenclatures_data[0]['operation_ids'].append((0, 0, operation_data))
 
         # Récupérer la date de livraison depuis la commande client
-        date_livraison = production.sale_order_id.commitment_date or production.sale_order_id.date_order
+        date_livraison = sale_order_id.commitment_date 
         date_courante = date_livraison
 
         workorders = production.workorder_ids.sorted('sequence', reverse=True)
@@ -1595,12 +1595,12 @@ class SqliteConnector(models.Model):
         temp_file.close()
         cursor1.close()
         
-        for bom_data in nomenclatures_data:
-            product_tmpl_id = bom_data.get("product_tmpl_id")
-            if product_tmpl_id in zero_delay_products:
-                bom_data["produce_delay"] = 0
-            elif product_tmpl_id in delaifab_delay_products:
-                bom_data["produce_delay"] = delaifab
+        #for bom_data in nomenclatures_data:
+        #    product_tmpl_id = bom_data.get("product_tmpl_id")
+        #    if product_tmpl_id in zero_delay_products:
+        #        bom_data["produce_delay"] = 0
+        #    elif product_tmpl_id in delaifab_delay_products:
+        #        bom_data["produce_delay"] = delaifab
 
         for so in so_data:
             for so_to_update in self.env['sale.order'].browse(so):
