@@ -935,7 +935,7 @@ class SqliteConnector(models.Model):
 
             # On vient créer une fonction permettant de créer la liste des vitrages 
             
-            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type):
+            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,Id):
                 trouve = False
                 for item in Glass:
                     # Si le vitrage existe déjà on vient mettre à jour la quantité
@@ -946,7 +946,7 @@ class SqliteConnector(models.Model):
             
                 # Si le vitrage n'est pas trouvé, ajouter une nouvelle ligne
                 if not trouve:
-                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type])
+                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,Id])
                        
             Glass = []
             position = ''
