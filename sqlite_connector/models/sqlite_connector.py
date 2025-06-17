@@ -1541,20 +1541,55 @@ class SqliteConnector(models.Model):
                 else:
                     aggregated_data[ope] = {'temps': temps, 'name': name}
         
-        # Étape 2: Créer les opérations dans Odoo
-        for ope, data in aggregated_data.items():
+        # Trier les opérations selon x_sequence du poste de travail
+        sorted_operations = sorted(
+            aggregated_data.items(),
+            key=lambda item: self.env['mrp.workcenter'].search([('name', '=', item[1]['name'])], limit=1).code or 999
+        )
+
+        # Créer les opérations dans la nomenclature dans le bon ordre
+        for ope, data in sorted_operations:
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
                 continue
+
             operation_data = {
                 'name': ope,
                 'time_cycle_manual': data['temps'],
-                'workcenter_id': workcenter.id
+                'workcenter_id': workcenter.id,
+                'sequence': workcenter.code or 999
             }
-        
             if nomenclatures_data:
-                nomenclatures_data[0]['operation_ids'].append(Command.create(operation_data))
+                nomenclatures_data[0]['operation_ids'].append((0, 0, operation_data))
 
+        # Récupérer la date de livraison depuis la commande client
+        date_livraison = production.sale_order_id.commitment_date or production.sale_order_id.date_order
+        date_courante = date_livraison
+
+        workorders = production.workorder_ids.sorted('sequence', reverse=True)
+
+        for i, workorder in enumerate(workorders):
+            duree = timedelta(minutes=workorder.time_cycle)
+            date_debut = date_courante - duree
+            date_fin = date_courante
+
+            workorder.write({
+                'date_planned_start': date_debut,
+                'date_planned_finished': date_fin,
+            })
+
+            # Délai inter-opération (via poste de travail)
+            if i + 1 < len(workorders):
+                op_from = workorder.workcenter_id
+                op_to = workorders[i + 1].workcenter_id
+                delay = self.env['x_delai_entre_operatio_line_10114'].search([
+                    ('workcenter_from_id', '=', op_from.id),
+                    ('workcenter_to_id', '=', op_to.id)
+                ], limit=1)
+                delay_minutes = delay.delay_minutes if delay else 0.0
+                date_courante = date_debut - timedelta(minutes=delay_minutes)
+            else:
+                date_courante = date_debut
 
         cursor.close()
         temp_file.close()
