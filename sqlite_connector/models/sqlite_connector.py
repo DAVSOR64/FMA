@@ -1004,7 +1004,7 @@ class SqliteConnector(models.Model):
 
             # On vient créer une fonction permettant de créer la liste des vitrages 
             
-            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type):
+            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti ):
                 trouve = False
                 for item in Glass:
                     # Si le vitrage existe déjà on vient mettre à jour la quantité
@@ -1021,7 +1021,7 @@ class SqliteConnector(models.Model):
             
                 # Si le vitrage n'est pas trouvé, ajouter une nouvelle ligne
                 if not trouve:
-                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type])
+                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti])
                        
             Glass = []
             position = ''
@@ -1069,8 +1069,56 @@ class SqliteConnector(models.Model):
                     frsnomf = res_partner[0].name
                 else:
                     self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
+
+                glass_ids = row[16] 
+                #Récupérer tous les petits bois associés
+                cursor.execute("""
+                    SELECT Name, Orientation, StartX_Output, EndX_Output, StartY_Output, EndY_Output, Length_Output, BarType
+                    FROM GeorgianBars
+                    WHERE GlassID = ?
+                """, (glass_id,))
+                pb = cursor.fetchall()
+            
+                if not pb:
+                    continue
+            
+                #Séparer en barres horizontales et verticales
+                horizontaux = [r for r in pb if r[1] == 'Horizontal']
+                verticaux = [r for r in pb if r[1] == 'Vertical']
+            
+                #Fonctions de formatage
+                def fmt(v):
+                    try:
+                        return str(int(float(v.replace(',', '.'))))
+                    except:
+                        return '0'
+            
+                def join_positions(data, i_start, i_end):
+                    return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
+            
+                def join_longueurs(data, i_length, i_start, i_end):
+                    return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
+
+                # Sélection du type (nom du petit bois)
+                type_petits_bois = pb[0]
                 
-                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,type)
+                # Nombre de barres
+                nb_barre_horizontale = len(horizontaux)
+                nb_barre_verticale = len(verticaux)
+                
+                # Positions horizontales
+                pos_x_barre_horizontale = join_positions(horizontaux, 2, 3)
+                pos_y_barre_horizontale = join_positions(horizontaux, 4, 5)
+                
+                # Positions verticales
+                pos_x_barre_verticale = join_positions(verticaux, 2, 3)
+                pos_y_barre_verticale = join_positions(verticaux, 4, 5)
+                
+                # Longueurs
+                longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
+                longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
+                
+                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,type,type_petis_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
             
             fournisseur = ''
             info_livraison =''
@@ -1107,6 +1155,15 @@ class SqliteConnector(models.Model):
                     _logger.warning('Spacer %s' % spacer)
                     delai = ligne[9]
                     type = ligne[10]
+                    Pbname = ligne[11]
+                    NbHori = int(ligne[12])
+                    NbVerti = int(ligne[13])
+                    PosiHoriX = ligne[14]
+                    PosiVertiX = ligne[15]
+                    PosiHoriY = ligne[16]
+                    PosiVertiY = ligne[17]
+                    LongHori = ligne[18]
+                    LongVerti = ligne[19]
                     #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
@@ -1128,6 +1185,13 @@ class SqliteConnector(models.Model):
                             'x_studio_cration_auto' : True,
                             'x_studio_spacer' : spacer,
                             'x_studio_type' : type,
+                            'x_studio_type_pb' : Pbname,
+                            'x_studio_nbr_pb_horizontal' : NbHori,
+                            'x_studio_nbr_pb_vertical' : NbVerti,
+                            'x_studio_position_en_x_pb_horizontal_1' : PosiHoriX,
+                            'x_studio_position_en_x_pb_vertical_1' : PosiVertiX,
+                            'x_studio_position_en_y_pb_horizontal_1' : PosiHoriY,
+                            'x_studio_position_en_y_pb_vertical_1' : PosiVertiY,
                             # 'x_studio_positionn': Posint,
                         }
                         if idfrs:
