@@ -1473,7 +1473,7 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
 
-        cursor.execute("SELECT COUNT(*) FROM CalcDetailItem")
+        cursor.execute("SELECT COUNT(*) FROM CalcDetailItems")
         count = cursor.fetchone()[0]
 
         _logger.warning("Nombre de lignes %s " % str(count) )
