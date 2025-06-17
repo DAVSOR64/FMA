@@ -670,7 +670,7 @@ class SqliteConnector(models.Model):
                    
             refart = ligne[0]
             nom = ligne[1]
-            prix = float (ligne[5])
+            prix = float (ligne[5]) if ligne[5] not in (None, '', ' ') else 0.0
             categorie = ligne[3]
             categ_id = self.env.ref(categorie)
             # Created new article
