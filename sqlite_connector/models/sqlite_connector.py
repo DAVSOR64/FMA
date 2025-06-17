@@ -1512,7 +1512,17 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
         
-        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId FROM LabourTimes order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
+        resuOpe = []
+        cursor.execute("""
+            SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId 
+            FROM LabourTimes 
+            ORDER BY CAST(LabourTimes.LabourTimeId AS INTEGER)
+        """)
+        while True:
+            rows = cursor.fetchmany(500)
+            if not rows:
+                break
+            resuOpe.extend(rows)
         name = ''
         ope = ''
         temps = 0
