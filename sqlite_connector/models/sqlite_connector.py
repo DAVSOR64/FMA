@@ -1573,7 +1573,7 @@ class SqliteConnector(models.Model):
         
             # Créer l’opération
             operation_data = {
-                'name': ope_name,
+                'name': data['name'],
                 'time_cycle_manual': temps_operation,
                 'workcenter_id': workcenter.id,
                 'sequence': int(workcenter.code or 999),
