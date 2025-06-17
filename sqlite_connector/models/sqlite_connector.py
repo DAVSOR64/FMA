@@ -1037,7 +1037,7 @@ class SqliteConnector(models.Model):
                     spacer = ligne[7]
                     delai = ligne[9]
                     type = ligne[10]
-                    Id = ligne[10]
+                    Id = ligne[11]
                     #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
