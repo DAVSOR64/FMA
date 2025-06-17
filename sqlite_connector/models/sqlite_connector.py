@@ -1563,7 +1563,7 @@ class SqliteConnector(models.Model):
                 nomenclatures_data[0]['operation_ids'].append((0, 0, operation_data))
 
         # Récupérer la date de livraison depuis la commande client
-        date_livraison = sale_order_id.commitment_date 
+        date_livraison = sale_order.commitment_date 
         date_courante = date_livraison
 
         workorders = production.workorder_ids.sorted('sequence', reverse=True)
