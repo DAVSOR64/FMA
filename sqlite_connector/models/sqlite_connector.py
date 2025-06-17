@@ -1519,8 +1519,9 @@ class SqliteConnector(models.Model):
         reference = ''
         
         for rowOpe in resuOpe:
-            temps = float(rowOpe[0])
+            temps = float(rowOpe[0]) if rowOpe[0] else 0.0
             reference = rowOpe[1].strip() if rowOpe[1] else ''
+            nom_base = rowOpe[2].strip() if rowOpe[2] else ''
             _logger.warning("**********ID********* %s " % str(rowOpe[3]) )
             if rowOpe[2] is not None and rowOpe[2] != '' :
                 if rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage':
@@ -1546,50 +1547,58 @@ class SqliteConnector(models.Model):
             aggregated_data.items(),
             key=lambda item: self.env['mrp.workcenter'].search([('name', '=', item[1]['name'])], limit=1).code or 999
         )
-
+        
+        # Étape 3 – Créer les opérations avec dépendances et calcul du temps total
+        operation_ids = []
+        total_duration = 0
+        previous_op_ref = None
+        previous_wc = None
+        
         # Créer les opérations dans la nomenclature dans le bon ordre
         for ope, data in sorted_operations:
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
                 continue
 
-            operation_data = {
-                'name': ope,
-                'time_cycle_manual': data['temps'],
-                'workcenter_id': workcenter.id,
-                'sequence': workcenter.code or 999
-            }
-            if nomenclatures_data:
-                nomenclatures_data[0]['operation_ids'].append((0, 0, operation_data))
-
-        # Récupérer la date de livraison depuis la commande client
-        date_livraison = sale_order.commitment_date 
-        date_courante = date_livraison
-
-        workorders = production.workorder_ids.sorted('sequence', reverse=True)
-
-        for i, workorder in enumerate(workorders):
-            duree = timedelta(minutes=workorder.time_cycle)
-            date_debut = date_courante - duree
-            date_fin = date_courante
-
-            workorder.write({
-                'date_planned_start': date_debut,
-                'date_planned_finished': date_fin,
-            })
-
-            # Délai inter-opération (via poste de travail)
-            if i + 1 < len(workorders):
-                op_from = workorder.workcenter_id
-                op_to = workorders[i + 1].workcenter_id
+            temps_operation = data['temps']
+            delay_minutes = 0.0
+        
+            # Rechercher le délai inter-opérations dans ton modèle Studio
+            if previous_wc:
                 delay = self.env['x_delai_entre_operatio_line_10114'].search([
-                    ('workcenter_from_id', '=', op_from.id),
-                    ('workcenter_to_id', '=', op_to.id)
+                    ('workcenter_from_id', '=', previous_wc.id),
+                    ('workcenter_to_id', '=', workcenter.id)
                 ], limit=1)
                 delay_minutes = delay.delay_minutes if delay else 0.0
-                date_courante = date_debut - timedelta(minutes=delay_minutes)
-            else:
-                date_courante = date_debut
+        
+            # Créer l’opération
+            operation_data = {
+                'name': ope_name,
+                'time_cycle_manual': temps_operation,
+                'workcenter_id': workcenter.id,
+                'sequence': int(workcenter.code or 999),
+            }
+        
+            if previous_op_ref:
+                operation_data['previous_operation_ids'] = [(4, previous_op_ref)]
+        
+            op_command = (0, 0, operation_data)
+            operation_ids.append(op_command)
+        
+            total_duration += temps_operation + delay_minutes
+        
+            # Simuler l’ID de l’opération précédente
+            previous_op_ref = self.env['mrp.routing.workcenter'].new(operation_data).id
+            previous_wc = workcenter
+        
+        # Étape 4 – Ajouter dans la nomenclature
+        if nomenclatures_data:
+            nomenclatures_data[0].update({
+                'operation_ids': operation_ids,
+                'duration_expected': total_duration,  # en minutes
+                'consumption': 'flexible',
+                'ready_to_produce': 'asap',
+            })
 
         cursor.close()
         temp_file.close()
