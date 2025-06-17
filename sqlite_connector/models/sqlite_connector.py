@@ -1579,6 +1579,9 @@ class SqliteConnector(models.Model):
                 'sequence': int(workcenter.code or 999),
             }
         
+            if nomenclatures_data:
+                nomenclatures_data[0]['operation_ids'].append(Command.create(operation_data))
+            
             if previous_op_ref:
                 operation_data['previous_operation_ids'] = [(4, previous_op_ref)]
         
@@ -1595,7 +1598,7 @@ class SqliteConnector(models.Model):
         if nomenclatures_data:
             nomenclatures_data[0].update({
                 #'operation_ids': operation_ids,
-                'produce_delay': total_duration,  # en minutes
+                'produce_delay': math.ceil(total_duration / 480) ,  # en jours arrondi au superieur
                 'consumption': 'warning',
                 'ready_to_produce': 'asap',
                 'allow_operation_dependencies': True,
