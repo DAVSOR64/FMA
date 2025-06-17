@@ -1070,7 +1070,7 @@ class SqliteConnector(models.Model):
                 else:
                     self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
 
-                glass_ids = row[16] 
+                glass_id = row[16] 
                 #Récupérer tous les petits bois associés
                 cursor.execute("""
                     SELECT Name, Orientation, StartX_Output, EndX_Output, StartY_Output, EndY_Output, Length_Output, BarType
