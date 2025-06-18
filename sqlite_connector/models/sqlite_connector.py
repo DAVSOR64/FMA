@@ -1611,7 +1611,7 @@ class SqliteConnector(models.Model):
                 'name': data['name'],
                 'time_cycle_manual': temps_operation,
                 'workcenter_id': workcenter.id,
-                'blocked_by_operation_ids' = dependencies,
+                'blocked_by_operation_ids' : dependencies,
                 'sequence': int(workcenter.code or 999),
             }    
             if nomenclatures_data:
