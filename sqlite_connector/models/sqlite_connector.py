@@ -362,10 +362,10 @@ class SqliteConnector(models.Model):
         BP = ''
         resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         rows = resultBP.fetchall()
-        _logger.warning("Nombre de lignes dans REPORTVARIABLES : %d" % len(rows))
+        #_logger.warning("Nombre de lignes dans REPORTVARIABLES : %d" % len(rows))
         
         for row in rows:
-            _logger.warning("Ligne : %s" % str(row))
+           # _logger.warning("Ligne : %s" % str(row))
             if (row[0] == 'UserVars') and (row[1] == 'UserInteger1'):
                 value = row[2].strip().replace(' ', '')
                 _logger.warning("Valeur nettoyée : %s" % value)
@@ -1515,6 +1515,9 @@ class SqliteConnector(models.Model):
         cursor.execute("SELECT COUNT(*) FROM LabourTimes")
         count = cursor.fetchone()[0]
 
+        for row in count :
+            _logger.warning("Temps %s " % str(row[5]))        
+            
         _logger.warning("Nombre de lignes %s " % str(count) )
         
         resuOpe = []
