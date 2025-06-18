@@ -1605,7 +1605,7 @@ class SqliteConnector(models.Model):
             if posteblo2 and posteblo2.id in operation_links:
                 dependencies.append((4, operation_links[posteblo2.id]['id']))
         
-            
+            _logger.warning("**********Opertion bloquante********* %s " % str(dependencies) )
             # Créer l’opération
             operation_data = {
                 'name': data['name'],
