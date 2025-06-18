@@ -1571,6 +1571,7 @@ class SqliteConnector(models.Model):
         total_duration = 0
         previous_op_ref = None
         previous_wc = None
+        operation_links = {}  # Pour gérer les dépendance
         
         # Créer les opérations dans la nomenclature dans le bon ordre
         for ope, data in sorted_operations:
@@ -1578,6 +1579,15 @@ class SqliteConnector(models.Model):
             if not workcenter:
                 continue
 
+            # Récupération des postes bloquants depuis le modèle personnalisé
+            posteblo1 = self.env['x_delai_entre_operatio'].search([
+                ('x_studio_poste_de_travail_fin', '=', workcenter.id)
+            ], limit=1).x_studio_poste_bloquant_1
+        
+            posteblo2 = self.env['x_delai_entre_operatio'].search([
+                ('x_studio_poste_de_travail_fin', '=', workcenter.id)
+            ], limit=1).x_studio_poste_bloquant_2
+            
             temps_operation = data['temps']
             delay_minutes = 0.0
         
@@ -1585,7 +1595,7 @@ class SqliteConnector(models.Model):
             if previous_wc:
                 delay = self.env['x_delai_entre_operatio'].search([
                     ('x_studio_poste_de_travail_deb', '=', previous_wc.id),
-                    ('x_studio_poste_de_travail_fin', '=', workcenter.id)
+                    ('x_studio_poste_de_travail_fin', '=', workcenter.id),
                 ], limit=1)
                 delay_minutes = delay.x_studio_dlai_entre_oprations if delay else 0.0
         
@@ -1596,7 +1606,16 @@ class SqliteConnector(models.Model):
                 'workcenter_id': workcenter.id,
                 'sequence': int(workcenter.code or 999),
             }
+
+            dependencies = []
+            if posteblo1 and posteblo1.id in operation_links:
+                dependencies.append((4, operation_links[posteblo1.id]['id']))
+            if posteblo2 and posteblo2.id in operation_links:
+                dependencies.append((4, operation_links[posteblo2.id]['id']))
         
+            if dependencies:
+                operation_data['workorder_dependency_ids'] = dependencies
+                
             if nomenclatures_data:
                 nomenclatures_data[0]['operation_ids'].append(Command.create(operation_data))
             
