@@ -1600,9 +1600,9 @@ class SqliteConnector(models.Model):
                 delay_minutes = delay.x_studio_dlai_entre_oprations if delay else 0.0
 
             dependencies = []
-            if posteblo1 and posteblo1.id in operation_links:
+            if posteblo1 :
                 dependencies.append((4, operation_links[posteblo1.id]['id']))
-            if posteblo2 and posteblo2.id in operation_links:
+            if posteblo2 :
                 dependencies.append((4, operation_links[posteblo2.id]['id']))
         
             _logger.warning("**********Opertion bloquante********* %s " % str(dependencies) )
