@@ -1537,7 +1537,7 @@ class SqliteConnector(models.Model):
             temps = float(rowOpe[0]) if rowOpe[0] else 0.0
             reference = rowOpe[1].strip() if rowOpe[1] else ''
             nom_base = rowOpe[2].strip() if rowOpe[2] else ''
-            _logger.warning("**********ID********* %s " % str(rowOpe[3]) )
+            #_logger.warning("**********ID********* %s " % str(rowOpe[3]) )
             if rowOpe[2] is not None and rowOpe[2] != '' :
                 if rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage':
                     name = 'Remontage'  + ' ' + eticom
