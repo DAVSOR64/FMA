@@ -1514,7 +1514,7 @@ class SqliteConnector(models.Model):
 
         resu = cursor.execute("SELECT * FROM LabourTimes")
         for row in resu :
-            _logger.warning("Temps %s " % str(row[5]))        
+            _logger.warning("Temps %s " % str(row[7]))        
         
         cursor.execute("SELECT COUNT(*) FROM LabourTimes")
         count = cursor.fetchone()[0]    
