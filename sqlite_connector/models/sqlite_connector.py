@@ -1614,7 +1614,7 @@ class SqliteConnector(models.Model):
                 dependencies.append((4, operation_links[posteblo2.id]['id']))
         
             if dependencies:
-                operation_data['workorder_dependency_ids'] = dependencies
+                operation_data['blocked_by_operation_ids'] = dependencies
                 
             if nomenclatures_data:
                 nomenclatures_data[0]['operation_ids'].append(Command.create(operation_data))
