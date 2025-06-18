@@ -1512,12 +1512,12 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
 
-        cursor.execute("SELECT COUNT(*) FROM LabourTimes")
-        count = cursor.fetchone()[0]
-
-        for row in count :
+        resu = cursor.execute("SELECT * FROM LabourTimes")
+        for row in resu :
             _logger.warning("Temps %s " % str(row[5]))        
-            
+        
+        cursor.execute("SELECT COUNT(*) FROM LabourTimes")
+        count = cursor.fetchone()[0]    
         _logger.warning("Nombre de lignes %s " % str(count) )
         
         resuOpe = []
