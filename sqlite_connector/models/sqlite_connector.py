@@ -1474,7 +1474,7 @@ class SqliteConnector(models.Model):
         aggregated_data = {}
 
         cursor.execute("SELECT COUNT(*) FROM LabourTimes")
-        count = cursor.fetchone()[7]
+        count = cursor.fetchone()[0]
 
         _logger.warning("Nombre de lignes %s " % str(count) )
         
