@@ -1598,14 +1598,6 @@ class SqliteConnector(models.Model):
                     ('x_studio_poste_de_travail_fin', '=', workcenter.id),
                 ], limit=1)
                 delay_minutes = delay.x_studio_dlai_entre_oprations if delay else 0.0
-        
-            # Créer l’opération
-            operation_data = {
-                'name': data['name'],
-                'time_cycle_manual': temps_operation,
-                'workcenter_id': workcenter.id,
-                'sequence': int(workcenter.code or 999),
-            }
 
             dependencies = []
             if posteblo1 and posteblo1.id in operation_links:
@@ -1613,9 +1605,15 @@ class SqliteConnector(models.Model):
             if posteblo2 and posteblo2.id in operation_links:
                 dependencies.append((4, operation_links[posteblo2.id]['id']))
         
-            if dependencies:
-                operation_data['blocked_by_operation_ids'] = dependencies
-                
+            
+            # Créer l’opération
+            operation_data = {
+                'name': data['name'],
+                'time_cycle_manual': temps_operation,
+                'workcenter_id': workcenter.id,
+                'blocked_by_operation_ids' = dependencies,
+                'sequence': int(workcenter.code or 999),
+            }    
             if nomenclatures_data:
                 nomenclatures_data[0]['operation_ids'].append(Command.create(operation_data))
             
