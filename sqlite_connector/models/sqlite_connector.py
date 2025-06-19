@@ -502,7 +502,8 @@ class SqliteConnector(models.Model):
         datejourd = fields.Date.today()
         # On vient créer une fonction permettant de créer la liste des articles/profilés 
         QteArt = 0    
-        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix, , UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal):
+        vide = ''
+        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix,vide,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal):
             trouve = False
             for item in Article:
                 # Si l'article existe déjà on ne fait rien
@@ -514,10 +515,10 @@ class SqliteConnector(models.Model):
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix, , UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
+                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix,vide,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
                 
         # On vient créer une fonction permettant de créer les Purchase Order   
-        def creation_commande(Commande, refinterne, unstk, fournisseur, prix, , UV, Qte):
+        def creation_commande(Commande, refinterne, unstk, fournisseur, prix,vide, ,UV, Qte):
             trouve = False
             for item in Commande:
                 if item[0] == refinterne :
@@ -528,7 +529,7 @@ class SqliteConnector(models.Model):
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Commande.append([refinterne, unstk, fournisseur, prix, , UV, Qte])
+                Commande.append([refinterne, unstk, fournisseur, prix,vide , UV, Qte])
         
         # On vient créer une fonction permettant de créer les Nomenclatures   
         def creation_nomenclature(Nomenclature, refinterne, unstk,  Qte):
