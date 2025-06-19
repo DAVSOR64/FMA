@@ -1,9 +1,14 @@
+import logging
 from odoo import models, fields, api
 from datetime import timedelta
 
+_logger = logging.getLogger(__name__)
+
 class MrpProduction(models.Model):
     _inherit = 'mrp.production'
+    ir_log_ids = fields.One2many('ir.logging', 'connector_id')
 
+    _logger.warning("**********dans le module********* %s ")
     def button_plan(self):
         res = super().button_plan()
 
@@ -17,8 +22,9 @@ class MrpProduction(models.Model):
                         ('x_studio_poste_de_travail_deb', '=', previous_op.workcenter_id.id),
                         ('x_studio_poste_de_travail_fin', '=', workorder.workcenter_id.id)
                     ], limit=1)
-
+                    
                     delay_minutes = delay_obj.x_studio_dlai_entre_opration if delay_obj else 0
+                    _logger.warning("**********Delai********* %s " % str(delay_minutes) )
                     start_date = previous_op.date_planned_finished + timedelta(minutes=delay_minutes)
                     workorder.date_planned_start = start_date
 
