@@ -1633,11 +1633,11 @@ class SqliteConnector(models.Model):
         else:
             created_bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
         
-        bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
-        operations = bom.routing_id.operation_ids  # <--- c'est ici qu'on les trouve
-    
+        # Après création effective de la nomenclature
+        bom = self.env['mrp.bom'].browse(created_bom_id)
+        operations = bom.operation_ids
         op_by_wc = {op.workcenter_id.id: op for op in operations}
-    
+        
         for wc_id, link_data in operation_links.items():
             op = op_by_wc.get(wc_id)
             if op and link_data['blockers']:
