@@ -635,9 +635,9 @@ class SqliteConnector(models.Model):
                 
                 categorie = '__export__.product_category_14_a5d33274'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
+                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,vide, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
-                    creation_commande(Commande, refart, unit, fournisseur,prix ,, UV, Qte)
+                    creation_commande(Commande, refart, unit, fournisseur,prix ,vide, UV, Qte)
                     
         for ligne in Article :
             # we are looking for the ID of UnMe
