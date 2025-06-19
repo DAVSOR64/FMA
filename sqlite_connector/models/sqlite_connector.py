@@ -518,7 +518,7 @@ class SqliteConnector(models.Model):
                 Article.append([refinterne, nom, unstk, categorie, fournisseur, prix,vide,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
                 
         # On vient créer une fonction permettant de créer les Purchase Order   
-        def creation_commande(Commande, refinterne, unstk, fournisseur, prix,vide, ,UV, Qte):
+        def creation_commande(Commande, refinterne, unstk, fournisseur, prix,vide,UV, Qte):
             trouve = False
             for item in Commande:
                 if item[0] == refinterne :
