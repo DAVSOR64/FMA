@@ -1582,7 +1582,7 @@ class SqliteConnector(models.Model):
             delai_total_minutes += temps
         
             # Rechercher les postes bloquants
-            delay = self.env['x_delai_entre_operatio_line_10114'].search([
+            delay = self.env['x_delai_entre_operatio'].search([
                 ('x_studio_poste_de_travail_deb', '=', previous_workcenter.id if previous_workcenter else False),
                 ('x_studio_poste_de_travail_fin', '=', workcenter.id)
             ], limit=1)
