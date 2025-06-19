@@ -546,7 +546,7 @@ class SqliteConnector(models.Model):
         Article = []
         Commande = []
         Nomenclature = []
-         = 0
+        Qte = 0
         QteBesoin = 0
         LstArt = ''
         CptLb = 0
