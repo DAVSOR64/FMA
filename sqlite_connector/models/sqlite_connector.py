@@ -1633,54 +1633,23 @@ class SqliteConnector(models.Model):
         else:
             created_bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
         
-        # Vérifier que la nomenclature a bien un ID
-        nomenclature_dict = nomenclatures_data[0]
-        bom_id = nomenclature_dict.get('id')
+        # Ajout des dépendances entre opérations
+        bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
+        created_operations = bom.operation_ids
         
-        if not bom_id:
-            _logger.warning("Aucun ID de nomenclature trouvé pour affecter les dépendances.")
-        else:
-            # Ajout des dépendances entre opérations
-            nomenclature_dict = nomenclatures_data[0]
-            bom_id = nomenclature_dict.get('id')
-            if bom_id:
-                bom = self.env['mrp.bom'].browse(bom_id)
-                created_operations = bom.operation_ids
-            
-                op_by_wc = {op.workcenter_id.id: op for op in created_operations}
-            
-               for wc_id, link_data in operation_links.items():
-                    op = op_by_wc.get(wc_id)
-                    if op and link_data['blockers']:
-                        blockers = []
-                        for bid in link_data['blockers']:
-                            blocker_op = op_by_wc.get(bid)
-                            if blocker_op:
-                                blockers.append(blocker_op.id)
-                        if blockers:
-                            op.write({'operation_dependency_ids': [(6, 0, blockers)]})
-
-            else:
-                _logger.warning("Impossible d’ajouter les dépendances : pas d’ID de nomenclature trouvé.")
+        op_by_wc = {op.workcenter_id.id: op for op in created_operations}
         
-            # Créer un dictionnaire pour retrouver les opérations par poste de travail
-            op_by_wc = {op.workcenter_id.id: op for op in created_operations}
-        
-            for wc_id, link_data in operation_links.items():
-                op = op_by_wc.get(wc_id)
-                if op and link_data['blockers']:
-                    blockers = [op_by_wc[bid].id for bid in link_data['blockers'] if bid in op_by_wc]
-                    if blockers:
-                        op.write({'operation_dependency_ids': [(4, bid) for bid in blockers]})
-                
-                op_by_wc = {op.workcenter_id.id: op for op in created_operations}
-                
-                for wc_id, link_data in operation_links.items():
-                    op = op_by_wc.get(wc_id)
-                    if op and link_data['blockers']:
-                        blockers = [op_by_wc[bid].id for bid in link_data['blockers'] if bid in op_by_wc]
-                        if blockers:
-                            op.write({'operation_dependency_ids': [(4, bid) for bid in blockers]})
+        for wc_id, link_data in operation_links.items():
+            op = op_by_wc.get(wc_id)
+            if op and link_data['blockers']:
+                blockers = []
+                for bid in link_data['blockers']:
+                    blocker_op = op_by_wc.get(bid)
+                    if blocker_op:
+                        blockers.append(blocker_op.id)
+                if blockers:
+                    op.write({'operation_dependency_ids': [(6, 0, blockers)]})
+                                    op.write({'operation_dependency_ids': [(4, bid) for bid in blockers]})
 
         cursor.close()
         temp_file.close()
