@@ -8,8 +8,9 @@ class MrpProduction(models.Model):
     _inherit = 'mrp.production'
     ir_log_ids = fields.One2many('ir.logging', 'connector_id')
 
-    _logger.warning("**********dans le module********* %s ")
+    
     def button_plan(self):
+        _logger.warning("**********dans le module********* %s ")
         res = super().button_plan()
 
         for production in self:
