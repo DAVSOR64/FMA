@@ -1649,12 +1649,16 @@ class SqliteConnector(models.Model):
             
                 op_by_wc = {op.workcenter_id.id: op for op in created_operations}
             
-                for wc_id, link_data in operation_links.items():
+               for wc_id, link_data in operation_links.items():
                     op = op_by_wc.get(wc_id)
                     if op and link_data['blockers']:
-                        blockers = [op_by_wc[bid].id for bid in link_data['blockers'] if bid in op_by_wc]
+                        blockers = []
+                        for bid in link_data['blockers']:
+                            blocker_op = op_by_wc.get(bid)
+                            if blocker_op:
+                                blockers.append(blocker_op.id)
                         if blockers:
-                            op.write({'operation_dependency_ids': [(4, bid) for bid in blockers]})
+                            op.write({'operation_dependency_ids': [(6, 0, blockers)]})
 
             else:
                 _logger.warning("Impossible d’ajouter les dépendances : pas d’ID de nomenclature trouvé.")
