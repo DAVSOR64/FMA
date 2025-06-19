@@ -1667,7 +1667,7 @@ class SqliteConnector(models.Model):
                 if op and link_data['blockers']:
                     blockers = [op_by_wc[bid].id for bid in link_data['blockers'] if bid in op_by_wc]
                     if blockers:
-                        op.write({'workorder_dependencies_ids': [(4, bid) for bid in blockers]})
+                        op.write({'operation_dependency_ids': [(4, bid) for bid in blockers]})
                 
                 op_by_wc = {op.workcenter_id.id: op for op in created_operations}
                 
@@ -1676,7 +1676,7 @@ class SqliteConnector(models.Model):
                     if op and link_data['blockers']:
                         blockers = [op_by_wc[bid].id for bid in link_data['blockers'] if bid in op_by_wc]
                         if blockers:
-                            op.write({'workorder_dependencies_ids': [(4, bid) for bid in blockers]})
+                            op.write({'operation_dependency_ids': [(4, bid) for bid in blockers]})
 
         cursor.close()
         temp_file.close()
