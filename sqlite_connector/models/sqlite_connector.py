@@ -1536,6 +1536,7 @@ class SqliteConnector(models.Model):
         ope = ''
         temps = 0
         reference = ''
+        delai_total_minutes = 0
         
         for rowOpe in resuOpe:
             temps = float(rowOpe[0]) if rowOpe[0] else 0.0
