@@ -243,9 +243,9 @@ class SqliteConnector(models.Model):
         Tranche = '0'
         PersonBE = ''
         project = ''
-        delaifab = 1
+        fab = 1
         zero_delay_products = []
-        delaifab_delay_products = []
+        fab_delay_products = []
         
         #_logger.warning("testttttt %s " % )
         
@@ -298,7 +298,7 @@ class SqliteConnector(models.Model):
             if (row[2] == '2') :
                 address = 'REM'
           if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
-                delaifab = float(row[2])
+                fab = float(row[2])
           #if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
           #  date_time = row[2]
           #  def convert(date_time):
@@ -466,7 +466,7 @@ class SqliteConnector(models.Model):
                     # Staging before merge :"_ids": [(4, self.env.ref('stock._warehouse0_mto').id), (4,self.env.ref('__export__.stock_location__99_adb9a7a8').id)],
                     "invoice_policy":"delivery",
                 })
-                delaifab_delay_products.append(product.product_tmpl_id.id)
+                fab_delay_products.append(product.product_tmpl_id.id)
                 message = _("Product has been Created: ") + product._get_html_link()
                 self.message_post(body=message)
                 self.env.cr.commit()
@@ -502,7 +502,7 @@ class SqliteConnector(models.Model):
         datejourd = fields.Date.today()
         # On vient créer une fonction permettant de créer la liste des articles/profilés 
         QteArt = 0    
-        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal):
+        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix, , UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal):
             trouve = False
             for item in Article:
                 # Si l'article existe déjà on ne fait rien
@@ -514,10 +514,10 @@ class SqliteConnector(models.Model):
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
+                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix, , UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
                 
         # On vient créer une fonction permettant de créer les Purchase Order   
-        def creation_commande(Commande, refinterne, unstk, fournisseur, prix, delai, UV, Qte):
+        def creation_commande(Commande, refinterne, unstk, fournisseur, prix, , UV, Qte):
             trouve = False
             for item in Commande:
                 if item[0] == refinterne :
@@ -528,7 +528,7 @@ class SqliteConnector(models.Model):
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Commande.append([refinterne, unstk, fournisseur, prix, delai, UV, Qte])
+                Commande.append([refinterne, unstk, fournisseur, prix, , UV, Qte])
         
         # On vient créer une fonction permettant de créer les Nomenclatures   
         def creation_nomenclature(Nomenclature, refinterne, unstk,  Qte):
@@ -545,7 +545,7 @@ class SqliteConnector(models.Model):
         Article = []
         Commande = []
         Nomenclature = []
-        delai = 0
+         = 0
         QteBesoin = 0
         LstArt = ''
         CptLb = 0
@@ -634,9 +634,9 @@ class SqliteConnector(models.Model):
                 
                 categorie = '__export__.product_category_14_a5d33274'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
+                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
-                    creation_commande(Commande, refart, unit, fournisseur,prix ,delai, UV, Qte)
+                    creation_commande(Commande, refart, unit, fournisseur,prix ,, UV, Qte)
                     
         for ligne in Article :
             # we are looking for the ID of UnMe
@@ -703,7 +703,7 @@ class SqliteConnector(models.Model):
                     seller = self.env['product.supplierinfo'].create({
                     'partner_id': idfrs,
                     'price': prix,
-                    'delay': delai,
+                    'delay': ,
                     })
                     vals.update({'seller_ids': [Command.set([seller.id])]})
                 product = self.env['product.product'].create(vals)
@@ -884,10 +884,10 @@ class SqliteConnector(models.Model):
                 #_logger.warning("**********Unite de mesure********* %s " % str(unit) )
                 categorie = '__export__.product_category_19_b8423373'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
+                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
                     _logger.warning("Profil existant %s " % refart )
-                    creation_commande(Commande, refart, unit, fournisseur,prixB ,delai, UV, Qte)
+                    creation_commande(Commande, refart, unit, fournisseur,prixB ,, UV, Qte)
             
             for ligne in Article :
                 # we are looking for the ID of UnMe
@@ -950,7 +950,7 @@ class SqliteConnector(models.Model):
                             seller = self.env['product.supplierinfo'].create({
                             'partner_id': idfrs,
                             'price': prix,
-                            'delay': delai,
+                            'delay': ,
                             })
                             vals.update({'seller_ids': [Command.set([seller.id])]})
                         product = self.env['product.product'].create(vals)
@@ -1004,7 +1004,7 @@ class SqliteConnector(models.Model):
 
             # On vient créer une fonction permettant de créer la liste des vitrages 
             
-            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti ):
+            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti ):
                 trouve = False
                 for item in Glass:
                     # Si le vitrage existe déjà on vient mettre à jour la quantité
@@ -1021,14 +1021,14 @@ class SqliteConnector(models.Model):
             
                 # Si le vitrage n'est pas trouvé, ajouter une nouvelle ligne
                 if not trouve:
-                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti])
+                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti])
                        
             Glass = []
             position = ''
             Info2 =''
             spacer = ''
             frsnomf = ''
-            delai = 0
+             = 0
             sname = ''
             
             resultg=cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId, Glass.ModelType from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
@@ -1037,11 +1037,11 @@ class SqliteConnector(models.Model):
                 if row[13] != 'Glass' :
                     Info2 = ''
                     spacer = ''
-                    delai = 21
+                     = 21
                 else :
                     Info2 = row[7]
                     spacer = row[14]
-                    delai = 14
+                     = 14
                 if (row[9] is None) :
                     position = 'X'
                 else :
@@ -1118,7 +1118,7 @@ class SqliteConnector(models.Model):
                 longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
                 longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
                 
-                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,type,type_petis_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
+                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],,type,type_petis_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
             
             fournisseur = ''
             info_livraison =''
@@ -1153,7 +1153,7 @@ class SqliteConnector(models.Model):
                     largNum = int(largNumDec)
                     spacer = ligne[7]
                     _logger.warning('Spacer %s' % spacer)
-                    delai = ligne[9]
+                     = ligne[9]
                     type = ligne[10]
                     Pbname = ligne[11]
                     NbHori = int(ligne[12])
@@ -1164,7 +1164,7 @@ class SqliteConnector(models.Model):
                     PosiVertiY = ligne[17]
                     LongHori = ligne[18]
                     LongVerti = ligne[19]
-                    #dateliv = datejourd + timedelta(days=delai)
+                    #dateliv = datejourd + timedelta(days=)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
                     if not self.env['product.product'].search([('default_code', '=', refinterne)], limit=1):
@@ -1567,7 +1567,7 @@ class SqliteConnector(models.Model):
         )
         
         # Calcul du délai global (temps total des opérations + délais inter-opérations)
-        delai_total_minutes = 0
+        _total_minutes = 0
         previous_workcenter = None
         operation_cmds = []
         operation_links = {}  # stocke les relations de dépendance
@@ -1620,7 +1620,7 @@ class SqliteConnector(models.Model):
             nomenclatures_data[0]['ready_to_produce'] = 'asap'
             nomenclatures_data[0]['consumption'] = 'flexible'
             nomenclatures_data[0]['allow_operation_dependencies'] = True
-            nomenclatures_data[0]['x_studio_delai_de_fabrication'] = delai_jours
+            nomenclatures_data[0]['time_cycle'] = delai_jours
         
         # Vérifier que la nomenclature a bien un ID
         nomenclature_dict = nomenclatures_data[0]
