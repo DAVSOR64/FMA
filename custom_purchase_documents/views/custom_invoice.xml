@@ -19,6 +19,10 @@
                     <t t-set="delivery_street" t-value="(doc.dest_address_id and doc.dest_address_id.street) or (doc.picking_type_id.warehouse_id.partner_id.street)"/>
                     <span t-esc="delivery_street" t-if="delivery_street"/><br t-if="delivery_street"/>
 
+                        <!-- Rue (ligne 2 / street2) -->
+                    <t t-set="delivery_street2" t-value="(doc.dest_address_id and doc.dest_address_id.street2) or (doc.picking_type_id.warehouse_id.partner_id.street2)"/>
+                    <span t-esc="delivery_street2" t-if="delivery_street2"/><br t-if="delivery_street2"/>
+
                     <!-- Code postal et ville -->
                     <t t-set="delivery_zip" t-value="(doc.dest_address_id and doc.dest_address_id.zip) or (doc.picking_type_id.warehouse_id.partner_id.zip)"/>
                     <t t-set="delivery_city" t-value="(doc.dest_address_id and doc.dest_address_id.city) or (doc.picking_type_id.warehouse_id.partner_id.city)"/>
