@@ -1566,78 +1566,74 @@ class SqliteConnector(models.Model):
             key=lambda item: self.env['mrp.workcenter'].search([('name', '=', item[1]['name'])], limit=1).code or 999
         )
         
-        # Étape 3 – Créer les opérations avec dépendances et calcul du temps total
-        operation_ids = []
-        total_duration = 0
-        previous_op_ref = None
-        previous_wc = None
-        operation_links = {}  # Pour gérer les dépendance
+        # Calcul du délai global (temps total des opérations + délais inter-opérations)
+        delai_total_minutes = 0
+        previous_workcenter = None
+        operation_cmds = []
+        operation_links = {}  # stocke les relations de dépendance
+        sequence = 1
         
-        # Créer les opérations dans la nomenclature dans le bon ordre
         for ope, data in sorted_operations:
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
                 continue
-
-            # Récupération des postes bloquants depuis le modèle personnalisé
-            posteblo1 = self.env['x_delai_entre_operatio'].search([
+        
+            temps = data['temps']
+            delai_total_minutes += temps
+        
+            # Rechercher les postes bloquants
+            delay = self.env['x_delai_entre_operatio_line_10114'].search([
+                ('x_studio_poste_de_travail_deb', '=', previous_workcenter.id if previous_workcenter else False),
                 ('x_studio_poste_de_travail_fin', '=', workcenter.id)
-            ], limit=1).x_studio_poste_bloquant_1
+            ], limit=1)
         
-            posteblo2 = self.env['x_delai_entre_operatio'].search([
-                ('x_studio_poste_de_travail_fin', '=', workcenter.id)
-            ], limit=1).x_studio_poste_bloquant_2
-            
-            temps_operation = data['temps']
-            delay_minutes = 0.0
+            delay_minutes = delay.x_studio_delai if delay else 0.0
+            delai_total_minutes += delay_minutes
         
-            # Rechercher le délai inter-opérations dans ton modèle Studio
-            if previous_wc:
-                delay = self.env['x_delai_entre_operatio'].search([
-                    ('x_studio_poste_de_travail_deb', '=', previous_wc.id),
-                    ('x_studio_poste_de_travail_fin', '=', workcenter.id),
-                ], limit=1)
-                delay_minutes = delay.x_studio_dlai_entre_oprations if delay else 0.0
-
-            dependencies = []
-            if posteblo1 :
-                dependencies.append((4, operation_links[posteblo1.id]['id']))
-            if posteblo2 :
-                dependencies.append((4, operation_links[posteblo2.id]['id']))
-        
-            _logger.warning("**********Opertion bloquante********* %s " % str(dependencies) )
-            # Créer l’opération
             operation_data = {
-                'name': data['name'],
-                'time_cycle_manual': temps_operation,
+                'name': ope,
+                'time_cycle_manual': temps,
                 'workcenter_id': workcenter.id,
-                'blocked_by_operation_ids' : dependencies,
-                'sequence': int(workcenter.code or 999),
-            }    
-            if nomenclatures_data:
-                nomenclatures_data[0]['operation_ids'].append(Command.create(operation_data))
-            
-            if previous_op_ref:
-                operation_data['previous_operation_ids'] = [(4, previous_op_ref)]
+                'sequence': sequence,
+            }
         
-            op_command = (0, 0, operation_data)
-            operation_ids.append(op_command)
+            op_cmd = Command.create(operation_data)
+            operation_cmds.append(op_cmd)
+            operation_links[workcenter.id] = {'sequence': sequence, 'command': op_cmd, 'blockers': []}
         
-            total_duration += temps_operation + delay_minutes
+            # Ajouter les postes bloquants éventuels
+            if delay:
+                if delay.x_studio_poste_bloquant_1:
+                    operation_links[workcenter.id]['blockers'].append(delay.x_studio_poste_bloquant_1.id)
+                if delay.x_studio_poste_bloquant_2:
+                    operation_links[workcenter.id]['blockers'].append(delay.x_studio_poste_bloquant_2.id)
         
-            # Simuler l’ID de l’opération précédente
-            previous_op_ref = self.env['mrp.routing.workcenter'].new(operation_data).id
-            previous_wc = workcenter
+            previous_workcenter = workcenter
+            sequence += 1
         
-        # Étape 4 – Ajouter dans la nomenclature
+        # Conversion du délai total en jours (base 480 min/jour) arrondi au supérieur
+        delai_jours = math.ceil(delai_total_minutes / 480)
+        
+        # Affecter les opérations et le délai sur la nomenclature
         if nomenclatures_data:
-            nomenclatures_data[0].update({
-                #'operation_ids': operation_ids,
-                'produce_delay': math.ceil(total_duration / 480) ,  # en jours arrondi au superieur
-                'consumption': 'warning',
-                'ready_to_produce': 'asap',
-                'allow_operation_dependencies': True,
-            })
+            nomenclatures_data[0]['operation_ids'] = operation_cmds
+            nomenclatures_data[0]['ready_to_produce'] = 'asap'
+            nomenclatures_data[0]['consumption'] = 'flexible'
+            nomenclatures_data[0]['allow_operation_dependencies'] = True
+            nomenclatures_data[0]['x_studio_delai_de_fabrication'] = delai_jours
+        
+        # Ajout des dépendances entre opérations
+        bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
+        created_operations = bom.operation_ids
+        
+        op_by_wc = {op.workcenter_id.id: op for op in created_operations}
+        
+        for wc_id, link_data in operation_links.items():
+            op = op_by_wc.get(wc_id)
+            if op and link_data['blockers']:
+                blockers = [op_by_wc[bid].id for bid in link_data['blockers'] if bid in op_by_wc]
+                if blockers:
+                    op.write({'workorder_dependencies_ids': [(4, bid) for bid in blockers]})
 
         cursor.close()
         temp_file.close()
