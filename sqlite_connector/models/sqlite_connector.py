@@ -1622,7 +1622,7 @@ class SqliteConnector(models.Model):
             nomenclatures_data[0]['ready_to_produce'] = 'asap'
             nomenclatures_data[0]['consumption'] = 'flexible'
             nomenclatures_data[0]['allow_operation_dependencies'] = True
-            #nomenclatures_data[0]['time_cycle'] = delai_jours
+            #nomenclatures_data[0]['produce_delay'] = delai_jours
         
         # Vérifier que la nomenclature a bien un ID
         nomenclature_dict = nomenclatures_data[0]
