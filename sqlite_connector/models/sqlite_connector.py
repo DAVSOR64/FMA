@@ -1634,7 +1634,7 @@ class SqliteConnector(models.Model):
             created_bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
         
         # Après création effective de la nomenclature
-        bom = self.env['mrp.bom'].browse(created_bom_id)
+        bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
         operations = bom.operation_ids
         op_by_wc = {op.workcenter_id.id: op for op in operations}
         
