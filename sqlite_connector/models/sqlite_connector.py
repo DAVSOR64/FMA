@@ -1634,20 +1634,20 @@ class SqliteConnector(models.Model):
             created_bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
         
         # Après création effective de la nomenclature
-        bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
-        operations = bom.operation_ids
-        op_by_wc = {op.workcenter_id.id: op for op in operations}
+        #bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
+        #operations = bom.operation_ids
+        #op_by_wc = {op.workcenter_id.id: op for op in operations}
         
-        for wc_id, link_data in operation_links.items():
-            op = op_by_wc.get(wc_id)
-            if op and link_data['blockers']:
-                blockers = []
-                for bid in link_data['blockers']:
-                    blocker_op = op_by_wc.get(bid)
-                    if blocker_op:
-                        blockers.append(blocker_op.id)
-                if blockers:
-                    op.write({'operation_dependency_ids': [(6, 0, blockers)]})
+        #for wc_id, link_data in operation_links.items():
+        #    op = op_by_wc.get(wc_id)
+        #    if op and link_data['blockers']:
+        #        blockers = []
+        #        for bid in link_data['blockers']:
+        #            blocker_op = op_by_wc.get(bid)
+        #            if blocker_op:
+        #                blockers.append(blocker_op.id)
+        #        if blockers:
+        #            op.write({'operation_dependency_ids': [(6, 0, blockers)]})
 
         cursor.close()
         temp_file.close()
