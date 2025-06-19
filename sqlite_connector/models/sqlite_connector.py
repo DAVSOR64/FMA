@@ -1587,7 +1587,7 @@ class SqliteConnector(models.Model):
                 ('x_studio_poste_de_travail_fin', '=', workcenter.id)
             ], limit=1)
         
-            delay_minutes = delay.x_studio_delai if delay else 0.0
+            delay_minutes = delay.x_studio_dlai_entre_oprations if delay else 0.0
             delai_total_minutes += delay_minutes
         
             operation_data = {
