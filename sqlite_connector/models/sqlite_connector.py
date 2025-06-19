@@ -1654,9 +1654,8 @@ class SqliteConnector(models.Model):
                     if op and link_data['blockers']:
                         blockers = [op_by_wc[bid].id for bid in link_data['blockers'] if bid in op_by_wc]
                         if blockers:
-                            op.write({
-                                'workorder_dependencies_ids': [(4, bid) for bid in blockers]
-                            })
+                            op.write({'operation_dependency_ids': [(4, bid) for bid in blockers]})
+
             else:
                 _logger.warning("Impossible d’ajouter les dépendances : pas d’ID de nomenclature trouvé.")
         
