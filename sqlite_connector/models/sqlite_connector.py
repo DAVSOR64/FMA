@@ -1622,11 +1622,17 @@ class SqliteConnector(models.Model):
             nomenclatures_data[0]['ready_to_produce'] = 'asap'
             nomenclatures_data[0]['consumption'] = 'flexible'
             nomenclatures_data[0]['allow_operation_dependencies'] = True
-            #nomenclatures_data[0]['produce_delay'] = delai_jours
+            nomenclatures_data[0]['produce_delay'] = delai_jours
         
         # Vérifier que la nomenclature a bien un ID
-        nomenclature_dict = nomenclatures_data[0]
-        bom_id = nomenclature_dict.get('id')
+        #nomenclature_dict = nomenclatures_data[0]
+        #bom_id = nomenclature_dict.get('id')
+        if not nomenclatures_data[0].get('id'):
+            created_bom = self.env['mrp.bom'].create(nomenclatures_data[0])
+            nomenclatures_data[0]['id'] = created_bom.id
+        else:
+            created_bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
+
         if not bom_id:
             _logger.warning("Aucun ID de nomenclature trouvé pour affecter les dépendances.")
         else:
