@@ -6,32 +6,35 @@
 
             <!-- Adresses (Adresse de livraison et Adresse fournisseur côte à côte) -->
             <div class="row mt-3">
-                <!-- Adresse de Livraison -->
+                <!-- Adresse de Livraison (champ à champ) -->
                 <div class="col-6 pe-3">
                     <strong>Adresse de Livraison :</strong>
                     <br/>
-                    <!-- Détermination de l'adresse à afficher -->
-                    <t t-set="delivery_partner" t-value="doc.dest_address_id or doc.picking_type_id.warehouse_id.partner_id"/>
-        
+
                     <!-- Nom -->
-                    <span t-esc="delivery_partner.name" t-if="delivery_partner.name"/>
-                    <br t-if="delivery_partner.name"/>
-        
+                    <t t-set="delivery_partner_name" t-value="(doc.dest_address_id and doc.dest_address_id.name) or (doc.picking_type_id.warehouse_id.partner_id.name)"/>
+                    <span t-esc="delivery_partner_name" t-if="delivery_partner_name"/><br t-if="delivery_partner_name"/>
+
                     <!-- Rue -->
-                    <span t-esc="delivery_partner.street" t-if="delivery_partner.street"/>
-                    <br t-if="delivery_partner.street"/>
-        
+                    <t t-set="delivery_street" t-value="(doc.dest_address_id and doc.dest_address_id.street) or (doc.picking_type_id.warehouse_id.partner_id.street)"/>
+                    <span t-esc="delivery_street" t-if="delivery_street"/><br t-if="delivery_street"/>
+
+                        <!-- Rue (ligne 2 / street2) -->
+                    <t t-set="delivery_street2" t-value="(doc.dest_address_id and doc.dest_address_id.street2) or (doc.picking_type_id.warehouse_id.partner_id.street2)"/>
+                    <span t-esc="delivery_street2" t-if="delivery_street2"/><br t-if="delivery_street2"/>
+
                     <!-- Code postal et ville -->
-                    <span t-esc="delivery_partner.zip" t-if="delivery_partner.zip"/>
-                    <span t-esc="delivery_partner.city" t-if="delivery_partner.city"/>
-                    <br t-if="delivery_partner.city or delivery_partner.zip"/>
-        
+                    <t t-set="delivery_zip" t-value="(doc.dest_address_id and doc.dest_address_id.zip) or (doc.picking_type_id.warehouse_id.partner_id.zip)"/>
+                    <t t-set="delivery_city" t-value="(doc.dest_address_id and doc.dest_address_id.city) or (doc.picking_type_id.warehouse_id.partner_id.city)"/>
+                    <span t-esc="delivery_zip" t-if="delivery_zip"/> <span t-esc="delivery_city" t-if="delivery_city"/><br t-if="delivery_zip or delivery_city"/>
+
                     <!-- Pays -->
-                    <span t-esc="delivery_partner.country_id.name" t-if="delivery_partner.country_id.name"/>
-                    <br t-if="delivery_partner.country_id.name"/>
-        
+                    <t t-set="delivery_country" t-value="(doc.dest_address_id and doc.dest_address_id.country_id.name) or (doc.picking_type_id.warehouse_id.partner_id.country_id.name)"/>
+                    <span t-esc="delivery_country" t-if="delivery_country"/><br t-if="delivery_country"/>
+
                     <!-- Téléphone -->
-                    <span t-esc="delivery_partner.phone" t-if="delivery_partner.phone"/>
+                    <t t-set="delivery_phone" t-value="(doc.dest_address_id and doc.dest_address_id.phone) or (doc.picking_type_id.warehouse_id.partner_id.phone)"/>
+                    <span t-esc="delivery_phone" t-if="delivery_phone"/>
                 </div>
 
                 <!-- Adresse fournisseur -->
