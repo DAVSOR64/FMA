@@ -1154,7 +1154,7 @@ class SqliteConnector(models.Model):
                     largNum = int(largNumDec)
                     spacer = ligne[7]
                     _logger.warning('Spacer %s' % spacer)
-                     = ligne[9]
+                    delai = ligne[9]
                     type = ligne[10]
                     Pbname = ligne[11]
                     NbHori = int(ligne[12])
