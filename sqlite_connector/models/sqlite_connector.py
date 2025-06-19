@@ -1633,11 +1633,10 @@ class SqliteConnector(models.Model):
         else:
             created_bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
         
-         # Ajout des dépendances entre opérations
         bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
-        created_operations = bom.operation_ids
+        operations = bom.routing_id.operation_ids  # <--- c'est ici qu'on les trouve
     
-        op_by_wc = {op.workcenter_id.id: op for op in created_operations}
+        op_by_wc = {op.workcenter_id.id: op for op in operations}
     
         for wc_id, link_data in operation_links.items():
             op = op_by_wc.get(wc_id)
