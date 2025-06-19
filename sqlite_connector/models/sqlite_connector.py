@@ -236,7 +236,7 @@ class SqliteConnector(models.Model):
             #    message = _("Standard Price is updated for product: ") + product._get_html_link()
             #    self.message_post(body=message)
 
-        # At FMA, they have a concept of tranches, that is to say that the project is divided into
+        # At FMA, they have a concept of tranches, that is to say that the project is didelaid into
         # several phases (they call it tranches). So I come to see if it is a project with installments or
         # not and I come to get the installment number
 
@@ -502,8 +502,8 @@ class SqliteConnector(models.Model):
         datejourd = fields.Date.today()
         # On vient créer une fonction permettant de créer la liste des articles/profilés 
         QteArt = 0    
-        vide = ''
-        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix,vide,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal):
+        delai = ''
+        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix,delai,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal):
             trouve = False
             for item in Article:
                 # Si l'article existe déjà on ne fait rien
@@ -515,10 +515,10 @@ class SqliteConnector(models.Model):
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix,vide,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
+                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix,delai,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
                 
         # On vient créer une fonction permettant de créer les Purchase Order   
-        def creation_commande(Commande, refinterne, unstk, fournisseur, prix,vide,UV, Qte):
+        def creation_commande(Commande, refinterne, unstk, fournisseur, prix,delai,UV, Qte):
             trouve = False
             for item in Commande:
                 if item[0] == refinterne :
@@ -529,7 +529,7 @@ class SqliteConnector(models.Model):
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Commande.append([refinterne, unstk, fournisseur, prix,vide , UV, Qte])
+                Commande.append([refinterne, unstk, fournisseur, prix,delai , UV, Qte])
         
         # On vient créer une fonction permettant de créer les Nomenclatures   
         def creation_nomenclature(Nomenclature, refinterne, unstk,  Qte):
@@ -635,9 +635,9 @@ class SqliteConnector(models.Model):
                 
                 categorie = '__export__.product_category_14_a5d33274'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,vide, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
+                    creation_article(Article, refart, nom, unit, categorie ,fournisseur,prix ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
-                    creation_commande(Commande, refart, unit, fournisseur,prix ,vide, UV, Qte)
+                    creation_commande(Commande, refart, unit, fournisseur,prix ,delai, UV, Qte)
                     
         for ligne in Article :
             # we are looking for the ID of UnMe
@@ -704,7 +704,7 @@ class SqliteConnector(models.Model):
                     seller = self.env['product.supplierinfo'].create({
                     'partner_id': idfrs,
                     'price': prix,
-                    'delay': ,
+                    'delay': delai,
                     })
                     vals.update({'seller_ids': [Command.set([seller.id])]})
                 product = self.env['product.product'].create(vals)
