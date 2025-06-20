@@ -1643,7 +1643,7 @@ class SqliteConnector(models.Model):
             
             for record in delai_records:
                 if operations :
-                    if x_studio_poste_de_travail_fin = operations.name :
+                    if x_studio_poste_de_travail_fin == operations.name :
                         poste_bloc_1 = record.x_studio_poste_bloquant_1.name if record.x_studio_poste_bloquant_1 else 'N/A'
                         poste_bloc_2 = record.x_studio_poste_bloquant_2.name if record.x_studio_poste_bloquant_2 else 'N/A'    
     
