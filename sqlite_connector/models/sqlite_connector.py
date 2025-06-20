@@ -1634,34 +1634,27 @@ class SqliteConnector(models.Model):
             self.message_post(body=message)
             # 🔍 Récupérer les opérations créées
             operations = bom.operation_ids
-    
-            # 💡 Trouver l'opération cible "Usinage F2M"
-            #current_op = operations.filtered(lambda op: op.name == "Assemblage F2M")
             
             # Parcours de tous les enregistrements du modèle Studio
             delai_records = self.env['x_delai_entre_operatio'].search([])
-            
-            for record in delai_records:
-                if operations :
-                    if record.x_studio_poste_de_travail_fin.name == operations.name :
-                        poste_bloc_1 = record.x_studio_poste_bloquant_1.name if record.x_studio_poste_bloquant_1 else 'N/A'
-                        poste_bloc_2 = record.x_studio_poste_bloquant_2.name if record.x_studio_poste_bloquant_2 else 'N/A'    
-    
-                #if current_op:
-                    # 🔍 Exemple : bloquer "Usinage F2M" tant que "Découpe" n’est pas finie
-                    #blocking_op = operations.filtered(lambda op: op.name == "Usinage F2M")
-    
-                        if poste_bloc_1:
-                            opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_1.id])]
-                            _logger.warning("✅ Dépendance 1 ajoutée ")
-                        else:
-                            _logger.warning("❌ Opération non trouvée")
-    
-                        if poste_bloc_2:
-                            opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_2.id])]
-                            _logger.warning("✅ Dépendance 2 ajoutée ")
-                        else:
-                            _logger.warning("❌ Opération non trouvée")
+
+            for ope in operations :
+                for record in delai_records:
+                    if record.x_studio_poste_de_travail_fin.name == ope.name :
+                            poste_bloc_1 = record.x_studio_poste_bloquant_1.name if record.x_studio_poste_bloquant_1 else 'N/A'
+                            poste_bloc_2 = record.x_studio_poste_bloquant_2.name if record.x_studio_poste_bloquant_2 else 'N/A'    
+        
+                            if poste_bloc_1:
+                                opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_1.id])]
+                                _logger.warning("✅ Dépendance 1 ajoutée ")
+                            else:
+                                _logger.warning("❌ Opération non trouvée")
+        
+                            if poste_bloc_2:
+                                opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_2.id])]
+                                _logger.warning("✅ Dépendance 2 ajoutée ")
+                            else:
+                                _logger.warning("❌ Opération non trouvée")
                 
             self.env.cr.commit()
 
