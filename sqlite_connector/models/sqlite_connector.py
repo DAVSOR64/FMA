@@ -1596,6 +1596,7 @@ class SqliteConnector(models.Model):
                 'name': ope,
                 'time_cycle_manual': temps,
                 'workcenter_id': workcenter.id,
+                'blocked_by_operation_ids' : 'Usinage F2M',
                 'sequence': sequence,
             }
         
@@ -1606,8 +1607,10 @@ class SqliteConnector(models.Model):
             # Ajouter les postes bloquants éventuels
             if delay:
                 if delay.x_studio_poste_bloquant_1:
+                    _logger.warning("**********ope bloquante 1********* %s " % str(delay.x_studio_poste_bloquant_1) )
                     operation_links[workcenter.id]['blockers'].append(delay.x_studio_poste_bloquant_1.id)
                 if delay.x_studio_poste_bloquant_2:
+                    _logger.warning("**********ope bloquante 2********* %s " % str(delay.x_studio_poste_bloquant_2) )
                     operation_links[workcenter.id]['blockers'].append(delay.x_studio_poste_bloquant_2.id)
         
             previous_workcenter = workcenter
@@ -1634,8 +1637,8 @@ class SqliteConnector(models.Model):
             created_bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
         
         # Après création effective de la nomenclature
-        #bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
-        #operations = bom.operation_ids
+        bom = self.env['mrp.bom'].browse(created_bom.id)
+        operations = bom.operation_ids
         #op_by_wc = {op.workcenter_id.id: op for op in operations}
         
         #for wc_id, link_data in operation_links.items():
