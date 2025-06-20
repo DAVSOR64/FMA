@@ -1604,7 +1604,7 @@ class SqliteConnector(models.Model):
                 'name': ope,
                 'time_cycle_manual': temps,
                 'workcenter_id': workcenter.id,
-                'blocked_by_operation_ids' : 'Usinage F2M',
+                #'blocked_by_operation_ids' : 'Usinage F2M',
                 'sequence': sequence,
             }
         
@@ -1635,42 +1635,10 @@ class SqliteConnector(models.Model):
             nomenclatures_data[0]['allow_operation_dependencies'] = True
             nomenclatures_data[0]['produce_delay'] = delai_jours
         
-        # Vérifier que la nomenclature a bien un ID
-        #nomenclature_dict = nomenclatures_data[0]
-        #bom_id = nomenclature_dict.get('id')
-        if not nomenclatures_data[0].get('id'):
-            created_bom = self.env['mrp.bom'].create(nomenclatures_data[0])
-            nomenclatures_data[0]['id'] = created_bom.id
-        else:
-            created_bom = self.env['mrp.bom'].browse(nomenclatures_data[0]['id'])
-        
-        # Après création effective de la nomenclature
-        bom = self.env['mrp.bom'].browse(created_bom.id)
-        operations = bom.operation_ids
-        #op_by_wc = {op.workcenter_id.id: op for op in operations}
-        
-        #for wc_id, link_data in operation_links.items():
-        #    op = op_by_wc.get(wc_id)
-        #    if op and link_data['blockers']:
-        #        blockers = []
-        #        for bid in link_data['blockers']:
-        #            blocker_op = op_by_wc.get(bid)
-        #            if blocker_op:
-        #                blockers.append(blocker_op.id)
-        #        if blockers:
-        #            op.write({'operation_dependency_ids': [(6, 0, blockers)]})
-
         cursor.close()
         temp_file.close()
         cursor1.close()
         
-        #for bom_data in nomenclatures_data:
-        #    product_tmpl_id = bom_data.get("product_tmpl_id")
-        #    if product_tmpl_id in zero_delay_products:
-        #        bom_data["produce_delay"] = 0
-        #    elif product_tmpl_id in delaifab_delay_products:
-        #        bom_data["produce_delay"] = delaifab
-
         for so in so_data:
             for so_to_update in self.env['sale.order'].browse(so):
                 so_to_update.write(so_data[so])
@@ -1682,6 +1650,23 @@ class SqliteConnector(models.Model):
             note = "Bill Of Material Created > %s" % (bom.display_name)
             message = _("Bill Of Material has been Created: ") + bom._get_html_link()
             self.message_post(body=message)
+            # 🔍 Récupérer les opérations créées
+            operations = bom.operation_ids
+    
+            # 💡 Trouver l'opération cible "Usinage F2M"
+            current_op = operations.filtered(lambda op: op.name == "Assemblage F2M")
+    
+            if current_op:
+                # 🔍 Exemple : bloquer "Usinage F2M" tant que "Découpe" n’est pas finie
+                blocking_op = operations.filtered(lambda op: op.name == "Usinage F2M")
+    
+                if blocking_op:
+                    current_op.blocked_by_operation_ids = [(6, 0, [blocking_op.id])]
+                    _logger.warning("✅ Dépendance ajoutée : Usinage F2M dépend de Découpe")
+                else:
+                    _logger.warning("❌ Opération 'Découpe' non trouvée")
+            else:
+                _logger.warning("❌ Opération 'Usinage F2M' non trouvée")
             self.env.cr.commit()
 
         self.state = 'done'
