@@ -1644,17 +1644,31 @@ class SqliteConnector(models.Model):
                             poste_bloc_1 = record.x_studio_poste_bloquant_1.name if record.x_studio_poste_bloquant_1 else 'N/A'
                             poste_bloc_2 = record.x_studio_poste_bloquant_2.name if record.x_studio_poste_bloquant_2 else 'N/A'    
         
-                            if poste_bloc_1:
-                                opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_1.id])]
-                                _logger.warning("✅ Dépendance 1 ajoutée ")
-                            else:
-                                _logger.warning("❌ Opération non trouvée")
+                            if record.x_studio_poste_bloquant_1:
+                                blocker_op_1 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_1.id)
+                                if blocker_op_1:
+                                    blockers.append(blocker_op_1.id)
+                                    _logger.warning("✅ Dépendance 1 ajoutée à %s", ope.name)
+                                else:
+                                    _logger.warning("❌ Poste bloquant 1 non trouvé pour %s", ope.name)
+                            if record.x_studio_poste_bloquant_2:
+                                blocker_op_2 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_2.id)
+                                if blocker_op_2:
+                                    blockers.append(blocker_op_2.id)
+                                    _logger.warning("✅ Dépendance 2 ajoutée à %s", ope.name)
+                                else:
+                                    _logger.warning("❌ Poste bloquant 2 non trouvé pour %s", ope.name)
+                            #if poste_bloc_1:
+                            #    opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_1.id])]
+                            #    _logger.warning("✅ Dépendance 1 ajoutée ")
+                            #else:
+                            #    _logger.warning("❌ Opération non trouvée")
         
-                            if poste_bloc_2:
-                                opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_2.id])]
-                                _logger.warning("✅ Dépendance 2 ajoutée ")
-                            else:
-                                _logger.warning("❌ Opération non trouvée")
+                            #if poste_bloc_2:
+                            #    opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_2.id])]
+                            #    _logger.warning("✅ Dépendance 2 ajoutée ")
+                            #else:
+                            #    _logger.warning("❌ Opération non trouvée")
                 
             self.env.cr.commit()
 
