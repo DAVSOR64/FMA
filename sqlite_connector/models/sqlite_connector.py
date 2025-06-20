@@ -1641,7 +1641,7 @@ class SqliteConnector(models.Model):
             for ope in operations :
                 for record in delai_records:
                     if record.x_studio_poste_de_travail_fin.name == ope.name :
-                        blockers = []
+                        #blockers = []
                         poste_bloc_1 = record.x_studio_poste_bloquant_1.name if record.x_studio_poste_bloquant_1 else 'N/A'
                         poste_bloc_2 = record.x_studio_poste_bloquant_2.name if record.x_studio_poste_bloquant_2 else 'N/A'    
     
@@ -1649,7 +1649,7 @@ class SqliteConnector(models.Model):
                             blocker_op_1 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_1.id)
                             if blocker_op_1:
                                 #blockers.append(blocker_op_1.id)
-                                ope.blocked_by_operation_ids = [(6, 0, [blocking_op_1.id])]
+                                ope.blocked_by_operation_ids = [(6, 0, [blocker_op_1.id])]
                                 _logger.warning("✅ Dépendance 1 ajoutée à %s", ope.name)
                             else:
                                 _logger.warning("❌ Poste bloquant 1 non trouvé pour %s", ope.name)
@@ -1657,7 +1657,7 @@ class SqliteConnector(models.Model):
                             blocker_op_2 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_2.id)
                             if blocker_op_2:
                                 #blockers.append(blocker_op_2.id)
-                                ope.blocked_by_operation_ids = [(6, 0, [blocking_op_2.id])]
+                                ope.blocked_by_operation_ids = [(6, 0, [blocker_op_2.id])]
                                 _logger.warning("✅ Dépendance 2 ajoutée à %s", ope.name)
                             else:
                                 _logger.warning("❌ Poste bloquant 2 non trouvé pour %s", ope.name)
