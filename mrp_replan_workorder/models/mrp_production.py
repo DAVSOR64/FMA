@@ -24,7 +24,7 @@ class MrpProduction(models.Model):
                         ('x_studio_poste_de_travail_fin', '=', workorder.workcenter_id.id)
                     ], limit=1)
                     
-                    delay_minutes = delay_obj.x_studio_dlai_entre_opration if delay_obj else 0
+                    delay_minutes = delay_obj.x_studio_dlai_entre_oprations if delay_obj else 0
                     _logger.warning("**********Delai********* %s " % str(delay_minutes))
                     start_date = previous_op.date_finished + timedelta(minutes=delay_minutes)
                     workorder.date_start = start_date
