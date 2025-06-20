@@ -1591,14 +1591,6 @@ class SqliteConnector(models.Model):
         
             delay_minutes = delay.x_studio_dlai_entre_oprations if delay else 0.0
             delai_total_minutes += delay_minutes
-
-            blocking_op = self.env['mrp.routing.workcenter'].search([('name', '=', 'Usinage F2M')], limit=1)
-            
-            # Vérifie que l’opération existe et utilise son ID
-            if blocking_op:
-                current_op.blocked_by_operation_ids = [(6, 0, [blocking_op.id])]
-            else:
-                _logger.warning("Aucune opération trouvée pour le blocage : Usinage F2M")
                 
             operation_data = {
                 'name': ope,
