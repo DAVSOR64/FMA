@@ -1639,7 +1639,7 @@ class SqliteConnector(models.Model):
             #current_op = operations.filtered(lambda op: op.name == "Assemblage F2M")
             
             # Parcours de tous les enregistrements du modèle Studio
-            delai_records = self.env['x_studio_dlai_entre_opratio'].search([])
+            delai_records = self.env['x_studio_delai_entre_opratio'].search([])
             
             for record in delai_records:
                 if operations :
