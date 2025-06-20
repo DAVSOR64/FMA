@@ -1648,14 +1648,16 @@ class SqliteConnector(models.Model):
                         if record.x_studio_poste_bloquant_1:
                             blocker_op_1 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_1.id)
                             if blocker_op_1:
-                                blockers.append(blocker_op_1.id)
+                                #blockers.append(blocker_op_1.id)
+                                ope.blocked_by_operation_ids = [(6, 0, [blocking_op_1.id])]
                                 _logger.warning("✅ Dépendance 1 ajoutée à %s", ope.name)
                             else:
                                 _logger.warning("❌ Poste bloquant 1 non trouvé pour %s", ope.name)
                         if record.x_studio_poste_bloquant_2:
                             blocker_op_2 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_2.id)
                             if blocker_op_2:
-                                blockers.append(blocker_op_2.id)
+                                #blockers.append(blocker_op_2.id)
+                                ope.blocked_by_operation_ids = [(6, 0, [blocking_op_2.id])]
                                 _logger.warning("✅ Dépendance 2 ajoutée à %s", ope.name)
                             else:
                                 _logger.warning("❌ Poste bloquant 2 non trouvé pour %s", ope.name)
