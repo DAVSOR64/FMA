@@ -1583,7 +1583,7 @@ class SqliteConnector(models.Model):
             temps = data['temps']
             delai_total_minutes += temps
         
-            # Rechercher les postes bloquants
+            # Rechercher des délais tampons
             delay = self.env['x_delai_entre_operatio'].search([
                 ('x_studio_poste_de_travail_deb', '=', previous_workcenter.id if previous_workcenter else False),
                 ('x_studio_poste_de_travail_fin', '=', workcenter.id)
@@ -1596,22 +1596,12 @@ class SqliteConnector(models.Model):
                 'name': ope,
                 'time_cycle_manual': temps,
                 'workcenter_id': workcenter.id,
-                #'blocked_by_operation_ids' : 'Usinage F2M',
                 'sequence': sequence,
             }
         
             op_cmd = Command.create(operation_data)
             operation_cmds.append(op_cmd)
             operation_links[workcenter.id] = {'sequence': sequence, 'command': op_cmd, 'blockers': []}
-        
-            # Ajouter les postes bloquants éventuels
-            if delay:
-                if delay.x_studio_poste_bloquant_1:
-                    _logger.warning("**********ope bloquante 1********* %s " % str(delay.x_studio_poste_bloquant_1) )
-                    operation_links[workcenter.id]['blockers'].append(delay.x_studio_poste_bloquant_1.id)
-                if delay.x_studio_poste_bloquant_2:
-                    _logger.warning("**********ope bloquante 2********* %s " % str(delay.x_studio_poste_bloquant_2) )
-                    operation_links[workcenter.id]['blockers'].append(delay.x_studio_poste_bloquant_2.id)
         
             previous_workcenter = workcenter
             sequence += 1
@@ -1646,19 +1636,33 @@ class SqliteConnector(models.Model):
             operations = bom.operation_ids
     
             # 💡 Trouver l'opération cible "Usinage F2M"
-            current_op = operations.filtered(lambda op: op.name == "Assemblage F2M")
+            #current_op = operations.filtered(lambda op: op.name == "Assemblage F2M")
+            
+            # Parcours de tous les enregistrements du modèle Studio
+            delai_records = self.env['x_studio_dlai_entre_oprations'].search([])
+            
+            for record in delai_records:
+                if operations :
+                    if x_studio_poste_de_travail_fin = operations.name :
+                        poste_bloc_1 = record.x_studio_poste_bloquant_1.name if record.x_studio_poste_bloquant_1 else 'N/A'
+                        poste_bloc_2 = record.x_studio_poste_bloquant_2.name if record.x_studio_poste_bloquant_2 else 'N/A'    
     
-            if current_op:
-                # 🔍 Exemple : bloquer "Usinage F2M" tant que "Découpe" n’est pas finie
-                blocking_op = operations.filtered(lambda op: op.name == "Usinage F2M")
+                #if current_op:
+                    # 🔍 Exemple : bloquer "Usinage F2M" tant que "Découpe" n’est pas finie
+                    #blocking_op = operations.filtered(lambda op: op.name == "Usinage F2M")
     
-                if blocking_op:
-                    current_op.blocked_by_operation_ids = [(6, 0, [blocking_op.id])]
-                    _logger.warning("✅ Dépendance ajoutée : Usinage F2M dépend de Découpe")
-                else:
-                    _logger.warning("❌ Opération 'Découpe' non trouvée")
-            else:
-                _logger.warning("❌ Opération 'Usinage F2M' non trouvée")
+                        if poste_bloc_1:
+                            opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_1.id])]
+                            _logger.warning("✅ Dépendance 1 ajoutée ")
+                        else:
+                            _logger.warning("❌ Opération non trouvée")
+    
+                        if poste_bloc_2:
+                            opertions.blocked_by_operation_ids = [(6, 0, [poste_bloc_2.id])]
+                            _logger.warning("✅ Dépendance 2 ajoutée ")
+                        else:
+                            _logger.warning("❌ Opération non trouvée")
+                
             self.env.cr.commit()
 
         self.state = 'done'
