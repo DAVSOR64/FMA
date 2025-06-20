@@ -1664,7 +1664,7 @@ class SqliteConnector(models.Model):
                             else:
                                 _logger.warning("❌ Poste bloquant 2 non trouvé pour %s", ope.name)    
                         if blockers :
-                            _logger.warning("📋 blockers = %s (%s)", blockers, type(blockers))
+                            _logger.warning("📋 blockers = %s ", blockers)
                             ope.blocked_by_operation_ids = [(6, 0, [blockers])]
                             
             self.env.cr.commit()
