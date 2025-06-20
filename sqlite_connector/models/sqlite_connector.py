@@ -1656,7 +1656,7 @@ class SqliteConnector(models.Model):
                         if record.x_studio_poste_bloquant_2:
                             blocker_op_2 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_2.id)
                             if blocker_op_2:
-                                 blockers.append(blocker_op_2.id)
+                                blockers.append(blocker_op_2.id)
                                 #ope.blocked_by_operation_ids = [(6, 0, [blocker_op_2.id])]
                                 _logger.warning("✅ Dépendance 2 ajoutée à %s", ope.name)
                             else:
