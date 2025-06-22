@@ -17,7 +17,7 @@ class MrpProduction(models.Model):
             previous_op = None
             for workorder in sorted(production.workorder_ids, key=lambda wo: wo.operation_id.sequence):
                 if not previous_op:
-                    previous_op.date_finished = production.date_start
+                    previous_op.date_start = production.date_start
                 else:
                     delay_obj = self.env['x_delai_entre_operatio'].search([
                         ('x_studio_poste_de_travail_deb', '=', previous_op.workcenter_id.id),
