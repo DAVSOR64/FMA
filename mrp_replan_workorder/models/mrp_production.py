@@ -33,7 +33,8 @@ class MrpProduction(models.Model):
                     ], limit=1)
                     delay_minutes = delay_obj.x_studio_dlai_entre_oprations if delay_obj else 0
                     _logger.info("Délai entre %s → %s = %s min", previous_workorder.workcenter_id.name, workorder.workcenter_id.name, delay_minutes)
-
+                    _logger.info("Opération %s : Start = %s ", workorder.name, previous_end_date)
+                
                 # Calcul de la date de début
                 workorder.date_start = previous_end_date + timedelta(minutes=delay_minutes)
 
