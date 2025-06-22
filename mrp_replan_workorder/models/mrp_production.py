@@ -37,10 +37,12 @@ class MrpProduction(models.Model):
                 
                 # Calcul de la date de début
                 workorder.date_start = previous_end_date + timedelta(minutes=delay_minutes)
-
+                _logger.info("Opération %s : Start = %s ", workorder.name, workorder.date_start)
+                
                 # Calcul de la date de fin en fonction de la durée attendue
                 duration = workorder.duration_expected or 0.0
                 workorder.date_finished = workorder.date_start + timedelta(minutes=duration)
+                _logger.info("Opération %s : Start = %s ", workorder.name, workorder.date_finished)
 
                 _logger.info("Opération %s : Start = %s / End = %s", workorder.name, workorder.date_start, workorder.date_finished)
 
