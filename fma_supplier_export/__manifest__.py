@@ -5,9 +5,8 @@
     'description':
         """
             The purpose of this module is to generate a .txt file containing supplier details.
-            Crons are also introduced to generate a new file for new customers per day and
+            Crons are also introduced to generate a new file for new supplier per day and
             move such TXT files to SFTP server.
-            Task: 4061463
         """,
     'author': 'Odoo PS',
     'version': '17.0.1.0.1',
