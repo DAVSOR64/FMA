@@ -3,7 +3,7 @@
     <data noupdate="1">
         <record id="ir_cron_generate_supplier_files" model="ir.cron">
             <field name="name">Export Supplier Files</field>
-            <field name="model_id" ref="model_res_partner"/>
+            <field name="model_id" ref="base.model_res_partner"/>
             <field name="type">ir.actions.server</field>
             <field name="state">code</field>
             <field name="code">model.cron_generate_generate_supplier_files()</field>
@@ -14,7 +14,7 @@
 
         <record id="ir_cron_export_supplier_files_to_sftp_server" model="ir.cron">
             <field name="name">Send supplier Files to SFTP server</field>
-            <field name="model_id" ref="model_res_partner"/>
+            <field name="model_id" ref="base.model_res_partner"/>
             <field name="type">ir.actions.server</field>
             <field name="state">code</field>
             <field name="code">model.cron_send_supplier_file_to_sftp_server()</field>
