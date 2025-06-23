@@ -6,7 +6,7 @@
             <field name="model_id" ref="base.model_res_partner"/>
             <field name="type">ir.actions.server</field>
             <field name="state">code</field>
-            <field name="code">model.cron_generate_generate_supplier_files()</field>
+            <field name="code">env['res.partner'].cron_generate_generate_supplier_files()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
             <field name="numbercall">-1</field>
