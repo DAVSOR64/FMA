@@ -29,7 +29,7 @@ class ResPartner(models.Model):
         content_lines = []
         for partner in partners:
             line = [
-                    'PCC',
+                    'PCF',
                     'I',
                     str(partner.property_account_receivable_id.code or '').ljust(9),  # Code tiers
                     str(partner.name or '').ljust(35),            # Nom
