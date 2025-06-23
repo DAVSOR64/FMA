@@ -108,7 +108,7 @@ class ResPartner(models.Model):
             # Mark the record as included
             partner.is_included_in_supplier_export_file = True
 
-    def cron_generate_generate_csupplier_files(self):
+    def cron_generate_generate_supplier_files(self):
         """Cron to generate supplier details .txt file."""
         partners = self.search([('is_included_in_supplier_export_file', '=', False)])
         try:
