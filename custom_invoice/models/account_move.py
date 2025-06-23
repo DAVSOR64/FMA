@@ -16,6 +16,7 @@ class AccountMove(models.Model):
     inv_delegation = fields.Boolean(string="Délégation")
     inv_commentaire_delegation = fields.Char(string="Commentaire Délégation :")
     inv_delegation_txt = fields.Char(string="Texte de Délégation", compute='_compute_delegation_txt')
+    inv_mode_de_reglement = fields.Char(string="Mode de reglement :")
     
     
     @api.depends('partner_id')
