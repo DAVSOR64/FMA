@@ -16,7 +16,6 @@
     ],
     'data': [
         'data/ir_cron.xml',
-        'data/server_actions.xml',
         'views/res_config_settings_views.xml',
         'views/res_partner_views.xml'
     ],
