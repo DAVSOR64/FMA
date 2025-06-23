@@ -1,15 +1,15 @@
-#<?xml version="1.0" encoding="utf-8"?>
-#<odoo>
-#    <record id="view_partner_form_inherit" model="ir.ui.view">
-#        <field name="name">res.partner.view.partner.form.inherit.fma.supplier.export</field>
-#        <field name="model">res.partner</field>
-#        <field name="inherit_id" ref="base.view_partner_form" />
-#        <field name="arch" type="xml">
-#            <xpath expr="//group[@name='misc']" position="after">
-#                <group name="attachments" string="Attachments">
-#                    <field name="attachment_ids" widget="many2many_tags"/>
-#                </group>
-#            </xpath>
-#        </field>
-#    </record>
-#</odoo>
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_inherit" model="ir.ui.view">
+        <field name="name">res.partner.view.partner.form.inherit.fma.supplier.export</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='misc']" position="after">
+                <group name="attachments" string="Attachments">
+                    <field name="attachment_ids" widget="many2many_tags"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
