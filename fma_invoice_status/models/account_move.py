@@ -119,37 +119,29 @@ class AccountMove(models.Model):
                     # S'assurer que la facture est validée
                     if invoice.state != 'posted':
                         invoice.action_post()
-                
-                    # Mode de paiement par défaut (manuel entrant)
-                    payment_method = self.env.ref('account.account_payment_method_manual_in', raise_if_not_found=False)
-                    if not payment_method:
-                        _logger.error("❌ Méthode de paiement 'account.account_payment_method_manual_in' introuvable.")
-                
-                    # Création du paiement
-                    payment_vals = {
-                        'payment_type': 'inbound',
-                        'partner_type': 'customer',
-                        'partner_id': invoice.partner_id.id,
-                        'amount': amount,
-                        'date': date_of_payment,
+
+                    # Trouver un mode de paiement valide pour le journal
+                    payment_method_line = invoice.journal_id.inbound_payment_method_line_ids[:1]
+                    if not payment_method_line:
+                        _logger.error("❌ Aucun mode de paiement valide trouvé pour le journal : %s", invoice.journal_id.name)
+                        continue
+
+                    # Créer l'assistant de paiement
+                    PaymentRegister = self.env['account.payment.register'].with_context(
+                        active_model='account.move', active_ids=invoice.ids
+                    )
+                    wizard = PaymentRegister.new({
+                        'payment_date': date_of_payment,
                         'journal_id': invoice.journal_id.id,
-                        'payment_method_id': payment_method.id,
-                        'ref': f'Paiement automatique pour facture {invoice.name}',
-                    }
-                    payment = self.env['account.payment'].create(payment_vals)
-                    payment.action_post()
-                
-                    # Réconciliation
-                    payment_lines = payment.move_id.line_ids.filtered(
-                        lambda l: l.account_id == invoice.line_ids[0].account_id and l.credit > 0
-                    )
-                    invoice_lines = invoice.line_ids.filtered(
-                        lambda l: l.account_id == invoice.line_ids[0].account_id and l.debit > 0 and not l.reconciled
-                    )
-                    (payment_lines + invoice_lines).reconcile()
-                
-                    _logger.info("✅ Paiement enregistré et rapproché pour la facture %s : %.2f €", invoice.name, amount)
-                
+                        'amount': amount,
+                        'payment_method_line_id': payment_method_line.id,
+                    })
+
+                    wizard._create_payments()
+                    _logger.info("✅ Paiement enregistré pour la facture %s : %.2f €", invoice.name, amount)
+
                 except Exception as e:
-                    _logger.error("❌ Échec de création ou validation du paiement pour la facture %s : %s", invoice.name, e)
+                    _logger.error("❌ Échec de création du paiement pour la facture %s : %s", invoice.name, e)
+                
+                
                             
