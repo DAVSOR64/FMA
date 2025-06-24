@@ -22,6 +22,7 @@ class AccountMove(models.Model):
             ftp_server_username = get_param('fma_invoice_status.ftp_server_username')
             ftp_server_password = get_param('fma_invoice_status.ftp_server_password')
             ftp_server_file_path = get_param('fma_invoice_status.ftp_server_file_path')
+            _logger.warning(f"[DEBUG FTP] Host: {ftp_host}, User: {ftp_user}, Password is set: {bool(ftp_password)}")
             if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
                 _logger.error("Missing one or more FTP server credentials.")
                 return
