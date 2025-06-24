@@ -141,7 +141,7 @@ class AccountMove(models.Model):
                     'partner_type': 'customer',
                     'partner_id': invoice.partner_id.id,
                     'amount': amount,
-                    'payment_date': date_of_payment,
+                    'date': date_of_payment,
                     'journal_id': invoice.journal_id.id,
                     'payment_method_id': self.env.ref('account.account_payment_method_manual_in').id,
                     'ref': f'Paiement automatique pour facture {invoice.name}',
