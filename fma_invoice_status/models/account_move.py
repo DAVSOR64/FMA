@@ -83,6 +83,12 @@ class AccountMove(models.Model):
         """Parse CSV file and update the invoices."""
         file_content.seek(0)
         csv_reader = csv.reader(io.StringIO(file_content.getvalue().decode('utf-8')), delimiter=';')
+        _logger.warning(">> Taille du buffer : %s octets", file_content.getbuffer().nbytes)
+        try:
+            preview = file_content.getvalue().decode('utf-8', errors='replace')
+            _logger.warning(">> Aperçu contenu (utf-8) : %s", preview[:300])
+        except Exception as e:
+            _logger.error(">> Impossible de décoder le contenu du buffer : %s", e)
         invoice_codes = []
         rows = []
         for row in csv_reader:
