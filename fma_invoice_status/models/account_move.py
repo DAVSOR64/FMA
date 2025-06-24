@@ -43,7 +43,7 @@ class AccountMove(models.Model):
                 return
             
             filename = 'REGLEMENT_DATE.csv'  
-            file_content = io.BytesIO(
+            file_content = io.BytesIO()
             
             try :
                 transport = paramiko.Transport((ftp_host, 22))
