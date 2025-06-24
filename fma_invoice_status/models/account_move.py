@@ -120,11 +120,17 @@ class AccountMove(models.Model):
                     if invoice.state != 'posted':
                         invoice.action_post()
 
-                    # Trouver un mode de paiement valide pour le journal
+                    # Forcer un mode de paiement si non trouvé
                     payment_method_line = invoice.journal_id.inbound_payment_method_line_ids[:1]
                     if not payment_method_line:
-                        _logger.error("❌ Aucun mode de paiement valide trouvé pour le journal : %s", invoice.journal_id.name)
-                        continue
+                        manual_payment_method = self.env.ref('account.account_payment_method_manual_in')
+                        payment_method_line = self.env['account.payment.method.line'].create({
+                            'name': 'Manual In',
+                            'payment_method_id': manual_payment_method.id,
+                            'journal_id': invoice.journal_id.id,
+                            'payment_type': 'inbound',
+                        })
+                        _logger.warning("🔧 Mode de paiement ajouté au journal %s", invoice.journal_id.name)
 
                     # Créer l'assistant de paiement
                     PaymentRegister = self.env['account.payment.register'].with_context(
