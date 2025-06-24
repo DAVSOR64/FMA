@@ -42,20 +42,35 @@ class AccountMove(models.Model):
                 return
 
             filename = 'REGLEMENT_DATE.csv'
-            with ftplib.FTP(ftp_host, ftp_user, ftp_password) as session:
-                try:
-                    session.cwd(ftp_path)
-                    file_content = io.BytesIO()
-                    session.retrbinary(f"RETR {filename}", file_content.write)
-                    file_content.seek(0)
-
-                    self._update_invoices(file_content)
-                except ftplib.all_errors as ftp_error:
-                    _logger.error("FTP error while downloading file %s: %s", filename, ftp_error)
-                except Exception as upload_error:
-                    _logger.error("Unexpected error while dealing with invoices %s: %s", filename, upload_error)
-        except Exception as e:
-            _logger.error(f"Failed to download customer file {filename}.txt to FTP server: {e}")
+            #with ftplib.FTP(ftp_host, ftp_user, ftp_password) as session:
+            #    try:
+                    #session.cwd(ftp_path)
+                    #file_content = io.BytesIO()
+                    #session.retrbinary(f"RETR {filename}", file_content.write)
+                    #file_content.seek(0)
+                    #self._update_invoices(file_content)
+                #except ftplib.all_errors as ftp_error:
+                #    _logger.error("FTP error while downloading file %s: %s", filename, ftp_error)
+                #except Exception as upload_error:
+                #    _logger.error("Unexpected error while dealing with invoices %s: %s", filename, upload_error)
+            try :
+                transport = paramiko.Transport((ftp_host, 22))  # port SFTP
+                transport.connect(username=ftp_user, password=ftp_password)
+            
+                sftp = paramiko.SFTPClient.from_transport(transport)
+                sftp.chdir(ftp_path)
+                file_content = io.BytesIO()
+                
+                sftp.getfo(filename, file_content)
+                file_content.seek(0)
+            
+                self._update_invoices(file_content)
+            
+                sftp.close()
+                transport.close()
+                    
+            except Exception as e:
+                _logger.error(f"Failed to download customer file {filename} to SFTP server: {e}")
 
     def _update_invoices(self, file_content):
         """Parse CSV file and update the invoices."""
