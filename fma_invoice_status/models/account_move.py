@@ -3,6 +3,7 @@
 
 import csv
 import ftplib
+import paramiko
 import io
 import logging
 from datetime import datetime
@@ -41,7 +42,7 @@ class AccountMove(models.Model):
                 _logger.error("Missing one or more FTP server credentials.")
                 return
 
-            filename = 'REGLEMENT_DATE.csv'
+            
             #with ftplib.FTP(ftp_host, ftp_user, ftp_password) as session:
             #    try:
                     #session.cwd(ftp_path)
@@ -53,6 +54,8 @@ class AccountMove(models.Model):
                 #    _logger.error("FTP error while downloading file %s: %s", filename, ftp_error)
                 #except Exception as upload_error:
                 #    _logger.error("Unexpected error while dealing with invoices %s: %s", filename, upload_error)
+            
+            filename = 'REGLEMENT_DATE.csv'
             try :
                 transport = paramiko.Transport((ftp_host, 22))  # port SFTP
                 transport.connect(username=ftp_user, password=ftp_password)
@@ -69,8 +72,8 @@ class AccountMove(models.Model):
                 sftp.close()
                 transport.close()
                     
-            except Exception as e:
-                _logger.error(f"Failed to download customer file {filename} to SFTP server: {e}")
+        except Exception as e:
+            _logger.error(f"Failed to download customer file {filename} to SFTP server: {e}")
 
     def _update_invoices(self, file_content):
         """Parse CSV file and update the invoices."""
