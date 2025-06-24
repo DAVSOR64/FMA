@@ -137,7 +137,9 @@ class AccountMove(models.Model):
                         invoice.action_post()
                 
                     # Mode de paiement par défaut (manuel entrant)
-                    payment_method = self.env.ref('account.account_payment_method_manual_in')
+                    payment_method = self.env.ref('account.account_payment_method_manual_in', raise_if_not_found=False)
+                    if not payment_method:
+                        _logger.error("❌ Méthode de paiement 'account.account_payment_method_manual_in' introuvable."))
                 
                     # Création du paiement
                     payment_vals = {
