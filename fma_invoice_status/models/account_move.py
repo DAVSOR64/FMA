@@ -32,14 +32,14 @@ class AccountMove(models.Model):
             _logger.warning("**********password********* %s " % ftp_password )
             _logger.warning("**********path********* %s " % ftp_path )
            
-            if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
+            if not all([ftp_host, ftp_user, ftp_password, ftp_path]):
                 _logger.error("Missing one or more FTP server credentials.")
                 return
 
             filename = 'REGLEMENT_DATE.csv'
-            with ftplib.FTP(ftp_server_host, ftp_server_username, ftp_server_password) as session:
+            with ftplib.FTP(ftp_host, ftp_user, ftp_password) as session:
                 try:
-                    session.cwd(ftp_server_file_path)
+                    session.cwd(ftp_path)
                     file_content = io.BytesIO()
                     session.retrbinary(f"RETR {filename}", file_content.write)
                     file_content.seek(0)
