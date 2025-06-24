@@ -70,7 +70,10 @@ class AccountMove(models.Model):
                 self._update_invoices(file_content)
             
                 sftp.close()
-                transport.close()
+                transport.close()    
+
+                _logger.warning("Fichiers disponibles dans le dossier : %s", sftp.listdir())
+            
             except Exception as sftp_error:
                 _logger.error("Error while connecting or retrieving file from SFTP: %s", sftp_error)
 
