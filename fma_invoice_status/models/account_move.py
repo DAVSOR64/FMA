@@ -127,7 +127,10 @@ class AccountMove(models.Model):
                 continue
 
             invoice = invoices_map.get(name)
+            _logger.warning("Facture %s", invoice)
+            _logger.warning("Signe %s", sign)
             if invoice and sign == '+':
+                _logger.warning("Dans le IF")
                 # S'assurer que la facture est validée
                 if invoice.state != 'posted':
                     invoice.action_post()
