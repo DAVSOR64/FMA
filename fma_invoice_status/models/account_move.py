@@ -71,10 +71,12 @@ class AccountMove(models.Model):
             
                 sftp.close()
                 transport.close()
-                    
-        except Exception as e:
-            _logger.error(f"Failed to download customer file {filename} to SFTP server: {e}")
+            except Exception as sftp_error:
+                _logger.error("Error while connecting or retrieving file from SFTP: %s", sftp_error)
 
+        except Exception as e:
+            _logger.error("Failed to download customer file %s to SFTP server: %s", filename, e)
+    
     def _update_invoices(self, file_content):
         """Parse CSV file and update the invoices."""
         csv_reader = csv.reader(io.StringIO(file_content.getvalue().decode('utf-8')), delimiter=';')
