@@ -134,7 +134,7 @@ class AccountMove(models.Model):
                 # S'assurer que la facture est validée
                 if invoice.state != 'posted':
                     invoice.action_post()
-            
+                
                 # Créer un paiement
                 payment_vals = {
                     'payment_type': 'inbound',
@@ -147,7 +147,11 @@ class AccountMove(models.Model):
                     'ref': f'Paiement automatique pour facture {invoice.name}',
                     'invoice_ids': [Command.link(invoice.id)],
                 }
-                payment = self.env['account.payment'].create(payment_vals)
-                payment.action_post()
+                try:
+                    payment = self.env['account.payment'].create(payment_vals)
+                    payment.action_post()
+                    _logger.info("Paiement enregistré pour la facture %s : %.2f €", invoice.name, amount)
+                except Exception as e:
+                    _logger.error("Échec de création ou validation du paiement pour la facture %s : %s", invoice.name, e)
             
-                _logger.info("Paiement enregistré pour la facture %s : %.2f €", invoice.name, amount)
+                
