@@ -104,8 +104,20 @@ class AccountMove(models.Model):
             except ValueError as e:
                 _logger.error(f"Date conversion error for invoice {name}: {str(e)}")
                 continue
-            sign = row[2]
-            amount = float(row[3].replace(',', '.'))
+                
+            sign = row[2].strip() if len(row) > 2 else ''
+            
+            amount_str = row[3].replace(',', '.').strip()
+            
+            if not amount_str:
+                _logger.warning(f"Montant vide pour la facture {name}, ligne ignorée.")
+                continue
+            
+            try:
+                amount = float(amount_str)
+            except ValueError:
+                _logger.warning(f"Montant non convertible pour la facture {name} : '{amount_str}'")
+                continue
 
             invoice = invoices_map.get(name)
             if invoice:
