@@ -31,7 +31,7 @@ class AccountMove(models.Model):
             ftp_host = '194.206.49.72'
             ftp_user = 'csproginov'
             ftp_password = 'g%tumR/n49:1=5qES6CT'
-            ftp_path = 'IN/'
+            ftp_path = 'FMA/IN/'
 
             _logger.warning("**********host********* %s " % ftp_host )
             _logger.warning("**********username********* %s " % ftp_user )
@@ -75,6 +75,7 @@ class AccountMove(models.Model):
                 _logger.warning("Fichiers disponibles dans le dossier : %s", sftp.listdir())
             
             except Exception as sftp_error:
+                _logger.error("Fichiers disponibles dans le dossier : %s", sftp.listdir())
                 _logger.error("Error while connecting or retrieving file from SFTP: %s", sftp_error)
 
         except Exception as e:
