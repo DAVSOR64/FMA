@@ -112,7 +112,7 @@ class AccountMove(models.Model):
                 _logger.error(f"Date conversion error for invoice {name}: {str(e)}")
                 continue
                 
-            sign = row[2].strip() if len(row) = 1  else ''
+            sign = row[2].strip() if len(row) == 1  else ''
             
             amount_str = row[3].replace(',', '.').strip()
             
