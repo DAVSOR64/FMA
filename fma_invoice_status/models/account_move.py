@@ -96,8 +96,8 @@ class AccountMove(models.Model):
         # Update invoices
         for row in rows:
             name = row[0]
-            _logger.warning("Facture %s", % str(row[0]))
-            _logger.warning(" prix %s ", % str(row[3]))
+            _logger.warning("Facture %s", % row[0])
+            _logger.warning(" prix %s ", % row[3])
             try:
                 parsed_date = datetime.strptime(row[1], '%d/%m/%Y').date()
                 date_of_payment = fields.Date.to_string(parsed_date)
