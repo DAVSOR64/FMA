@@ -6,6 +6,8 @@ import ftplib
 import paramiko
 import io
 import logging
+import tempfile
+import os
 from datetime import datetime
 from odoo import fields, models, Command
 
@@ -43,24 +45,29 @@ class AccountMove(models.Model):
                 return
             
             filename = 'REGLEMENT_DATE.csv'  
-            file_content = io.BytesIO()
+            #file_content = io.BytesIO()
             
             try :
                 transport = paramiko.Transport((ftp_host, 22))
                 transport.connect(username=ftp_user, password=ftp_password)
-        
                 sftp = paramiko.SFTPClient.from_transport(transport)
                 sftp.chdir(ftp_path)
         
-                # Téléchargement du fichier dans le buffer
-                sftp.getfo(filename, file_content)
+                # Téléchargement dans un fichier temporaire
+                with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                    local_path = tmp_file.name
+                sftp.get(filename, local_path)  
         
-                # Fermeture propre du SFTP AVANT d’utiliser le contenu
                 sftp.close()
                 transport.close()
         
-                # Traitement du fichier téléchargé
-                file_content.seek(0)  # Repositionner au début du buffer
+                # Lecture du contenu dans un buffer
+                with open(local_path, 'rb') as f:
+                    file_content = io.BytesIO(f.read())
+        
+                os.remove(local_path)  # Nettoyage du fichier temporaire
+        
+                file_content.seek(0)
                 self._update_invoices(file_content)
 
                 _logger.warning("Fichiers disponibles dans le dossier : %s", sftp.listdir())
