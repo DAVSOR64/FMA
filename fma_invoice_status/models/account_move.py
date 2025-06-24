@@ -44,21 +44,22 @@ class AccountMove(models.Model):
             
             
             try :
-                transport = paramiko.Transport((ftp_host, 22))  # port SFTP
+                transport = paramiko.Transport((ftp_host, 22))
                 transport.connect(username=ftp_user, password=ftp_password)
-            
+        
                 sftp = paramiko.SFTPClient.from_transport(transport)
                 sftp.chdir(ftp_path)
-
-                filename = 'REGLEMENT_DATE.csv'
-                file_content = io.BytesIO()
+        
+                # Téléchargement du fichier dans le buffer
                 sftp.getfo(filename, file_content)
-                
-                file_content.seek(0)
-                self._update_invoices(file_content)
-            
+        
+                # Fermeture propre du SFTP AVANT d’utiliser le contenu
                 sftp.close()
-                transport.close()    
+                transport.close()
+        
+                # Traitement du fichier téléchargé
+                file_content.seek(0)  # Repositionner au début du buffer
+                self._update_invoices(file_content)
 
                 _logger.warning("Fichiers disponibles dans le dossier : %s", sftp.listdir())
             
