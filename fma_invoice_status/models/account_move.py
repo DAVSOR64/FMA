@@ -164,6 +164,6 @@ class AccountMove(models.Model):
     
             _logger.info("✅ Paiement enregistré et rapproché pour la facture %s : %.2f €", invoice.name, amount)
     
-        except Exception as e:
-            _logger.error("❌ Échec de création ou validation du paiement pour la facture %s : %s", invoice.name, e)
+    except Exception as e:
+        _logger.error("❌ Échec de création ou validation du paiement pour la facture %s : %s", invoice.name, e)
                             
