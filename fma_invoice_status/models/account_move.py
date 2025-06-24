@@ -65,6 +65,7 @@ class AccountMove(models.Model):
 
     def _update_invoices(self, file_content):
         """Parse CSV file and update the invoices."""
+        file_content.seek(0)
         csv_reader = csv.reader(io.StringIO(file_content.getvalue().decode('utf-8')), delimiter=';')
         invoice_codes = []
         rows = []
