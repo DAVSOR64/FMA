@@ -27,10 +27,10 @@ class AccountMove(models.Model):
             ftp_password = self.env['ir.config_parameter'].sudo().get_param('fma_invoice_status.ftp_server_password')
             ftp_path = self.env['ir.config_parameter'].sudo().get_param('fma_invoice_status.ftp_server_file_path')
 
-            _logger.warning("**********host********* %s " % ftp_server_host )
-            _logger.warning("**********username********* %s " % ftp_server_username )
-            _logger.warning("**********password********* %s " % ftp_server_password )
-            _logger.warning("**********path********* %s " % ftp_server_file_path )
+            _logger.warning("**********host********* %s " % ftp_host )
+            _logger.warning("**********username********* %s " % ftp_user )
+            _logger.warning("**********password********* %s " % ftp_password )
+            _logger.warning("**********path********* %s " % ftp_path )
            
             if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
                 _logger.error("Missing one or more FTP server credentials.")
