@@ -76,7 +76,7 @@ class AccountMove(models.Model):
         invoice_codes = []
         rows = []
         for row in csv_reader:
-            if row[1] != '':
+            if row[0] != '':
                 invoice_codes.append(row[0])
                 rows.append(row)
 
