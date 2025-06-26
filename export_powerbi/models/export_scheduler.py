@@ -15,11 +15,11 @@ class ExportSFTPScheduler(models.Model):
 
     @api.model
     def cron_generate_files(self):
-        """Génère 3 fichiers Excel (clients, commandes, factures) et les stocke dans /tmp pour envoi futur."""
+        """Génère les fichiers Excel pour clients, commandes, factures, et les stocke en pièces jointes"""
         today = datetime.now().strftime('%Y%m%d')
         temp_dir = tempfile.mkdtemp()
         self.env['ir.config_parameter'].sudo().set_param('export_powerbi.tmp_export_dir', temp_dir)
-        _logger.info(f"Temp dir for export files: {temp_dir}")
+        _logger.info(f"[Export Power BI] Dossier temporaire : {temp_dir}")
 
         def write_xlsx(filename, headers, rows):
             filepath = os.path.join(temp_dir, filename)
@@ -33,21 +33,37 @@ class ExportSFTPScheduler(models.Model):
             workbook.close()
             return filepath
 
+        def create_attachment(filepath, name):
+            with open(filepath, 'rb') as f:
+                file_content = f.read()
+            self.env['ir.attachment'].create({
+                'name': name,
+                'type': 'binary',
+                'datas': base64.b64encode(file_content),
+                'res_model': 'export.sftp.scheduler',
+                'res_id': 0,  # Pas de record spécifique
+                'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            })
+            _logger.info(f"[Export Power BI] Pièce jointe créée : {name}")
+
         try:
             # Clients
             clients = self.env['res.partner'].search([('customer_rank', '>', 0)])
             client_data = [(p.name, p.email, p.phone, p.vat) for p in clients]
-            write_xlsx(f'clients_{today}.xlsx', ['Nom', 'Email', 'Téléphone', 'TVA'], client_data)
+            client_file = write_xlsx(f'clients_{today}.xlsx', ['Nom', 'Email', 'Téléphone', 'TVA'], client_data)
+            create_attachment(client_file, os.path.basename(client_file))
 
             # Commandes
             orders = self.env['sale.order'].search([])
             order_data = [(o.name, o.date_order.strftime('%Y-%m-%d') if o.date_order else '', o.partner_id.name, o.amount_total) for o in orders]
-            write_xlsx(f'commandes_{today}.xlsx', ['Référence', 'Date', 'Client', 'Montant TTC'], order_data)
+            order_file = write_xlsx(f'commandes_{today}.xlsx', ['Référence', 'Date', 'Client', 'Montant TTC'], order_data)
+            create_attachment(order_file, os.path.basename(order_file))
 
             # Factures
             invoices = self.env['account.move'].search([('move_type', '=', 'out_invoice')])
             invoice_data = [(i.name, i.invoice_date.strftime('%Y-%m-%d') if i.invoice_date else '', i.partner_id.name, i.amount_total) for i in invoices]
-            write_xlsx(f'factures_{today}.xlsx', ['N° Facture', 'Date', 'Client', 'Montant TTC'], invoice_data)
+            invoice_file = write_xlsx(f'factures_{today}.xlsx', ['N° Facture', 'Date', 'Client', 'Montant TTC'], invoice_data)
+            create_attachment(invoice_file, os.path.basename(invoice_file))
 
         except Exception as e:
             _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
@@ -90,5 +106,3 @@ class ExportSFTPScheduler(models.Model):
     
         except Exception as e:
             _logger.exception("Erreur lors de l'envoi des fichiers vers le SFTP : %s", e)
-            except Exception as e:
-                _logger.exception("Erreur lors de l'envoi des fichiers vers le SFTP : %s", e)
