@@ -55,31 +55,40 @@ class ExportSFTPScheduler(models.Model):
     @api.model
     def cron_send_files_to_sftp(self):
         """Envoie les fichiers Excel générés vers le serveur SFTP."""
-        config = self.env['export.sftp.config'].search([], limit=1)
-        if not config:
-            _logger.error("Pas de configuration SFTP trouvée.")
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+    
+        host = get_param('fma_powerbi_export.sftp_server_host')
+        port = 22  # Ou stocké aussi en config_param si besoin
+        username = get_param('fma_powerbi_export.sftp_server_username')
+        password = get_param('fma_powerbi_export.sftp_server_password')
+        path = get_param('fma_powerbi_export.sftp_server_file_path')
+    
+        if not all([host, username, password, path]):
+            _logger.error("Paramètres SFTP manquants. Vérifiez la configuration dans Paramètres.")
             return
-
+    
         temp_dir = self.env['ir.config_parameter'].sudo().get_param('export_powerbi.tmp_export_dir')
         if not temp_dir or not os.path.exists(temp_dir):
             _logger.warning("Répertoire temporaire introuvable pour l'export.")
             return
-
+    
         try:
-            ssh = paramiko.Transport((config.host, config.port))
-            ssh.connect(username=config.username, password=config.password)
+            ssh = paramiko.Transport((host, port))
+            ssh.connect(username=username, password=password)
             sftp = paramiko.SFTPClient.from_transport(ssh)
-
+    
             for filename in os.listdir(temp_dir):
                 file_path = os.path.join(temp_dir, filename)
                 if os.path.isfile(file_path):
-                    sftp.put(file_path, os.path.join(config.path, filename))
+                    sftp.put(file_path, os.path.join(path, filename))
                     _logger.info("Fichier %s envoyé sur le SFTP.", filename)
-
+    
             sftp.close()
             ssh.close()
             shutil.rmtree(temp_dir)
             _logger.info("Répertoire temporaire supprimé après envoi.")
-
+    
         except Exception as e:
             _logger.exception("Erreur lors de l'envoi des fichiers vers le SFTP : %s", e)
+            except Exception as e:
+                _logger.exception("Erreur lors de l'envoi des fichiers vers le SFTP : %s", e)
