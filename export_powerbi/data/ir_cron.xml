@@ -5,7 +5,7 @@
         <!-- Cron pour générer les fichiers -->
         <record id="ir_cron_generate_powerbi_files" model="ir.cron">
             <field name="name">Génération fichiers Power BI</field>
-            <field name="model_id" eval="env['ir.model']._get('export.sftp.scheduler').id"/>
+            <field name="model_id" ref="export_powerbi.model_export_sftp_scheduler"/>
             <field name="state">code</field>
             <field name="code">model.cron_generate_files()</field>
             <field name="interval_number">1</field>
@@ -16,7 +16,7 @@
         <!-- Cron pour envoyer les fichiers vers le SFTP -->
         <record id="ir_cron_send_powerbi_files_to_sftp" model="ir.cron">
             <field name="name">Envoi fichiers Power BI vers SFTP</field>
-            <field name="model_id" eval="env['ir.model']._get('export.sftp.scheduler').id"/>
+            <field name="model_id" ref="export_powerbi.model_export_sftp_scheduler"/>
             <field name="state">code</field>
             <field name="code">model.cron_send_files_to_sftp()</field>
             <field name="interval_number">1</field>
