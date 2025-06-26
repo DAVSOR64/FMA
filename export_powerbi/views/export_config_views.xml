@@ -1,29 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_export_sftp_config_form" model="ir.ui.view">
-        <field name="name">export.sftp.config.form</field>
-        <field name="model">export.sftp.config</field>
+    <record id="res_config_settings_view_form_inherit" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.fma.powerbi.export</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form" />
         <field name="arch" type="xml">
-            <form string="Configuration SFTP">
-                <sheet>
-                    <group>
-                        <field name="host"/>
-                        <field name="port"/>
-                        <field name="username"/>
-                        <field name="password" password="True"/>
-                        <field name="path"/>
-                    </group>
-                </sheet>
-            </form>
+            <xpath expr="//div[@id=('languages')]" position="after">
+                <div id="export_powerbi">
+                    <block title="Export Customers" name="exp_powerbi_setting_container">
+                        <setting id="powerbi_setting">
+                            <span class="o_form_label">SFTP server credentials</span>
+                                <div class="text-muted">
+                                    Setup the SFTP server configurations for powerbi export.
+                                </div>
+                                <div class="content-group" id="sftp_settings_group">
+                                    <div class="mt16 row">
+                                        <label for="sftp_server_host" string="SFTP Server Host" class="col-5 o_light_label"/>
+                                        <field name="sftp_server_host" class="col-7"/>
+                                        <label for="sftp_server_username" string="SFTP Server Username" class="col-5 o_light_label"/>
+                                        <field name="sftp_server_username" class="col-7"/>
+                                        <label for="sftp_server_password" string="SFTP Server Password" class="col-5 o_light_label"/>
+                                        <field name="sftp_server_password" class="col-7"/>
+                                        <label for="sftp_server_file_path" string="SFTP Server File Path" class="col-5 o_light_label"/>
+                                        <field name="sftp_server_file_path" class="col-7"/>
+                                    </div>
+                                </div>
+                        </setting>
+                    </block>
+                </div>
+            </xpath>
         </field>
     </record>
-
-    <record id="action_export_sftp_config" model="ir.actions.act_window">
-        <field name="name">Configuration SFTP</field>
-        <field name="res_model">export.sftp.config</field>
-        <field name="view_mode">form</field>
-        <field name="target">current</field>
-    </record>
-
-    <menuitem id="menu_export_powerbi_root" name="Export PowerBI"/>
-    <menuitem id="menu_export_powerbi_config" name="Configuration SFTP" parent="menu_export_powerbi_root" action="action_export_sftp_config"/>
 </odoo>
