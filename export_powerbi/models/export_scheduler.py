@@ -87,7 +87,7 @@ class ExportSFTPScheduler(models.Model):
             # Factures (uniquement les factures validées, pas les brouillons)
             invoices = self.env['account.move'].search([
                 ('move_type', '=', 'out_invoice'),
-                ('state', '=', 'posted')  # ⛔ Exclure les factures brouillons
+                ('state', '=', 'posted')  # Exclure les factures brouillons
             ])
             invoice_data = [
                 (
