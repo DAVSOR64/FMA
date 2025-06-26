@@ -1,9 +1,10 @@
 {
     'name': 'Export PowerBI',
-    'version': '1.0',
+    'version': '17.0.1.0',
     'summary': 'Export clients, commandes, factures vers SFTP pour Power BI',
     'depends': ['base', 'sale', 'account'],
     'data': [
+        'data/ir_cron.xml',
         'views/export_config_views.xml',
     ],
     'installable': True,
