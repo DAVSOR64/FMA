@@ -144,7 +144,8 @@ class ExportSFTPScheduler(models.Model):
         username = get_param('fma_powerbi_export.sftp_server_username')
         password = get_param('fma_powerbi_export.sftp_server_password')
         path = get_param('fma_powerbi_export.sftp_server_file_path')
-    
+
+        
         if not all([host, username, password, path]):
             _logger.error("Paramètres SFTP manquants. Vérifiez la configuration dans Paramètres.")
             return
