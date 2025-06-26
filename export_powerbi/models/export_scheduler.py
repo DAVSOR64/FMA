@@ -60,17 +60,15 @@ class ExportSFTPScheduler(models.Model):
             order_file = write_xlsx(f'commandes_{today}.xlsx', ['Référence', 'Date', 'Client', 'Montant TTC'], order_data)
             create_attachment(order_file, os.path.basename(order_file))
 
-            # Factures
-            invoices = self.env['account.move'].search([('move_type', '=', 'out_invoice')])
-            invoice_data = [(i.name, i.invoice_date.strftime('%Y-%m-%d') if i.invoice_date else '', i.partner_id.name, i.amount_total) for i in invoices]
-            invoice_file = write_xlsx(f'factures_{today}.xlsx', ['N° Facture', 'Date', 'Client', 'Montant TTC'], invoice_data)
-            create_attachment(invoice_file, os.path.basename(invoice_file))
-
-            # Lignes de commandes
-            order_lines = self.env['sale.order.line'].search([])
+            # Lignes de commandes (uniquement lignes avec article)
+            order_lines = self.env['sale.order.line'].search([
+                ('product_id', '!=', False)
+            ])
             order_line_data = [
                 (
                     l.order_id.name,
+                    l.order_id.date_order,
+                    l.order_id.partner_id.name,
                     l.product_id.default_code or '',
                     l.product_id.name or '',
                     l.product_uom_qty,
@@ -81,19 +79,43 @@ class ExportSFTPScheduler(models.Model):
             ]
             order_line_file = write_xlsx(
                 f'lignes_commandes_{today}.xlsx',
-                ['Commande', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
+                ['N° Commande', 'Date', 'Client', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
                 order_line_data
             )
             create_attachment(order_line_file, os.path.basename(order_line_file))
 
-            # Lignes de factures
+            # Factures (uniquement les factures validées, pas les brouillons)
+            invoices = self.env['account.move'].search([
+                ('move_type', '=', 'out_invoice'),
+                ('state', '=', 'posted')  # ⛔ Exclure les factures brouillons
+            ])
+            invoice_data = [
+                (
+                    i.name,
+                    i.invoice_date.strftime('%Y-%m-%d') if i.invoice_date else '',
+                    i.partner_id.name,
+                    i.amount_total
+                )
+                for i in invoices
+            ]
+            invoice_file = write_xlsx(
+                f'factures_{today}.xlsx',
+                ['N° Facture', 'Date', 'Client', 'Montant TTC'],
+                invoice_data
+            )
+            create_attachment(invoice_file, os.path.basename(invoice_file))
+
+            # Lignes de factures (hors brouillon, uniquement lignes avec article)
             invoice_lines = self.env['account.move.line'].search([
                 ('move_id.move_type', '=', 'out_invoice'),
-                ('exclude_from_invoice_tab', '=', False)
+                ('move_id.state', '=', 'posted'),  
+                ('product_id', '!=', False)        
             ])
             invoice_line_data = [
                 (
                     l.move_id.name,
+                    l.move_id.invoice_date,
+                    l.move_id.partner_id.name,
                     l.product_id.default_code or '',
                     l.product_id.name or '',
                     l.quantity,
@@ -104,10 +126,11 @@ class ExportSFTPScheduler(models.Model):
             ]
             invoice_line_file = write_xlsx(
                 f'lignes_factures_{today}.xlsx',
-                ['Facture', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
+                ['N° Facture', 'Date', 'Client', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
                 invoice_line_data
             )
-            create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
+            create_attachment(invoice_file, os.path.basename(invoice_file))
+
 
         except Exception as e:
             _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
