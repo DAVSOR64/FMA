@@ -129,8 +129,7 @@ class ExportSFTPScheduler(models.Model):
                 ['N° Facture', 'Date', 'Client', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
                 invoice_line_data
             )
-            create_attachment(invoice_file, os.path.basename(invoice_file))
-
+            create_attachment(invoice_line_file, os.path.basename(invoice_line_file))  # 
 
         except Exception as e:
             _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
