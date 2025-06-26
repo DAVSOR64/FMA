@@ -66,6 +66,49 @@ class ExportSFTPScheduler(models.Model):
             invoice_file = write_xlsx(f'factures_{today}.xlsx', ['N° Facture', 'Date', 'Client', 'Montant TTC'], invoice_data)
             create_attachment(invoice_file, os.path.basename(invoice_file))
 
+            # Lignes de commandes
+            order_lines = self.env['sale.order.line'].search([])
+            order_line_data = [
+                (
+                    l.order_id.name,
+                    l.product_id.default_code or '',
+                    l.product_id.name or '',
+                    l.product_uom_qty,
+                    l.price_unit,
+                    l.price_subtotal
+                )
+                for l in order_lines
+            ]
+            order_line_file = write_xlsx(
+                f'lignes_commandes_{today}.xlsx',
+                ['Commande', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
+                order_line_data
+            )
+            create_attachment(order_line_file, os.path.basename(order_line_file))
+
+            # Lignes de factures
+            invoice_lines = self.env['account.move.line'].search([
+                ('move_id.move_type', '=', 'out_invoice'),
+                ('exclude_from_invoice_tab', '=', False)
+            ])
+            invoice_line_data = [
+                (
+                    l.move_id.name,
+                    l.product_id.default_code or '',
+                    l.product_id.name or '',
+                    l.quantity,
+                    l.price_unit,
+                    l.price_subtotal
+                )
+                for l in invoice_lines
+            ]
+            invoice_line_file = write_xlsx(
+                f'lignes_factures_{today}.xlsx',
+                ['Facture', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
+                invoice_line_data
+            )
+            create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
+
         except Exception as e:
             _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
 
