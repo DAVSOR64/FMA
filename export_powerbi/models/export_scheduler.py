@@ -56,8 +56,8 @@ class ExportSFTPScheduler(models.Model):
 
             # Commandes
             orders = self.env['sale.order'].search([])
-            order_data = [(o.id, o.name, o.date_order.strftime('%Y-%m-%d') if o.date_order else '', o.partner_id.id, o.partner_id.name, o.amount_total) for o in orders]
-            order_file = write_xlsx(f'commandes_{today}.xlsx', ['ID', 'Référence', 'Date', 'ID Client', 'Client', 'Montant TTC'], order_data)
+            order_data = [(o.id, o.name, o.date_order.strftime('%Y-%m-%d') if o.date_order else '', o.partner_id.id, o.partner_id.name, o.amount_total, o.tag_ids[0].name if o.tag_ids else '') for o in orders]
+            order_file = write_xlsx(f'commandes_{today}.xlsx', ['ID', 'Référence', 'Date', 'ID Client', 'Client', 'Montant TTC','Societe'], order_data)
             create_attachment(order_file, os.path.basename(order_file))
 
             # Lignes de commandes
