@@ -54,18 +54,6 @@ class ExportSFTPScheduler(models.Model):
             client_file = write_xlsx(f'clients_{today}.xlsx', ['ID', 'Nom', 'Email', 'Téléphone', 'TVA'], client_data)
             create_attachment(client_file, os.path.basename(client_file))
 
-            # Fournisseurs
-            suppliers = self.env['res.partner'].search([('supplier_rank', '>', 0), ('is_company', '=', True)])
-            supplier_data = [(s.id, s.name, s.email, s.phone, s.vat) for s in suppliers]
-            supplier_file = write_xlsx(f'fournisseurs_{today}.xlsx', ['ID', 'Nom', 'Email', 'Téléphone', 'TVA'], supplier_data)
-            create_attachment(supplier_file, os.path.basename(supplier_file))
-
-            # Articles
-            products = self.env['product.product'].search([])
-            product_data = [(p.id, p.default_code or '', p.name, p.list_price, p.standard_price) for p in products]
-            product_file = write_xlsx(f'articles_{today}.xlsx', ['ID', 'Code', 'Nom', 'Prix vente', 'Coût'], product_data)
-            create_attachment(product_file, os.path.basename(product_file))
-
             # Commandes
             orders = self.env['sale.order'].search([])
             order_data = [(o.id, o.name, o.date_order.strftime('%Y-%m-%d') if o.date_order else '', o.partner_id.id, o.partner_id.name, o.amount_total) for o in orders]
@@ -135,59 +123,17 @@ class ExportSFTPScheduler(models.Model):
                     l.product_id.name or '',
                     l.quantity,
                     l.price_unit,
-                    l.price_subtotal
+                    l.price_subtotal,
+                    l.sale_line_ids[0].id if l.sale_line_ids else None
                 ) for l in invoice_lines
             ]
             invoice_line_file = write_xlsx(
                 f'lignes_factures_{today}.xlsx',
-                ['ID Ligne', 'ID Facture', 'N° Facture', 'Date', 'ID Client', 'Client', 'ID Article', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
+                ['ID Ligne', 'ID Facture', 'N° Facture', 'Date', 'ID Client', 'Client', 'ID Article', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT', 'ID Ligne Commande'],
                 invoice_line_data
             )
             create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
 
-            # Ordres d'achat
-            purchase_orders = self.env['purchase.order'].search([])
-            purchase_order_data = [
-                (
-                    po.id,
-                    po.name,
-                    po.date_order.strftime('%Y-%m-%d') if po.date_order else '',
-                    po.partner_id.id,
-                    po.partner_id.name,
-                    po.amount_total
-                ) for po in purchase_orders
-            ]
-            purchase_order_file = write_xlsx(
-                f'achats_{today}.xlsx',
-                ['ID', 'Référence', 'Date', 'ID Fournisseur', 'Fournisseur', 'Montant TTC'],
-                purchase_order_data
-            )
-            create_attachment(purchase_order_file, os.path.basename(purchase_order_file))
-
-            # Lignes des ordres d'achat
-            purchase_order_lines = self.env['purchase.order.line'].search([('product_id', '!=', False)])
-            purchase_line_data = [
-                (
-                    l.id,
-                    l.order_id.id,
-                    l.order_id.name,
-                    l.order_id.date_order.strftime('%Y-%m-%d') if l.order_id.date_order else '',
-                    l.order_id.partner_id.id,
-                    l.order_id.partner_id.name,
-                    l.product_id.id,
-                    l.product_id.default_code or '',
-                    l.product_id.name or '',
-                    l.product_qty,
-                    l.price_unit,
-                    l.price_subtotal
-                ) for l in purchase_order_lines
-            ]
-            purchase_line_file = write_xlsx(
-                f'lignes_achats_{today}.xlsx',
-                ['ID Ligne', 'ID Achat', 'N° Achat', 'Date', 'ID Fournisseur', 'Fournisseur', 'ID Article', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
-                purchase_line_data
-            )
-            create_attachment(purchase_line_file, os.path.basename(purchase_line_file))
 
 
         except Exception as e:
