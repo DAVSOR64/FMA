@@ -49,87 +49,146 @@ class ExportSFTPScheduler(models.Model):
 
         try:
             # Clients
-            clients = self.env['res.partner'].search([('customer_rank', '>', 0)])
-            client_data = [(p.name, p.email, p.phone, p.vat) for p in clients]
-            client_file = write_xlsx(f'clients_{today}.xlsx', ['Nom', 'Email', 'Téléphone', 'TVA'], client_data)
+            clients = self.env['res.partner'].search([('customer_rank', '>', 0), ('is_company', '=', True)])
+            client_data = [(p.id, p.name, p.email, p.phone, p.vat) for p in clients]
+            client_file = write_xlsx(f'clients_{today}.xlsx', ['ID', 'Nom', 'Email', 'Téléphone', 'TVA'], client_data)
             create_attachment(client_file, os.path.basename(client_file))
+
+            # Fournisseurs
+            suppliers = self.env['res.partner'].search([('supplier_rank', '>', 0), ('is_company', '=', True)])
+            supplier_data = [(s.id, s.name, s.email, s.phone, s.vat) for s in suppliers]
+            supplier_file = write_xlsx(f'fournisseurs_{today}.xlsx', ['ID', 'Nom', 'Email', 'Téléphone', 'TVA'], supplier_data)
+            create_attachment(supplier_file, os.path.basename(supplier_file))
+
+            # Articles
+            products = self.env['product.product'].search([])
+            product_data = [(p.id, p.default_code or '', p.name, p.list_price, p.standard_price) for p in products]
+            product_file = write_xlsx(f'articles_{today}.xlsx', ['ID', 'Code', 'Nom', 'Prix vente', 'Coût'], product_data)
+            create_attachment(product_file, os.path.basename(product_file))
 
             # Commandes
             orders = self.env['sale.order'].search([])
-            order_data = [(o.name, o.date_order.strftime('%Y-%m-%d') if o.date_order else '', o.partner_id.name, o.amount_total) for o in orders]
-            order_file = write_xlsx(f'commandes_{today}.xlsx', ['Référence', 'Date', 'Client', 'Montant TTC'], order_data)
+            order_data = [(o.id, o.name, o.date_order.strftime('%Y-%m-%d') if o.date_order else '', o.partner_id.id, o.partner_id.name, o.amount_total) for o in orders]
+            order_file = write_xlsx(f'commandes_{today}.xlsx', ['ID', 'Référence', 'Date', 'ID Client', 'Client', 'Montant TTC'], order_data)
             create_attachment(order_file, os.path.basename(order_file))
 
-            # Lignes de commandes (uniquement lignes avec article)
-            order_lines = self.env['sale.order.line'].search([
-                ('product_id', '!=', False)
-            ])
+            # Lignes de commandes
+            order_lines = self.env['sale.order.line'].search([('product_id', '!=', False)])
             order_line_data = [
                 (
+                    l.id,
+                    l.order_id.id,
                     l.order_id.name,
-                    l.order_id.date_order,
+                    l.order_id.date_order.strftime('%Y-%m-%d') if l.order_id.date_order else '',
+                    l.order_id.partner_id.id,
                     l.order_id.partner_id.name,
+                    l.product_id.id,
                     l.product_id.default_code or '',
                     l.product_id.name or '',
                     l.product_uom_qty,
                     l.price_unit,
                     l.price_subtotal
-                )
-                for l in order_lines
+                ) for l in order_lines
             ]
             order_line_file = write_xlsx(
                 f'lignes_commandes_{today}.xlsx',
-                ['N° Commande', 'Date', 'Client', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
+                ['ID Ligne', 'ID Commande', 'N° Commande', 'Date', 'ID Client', 'Client', 'ID Article', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
                 order_line_data
             )
             create_attachment(order_line_file, os.path.basename(order_line_file))
 
-            # Factures (uniquement les factures validées, pas les brouillons)
-            invoices = self.env['account.move'].search([
-                ('move_type', '=', 'out_invoice'),
-                ('state', '=', 'posted')  # Exclure les factures brouillons
-            ])
+            # Factures
+            invoices = self.env['account.move'].search([('move_type', '=', 'out_invoice'), ('state', '=', 'posted')])
             invoice_data = [
                 (
+                    i.id,
                     i.name,
                     i.invoice_date.strftime('%Y-%m-%d') if i.invoice_date else '',
+                    i.partner_id.id,
                     i.partner_id.name,
                     i.amount_total
-                )
-                for i in invoices
+                ) for i in invoices
             ]
             invoice_file = write_xlsx(
                 f'factures_{today}.xlsx',
-                ['N° Facture', 'Date', 'Client', 'Montant TTC'],
+                ['ID', 'N° Facture', 'Date', 'ID Client', 'Client', 'Montant TTC'],
                 invoice_data
             )
             create_attachment(invoice_file, os.path.basename(invoice_file))
 
-            # Lignes de factures (hors brouillon, uniquement lignes avec article)
+            # Lignes de factures
             invoice_lines = self.env['account.move.line'].search([
                 ('move_id.move_type', '=', 'out_invoice'),
-                ('move_id.state', '=', 'posted'),  
-                ('product_id', '!=', False)        
+                ('move_id.state', '=', 'posted'),
+                ('product_id', '!=', False)
             ])
             invoice_line_data = [
                 (
+                    l.id,
+                    l.move_id.id,
                     l.move_id.name,
-                    l.move_id.invoice_date,
+                    l.move_id.invoice_date.strftime('%Y-%m-%d') if l.move_id.invoice_date else '',
+                    l.move_id.partner_id.id,
                     l.move_id.partner_id.name,
+                    l.product_id.id,
                     l.product_id.default_code or '',
                     l.product_id.name or '',
                     l.quantity,
                     l.price_unit,
                     l.price_subtotal
-                )
-                for l in invoice_lines
+                ) for l in invoice_lines
             ]
             invoice_line_file = write_xlsx(
                 f'lignes_factures_{today}.xlsx',
-                ['N° Facture', 'Date', 'Client', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
+                ['ID Ligne', 'ID Facture', 'N° Facture', 'Date', 'ID Client', 'Client', 'ID Article', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
                 invoice_line_data
             )
-            create_attachment(invoice_line_file, os.path.basename(invoice_line_file))  # 
+            create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
+
+            # Ordres d'achat
+            purchase_orders = self.env['purchase.order'].search([])
+            purchase_order_data = [
+                (
+                    po.id,
+                    po.name,
+                    po.date_order.strftime('%Y-%m-%d') if po.date_order else '',
+                    po.partner_id.id,
+                    po.partner_id.name,
+                    po.amount_total
+                ) for po in purchase_orders
+            ]
+            purchase_order_file = write_xlsx(
+                f'achats_{today}.xlsx',
+                ['ID', 'Référence', 'Date', 'ID Fournisseur', 'Fournisseur', 'Montant TTC'],
+                purchase_order_data
+            )
+            create_attachment(purchase_order_file, os.path.basename(purchase_order_file))
+
+            # Lignes des ordres d'achat
+            purchase_order_lines = self.env['purchase.order.line'].search([('product_id', '!=', False)])
+            purchase_line_data = [
+                (
+                    l.id,
+                    l.order_id.id,
+                    l.order_id.name,
+                    l.order_id.date_order.strftime('%Y-%m-%d') if l.order_id.date_order else '',
+                    l.order_id.partner_id.id,
+                    l.order_id.partner_id.name,
+                    l.product_id.id,
+                    l.product_id.default_code or '',
+                    l.product_id.name or '',
+                    l.product_qty,
+                    l.price_unit,
+                    l.price_subtotal
+                ) for l in purchase_order_lines
+            ]
+            purchase_line_file = write_xlsx(
+                f'lignes_achats_{today}.xlsx',
+                ['ID Ligne', 'ID Achat', 'N° Achat', 'Date', 'ID Fournisseur', 'Fournisseur', 'ID Article', 'Code article', 'Nom article', 'Qté', 'PU HT', 'Sous-total HT'],
+                purchase_line_data
+            )
+            create_attachment(purchase_line_file, os.path.basename(purchase_line_file))
+
 
         except Exception as e:
             _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
