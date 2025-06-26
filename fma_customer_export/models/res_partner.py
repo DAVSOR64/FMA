@@ -126,7 +126,11 @@ class ResPartner(models.Model):
 
     def cron_generate_generate_customer_files(self):
         """Cron to generate customer details .txt file."""
-        partners = self.search([('is_included_in_customers_export_file', '=', False)])
+         partners = self.search([
+            ('is_included_in_customers_export_file', '=', False),
+            ('is_company', '=', True)
+        ])
+
         try:
             file_content = self._get_file_content(partners)
             file_name = f"Customer_Details_{fields.Datetime.now().strftime('%Y-%m-%d')}.txt"
