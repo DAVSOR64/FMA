@@ -1,6 +1,7 @@
 import tempfile
 import os
 import shutil
+import base64
 import paramiko
 import xlsxwriter
 from datetime import datetime
