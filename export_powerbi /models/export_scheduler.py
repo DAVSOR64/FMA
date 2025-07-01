@@ -15,6 +15,7 @@ class ExportSFTPScheduler(models.Model):
     _name = 'export.sftp.scheduler'
     _description = 'Export automatique vers SFTP'
 
+    
     @api.model
     def cron_generate_files(self):
         """Génère les fichiers Excel pour clients, commandes, factures, et les stocke en pièces jointes"""
