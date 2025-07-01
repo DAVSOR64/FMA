@@ -50,7 +50,7 @@ class ResPartner(models.Model):
                     str(partner.phone or '').ljust(64),
                     str(partner.siret or '').ljust(14),
                     '     ',
-                    'str(partner.vat or '').ljust(14)',
+                    str(partner.vat or '').ljust(14),
                     str(partner.x_studio_commercial_1.name or '').ljust(50),
                     '             ',
                     'EUR',
