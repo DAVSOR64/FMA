@@ -91,14 +91,17 @@ class AccountMove(models.Model):
                 section = 'REG0701ALU'
             elif 'F2M' in tag_names:
                 section = 'REM0701ACI'
-        
+        prefix = ''
+        year =''
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
                 name_invoice = move.name
-                if move.name.startswith('FC2024'):
-                    name_invoice = move.name.replace('FC2024', 'FC24', 1)
-                if move.name.startswith('AV2024'):
-                    name_invoice = move.name.replace('AV2024', 'AV24', 1)
+                if move.name.startswith(('FC', 'AVV')) and len(move.name) >= 6 :
+                    prefix = move.name[:2]
+                    year = move.name[2:6]
+                    name_invoice = move.name.replace(f"{prefix}{year}", f"{prefix}{year[2:]}", 1)
+                #if move.name.startswith('AV2024'):
+                #    name_invoice = move.name.replace('AV2024', 'AV24', 1)
             
                 # Calculer les sommes
                 debit_sum = round(sum(item.debit for item in items_grouped_by_account), 2)
