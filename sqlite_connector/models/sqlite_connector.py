@@ -991,8 +991,9 @@ class SqliteConnector(models.Model):
                     FROM GeorgianBars
                     WHERE GlassID = ?
                 """, (glass_id,))
+                
                 pb = cursor.fetchall()
-                 if not pb:
+                if not pb :
                     continue
             
                 #Séparer en barres horizontales et verticales
