@@ -135,6 +135,7 @@ class PurchaseOrder(models.Model):
                     'res_model': 'purchase.order',
                     'res_id': po.id,
                     'mimetype': mimetype,
+                    'is_po_xml': True,
                 })
 
             except Exception as e:
