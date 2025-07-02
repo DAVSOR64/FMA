@@ -1,0 +1,129 @@
+<odoo>
+  <template id="purchase_order_sftp_export_template_v2">
+    <t t-name="purchase_order_export.purchase_order_sftp_export_template_v2">
+      <Liste_commandes>
+        <Commande>
+          <En-tete>
+            <version_edi>1.0</version_edi>
+            <site>FMA-F2M</site>
+            <date_envoi>
+              <t t-esc="po.date_order.strftime('%d/%m/%Y') if po.date_order else ''"/>
+            </date_envoi>
+            <commande>
+              <t t-esc="po.name"/>
+            </commande>
+            <fournisseur>
+              <t t-esc="po.partner_id.name or ''"/>
+            </fournisseur>
+            <Lieu_livraison>
+              <t t-esc="po.x_studio_related_field_sKHUz"/>
+            </Lieu_livraison>
+            <quantite_totale>
+              <t t-esc="sum(line.product_qty for line in po.order_line)"/>
+            </quantite_totale>
+            <date_livraison>
+              <t t-esc="po.date_planned.strftime('%d/%m/%y') if po.date_planned else ''"/>
+            </date_livraison>
+            <agres_de_livraison></agres_de_livraison>
+          </En-tete>
+
+          <t t-set="filtered_lines" t-value="po.order_line.filtered(lambda line: line.product_id.default_code != 'affaire')"/>
+          <t t-foreach="enumerate(filtered_lines)" t-as="loop_item">
+            <t t-set="index" t-value="loop_item[0]"/>
+            <t t-set="line" t-value="loop_item[1]"/>
+
+            <ligne>
+              <donnees_generales>
+                <numero_ligne_OA>
+                  <t t-esc="'%03d' % (index + 1)"/>
+                </numero_ligne_OA>
+                <quantite>
+                  <t t-esc="line.product_qty"/>
+                </quantite>
+                <montant_net>
+                  <t t-esc="'%.4f' % line.price_subtotal"/>
+                </montant_net>
+                <affaire>
+                  <t t-esc="po.x_studio_many2one_field_LCOZX"/>
+                </affaire>
+                <commentaire/>
+              </donnees_generales>
+
+              <donnees_logistiques>
+                <num_commande_client>
+                  <t t-esc="po.origin or ''"/>
+                </num_commande_client>
+                <ligne_commande_client>
+                  <t t-esc="'%03d' % (index + 1)"/>
+                </ligne_commande_client>
+                <num_programme>139108</num_programme>
+                <num_repere_programme>
+                  <t t-esc="'%03d' % (index + 1)"/>
+                </num_repere_programme>
+                <nom_client>
+                  <t t-esc="po.partner_id.name or ''"/>
+                </nom_client>
+                <famille/>
+                <code_barres>
+                  <t t-esc="line.product_id.default_code or ''"/>001OUVFR
+                </code_barres>
+                <chantier>
+                    <t t-esc="po.x_studio_project_po"/>
+                </chantier>
+                <type_cde>Commandes Normales</type_cde>
+                <nature_defaut/>
+                <numero_arc_origine/>
+                <numero_ligne_arc_origine/>
+                <numero_cde_origine/>
+                <ligne_commande_origine/>
+                <altitude/>
+                <sens_depose_vi_sur_chariot/>
+                <tri_chariot></tri_chariot>
+                <filmage/>
+                <emballage/>
+              </donnees_logistiques>
+
+              <donnees_techniques>
+                <largeur>
+                    <t t-esc="line.x_studio_largeur or ''"/>
+                </largeur>
+                <hauteur>
+                    <t t-esc="line.x_studio_hauteur or ''"/>
+                </hauteur>
+                <schema_forme></schema_forme>
+                <code_composition_vitrage/>
+                <designation_composition_vitrage></designation_composition_vitrage>
+                <type_petits_bois>
+                    <t t-esc="line.product_id.x_studio_type_pb"/>
+                </type_petits_bois>
+                <couleur_petits_bois>
+                    <t t-esc="line.product_id.x_studio_couleur_pb_intext"/>
+                </couleur_petits_bois>
+                <nombre_barre_horizontale>
+                    <t t-esc="line.product_id.x_studio_nbr_pb_horizontal"/>
+                </nombre_barre_horizontale>
+                <nombre_barre_verticale>
+                  <t t-esc="line.product_id.x_studio_nbr_pb_vertical"/>
+                </nombre_barre_verticale>
+                <positionnement_x_barre_horizontale>
+                  <t t-esc="line.product_id.x_studio_position_en_x_pb_horizontal_1"/>
+                </positionnement_x_barre_horizontale>
+                <positionnement_y_barre_horizontale>
+                  <t t-esc="line.product_id.x_studio_position_en_y_pb_horizontal_1"/>
+                </positionnement_y_barre_horizontale>
+                <positionnement_x_barre_verticale>
+                  <t t-esc="line.product_id.x_studio_position_en_x_pb_vertical_1"/>
+                </positionnement_x_barre_verticale>
+                <positionnement_y_barre_verticale>
+                    <t t-esc="line.product_id.x_studio_position_en_y_pb_vertical_1"/>
+                </positionnement_y_barre_verticale>
+                <PLAN/>
+                <decor/>
+              </donnees_techniques>
+            </ligne>
+          </t>
+        </Commande>
+      </Liste_commandes>
+    </t>
+  </template>
+</odoo>
