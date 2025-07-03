@@ -185,7 +185,7 @@ class PurchaseOrder(models.Model):
             _logger.error("Missing one or more SFTP server credentials.")
             return
 
-        try:
+        try: 
             transport = paramiko.Transport((sftp_server_host, 22))
             transport.connect(username=sftp_server_username, password=sftp_server_password)
             with paramiko.SFTPClient.from_transport(transport) as sftp:
