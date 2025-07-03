@@ -8,7 +8,7 @@ import psycopg2
 import xlsxwriter
 from io import BytesIO
 
- 
+
 from odoo import SUPERUSER_ID, api, fields, models, registry, _
 from odoo.exceptions import ValidationError
 
