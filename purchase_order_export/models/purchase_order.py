@@ -25,7 +25,7 @@ class PurchaseOrder(models.Model):
     customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address', readonly=False)
     so_ral = fields.Char(string="RAL :")
     so_riche_en_zinc = fields.Selection([
-        ('yes', 'Oui'),
+        ('yes', 'Oui'), 
         ('no', 'Non')
     ], string="Riche en Zinc", default='no', required=True)
     
