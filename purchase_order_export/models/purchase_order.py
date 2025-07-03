@@ -49,6 +49,7 @@ class PurchaseOrder(models.Model):
         return xml_content.encode('utf-8'), 'text/xml', 'xml'
 
     def _generate_xml_v2_content(self, po):
+        _logger.warning("********** APPEL de _generate_xml_v2_content pour PO: %s **********", po.name)
         """Génère un second format XML pour la commande d'achat."""
         xml_content = self.env['ir.qweb']._render(
             'purchase_order_export.purchase_order_sftp_export_template_v2',
