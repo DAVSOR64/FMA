@@ -1332,38 +1332,38 @@ class SqliteConnector(models.Model):
                 #_logger.warning("SALE ORDER %s " % proj )
                 if sale_order:
                     _logger.warning("DANS LE SALE ORDER " )
-                    if so_data.get(sale_order.id, 0) == 0 and pro:
-                        _logger.warning("Pas de Ligne donc creation " )
-                        so_data[sale_order.id] = {
-                        "partner_id": part.id if part else sale_order.partner_id.id,
-                        "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
-                        "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
-                        "date_order": fields.Date.today(),
-                        "order_line": [Command.create({
-                                'product_id': pro.id,
-                                'price_unit': float(row[8]),
-                                'product_uom_qty': float(row[6]),
-                                #'name': dimension,
-                                'discount': PourRem,
-                                'product_uom': pro.uom_id.id,
-                                # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                })],
-                        }
-                    else:
-                        _logger.warning("DEJA UNE LIGNE " )
-                        #if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
-                        if pro and so_data[sale_order.id] :
-                            _logger.warning("ON RAJOUTE DES LIGNES DANS LE SALE ORDER " )
-                            so_data[sale_order.id].get('order_line').append(Command.create({
-                                'product_id': pro.id,
-                                'price_unit': float(row[8]),
-                                'product_uom_qty': float(row[6]),
-                                #'name': dimension,
-                                'discount': PourRem,
-                                'product_uom': pro.uom_id.id,
-                                # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                                }))
-            
+                    #if so_data.get(sale_order.id, 0) == 0 and pro:
+                    #_logger.warning("Pas de Ligne donc creation " )
+                    #so_data[sale_order.id] = {
+                    #"partner_id": part.id if part else sale_order.partner_id.id,
+                    #"partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
+                    #"partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
+                    #"date_order": fields.Date.today(),
+                    #"order_line": [Command.create({
+                    #        'product_id': pro.id,
+                    #        'price_unit': float(row[8]),
+                    #        'product_uom_qty': float(row[6]),
+                    #        #'name': dimension,
+                    #        'discount': PourRem,
+                    #        'product_uom': pro.uom_id.id,
+                    #        # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                    #        })],
+                    #}
+                    #else:
+                    _logger.warning("DEJA UNE LIGNE " )
+                    #if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+                    #if pro and so_data[sale_order.id] :
+                    _logger.warning("ON RAJOUTE DES LIGNES DANS LE SALE ORDER " )
+                    so_data[sale_order.id].get('order_line').append(Command.create({
+                        'product_id': pro.id,
+                        'price_unit': float(row[8]),
+                        'product_uom_qty': float(row[6]),
+                        #'name': dimension,
+                        'discount': PourRem,
+                        'product_uom': pro.uom_id.id,
+                        # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                        }))
+        
             #sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
             #ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
             #proj = ''
