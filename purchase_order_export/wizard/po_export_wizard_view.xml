@@ -16,10 +16,11 @@
     </record>
 
     <record id="po_export_action" model="ir.actions.act_window">
-        <field name="name">Export PO</field>
-        <field name="res_model">po.export.wizard</field>
-        <field name="binding_model_id" ref="model_po_export_wizard"/>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
+      <field name="name">Export PO</field>
+      <field name="res_model">po.export.wizard</field>
+      <field name="binding_model_id" ref="purchase.model_purchase_order"/>
+      <field name="view_mode">form</field>
+      <field name="target">new</field>
     </record>
+
 </odoo>
