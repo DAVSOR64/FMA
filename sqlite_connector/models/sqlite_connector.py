@@ -1383,6 +1383,7 @@ class SqliteConnector(models.Model):
                 proj = proj + '_BPA'
             pro_name =proj                
             dimension = ''
+            _logger.warning('Artcile pour devis %s', pro_name)
             pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
             if sale_order:
             # stagging before merge if sale_order and so_data:
