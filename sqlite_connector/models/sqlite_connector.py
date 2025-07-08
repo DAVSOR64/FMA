@@ -1229,12 +1229,15 @@ class SqliteConnector(models.Model):
                     address = 'REM'
             
         PourRem = 0
+        PourRemProj = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultrem:
             if (row[0] == 'Report') and (row[1] == 'QuotationDiscount1') :
-                PourRem = row[2]
-                PourRem = PourRem.replace(',','.')
-
+                PourRemProj = row[2]
+                PourRemProj = PourRemProj.replace(',','.')
+        
+        _logger.warning("Remise %s " % str(PourRemProj))
+        
         self.state = 'error'
 
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo , Address.Address2, Phases.Name, Phases.Info1, Elevations.AutoDescription, Elevations.Amount, Elevations.Height_Output, ReportOfferTexts.TotalPrice, Elevations.Width_Output,Elevations.AutoDescriptionShort, Elevations.Name,  Elevations.Description, Projects.PersonInCharge from Projects LEFT JOIN Address ON Projects.LK_CustomerAddressID = Address.AddressID LEFT JOIN Phases ON Projects.ProjectID = Phases.ProjectID LEFT JOIN ElevationGroups ON Phases.PhaseId = ElevationGroups.PhaseID LEFT JOIN Elevations ON ElevationGroups.ElevationGroupId = Elevations.ElevationID LEFT JOIN ReportOfferTexts ON ReportOfferTexts.ElevationId = Elevations.ElevationId order by Elevations.ElevationId")
@@ -1281,9 +1284,8 @@ class SqliteConnector(models.Model):
                     QteTot = float(row[6]) + QteTot
                 # En position texte on ne prend que ECO CONTRIBUTION sinon on passe tout en FRAIS DE LIVRAISON
                 if row[5] == 'Position texte':
-                    if row[11] == 'ECO-CONTRIBUTION' :
+                    if row[11].startswith("ECO-CONTRIBUTION") :
                         refart = 'ECO-CONTRIBUTION'
-                        PourRem = 0
                         #dimension = 'ECO-CONTRIBUTION'
                     else :
                         refart = 'Frais de livraison'
@@ -1316,8 +1318,10 @@ class SqliteConnector(models.Model):
                     #pro_name = row[11] + '_' + projet
                     NumLig = NumLig + 1
                     pro_name = str(NumLig) + '_' + projet
+                    PourRem = PourRemProj
                 else:
                     pro_name = 'ECO-CONTRIBUTION'
+                    PourRem = 0
                 part = res_partners.filtered(lambda p: p.name == row[2])
                 pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
                 warehouse = False
