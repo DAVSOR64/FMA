@@ -1332,7 +1332,8 @@ class SqliteConnector(models.Model):
             
             if sale_order:
             # stagging before merge if sale_order and so_data:
-               if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+               #if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+                if pro and sale_order.id in so_data and so_data[sale_order.id].get('order_line'):
                     so_data[sale_order.id].get('order_line').append(Command.create({
                         'product_id': pro.id,
                         'price_unit': 0,
