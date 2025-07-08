@@ -1235,8 +1235,6 @@ class SqliteConnector(models.Model):
         PourRemProj = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultrem:
-            _logger.warning("SubNode %s " % str(row[0]))
-            _logger.warning("FieldName %s " % str(row[1]))
             if (row[0] == 'Report') and (row[1] == 'QuotationDiscount1') :
                 _logger.warning("Remise %s " % str(row[2]))
                 PourRemProj = row[2]
@@ -1268,35 +1266,30 @@ class SqliteConnector(models.Model):
             for row in resultp:
                 deviseur = row[13]
                 NbrLig = NbrLig + 1
+                
                 # On vient mettre les données de l entete
                 if clientID != row[2] :
                     clientID = row[2]
-                    if LstArt != '' :
-                        #data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom,dateliv]
-                        data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom]
-                    else :
-                        #data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
-                        data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom]
-                else :
-                    #data1 =['','','','','','','','','','','','','']
-                    data1 =['','','','','','','','','','','','']
+                
                 if ( row[8] == None ) :
                     PrixTot = PrixTot + 0
                 else :
                     PrixTot = float(row[8]) + PrixTot
+                
                 if ( row[6] == None ) :
                     QteTot = QteTot + 0
                 else :
                     QteTot = float(row[6]) + QteTot
+                
                 # En position texte on ne prend que ECO CONTRIBUTION sinon on passe tout en FRAIS DE LIVRAISON
                 if row[5] == 'Position texte':
+                    PourRem = 0
                     if row[11].startswith("ECO-CONTRIBUTION") :
                         refart = 'ECO-CONTRIBUTION'
-                        #dimension = 'ECO-CONTRIBUTION'
                     else :
                         refart = 'Frais de livraison'
-                        #dimension = 'Frais de livraison'
                 else :
+                    PourRem = PourRemProj
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                         NumLig = NumLig + 1
@@ -1308,15 +1301,11 @@ class SqliteConnector(models.Model):
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
                         if Tranche == 0  :
-                            refart = '[' + str(NumLig) + '_' + projet + ']'
+                            refart = '[' + str(NumLig) + '_' + projet + ']' 
                         else :
-                            refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
-                #data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
-                data2 = [refart,etiana,PourRem]
+                            refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']' 
                 
                 if NbrLig == 1:
-                    #data1 =['','','','','','','','','','','','','']
-                    data1 =['','','','','','','','','','','','']
                     proj = ''
                     if Tranche != 0 :
                         proj = projet.strip() + '/' + str(Tranche)
@@ -1324,28 +1313,21 @@ class SqliteConnector(models.Model):
                         proj = projet.strip()
                     if BP == 'BPA':
                         proj = proj + '_BPA'
-                    data = data1 + [proj,0, 1,proj,etiana,PourRem]
-                    #_logger.warning("DESCRIPTION ARTICLE %s " % proj )
-                if refart != 'ECO-CONTRIBUTION':
-                    #pro_name = row[11] + '_' + projet
-                    NumLig = NumLig + 1
-                    #pro_name = str(NumLig) + '_' + projet
-                    PourRem = PourRemProj
-                else:
-                    #pro_name = 'ECO-CONTRIBUTION'
-                    PourRem = 0
+                
                 part = res_partners.filtered(lambda p: p.name == row[2])
                 pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
                 _logger.warning('Dans la creation du sale order article %s' % str(refart))
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
-                _logger.warning('Dans la creation du sale order %s' % proj)
+                
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-                #_logger.warning("SALE ORDER %s " % proj )
+                _logger.warning("SALE ORDER %s " % proj )
                 if sale_order:
+                    _logger.warning("DANS LE SALE ORDER " )
                     if so_data.get(sale_order.id, 0) == 0 and pro:
+                        _logger.warning("Pas de Ligne donc creation " )
                         so_data[sale_order.id] = {
                         "partner_id": part.id if part else sale_order.partner_id.id,
                         "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
@@ -1362,7 +1344,9 @@ class SqliteConnector(models.Model):
                                 })],
                         }
                     else:
+                        _logger.warning("DEJA UNE LIGNE " )
                         if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+                            _logger.warning("ON RAJOUTE DES LIGNES DANS LE SALE ORDER " )
                             so_data[sale_order.id].get('order_line').append(Command.create({
                                 'product_id': pro.id,
                                 'price_unit': float(row[8]),
@@ -1372,19 +1356,19 @@ class SqliteConnector(models.Model):
                                 'product_uom': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 }))
-            sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
             
-            ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-            proj = ''
-            if Tranche != 0 :
-                proj = projet + '/' + str(Tranche)
-            else :
-                proj = projet
-            if BP == 'BPA':
-                proj = proj + '_BPA'
+            #sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+            #ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
+            #proj = ''
+            #if Tranche != 0 :
+            #    proj = projet + '/' + str(Tranche)
+            #else :
+            #    proj = projet
+            #if BP == 'BPA':
+            #    proj = proj + '_BPA'
             pro_name =proj                
             dimension = ''
-            _logger.warning('Artcile pour devis %s', pro_name)
+            #_logger.warning('Artcile pour devis %s', pro_name)
             pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
             if sale_order:
             # stagging before merge if sale_order and so_data:
