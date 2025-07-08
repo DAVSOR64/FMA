@@ -1253,6 +1253,8 @@ class SqliteConnector(models.Model):
         catergorie = ''
         entrepot = ''
         NumLig = 0
+        price = 0
+        Qty = 0
         so_data = {}
 
         if 'ALU' in etiana :
@@ -1287,6 +1289,8 @@ class SqliteConnector(models.Model):
                     PourRem = 0
                     if row[11].startswith("ECO-CONTRIBUTION") :
                         refart = 'ECO-CONTRIBUTION'
+                        price = 0.03
+                        Qty = float(row[8]) / 0.03
                     else :
                         refart = 'Frais de livraison'
                 else :
@@ -1297,9 +1301,13 @@ class SqliteConnector(models.Model):
                         if Tranche == 0 :
                             #refart = '[' + str(NumLig) + '_' + projet + ']'
                             refart = str(NumLig) + '_' + projet
+                            price = float(row[8])
+                            Qty = float(row[6])
                         else :
                             #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
                             refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
+                            price = float(row[8])
+                            Qty = float(row[6])
                     else:
                         NumLig = NumLig + 1
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
@@ -1307,9 +1315,13 @@ class SqliteConnector(models.Model):
                         if Tranche == 0  :
                             #refart = '[' + str(NumLig) + '_' + projet + ']' 
                             refart = str(NumLig) + '_' + projet
+                            price = float(row[8])
+                            Qty = float(row[6])
                         else :
                             #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']' 
                             refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
+                            price = float(row[8])
+                            Qty = float(row[6])
                 
                 if NbrLig == 1:
                     proj = ''
@@ -1361,8 +1373,8 @@ class SqliteConnector(models.Model):
                         _logger.warning("ON RAJOUTE DES LIGNES DANS LE SALE ORDER " )
                         so_data[sale_order.id].get('order_line').append(Command.create({
                             'product_id': pro.id,
-                            'price_unit': float(row[8]),
-                            'product_uom_qty': float(row[6]),
+                            'price_unit': price,
+                            'product_uom_qty': Qty,
                             #'name': dimension,
                             'discount': PourRem,
                             'product_uom': pro.uom_id.id,
