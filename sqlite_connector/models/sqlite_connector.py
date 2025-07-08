@@ -1565,7 +1565,7 @@ class SqliteConnector(models.Model):
         # Trier les opérations selon x_sequence du poste de travail
         sorted_operations = sorted(
             aggregated_data.items(),
-            key=lambda item: self.env['mrp.workcenter'].search([('name', '=', item[1]['name'])], limit=1).code or 999
+            key=lambda item: self.env['mrp.workcenter'].search([('name', '=', item[1]['name'])], limit=1).code or '999'
         )
         
         # Calcul du délai global (temps total des opérations + délais inter-opérations)
