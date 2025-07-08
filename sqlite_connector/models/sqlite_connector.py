@@ -13,8 +13,6 @@ from datetime import datetime, timedelta
 
 _logger = logging.getLogger(__name__)
 
-
-
 class SqliteConnector(models.Model):
     _name = 'sqlite.connector'
     _inherit = ['mail.thread', 'mail.activity.mixin']
