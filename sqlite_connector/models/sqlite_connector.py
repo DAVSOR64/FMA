@@ -397,7 +397,7 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
-                    if Tranche == 0 :
+                    if Tranche == '0' :
                         refint =  str(cpt) + '_' + projet
                     else :
                         refint =  str(cpt) + '_' + projet + '/' + str(Tranche)
@@ -1298,7 +1298,7 @@ class SqliteConnector(models.Model):
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                         NumLig = NumLig + 1
-                        if Tranche == 0 :
+                        if Tranche == '0' :
                             #refart = '[' + str(NumLig) + '_' + projet + ']'
                             refart = str(NumLig) + '_' + projet
                             price = float(row[8])
@@ -1312,7 +1312,7 @@ class SqliteConnector(models.Model):
                         NumLig = NumLig + 1
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
-                        if Tranche == 0  :
+                        if Tranche == '0'  :
                             #refart = '[' + str(NumLig) + '_' + projet + ']' 
                             refart = str(NumLig) + '_' + projet
                             price = float(row[8])
@@ -1325,7 +1325,7 @@ class SqliteConnector(models.Model):
                 
                 if NbrLig == 1:
                     proj = ''
-                    if Tranche != 0 :
+                    if Tranche != '0' :
                         proj = projet.strip() + '/' + str(Tranche)
                     else :
                         proj = projet.strip()
