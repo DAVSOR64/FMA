@@ -1253,6 +1253,7 @@ class SqliteConnector(models.Model):
         catergorie = ''
         entrepot = ''
         NumLig = 0
+        so_data = {}
 
         if 'ALU' in etiana :
             if address == 'LRE' :
@@ -1322,6 +1323,11 @@ class SqliteConnector(models.Model):
                     warehouse = self.env.ref(entrepot).id
                 
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                if sale_order.id not in so_data:
+                    so_data[sale_order.id] = {
+                        "partner_id": sale_order.partner_id.id,
+                        "order_line": [],
+                    }
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                 #_logger.warning("SALE ORDER %s " % proj )
                 if sale_order:
