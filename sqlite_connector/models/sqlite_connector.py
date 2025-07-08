@@ -1318,7 +1318,7 @@ class SqliteConnector(models.Model):
                     #data1 =['','','','','','','','','','','','','']
                     data1 =['','','','','','','','','','','','']
                     proj = ''
-                    if Tranche != '0' :
+                    if Tranche != 0 :
                         proj = projet.strip() + '/' + str(Tranche)
                     else :
                         proj = projet.strip()
@@ -1336,6 +1336,7 @@ class SqliteConnector(models.Model):
                     PourRem = 0
                 part = res_partners.filtered(lambda p: p.name == row[2])
                 pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
+                _logger.warning('Dans la creation du sale order article %s' % str(pro))
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
