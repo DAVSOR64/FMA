@@ -1295,17 +1295,21 @@ class SqliteConnector(models.Model):
                         dimension = ''
                         NumLig = NumLig + 1
                         if Tranche == 0 :
-                            refart = '[' + str(NumLig) + '_' + projet + ']'
+                            #refart = '[' + str(NumLig) + '_' + projet + ']'
+                            refart = str(NumLig) + '_' + projet
                         else :
-                            refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
+                            #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
+                            refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
                     else:
                         NumLig = NumLig + 1
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
                         if Tranche == 0  :
-                            refart = '[' + str(NumLig) + '_' + projet + ']' 
+                            #refart = '[' + str(NumLig) + '_' + projet + ']' 
+                            refart = str(NumLig) + '_' + projet
                         else :
-                            refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']' 
+                            #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']' 
+                            refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
                 
                 if NbrLig == 1:
                     proj = ''
