@@ -8,7 +8,7 @@ class ProductTemplate(models.Model):
     _inherit = "product.template"
 
     
-    clc1 = fields.Char(string="Clc1")
-    clc2 = fields.Char(string="Clc2")
-    cls1 = fields.Char(string="Cls1")
-    cls2 = fields.Char(String="Cls2")
+    #clc1 = fields.Char(string="Clc1")
+    #clc2 = fields.Char(string="Clc2")
+    #cls1 = fields.Char(string="Cls1")
+    #cls2 = fields.Char(String="Cls2")
