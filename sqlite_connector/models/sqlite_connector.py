@@ -1299,6 +1299,7 @@ class SqliteConnector(models.Model):
                         else :
                             refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
                     else:
+                        NumLig = NumLig + 1
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
                         if Tranche == 0  :
