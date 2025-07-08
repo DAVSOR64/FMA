@@ -1323,7 +1323,7 @@ class SqliteConnector(models.Model):
                 
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-                _logger.warning("SALE ORDER %s " % proj )
+                #_logger.warning("SALE ORDER %s " % proj )
                 if sale_order:
                     _logger.warning("DANS LE SALE ORDER " )
                     if so_data.get(sale_order.id, 0) == 0 and pro:
@@ -1345,7 +1345,8 @@ class SqliteConnector(models.Model):
                         }
                     else:
                         _logger.warning("DEJA UNE LIGNE " )
-                        if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+                        #if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+                        if pro and so_data[sale_order.id] :
                             _logger.warning("ON RAJOUTE DES LIGNES DANS LE SALE ORDER " )
                             so_data[sale_order.id].get('order_line').append(Command.create({
                                 'product_id': pro.id,
@@ -1373,7 +1374,8 @@ class SqliteConnector(models.Model):
             if sale_order:
             # stagging before merge if sale_order and so_data:
                #if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
-                if pro and sale_order.id in so_data and so_data[sale_order.id].get('order_line'):
+                #if pro and sale_order.id in so_data and so_data[sale_order.id].get('order_line'):
+                if pro and so_data[sale_order.id] :
                     so_data[sale_order.id].get('order_line').append(Command.create({
                         'product_id': pro.id,
                         'price_unit': 0,
@@ -1518,7 +1520,7 @@ class SqliteConnector(models.Model):
 
         resu = cursor.execute("SELECT * FROM LabourTimes")
         for row in resu :
-            _logger.warning("Temps %s " % str(row[7]))        
+            #_logger.warning("Temps %s " % str(row[7]))        
         
         cursor.execute("SELECT COUNT(*) FROM LabourTimes")
         count = cursor.fetchone()[0]    
