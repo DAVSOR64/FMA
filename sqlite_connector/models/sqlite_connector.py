@@ -1187,6 +1187,8 @@ class SqliteConnector(models.Model):
         PourRemProj = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultrem:
+            _logger.warning("SubNode %s " % str(row[0]))
+            _logger.warning("FieldName %s " % str(row[1]))
             if (row[0] == 'Report') and (row[1] == 'QuotationDiscount1') :
                 _logger.warning("Remise %s " % str(row[2]))
                 PourRemProj = row[2]
