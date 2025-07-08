@@ -1,14 +1,14 @@
 <odoo>
 
     <!-- Action pour l'exportation de commande -->
-    <record id="action_export_order" model="ir.actions.server">
-        <field name="name">Export Order</field>
-        <field name="model_id" ref="purchase.model_purchase_order"/>
-        <field name="binding_model_id" ref="purchase.model_purchase_order"/>
-        <field name="binding_view_types">list,form</field>
-        <field name="state">code</field>
-        <field name="code">action = records.action_export()</field>
+    <record id="po_export_action" model="ir.actions.act_window">
+      <field name="name">Export PO</field>
+      <field name="res_model">po.export.wizard</field>
+      <field name="binding_model_id" ref="purchase.model_purchase_order"/>
+      <field name="view_mode">form</field>
+      <field name="target">new</field>
     </record>
+
 
     <!-- Héritage de la vue Tree avec ajout des champs -->
     <record id="purchase_order_kpis_tree_inherit" model="ir.ui.view">
