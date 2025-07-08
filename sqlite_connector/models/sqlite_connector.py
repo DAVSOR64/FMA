@@ -397,7 +397,10 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
-                    refint =  str(cpt) + '_' + projet
+                    if Tranche == 0 :
+                        refint =  str(cpt) + '_' + projet
+                    else :
+                        refint =  str(cpt) + '_' + projet + '/' + str(Tranche)
                     elevID = row[1]
                     idrefart = ''
                     HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
@@ -1297,11 +1300,17 @@ class SqliteConnector(models.Model):
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                         NumLig = NumLig + 1
-                        refart = '[' + str(NumLig) + '_' + projet + ']'
+                        if Tranche == 0 :
+                            refart = '[' + str(NumLig) + '_' + projet + ']'
+                        else :
+                            refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
                     else:
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
-                        refart = '[' + str(NumLig) + '_' + projet + ']'
+                        if Tranche == 0  :
+                            refart = '[' + str(NumLig) + '_' + projet + ']'
+                        else :
+                            refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
                 #data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
                 data2 = [refart,etiana,PourRem]
                 
