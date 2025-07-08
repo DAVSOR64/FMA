@@ -1329,21 +1329,21 @@ class SqliteConnector(models.Model):
                 if refart != 'ECO-CONTRIBUTION':
                     #pro_name = row[11] + '_' + projet
                     NumLig = NumLig + 1
-                    pro_name = str(NumLig) + '_' + projet
+                    #pro_name = str(NumLig) + '_' + projet
                     PourRem = PourRemProj
                 else:
-                    pro_name = 'ECO-CONTRIBUTION'
+                    #pro_name = 'ECO-CONTRIBUTION'
                     PourRem = 0
                 part = res_partners.filtered(lambda p: p.name == row[2])
-                pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
-                _logger.warning('Dans la creation du sale order article %s' % str(pro))
+                pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
+                _logger.warning('Dans la creation du sale order article %s' % str(refart))
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
                 _logger.warning('Dans la creation du sale order %s' % proj)
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-                _logger.warning("SALE ORDER %s " % proj )
+                #_logger.warning("SALE ORDER %s " % proj )
                 if sale_order:
                     if so_data.get(sale_order.id, 0) == 0 and pro:
                         so_data[sale_order.id] = {
@@ -1376,7 +1376,7 @@ class SqliteConnector(models.Model):
             
             ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
             proj = ''
-            if Tranche != '0' :
+            if Tranche != 0 :
                 proj = projet + '/' + str(Tranche)
             else :
                 proj = projet
