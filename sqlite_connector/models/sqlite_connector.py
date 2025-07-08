@@ -1294,7 +1294,7 @@ class SqliteConnector(models.Model):
                 _logger.warning('Dans la creation du sale order %s' % proj)
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-                
+                _logger.warning("SALE ORDER %s " % proj )
                 if sale_order:
                     if so_data.get(sale_order.id, 0) == 0 and pro:
                         so_data[sale_order.id] = {
