@@ -12,3 +12,6 @@ class ProductTemplate(models.Model):
     clc2 = fields.Char(string="Clc2")
     cls1 = fields.Char(string="Cls1")
     cls2 = fields.Char(String="Cls2")
+    # studio fields
+    x_studio_color_logikal = fields.Char()
+    x_studio_longueur_m = fields.Char()
