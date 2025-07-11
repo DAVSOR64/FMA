@@ -25,10 +25,12 @@ class PurchaseOrder(models.Model):
     customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address', readonly=False)
     so_ral = fields.Char(string="RAL :")
     so_riche_en_zinc = fields.Selection([
-        ('yes', 'Oui'), 
+        ('yes', 'Oui'),
         ('no', 'Non')
     ], string="Riche en Zinc", default='no', required=True)
-    
+    # studio fields
+    x_studio_related_field_sKHUz = fields.Char()
+
     @api.depends('shipping_partner_id')
     def _get_default_customer_delivery_address(self):
         shipping_number_to_address = {
@@ -187,7 +189,7 @@ class PurchaseOrder(models.Model):
             _logger.error("Missing one or more SFTP server credentials.")
             return
 
-        try: 
+        try:
             transport = paramiko.Transport((sftp_server_host, 22))
             transport.connect(username=sftp_server_username, password=sftp_server_password)
             with paramiko.SFTPClient.from_transport(transport) as sftp:
