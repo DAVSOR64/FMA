@@ -9,7 +9,7 @@
             Task: 3975517
         """,
     'author': 'Odoo PS',
-    'version': '17.0.0.2.0',
+    'version': '17.0.0.3.0',
     'depends': [
         'purchase', 'stock'
     ],
