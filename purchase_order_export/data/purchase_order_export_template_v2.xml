@@ -67,9 +67,7 @@
                 <code_barres>
                   <t t-esc="line.product_id.default_code or ''"/>001OUVFR
                 </code_barres>
-                <chantier>
-                    <t t-esc="po.x_studio_project_po"/>
-                </chantier>
+                <chantier/>
                 <type_cde>Commandes Normales</type_cde>
                 <nature_defaut/>
                 <numero_arc_origine/>
