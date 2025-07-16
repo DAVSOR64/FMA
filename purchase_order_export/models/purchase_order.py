@@ -25,10 +25,10 @@ class PurchaseOrder(models.Model):
     customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address', readonly=False)
     so_ral = fields.Char(string="RAL :")
     so_riche_en_zinc = fields.Selection([
-        ('yes', 'Oui'), 
+        ('yes', 'Oui'),
         ('no', 'Non')
     ], string="Riche en Zinc", default='no', required=True)
-    
+
     @api.depends('shipping_partner_id')
     def _get_default_customer_delivery_address(self):
         shipping_number_to_address = {
@@ -175,7 +175,10 @@ class PurchaseOrder(models.Model):
 
     def cron_send_po_xml_to_sftp(self):
         """Sync the unsynced POs to the SFTP server."""
-        purchase_orders = self.env['purchase.order'].search([('is_xml_created', '=', True)])
+        purchase_orders = self.env['purchase.order'].search([
+            ('is_xml_created', '=', True),
+            ('sftp_synced_time', '=', False),
+        ])
         attachment_model = self.env['ir.attachment']
 
         get_param = self.env['ir.config_parameter'].sudo().get_param
@@ -187,24 +190,28 @@ class PurchaseOrder(models.Model):
             _logger.error("Missing one or more SFTP server credentials.")
             return
 
-        try: 
+        transport = None
+        try:
             transport = paramiko.Transport((sftp_server_host, 22))
             transport.connect(username=sftp_server_username, password=sftp_server_password)
             with paramiko.SFTPClient.from_transport(transport) as sftp:
                 for order in purchase_orders:
-                    with self.env.cr.savepoint():
-                        attachment = attachment_model.search([
-                            ('res_model', '=', 'purchase.order'),
-                            ('res_id', '=', order.id),
-                            ('is_po_xml', '=', True)
-                        ], limit=1)
-                        if attachment:
-                            self._sync_file(sftp, attachment, order, sftp_server_file_path)
-                        else:
-                            _logger.warning(f"No attachment found for Purchase Order {order.name}.")
-        except Exception as e:
-            order.write({'sftp_synced_time': False})
-            _logger.error(f"Failed to sync Purchase Order {order.name} to SFTP server: {e}")
+                    try:
+                        with self.env.cr.savepoint():
+                            attachment = attachment_model.search([
+                                ('res_model', '=', 'purchase.order'),
+                                ('res_id', '=', order.id),
+                                ('is_po_xml', '=', True)
+                            ], limit=1)
+                            if attachment:
+                                self._sync_file(sftp, attachment, order, sftp_server_file_path)
+                            else:
+                                _logger.warning(f"No attachment found for Purchase Order {order.name}.")
+                    except Exception as e:
+                        order.write({'sftp_synced_time': False})
+                        _logger.error(f"Failed to sync Purchase Order {order.name} to SFTP server: {e}")
+        except Exception as transport_error:
+            _logger.critical(f"Failed to connect or setup SFTP transport: {transport_error}", exc_info=True)
         finally:
             if transport:
                 transport.close()
