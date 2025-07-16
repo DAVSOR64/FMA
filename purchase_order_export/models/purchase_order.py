@@ -108,8 +108,8 @@ class PurchaseOrder(models.Model):
             if po.state in ['done', 'cancel']:
                 raise ValidationError("Purchase order state should not be in 'Cancelled' or 'Done' state.")
 
-            if not export_format or export_format not in ['xlsx', 'xml','xml_v2']:
-                    raise ValidationError("Unsupported export format.")
+            if not export_format or export_format not in ['xlsx', 'xml', 'xml_v2']:
+                raise ValidationError("Unsupported export format.")
 
             try:
                 if export_format == 'xlsx':
@@ -120,7 +120,6 @@ class PurchaseOrder(models.Model):
                         'xml_creation_time': fields.Datetime.now(),
                         'is_xml_created': True
                     })
-
                 elif export_format == 'xml_v2':
                     content, mimetype, file_extension = self._generate_xml_v2_content(po)
                     po.write({
@@ -128,8 +127,19 @@ class PurchaseOrder(models.Model):
                         'is_xml_created': True
                     })
 
+                # Définir le nom du fichier selon le type d’export
+                if export_format == 'xml':
+                    filename = f'ZOR-{po.name}.{file_extension}'
+                elif export_format == 'xml_v2':
+                    filename = f'TIV-{po.name}.{file_extension}'
+                elif export_format == 'xlsx':
+                    filename = f'Reynaers-{po.name}.{file_extension}'
+                else:
+                    filename = f'Purchase Order Export-{po.name}.{file_extension}'
+
+                # Créer la pièce jointe
                 attachment = self.env['ir.attachment'].create({
-                    'name': f'Purchase Order Export-{po.name}.{file_extension}',
+                    'name': filename,
                     'type': 'binary',
                     'datas': base64.b64encode(content),
                     'res_model': 'purchase.order',
@@ -140,6 +150,7 @@ class PurchaseOrder(models.Model):
             except Exception as e:
                 po.write({'is_xml_created': False})
                 _logger.exception("Failed to export purchase order %s: %s", po.name, e)
+
 
     def _sync_file(self, sftp_obj, attachment, order, sftp_server_file_path):
         attachment_content = base64.b64decode(attachment.datas)
