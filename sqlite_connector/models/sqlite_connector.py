@@ -1270,8 +1270,10 @@ class SqliteConnector(models.Model):
                 part = res_partners.filtered(lambda p: p.name == row[2])
                 pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
                 warehouse = False
-                if data1[10]:
-                    warehouse = self.env.ref(data1[10]).id
+                warehouse = False
+                if entrepot:
+                    warehouse = self.env.ref(entrepot).id
+                    
                 _logger.warning('Dans la creation du sale order %s' % proj)
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
