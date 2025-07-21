@@ -1102,44 +1102,42 @@ class SqliteConnector(models.Model):
                 """, (glass_id,))
                 pb = cursor.fetchall()
             
-                if not pb:
-                    continue
-            
-                #Séparer en barres horizontales et verticales
-                horizontaux = [r for r in pb if r[1] == 'Horizontal']
-                verticaux = [r for r in pb if r[1] == 'Vertical']
-            
-                #Fonctions de formatage
-                def fmt(v):
-                    try:
-                        return str(int(float(v.replace(',', '.'))))
-                    except:
-                        return '0'
-            
-                def join_positions(data, i_start, i_end):
-                    return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
-            
-                def join_longueurs(data, i_length, i_start, i_end):
-                    return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
-
-                # Sélection du type (nom du petit bois)
-                type_petits_bois = pb[0][0] if pb else ''
+                if pb:
+                    #Séparer en barres horizontales et verticales
+                    horizontaux = [r for r in pb if r[1] == 'Horizontal']
+                    verticaux = [r for r in pb if r[1] == 'Vertical']
                 
-                # Nombre de barres
-                nb_barre_horizontale = len(horizontaux)
-                nb_barre_verticale = len(verticaux)
+                    #Fonctions de formatage
+                    def fmt(v):
+                        try:
+                            return str(int(float(v.replace(',', '.'))))
+                        except:
+                            return '0'
                 
-                # Positions horizontales
-                pos_x_barre_horizontale = join_positions(horizontaux, 2, 3)
-                pos_y_barre_horizontale = join_positions(horizontaux, 4, 5)
+                    def join_positions(data, i_start, i_end):
+                        return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
                 
-                # Positions verticales
-                pos_x_barre_verticale = join_positions(verticaux, 2, 3)
-                pos_y_barre_verticale = join_positions(verticaux, 4, 5)
-                
-                # Longueurs
-                longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
-                longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
+                    def join_longueurs(data, i_length, i_start, i_end):
+                        return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
+    
+                    # Sélection du type (nom du petit bois)
+                    type_petits_bois = pb[0][0] if pb else ''
+                    
+                    # Nombre de barres
+                    nb_barre_horizontale = len(horizontaux)
+                    nb_barre_verticale = len(verticaux)
+                    
+                    # Positions horizontales
+                    pos_x_barre_horizontale = join_positions(horizontaux, 2, 3)
+                    pos_y_barre_horizontale = join_positions(horizontaux, 4, 5)
+                    
+                    # Positions verticales
+                    pos_x_barre_verticale = join_positions(verticaux, 2, 3)
+                    pos_y_barre_verticale = join_positions(verticaux, 4, 5)
+                    
+                    # Longueurs
+                    longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
+                    longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
                 
                 mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,type,type_petis_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
             
