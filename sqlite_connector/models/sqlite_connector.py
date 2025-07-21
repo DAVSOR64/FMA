@@ -1312,16 +1312,10 @@ class SqliteConnector(models.Model):
             sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
             
             ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-            proj = ''
-            if Tranche != '0' :
-                proj = projet + '/' + str(Tranche)
-            else :
-                proj = projet
-            if BP == 'BPA':
-                proj = proj + '_BPA'
-            pro_name =proj                
+                            
             dimension = ''
-            pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
+            pro = self.env['product.product'].search([('default_code', '=', proj)], limit=1)
+            
             if sale_order:
             # stagging before merge if sale_order and so_data:
                if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
