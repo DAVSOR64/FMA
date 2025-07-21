@@ -1214,7 +1214,7 @@ class SqliteConnector(models.Model):
                             'x_studio_position_en_x_pb_vertical_1' : PosiVertiX,
                             'x_studio_position_en_y_pb_horizontal_1' : PosiHoriY,
                             'x_studio_position_en_y_pb_vertical_1' : PosiVertiY,
-                            'x_studio_longueur_pb_horizontal' : LongHori,
+                            'x_studio_longueur_pb_horizontal_1' : LongHori,
                             'x_studio_longueur_pb_vertical' : LongVerti,
                             # 'x_studio_positionn': Posint,
                         }
