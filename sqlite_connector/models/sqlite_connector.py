@@ -1012,14 +1012,16 @@ class SqliteConnector(models.Model):
             def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti ):
                 trouve = False
                 for item in Glass:
+                    _logger.warning('Vitrage trouve %s' % nom)
                     # Si le vitrage existe déjà on vient mettre à jour la quantité
                     if item[0] == fournisseur and item[1] == livraison and item [2] == position and item [3] == nom and item [4] == largeur and item[5] == hauteur and item[11] == type:
-                        #_logger.warning('Vitrage trouve %s' % fournisseur)
-                        #_logger.warning('Vitrage trouve %s' % livraison)
-                        #_logger.warning('Vitrage trouve %s' % position)
-                        #_logger.warning('Vitrage trouve %s' % nom)
-                        #_logger.warning('Vitrage trouve %s' % largeur)
-                        #_logger.warning('Vitrage trouve %s' % hauteur)
+                        _logger.warning('Vitrage trouve %s' % fournisseur)
+                        _logger.warning('Vitrage trouve %s' % livraison)
+                        _logger.warning('Vitrage trouve %s' % position)
+                        _logger.warning('Vitrage trouve %s' % nom)
+                        _logger.warning('Vitrage trouve %s' % largeur)
+                        _logger.warning('Vitrage trouve %s' % hauteur)
+                        _logger.warning('Vitrage trouve %s' % type)
                         item[8] = str(int(item [8]) + int(quantite_ajoutee))
                         trouve = True
                         break
