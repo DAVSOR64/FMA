@@ -146,7 +146,7 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     RefLogikal = 'S' + RefLogikal
-            _logger.warning("**********AVANT Profile pour MAJ********* %s " % RefLogikal )
+            #_logger.warning("**********AVANT Profile pour MAJ********* %s " % RefLogikal )
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[2][1:]
                 Length= row[9]
@@ -157,7 +157,7 @@ class SqliteConnector(models.Model):
                         RefLogikal = 'W' + RefLogikal.zfill(7)
                     else :
                         RefLogikal = 'W' + RefLogikal
-                _logger.warning("**********APRES Profile pour MAJ********* %s " % RefLogikal )
+                #_logger.warning("**********APRES Profile pour MAJ********* %s " % RefLogikal )
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen' :
                 refart = 'JAN' + ' ' + row[2]
             refart = refart.replace("RYN","REY")
@@ -176,7 +176,7 @@ class SqliteConnector(models.Model):
                 refart = refart + '.' + couleur
                 #RefLogikal = 'T' + RefLogikal
                 
-            _logger.warning("**********Profile pour MAJ********* %s " % refart )
+            #_logger.warning("**********Profile pour MAJ********* %s " % refart )
             profiles.append({
                 'article': refart,
                 'prix': row[1],
@@ -223,7 +223,7 @@ class SqliteConnector(models.Model):
             #_logger.warning("**********Profile dans la MAJ********* %s " % profile['article'] )
             product = self.env['product.product'].search([('default_code', '=', profile['article'])])
             if product:
-                _logger.warning("**********Profile dans la MAJ pour ref logikal********* %s " % profile['RefLogikal'] )
+                #_logger.warning("**********Profile dans la MAJ pour ref logikal********* %s " % profile['RefLogikal'] )
                 product = product[0]
                 product.x_studio_ref_int_logikal = profile['RefLogikal']
                 product.x_studio_color_logikal = profile['ColorLogikal']
@@ -368,7 +368,7 @@ class SqliteConnector(models.Model):
            # _logger.warning("Ligne : %s" % str(row))
             if (row[0] == 'UserVars') and (row[1] == 'UserInteger1'):
                 value = row[2].strip().replace(' ', '')
-                _logger.warning("Valeur nettoyée : %s" % value)
+                #_logger.warning("Valeur nettoyée : %s" % value)
                 if value == '1':
                     BP = 'BPA'
                 elif value == '3':
@@ -376,7 +376,7 @@ class SqliteConnector(models.Model):
                 elif value == '2':
                     BP = 'BPA-BPE'
                 
-        _logger.warning("Profile %s " % value )
+        #_logger.warning("Profile %s " % value )
         # If we are not in BPA, we come and create the items that we will put in the customer quote.
         # This we put in the articlesm.xlsx files
 
@@ -681,7 +681,7 @@ class SqliteConnector(models.Model):
             #_logger.warning("**********Prix  Article********* %s " % str(prix) )
             _logger.warning("**********Article********* %s " % refart )
             if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                _logger.warning("**********Creation Article********* %s " % refart )
+                #_logger.warning("**********Creation Article********* %s " % refart )
                 vals = {
                     'default_code': refart,
                     'name': nom,
@@ -785,7 +785,7 @@ class SqliteConnector(models.Model):
             Commande = []
     
             for row in resultpf:
-                _logger.warning("Profile %s " % row[0] )
+                #_logger.warning("Profile %s " % row[0] )
                 refart = row[0]
                 refartini = row[0]
                 name = row[1]
@@ -890,7 +890,7 @@ class SqliteConnector(models.Model):
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
                     creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
-                    _logger.warning("Profil existant %s " % refart )
+                    #_logger.warning("Profil existant %s " % refart )
                     creation_commande(Commande, refart, unit, fournisseur,prixB ,delai, UV, Qte)
             
             for ligne in Article :
@@ -1008,6 +1008,7 @@ class SqliteConnector(models.Model):
 
             # On vient créer une fonction permettant de créer la liste des vitrages 
             _logger.warning('proj %s : ' % proj)
+            
             def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti ):
                 trouve = False
                 for item in Glass:
@@ -1040,6 +1041,7 @@ class SqliteConnector(models.Model):
             resultg=cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId, Glass.ModelType from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
             
             for row in resultg:
+                _logger.warning('Name %s :' % str(row[1]))
                 if row[13] != 'Glass' :
                     Info2 = ''
                     spacer = ''
@@ -1054,8 +1056,11 @@ class SqliteConnector(models.Model):
                     position = str(row[9])
                 
                 Frsid = row[17]
-                _logger.warning('fournisseur %s :' % str(spacer))
+                _logger.warning('Spacer %s :' % str(spacer))
+                
                 type = row[18]
+                _logger.warning('Type %s :' % str(type))
+                
                 if type == '0':
                     type = 'RECTANGULAIRE'
                 else :
