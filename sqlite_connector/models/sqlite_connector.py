@@ -1268,7 +1268,7 @@ class SqliteConnector(models.Model):
                         proj = proj + '_BPA'
                         
                 part = res_partners.filtered(lambda p: p.name == row[2])
-                pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
+                pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
                 warehouse = False
                 if data1[10]:
                     warehouse = self.env.ref(data1[10]).id
