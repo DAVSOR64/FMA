@@ -1139,7 +1139,7 @@ class SqliteConnector(models.Model):
                     longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
                     longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
                 
-                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,type,type_petis_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
+                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,type,type_petits_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
             
             fournisseur = ''
             info_livraison =''
