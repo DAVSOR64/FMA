@@ -1316,7 +1316,7 @@ class SqliteConnector(models.Model):
                 proj = proj + '_BPA'
             pro_name =proj                
             dimension = ''
-            pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
+            pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
             if sale_order:
             # stagging before merge if sale_order and so_data:
                if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
