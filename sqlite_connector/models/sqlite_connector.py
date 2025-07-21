@@ -1038,8 +1038,8 @@ class SqliteConnector(models.Model):
             delai = 0
             sname = ''
             
-            resultg=cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId, Glass.ModelType from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
-            
+            cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId, Glass.ModelType from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
+            resultg = cursor.fetchall()
             for row in resultg:
                 _logger.warning('Name %s :' % str(row[1]))
                 if row[13] != 'Glass' :
@@ -1081,6 +1081,16 @@ class SqliteConnector(models.Model):
                 else:
                     self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
 
+                type_petits_bois = ''
+                nb_barre_horizontale = 0
+                nb_barre_verticale = 0
+                pos_x_barre_horizontale = ''
+                pos_y_barre_horizontale = ''
+                pos_x_barre_verticale = ''
+                pos_y_barre_verticale = ''
+                longueur_barre_horizontale = ''
+                longueur_barre_verticale = ''
+                    
                 glass_id = row[16] 
                 #Récupérer tous les petits bois associés
                 cursor.execute("""
@@ -1111,7 +1121,7 @@ class SqliteConnector(models.Model):
                     return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
 
                 # Sélection du type (nom du petit bois)
-                type_petits_bois = pb[0]
+                type_petits_bois = pb[0][0] if pb else ''
                 
                 # Nombre de barres
                 nb_barre_horizontale = len(horizontaux)
