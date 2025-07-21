@@ -362,7 +362,10 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
-                    refint =  str(cpt) + '_' + projet
+                    if Tranche == '0' :
+                        refint =  str(cpt) + '_' + projet
+                    else :
+                        refint =  str(cpt) + '_' + projet + '/' + str(Tranche)
                     elevID = row[1]
                     idrefart = ''
                     HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
