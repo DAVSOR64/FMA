@@ -252,6 +252,7 @@ class SqliteConnector(models.Model):
 
         for row in resultp :
             project = row[1]
+            project = project.strip()
             pro = project.split('/')
             nbelem = len(pro)
             #PersonBE = row[2]
@@ -305,6 +306,7 @@ class SqliteConnector(models.Model):
         etiana = ''
         for row in resultp :
             project = row[1]
+            project = project.strip()
             pro = project.split('/')
             nbelem = len(pro)
             if nbelem == 1 :
