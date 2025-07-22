@@ -258,6 +258,7 @@ class SqliteConnector(models.Model):
             PersonBE = row[2]
             if nbelem == 1 :
                 projet = row[1]
+                projet = projet.strip
             else:
                 projet = project.split('/')[0]
                 Tranche = project.split('/')[1]
@@ -315,6 +316,7 @@ class SqliteConnector(models.Model):
         etiana = ''
         for row in resultp :
             project = row[1]
+            project = project.strip
             pro = project.split('/')
             nbelem = len(pro)
             if nbelem == 1 :
@@ -397,7 +399,7 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
-                    if Tranche == 0 :
+                    if Tranche == '0' :
                         refint =  str(cpt) + '_' + projet
                     else :
                         refint =  str(cpt) + '_' + projet + '/' + str(Tranche)
@@ -1317,7 +1319,7 @@ class SqliteConnector(models.Model):
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                         NumLig = NumLig + 1
-                        if Tranche == 0 :
+                        if Tranche == '0' :
                             #refart = '[' + str(NumLig) + '_' + projet + ']'
                             refart = str(NumLig) + '_' + projet
                             price = float(row[8])
@@ -1344,7 +1346,7 @@ class SqliteConnector(models.Model):
                 
                 if NbrLig == 1:
                     proj = ''
-                    if Tranche != 0 :
+                    if Tranche != '0' :
                         proj = projet.strip() + '/' + str(Tranche)
                     else :
                         proj = projet.strip()
@@ -1403,7 +1405,7 @@ class SqliteConnector(models.Model):
             #sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
             #ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
             #proj = ''
-            #if Tranche != 0 :
+            #if Tranche != '0' :
             #    proj = projet + '/' + str(Tranche)
             #else :
             #    proj = projet
@@ -1438,7 +1440,7 @@ class SqliteConnector(models.Model):
                     else :
                         data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
                     proj = ''
-                    if Tranche != 0 :
+                    if Tranche != '0' :
                         proj = projet + '/' + str(Tranche)
                     else :
                         proj = projet
@@ -1492,7 +1494,7 @@ class SqliteConnector(models.Model):
         
         proj = ''
         cpt = 0
-        if Tranche != 0 :
+        if Tranche != '0' :
             proj = projet + '/' + str(Tranche)
         else :
             proj = projet
