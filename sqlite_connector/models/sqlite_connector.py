@@ -1046,14 +1046,14 @@ class SqliteConnector(models.Model):
                     if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
                         sname = sup['name']
                 
-                #_logger.warning('fournisseur trouve %s :' % sname)
+                _logger.warning('fournisseur trouve %s :' % sname)
                 if sname == ' ' or sname is None :
                     frsnomf = 'Non Def'
                 else :       
                     for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
                         if sname == (part.x_studio_ref_logikal):
                             res_partner = part
-                            #_logger.warning('----- %s' % res_partner)
+                            _logger.warning('----- %s' % res_partner)
                     if res_partner:
                         frsnomf = res_partner[0].name
                     else:
@@ -1077,6 +1077,7 @@ class SqliteConnector(models.Model):
                 if uom_uom:
                     idun = uom_uom.id
                 res_partner = res_partners.filtered(lambda p: p.name == ligne[0])
+                _logger.warning('----- %s' % res_partner.name)
                 if res_partner:
                     idfrs = res_partner.id
                 if fournisseur != ligne[0] or info_livraison != ligne[1] :
