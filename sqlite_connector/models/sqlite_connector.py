@@ -258,7 +258,7 @@ class SqliteConnector(models.Model):
             PersonBE = row[2]
             if nbelem == 1 :
                 projet = row[1]
-                projet = projet.strip
+                projet = projet.strip()
             else:
                 projet = project.split('/')[0]
                 Tranche = project.split('/')[1]
@@ -316,7 +316,7 @@ class SqliteConnector(models.Model):
         etiana = ''
         for row in resultp :
             project = row[1]
-            project = project.strip
+            project = project.strip()
             pro = project.split('/')
             nbelem = len(pro)
             if nbelem == 1 :
@@ -441,7 +441,7 @@ class SqliteConnector(models.Model):
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         for row in resultp:
             refart = str(row[1])
-            refart = refart.strip
+            refart = refart.strip()
             categ = self.env.ref('product.product_category_all')
             affaire = row[0]
             if BP == 'BPA':
