@@ -985,6 +985,20 @@ class SqliteConnector(models.Model):
                 else :
                     typeglass = 'FORME SPECIALE'
                 
+                res_partner = False
+                for sup in suppliers :
+                    if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
+                        sname = sup['name']
+                        
+                for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
+                    if sname == (part.x_studio_ref_logikal):
+                        res_partner = part
+                        #_logger.warning('----- %s' % res_partner)
+                if res_partner:
+                    frsnomf = res_partner[0].name
+                else:
+                    self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
+                    
                 type_petits_bois = ''
                 nb_barre_horizontale = 0
                 nb_barre_verticale = 0
@@ -1040,24 +1054,6 @@ class SqliteConnector(models.Model):
                     # Longueurs
                     longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
                     longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
-                
-                res_partner = False
-                for sup in suppliers:
-                    if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
-                        sname = sup['name']
-                
-                _logger.warning('fournisseur trouve %s :' % sname)
-                if sname == ' ' or sname is None :
-                    frsnomf = 'Non Def'
-                else :       
-                    for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
-                        if sname == (part.x_studio_ref_logikal):
-                            res_partner = part
-                            _logger.warning('----- %s' % res_partner)
-                    if res_partner:
-                        frsnomf = res_partner[0].name
-                    else:
-                        self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
                 
                 mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,typeglass,Id,type_petits_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
             
