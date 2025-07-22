@@ -1077,7 +1077,7 @@ class SqliteConnector(models.Model):
                 if uom_uom:
                     idun = uom_uom.id
                 res_partner = res_partners.filtered(lambda p: p.name == ligne[0])
-                _logger.warning('----- %s' % res_partner.name)
+                _logger.warning('Dans la boucle %s' % res_partner.name)
                 if res_partner:
                     idfrs = res_partner.id
                 if fournisseur != ligne[0] or info_livraison != ligne[1] :
