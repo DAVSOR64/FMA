@@ -439,6 +439,7 @@ class SqliteConnector(models.Model):
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         for row in resultp:
             refart = str(row[1])
+            refart = refart.strip
             categ = self.env.ref('product.product_category_all')
             affaire = row[0]
             if BP == 'BPA':
@@ -1316,7 +1317,7 @@ class SqliteConnector(models.Model):
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                         NumLig = NumLig + 1
-                        if Tranche == '0' :
+                        if Tranche == 0 :
                             #refart = '[' + str(NumLig) + '_' + projet + ']'
                             refart = str(NumLig) + '_' + projet
                             price = float(row[8])
@@ -1343,7 +1344,7 @@ class SqliteConnector(models.Model):
                 
                 if NbrLig == 1:
                     proj = ''
-                    if Tranche != '0' :
+                    if Tranche != 0 :
                         proj = projet.strip() + '/' + str(Tranche)
                     else :
                         proj = projet.strip()
@@ -1437,7 +1438,7 @@ class SqliteConnector(models.Model):
                     else :
                         data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
                     proj = ''
-                    if Tranche != '0' :
+                    if Tranche != 0 :
                         proj = projet + '/' + str(Tranche)
                     else :
                         proj = projet
