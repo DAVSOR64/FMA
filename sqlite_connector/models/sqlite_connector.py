@@ -993,7 +993,11 @@ class SqliteConnector(models.Model):
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
                     if sname == (part.x_studio_ref_logikal):
                         res_partner = part
-                        _logger.warning('----- %s' % res_partner)
+                        #_logger.warning('----- %s' % res_partner)
+                
+                for partner in res_partner:
+                    _logger.warning('Dans la boucle %s' % partner.name)
+                
                 if res_partner:
                     _logger.warning('----- %s' % res_partner[0].name)
                     frsnomf = res_partner[0].name
