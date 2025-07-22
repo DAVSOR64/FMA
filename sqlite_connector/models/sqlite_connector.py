@@ -1409,7 +1409,7 @@ class SqliteConnector(models.Model):
         
         proj = ''
         cpt = 0
-        if Tranche != '0' :
+        if Tranche != 0 :
             proj = projet + '/' + str(Tranche)
         else :
             proj = projet
