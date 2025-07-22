@@ -995,14 +995,13 @@ class SqliteConnector(models.Model):
                         res_partner = part
                         #_logger.warning('----- %s' % res_partner)
                 
-                for partner in res_partner:
-                    _logger.warning('Dans la boucle %s' % partner.name)
-                
                 if res_partner:
-                    _logger.warning('----- %s' % res_partner[0].name)
-                    frsnomf = res_partner[0].name
+                    for partner in res_partner:
+                        _logger.warning('Dans la boucle %s' % partner.name)
+                    frsnomf = res_partner[0].name  # ou une autre logique selon ton besoin
                 else:
                     self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
+                    frsnomf = ''  # ou ce que tu veux comme valeur de secours
                     
                 type_petits_bois = ''
                 nb_barre_horizontale = 0
@@ -1077,10 +1076,16 @@ class SqliteConnector(models.Model):
                 uom_uom = uom_uoms.filtered(lambda u: u.name == unnomf)
                 if uom_uom:
                     idun = uom_uom.id
+                
                 res_partner = res_partners.filtered(lambda p: p.name == ligne[0])
-                _logger.warning('Dans la boucle %s' % res_partner.name)
                 if res_partner:
-                    idfrs = res_partner.id
+                    for partner in res_partner:
+                        _logger.warning('Dans la boucle %s' % partner.name)
+                    idfrs = res_partner[0].id  # ou autre logique si plusieurs
+                else:
+                    _logger.warning('Aucun partenaire trouvé pour %s' % ligne[0])
+                    idfrs = False
+
                 if fournisseur != ligne[0] or info_livraison != ligne[1] :
                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                     
