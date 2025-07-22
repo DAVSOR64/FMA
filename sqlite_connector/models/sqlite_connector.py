@@ -993,8 +993,9 @@ class SqliteConnector(models.Model):
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
                     if sname == (part.x_studio_ref_logikal):
                         res_partner = part
-                        #_logger.warning('----- %s' % res_partner)
+                        _logger.warning('----- %s' % res_partner)
                 if res_partner:
+                    _logger.warning('----- %s' % res_partner[0].name)
                     frsnomf = res_partner[0].name
                 else:
                     self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
