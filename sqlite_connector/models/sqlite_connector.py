@@ -1463,7 +1463,7 @@ class SqliteConnector(models.Model):
             cpt = cpt + 1
             refart = proj + '_' + str(cpt)
             Qte = ligne[8]
-            #_logger.warning('Dans les vitrages %s', refart)
+            _logger.warning('Dans les vitrages %s', refart)
             pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
             if pro:
                 #_logger.warning('Affaire %s', proj)
