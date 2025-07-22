@@ -364,7 +364,7 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
-                    if Tranche == '0' :
+                    if Tranche == 0 :
                         refint =  str(cpt) + '_' + projet
                     else :
                         refint =  str(cpt) + '_' + projet + '/' + str(Tranche)
