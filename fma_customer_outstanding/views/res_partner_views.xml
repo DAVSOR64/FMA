@@ -10,4 +10,15 @@
             </xpath>
         </field>
     </record>
+
+    <record id="view_partner_form_custom_inherit_fma_customer_outstanding" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.fma.customer.outstanding</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="custom.view_partner_form_custom"/>
+        <field name="arch" type="xml">
+            <field name="part_decision" position="after">
+                <field name="outstandings"/>
+            </field>
+        </field>
+    </record>
 </odoo>
