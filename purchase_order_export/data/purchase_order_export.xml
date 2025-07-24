@@ -28,7 +28,7 @@
                         Worktype="03" 
                         FinalCusttype="03"
                     >    
-                        <Remarks "po.x_studio_commentaire_livraison_vitrage_"
+                        <Remarks Remark = "po.x_studio_commentaire_livraison_vitrage_">
                         <Remarks/>
                         <InternalRemarks/>
                         <Address/>
