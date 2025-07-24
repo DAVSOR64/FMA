@@ -56,8 +56,10 @@ class ResPartner(models.Model):
             rows.append(row)
 
         # Fetch all customers in one query
-        customers = self.search([('x_studio_compte_proginov', 'in', customer_codes)])
-        customer_map = {customer.x_studio_compte_proginov: customer for customer in customers}
+        #customers = self.search([('x_studio_compte_proginov', 'in', customer_codes)])
+        #customer_map = {customer.x_studio_compte_proginov: customer for customer in customers}
+        customers = self.search([('property_account_receivable_id', 'in', customer_codes)])
+        customer_map = {customer.property_account_receivable_id: customer for customer in customers}
 
         # Update customer outstandings
         for row in rows:

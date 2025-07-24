@@ -49,7 +49,6 @@ class PurchaseOrder(models.Model):
         return xml_content.encode('utf-8'), 'text/xml', 'xml'
 
     def _generate_xml_v2_content(self, po):
-        _logger.warning("********** APPEL de _generate_xml_v2_content pour PO: %s **********", po.name)
         """Génère un second format XML pour la commande d'achat."""
         xml_content = self.env['ir.qweb']._render(
             'purchase_order_export.purchase_order_sftp_export_template_v2',
@@ -109,8 +108,8 @@ class PurchaseOrder(models.Model):
             if po.state in ['done', 'cancel']:
                 raise ValidationError("Purchase order state should not be in 'Cancelled' or 'Done' state.")
 
-            if not export_format or export_format not in ['xlsx', 'xml','xml_v2']:
-                    raise ValidationError("Unsupported export format.")
+            if not export_format or export_format not in ['xlsx', 'xml', 'xml_v2']:
+                raise ValidationError("Unsupported export format.")
 
             try:
                 if export_format == 'xlsx':
@@ -121,7 +120,6 @@ class PurchaseOrder(models.Model):
                         'xml_creation_time': fields.Datetime.now(),
                         'is_xml_created': True
                     })
-
                 elif export_format == 'xml_v2':
                     content, mimetype, file_extension = self._generate_xml_v2_content(po)
                     po.write({
@@ -129,19 +127,30 @@ class PurchaseOrder(models.Model):
                         'is_xml_created': True
                     })
 
+                # Définir le nom du fichier selon le type d’export
+                if export_format == 'xml':
+                    filename = f'ZOR-{po.name}.{file_extension}'
+                elif export_format == 'xml_v2':
+                    filename = f'TIV-{po.name}.{file_extension}'
+                elif export_format == 'xlsx':
+                    filename = f'Reynaers-{po.name}.{file_extension}'
+                else:
+                    filename = f'Purchase Order Export-{po.name}.{file_extension}'
+
+                # Créer la pièce jointe
                 attachment = self.env['ir.attachment'].create({
-                    'name': f'Purchase Order Export-{po.name}.{file_extension}',
+                    'name': filename,
                     'type': 'binary',
                     'datas': base64.b64encode(content),
                     'res_model': 'purchase.order',
                     'res_id': po.id,
                     'mimetype': mimetype,
-                    'is_po_xml': True,
                 })
 
             except Exception as e:
                 po.write({'is_xml_created': False})
                 _logger.exception("Failed to export purchase order %s: %s", po.name, e)
+
 
     def _sync_file(self, sftp_obj, attachment, order, sftp_server_file_path):
         attachment_content = base64.b64decode(attachment.datas)

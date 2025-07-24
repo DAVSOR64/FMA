@@ -252,6 +252,7 @@ class SqliteConnector(models.Model):
 
         for row in resultp :
             project = row[1]
+            project = project.strip()
             pro = project.split('/')
             nbelem = len(pro)
             #PersonBE = row[2]
@@ -305,6 +306,7 @@ class SqliteConnector(models.Model):
         etiana = ''
         for row in resultp :
             project = row[1]
+            project = project.strip()
             pro = project.split('/')
             nbelem = len(pro)
             if nbelem == 1 :
@@ -362,7 +364,10 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
-                    refint =  str(cpt) + '_' + projet
+                    if Tranche == '0' :
+                        refint =  str(cpt) + '_' + projet
+                    else :
+                        refint =  str(cpt) + '_' + projet + '/' + str(Tranche)
                     elevID = row[1]
                     idrefart = ''
                     HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
@@ -957,7 +962,7 @@ class SqliteConnector(models.Model):
             
             
             resultg=cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId, Glass.ModelType  from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
-            
+            resultg = cursor.fetchall()
             for row in resultg:
                 if row[13] != 'Glass' :
                     Info2 = ''
@@ -982,6 +987,34 @@ class SqliteConnector(models.Model):
                 else :
                     typeglass = 'FORME SPECIALE'
                 
+                res_partner = False
+                for sup in suppliers :
+                    if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
+                        sname = sup['name']
+                        
+                for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
+                    if sname == (part.x_studio_ref_logikal):
+                        res_partner = part
+                        #_logger.warning('----- %s' % res_partner)
+                
+                if res_partner:
+                    for partner in res_partner:
+                        _logger.warning('Dans la boucle %s' % partner.name)
+                    frsnomf = res_partner[0].name  # ou une autre logique selon ton besoin
+                else:
+                    self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
+                    frsnomf = ''  # ou ce que tu veux comme valeur de secours
+                    
+                type_petits_bois = ''
+                nb_barre_horizontale = 0
+                nb_barre_verticale = 0
+                pos_x_barre_horizontale = ''
+                pos_y_barre_horizontale = ''
+                pos_x_barre_verticale = ''
+                pos_y_barre_verticale = ''
+                longueur_barre_horizontale = ''
+                longueur_barre_verticale = ''
+                
                 glass_id = row[16] 
                 #Récupérer tous les petits bois associés
                 cursor.execute("""
@@ -991,64 +1024,44 @@ class SqliteConnector(models.Model):
                 """, (glass_id,))
                 
                 pb = cursor.fetchall()
-                if not pb :
-                    continue
-            
-                #Séparer en barres horizontales et verticales
-                horizontaux = [r for r in pb if r[1] == 'Horizontal']
-                verticaux = [r for r in pb if r[1] == 'Vertical']
-            
-                #Fonctions de formatage
-                def fmt(v):
-                    try:
-                        return str(int(float(v.replace(',', '.'))))
-                    except:
-                        return '0'
-            
-                def join_positions(data, i_start, i_end):
-                    return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
-            
-                def join_longueurs(data, i_length, i_start, i_end):
-                    return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
-
-                # Sélection du type (nom du petit bois)
-                type_petits_bois = pb[0]
+                if pb :
+                    #Séparer en barres horizontales et verticales
+                    horizontaux = [r for r in pb if r[1] == 'Horizontal']
+                    verticaux = [r for r in pb if r[1] == 'Vertical']
                 
-                # Nombre de barres
-                nb_barre_horizontale = len(horizontaux)
-                nb_barre_verticale = len(verticaux)
+                    #Fonctions de formatage
+                    def fmt(v):
+                        try:
+                            return str(int(float(v.replace(',', '.'))))
+                        except:
+                            return '0'
                 
-                # Positions horizontales
-                pos_x_barre_horizontale = join_positions(horizontaux, 2, 3)
-                pos_y_barre_horizontale = join_positions(horizontaux, 4, 5)
+                    def join_positions(data, i_start, i_end):
+                        return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
                 
-                # Positions verticales
-                pos_x_barre_verticale = join_positions(verticaux, 2, 3)
-                pos_y_barre_verticale = join_positions(verticaux, 4, 5)
+                    def join_longueurs(data, i_length, i_start, i_end):
+                        return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
+    
+                    # Sélection du type (nom du petit bois)
+                    type_petits_bois = pb[0]
+                    
+                    # Nombre de barres
+                    nb_barre_horizontale = len(horizontaux)
+                    nb_barre_verticale = len(verticaux)
+                    
+                    # Positions horizontales
+                    pos_x_barre_horizontale = join_positions(horizontaux, 2, 3)
+                    pos_y_barre_horizontale = join_positions(horizontaux, 4, 5)
+                    
+                    # Positions verticales
+                    pos_x_barre_verticale = join_positions(verticaux, 2, 3)
+                    pos_y_barre_verticale = join_positions(verticaux, 4, 5)
+                    
+                    # Longueurs
+                    longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
+                    longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
                 
-                # Longueurs
-                longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
-                longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
-                
-                res_partner = False
-                for sup in suppliers:
-                    if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
-                        sname = sup['name']
-                
-                #_logger.warning('fournisseur trouve %s :' % sname)
-                if sname == ' ' or sname is None :
-                    frsnomf = 'Non Def'
-                else :       
-                    for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
-                        if sname == (part.x_studio_ref_logikal):
-                            res_partner = part
-                            #_logger.warning('----- %s' % res_partner)
-                    if res_partner:
-                        frsnomf = res_partner[0].name
-                    else:
-                        self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
-                
-                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,typeglass,Id,type_petis_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
+                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,typeglass,Id,type_petits_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
             
             fournisseur = ''
             info_livraison =''
@@ -1065,9 +1078,16 @@ class SqliteConnector(models.Model):
                 uom_uom = uom_uoms.filtered(lambda u: u.name == unnomf)
                 if uom_uom:
                     idun = uom_uom.id
+                
                 res_partner = res_partners.filtered(lambda p: p.name == ligne[0])
                 if res_partner:
-                    idfrs = res_partner.id
+                    for partner in res_partner:
+                        _logger.warning('Dans la boucle %s' % partner.name)
+                    idfrs = res_partner[0].id  # ou autre logique si plusieurs
+                else:
+                    _logger.warning('Aucun partenaire trouvé pour %s' % ligne[0])
+                    idfrs = False
+
                 if fournisseur != ligne[0] or info_livraison != ligne[1] :
                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                     
@@ -1123,7 +1143,7 @@ class SqliteConnector(models.Model):
                             'x_studio_position_en_x_pb_vertical_1' : PosiVertiX,
                             'x_studio_position_en_y_pb_horizontal_1' : PosiHoriY,
                             'x_studio_position_en_y_pb_vertical_1' : PosiVertiY,
-                            'x_studio_longueur_pb_horizontal' : LongHori,
+                            'x_studio_longueur_pb_horizontal_1' : LongHori,
                             'x_studio_longueur_pb_vertical' : LongVerti,
                         }
                         if idfrs:
@@ -1161,12 +1181,16 @@ class SqliteConnector(models.Model):
 
 
         PourRem = 0
+        PourRemProj = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultrem:
             if (row[0] == 'Report') and (row[1] == 'QuotationDiscount1') :
-                PourRem = row[2]
-                PourRem = PourRem.replace(',','.')
-
+                _logger.warning("Remise %s " % str(row[2]))
+                PourRemProj = row[2]
+                PourRemProj = PourRemProj.replace(',','.')
+        
+        _logger.warning("Remise %s " % str(PourRemProj))
+        
         self.state = 'error'
 
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo , Address.Address2, Phases.Name, Phases.Info1, Elevations.AutoDescription, Elevations.Amount, Elevations.Height_Output, ReportOfferTexts.TotalPrice, Elevations.Width_Output,Elevations.AutoDescriptionShort, Elevations.Name,  Elevations.Description, Projects.PersonInCharge from Projects LEFT JOIN Address ON Projects.LK_CustomerAddressID = Address.AddressID LEFT JOIN Phases ON Projects.ProjectID = Phases.ProjectID LEFT JOIN ElevationGroups ON Phases.PhaseId = ElevationGroups.PhaseID LEFT JOIN Elevations ON ElevationGroups.ElevationGroupId = Elevations.ElevationID LEFT JOIN ReportOfferTexts ON ReportOfferTexts.ElevationId = Elevations.ElevationId order by Elevations.ElevationId")
@@ -1178,6 +1202,8 @@ class SqliteConnector(models.Model):
         catergorie = ''
         entrepot = ''
         NumLig = 0
+        price = 0
+        Qty = 0
 
         if 'ALU' in etiana :
             if address == 'LRE' :
@@ -1194,47 +1220,57 @@ class SqliteConnector(models.Model):
                 # On vient mettre les données de l entete
                 if clientID != row[2] :
                     clientID = row[2]
-                    if LstArt != '' :
-                        #data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom,dateliv]
-                        data1 = ['',row[2], row[2],datetime.now(), projet, 'Article à commander', LstArt,'Bon de commande',deviseur,PersonBE,entrepot,eticom]
-                    else :
-                        #data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom,dateliv]
-                        data1 = ['',row[2], row[2],datetime.now(), projet,'','','',deviseur,PersonBE,entrepot,eticom]
-                else :
-                    #data1 =['','','','','','','','','','','','','']
-                    data1 =['','','','','','','','','','','','']
+                    
                 if ( row[8] == None ) :
                     PrixTot = PrixTot + 0
                 else :
                     PrixTot = float(row[8]) + PrixTot
+                    
                 if ( row[6] == None ) :
                     QteTot = QteTot + 0
                 else :
                     QteTot = float(row[6]) + QteTot
+                    
                 # En position texte on ne prend que ECO CONTRIBUTION sinon on passe tout en FRAIS DE LIVRAISON
                 if row[5] == 'Position texte':
-                    if row[11] == 'ECO-CONTRIBUTION' :
+                    PourRem = 0
+                    if row[11].startswith("ECO-CONTRIBUTION") :
                         refart = 'ECO-CONTRIBUTION'
-                        PourRem = 0
-                        #dimension = 'ECO-CONTRIBUTION'
+                        price = 0.03
+                        Qty = float(row[8]) / 0.03
                     else :
                         refart = 'Frais de livraison'
-                        #dimension = 'Frais de livraison'
                 else :
+                    PourRem = PourRemProj
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                         NumLig = NumLig + 1
-                        refart = '[' + str(NumLig) + '_' + projet + ']'
+                        if Tranche == '0' :
+                            #refart = '[' + str(NumLig) + '_' + projet + ']'
+                            refart = str(NumLig) + '_' + projet
+                            price = float(row[8])
+                            Qty = float(row[6])
+                        else :
+                            #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
+                            refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
+                            price = float(row[8])
+                            Qty = float(row[6])
                     else:
+                        NumLig = NumLig + 1
                         dimension = str(row[9]) + 'mm * ' + str(row[7]) + 'mm'
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
-                        refart = '[' + str(NumLig) + '_' + projet + ']'
-                #data2 = [refart, row[8], row[6],dimension,etiana,PourRem]
-                data2 = [refart,etiana,PourRem]
+                        if Tranche == '0'  :
+                            #refart = '[' + str(NumLig) + '_' + projet + ']' 
+                            refart = str(NumLig) + '_' + projet
+                            price = float(row[8])
+                            Qty = float(row[6])
+                        else :
+                            #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']' 
+                            refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
+                            price = float(row[8])
+                            Qty = float(row[6])
                 
                 if NbrLig == 1:
-                    #data1 =['','','','','','','','','','','','','']
-                    data1 =['','','','','','','','','','','','']
                     proj = ''
                     if Tranche != '0' :
                         proj = projet.strip() + '/' + str(Tranche)
@@ -1242,19 +1278,14 @@ class SqliteConnector(models.Model):
                         proj = projet.strip()
                     if BP == 'BPA':
                         proj = proj + '_BPA'
-                    data = data1 + [proj,0, 1,proj,etiana,PourRem]
-                    #_logger.warning("DESCRIPTION ARTICLE %s " % proj )
-                if refart != 'ECO-CONTRIBUTION':
-                    #pro_name = row[11] + '_' + projet
-                    NumLig = NumLig + 1
-                    pro_name = str(NumLig) + '_' + projet
-                else:
-                    pro_name = 'ECO-CONTRIBUTION'
+                        
                 part = res_partners.filtered(lambda p: p.name == row[2])
-                pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
+                pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
                 warehouse = False
-                if data1[10]:
-                    warehouse = self.env.ref(data1[10]).id
+                warehouse = False
+                if entrepot:
+                    warehouse = self.env.ref(entrepot).id
+                    
                 _logger.warning('Dans la creation du sale order %s' % proj)
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
@@ -1268,8 +1299,8 @@ class SqliteConnector(models.Model):
                         "date_order": fields.Date.today(),
                         "order_line": [Command.create({
                                 'product_id': pro.id,
-                                'price_unit': float(row[8]),
-                                'product_uom_qty': float(row[6]),
+                                'price_unit': price,
+                                'product_uom_qty': Qty,
                                 #'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
@@ -1280,8 +1311,8 @@ class SqliteConnector(models.Model):
                         if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                             so_data[sale_order.id].get('order_line').append(Command.create({
                                 'product_id': pro.id,
-                                'price_unit': float(row[8]),
-                                'product_uom_qty': float(row[6]),
+                                'price_unit': price,
+                                'product_uom_qty': Qty,
                                 #'name': dimension,
                                 'discount': PourRem,
                                 'product_uom': pro.uom_id.id,
@@ -1290,16 +1321,10 @@ class SqliteConnector(models.Model):
             sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
             
             ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-            proj = ''
-            if Tranche != '0' :
-                proj = projet + '/' + str(Tranche)
-            else :
-                proj = projet
-            if BP == 'BPA':
-                proj = proj + '_BPA'
-            pro_name =proj                
+                            
             dimension = ''
-            pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
+            pro = self.env['product.product'].search([('default_code', '=', proj)], limit=1)
+            
             if sale_order:
             # stagging before merge if sale_order and so_data:
                if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):

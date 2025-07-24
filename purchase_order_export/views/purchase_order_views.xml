@@ -1,16 +1,16 @@
 <odoo>
 
-    <!-- ✅ Remplace l'action server par un act_window propre -->
-    <record id="po_export_action" model="ir.actions.act_window">
-        <field name="name">Export PO</field>
-        <field name="res_model">po.export.wizard</field>
+    <!-- Action pour l'exportation de commande -->
+    <record id="action_export_order" model="ir.actions.server">
+        <field name="name">Export Order</field>
+        <field name="model_id" ref="purchase.model_purchase_order"/>
         <field name="binding_model_id" ref="purchase.model_purchase_order"/>
         <field name="binding_view_types">list,form</field>
-        <field name="view_mode">form</field>
-        <field name="target">new</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_export()</field>
     </record>
 
-    <!-- ✅ Héritage de la vue Tree avec tes champs supplémentaires -->
+    <!-- Héritage de la vue Tree avec ajout des champs -->
     <record id="purchase_order_kpis_tree_inherit" model="ir.ui.view">
         <field name="name">purchase.order.kpis.tree.inherit</field>
         <field name="model">purchase.order</field>
@@ -24,21 +24,13 @@
         </field>
     </record>
 
-    <!-- ✅ Héritage de la vue Form avec tes champs + bouton Export -->
+    <!-- Héritage de la vue Form avec ajout de champs supplémentaires -->
     <record id="purchase_order_form_inherit" model="ir.ui.view">
         <field name="name">purchase.order.form.inherit</field>
         <field name="model">purchase.order</field>
+        <field name="mode">extension</field>
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="arch" type="xml">
-            <!-- Ajout du bouton Export PO dans la barre d'action -->
-            <xpath expr="//header" position="inside">
-                <button name="%(po_export_action)d"
-                        type="action"
-                        string="Exporter PO"
-                        class="oe_highlight"/>
-            </xpath>
-
-            <!-- Ajout de tes champs shipping_partner_id et customer_delivery_address -->
             <xpath expr="//div[@name='reminder']" position="after">
                 <field name="shipping_partner_id" domain="[('parent_id', '=', partner_id)]" options="{'no_create': True}"/>
                 <field name="customer_delivery_address"/>
@@ -46,7 +38,7 @@
         </field>
     </record>
 
-    <!-- ✅ Ajout de l'onglet Infos Laquage (inchangé) -->
+    <!-- Ajout de l'onglet Infos Laquage -->
     <record id="view_purchase_order_form_inherit_with_infos_laquage" model="ir.ui.view">
         <field name="name">purchase.order.form.inherit.with.infos.laquage</field>
         <field name="model">purchase.order</field>
@@ -69,6 +61,11 @@
                                 </group>
                             </form>
                         </field>
+                    </group>
+                    <!-- Ajout du champ so_ral après les lignes de laquage -->
+                    <group>
+                        <field name="so_ral" string="RAL"/>
+                        <field name="so_riche_en_zinc" string=" Riche en Zinc ?"/>
                     </group>
                 </page>
             </xpath>
