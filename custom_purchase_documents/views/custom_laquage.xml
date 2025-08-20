@@ -93,6 +93,7 @@
                         <tr t-foreach="doc.laquage_line_ids" t-as="line">
                             <td></td>
                             <td><span t-field="line.so_repere" /></td>
+                            <td></td>
                             <td><span t-field="line.so_qte_commandee" /></td>
                             <td></td>
                             <td></td>
