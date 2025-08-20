@@ -71,16 +71,32 @@
                 <table class="table table-sm" t-if="doc.state!='done'" name="order.table" style="margin-top: 20px;">
                     <thead>
                         <tr>
-                            <th>Repère</th>
-                            <th>Quantité</th>
+                            <th>Repère F2M</th>
+                            <th>Repère Client</th>
+                            <th>Qté</th>
                             <th>Reliquat</th>
+                            <th>Commentaire</th>
                             <th>Date</th>
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- Ligne statique Retoucheur -->
+                        <tr>
+                            <td>Retoucheur</td>
+                            <td></td>
+                            <td>1</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <!-- Lignes dynamiques -->
                         <tr t-foreach="doc.laquage_line_ids" t-as="line">
+                            <td></td>
                             <td><span t-field="line.so_repere" /></td>
                             <td><span t-field="line.so_qte_commandee" /></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
                         </tr>
                     </tbody>
                 </table>
