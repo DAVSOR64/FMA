@@ -389,23 +389,20 @@
                                     </t>
                                 </td>
                             </tr>
-                                <!-- ✅ Nouveau bloc pour afficher les taxes calculées par Odoo -->
-                                <t t-set="tax_totals" t-value="o._get_tax_totals()" />
-                    
-                                <t t-foreach="tax_totals['groups_by_subtotal'].items()" t-as="kv">
-                                    <t t-set="groups" t-value="kv[1]" />
-                                    <t t-foreach="groups" t-as="g">
-                                        <tr>
-                                            <td colspan="4" class="text-end">
-                                                <strong><t t-out="g['tax_group_name']"/></strong>
-                                            </td>
-                                            <td class="text-end">
-                                                <span t-out="o.format_amount(g['tax_group_amount'])"/> €
-                                            </td>
-                                        </tr>
-                                    </t>
+                                <!-- ✅ Afficher les taxes via l'API standard amount_by_group -->
+                                <t t-foreach="o.amount_by_group" t-as="t">
+                                    <!-- t[0]=Nom du groupe de taxe (ex: 'TVA 20%')
+                                         t[1]=Montant de taxe
+                                         t[2]=Base HT (si tu veux aussi l'afficher) -->
+                                    <tr>
+                                        <td colspan="4" class="text-end">
+                                            <strong><t t-out="t[0]"/></strong>
+                                        </td>
+                                        <td class="text-end">
+                                            <span t-out="o.format_amount(t[1])"/> €
+                                        </td>
+                                    </tr>
                                 </t>
-                                <!-- ✅ Fin remplacement -->
                             <tr>
                                 <td colspan="4" class="text-end">
                                     <strong>Total TTC</strong>
