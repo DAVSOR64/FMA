@@ -389,39 +389,23 @@
                                     </t>
                                 </td>
                             </tr>
-                            <!-- <td colspan="4" class="text-end">
-                                        <strong>Total TVA</strong>
-                                    </td>
-                                    <td class="text-end">
-                                        <span t-out="o.format_amount((o.amount_total - acompte_amount_ttc) - (o.amount_untaxed -
-                            acompte_amount_ht))" /> €
-                                    </td>-->
-                            <!-- Afficher les valeurs de débogage pour les lignes de facture -->
-
-                            <!-- Initialiser un dictionnaire pour stocker les montants par taux de
-                            TVA -->
-                            <t t-set="tax_details" t-value="{}" />
-                            <!-- Itérer sur les lignes de facture pour calculer les montants de TVA -->
-                            <t t-foreach="o.invoice_line_ids" t-as="line">
-                                <t t-foreach="line.tax_ids" t-as="tax">
-                                    <t t-set="tax_amount"
-                                        t-value="tax_details.get(tax.name, 0) + (line.price_subtotal * tax.amount / 100)" />
-                                    <t t-set="tax_details"
-                                        t-value="dict(tax_details, **{tax.name: tax_amount})" />
+                                <!-- ✅ Nouveau bloc pour afficher les taxes calculées par Odoo -->
+                                <t t-set="tax_totals" t-value="o._get_tax_totals()" />
+                    
+                                <t t-foreach="tax_totals['groups_by_subtotal'].items()" t-as="kv">
+                                    <t t-set="groups" t-value="kv[1]" />
+                                    <t t-foreach="groups" t-as="g">
+                                        <tr>
+                                            <td colspan="4" class="text-end">
+                                                <strong><t t-out="g['tax_group_name']"/></strong>
+                                            </td>
+                                            <td class="text-end">
+                                                <span t-out="o.format_amount(g['tax_group_amount'])"/> €
+                                            </td>
+                                        </tr>
+                                    </t>
                                 </t>
-                            </t>
-                            <!-- Afficher les totaux par taux de TVA -->
-                            <t t-foreach="tax_details.items()" t-as="item">
-                                <tr>
-                                    <td colspan="4" class="text-end">
-                                        <strong>
-                                            <t t-out="item[0]" />
-                                        </strong>
-                                    </td>
-                                    <td class="text-end">
-                                        <span t-out="o.format_amount(item[1])" /> € </td>
-                                </tr>
-                            </t>
+                                <!-- ✅ Fin remplacement -->
                             <tr>
                                 <td colspan="4" class="text-end">
                                     <strong>Total TTC</strong>
