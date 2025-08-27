@@ -24,36 +24,40 @@ class StockPicking(models.Model):
     @api.depends('date_done', 'scheduled_date', 'state')
     def _compute_delivered_on_time(self):
         for picking in self:
+            on_time = False
             if picking.state == 'done' and picking.date_done and picking.scheduled_date:
-                picking.delivered_on_time = picking.date_done <= picking.scheduled_date
-            else:
-                picking.delivered_on_time = False
+                # Convertir dans le fuseau horaire utilisateur et comparer par semaine ISO
+                dd_local = fields.Datetime.context_timestamp(picking, picking.date_done).date()
+                sd_local = fields.Datetime.context_timestamp(picking, picking.scheduled_date).date()
+                dy, dw, _ = dd_local.isocalendar()
+                sy, sw, _ = sd_local.isocalendar()
+                on_time = (dy == sy and dw == sw)
+            picking.delivered_on_time = on_time
 
     @api.depends('date_done')
     def _compute_delivery_month(self):
         for picking in self:
             if picking.date_done:
-                picking.delivery_month = picking.date_done.strftime('%Y-%m')
+                # Utiliser aussi le TZ utilisateur pour le mois “visible”
+                dt_local = fields.Datetime.context_timestamp(picking, picking.date_done)
+                picking.delivery_month = dt_local.strftime('%Y-%m')
             else:
                 picking.delivery_month = ''
 
     @api.depends('delivery_month')
     def _compute_service_rate_percent(self):
-        # Regroupe les livraisons par mois et statut de livraison
         group_data = self.env['stock.picking'].read_group(
             domain=[('state', '=', 'done')],
             fields=['delivered_on_time'],
             groupby=['delivery_month', 'delivered_on_time']
         )
 
-        # Organise les données : {mois: {total: X, on_time: Y}}
         stats = {}
         for entry in group_data:
             month = entry['delivery_month']
             count = entry['__count']
             on_time = entry.get('delivered_on_time')
-            if month not in stats:
-                stats[month] = {'total': 0, 'on_time': 0}
+            stats.setdefault(month, {'total': 0, 'on_time': 0})
             stats[month]['total'] += count
             if on_time:
                 stats[month]['on_time'] += count
