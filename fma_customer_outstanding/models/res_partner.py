@@ -61,13 +61,13 @@ class ResPartner(models.Model):
 
         # Update customer outstandings
         for row in rows:
-            x_studio_compte_proginov = row[0]
+            x_studio_compte = int('411' + row[0])
             debit_str = row[1].replace(',', '.')
             credit_str = row[2].replace(',', '.')
             debit = float(debit_str)
             credit = float(credit_str)
             outstandings = debit - credit
 
-            customer = customer_map.get(x_studio_compte_proginov)
+            customer = customer_map.get(x_studio_compte)
             if customer:
                 customer.outstandings = outstandings
