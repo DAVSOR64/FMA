@@ -1,6 +1,6 @@
 {
     'name': 'Delivery Service Rate',
-    'version': '1.0',
+    'version': '1.1.0',
     'depends': ['stock'],
     'author': 'TonNom',
     'category': 'Warehouse',
@@ -9,7 +9,7 @@
         'views/delivery_service_rate_view.xml',
         'data/delivery_service_rate_view.sql',
     ],
-    'pre_init_hook': 'pre_init_hook',
+    'post_init_hook': 'post_init_hook',
     'installable': True,
     'application': False,
 }
