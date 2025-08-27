@@ -100,6 +100,7 @@
             <table class="table table-sm mt-4" style="width: 100%;">
                 <thead>
                     <tr>
+                        <th class="text-start"><span>Repère</span></th>
                         <th class="text-start"><span>Position/N°</span></th>
                         <th class="text-start"><span>Description</span></th>
                         <th class="text-start"><span>Hauteur</span></th>
@@ -114,6 +115,7 @@
                     <t t-foreach="doc.order_line" t-as="line">
                         <t t-if="line.product_id.default_code != 'affaire'">
                             <tr>
+                                <td><span t-field="line.x_studio_position" t-if="line.x_studio_position"/></td>
                                 <td><span t-field="line.x_studio_posit" t-if="line.x_studio_posit"/> <t t-else=""><span t-field="line.x_studio_position"/></t></td>
                                 <td><span t-field="line.name"/></td>
                                 <td><span t-field="line.x_studio_hauteur" t-if="line.x_studio_hauteur"/></td>
