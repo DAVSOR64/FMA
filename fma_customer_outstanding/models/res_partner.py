@@ -18,11 +18,15 @@ class ResPartner(models.Model):
     def cron_update_outstandings(self):
         """Compute outstandings for customers from ENCOURS_DAte.csv of the FTP server."""
         try:
-            get_param = self.env['ir.config_parameter'].sudo().get_param
-            ftp_server_host = get_param('fma_customer_outstanding.ftp_server_host')
-            ftp_server_username = get_param('fma_customer_outstanding.ftp_server_username')
-            ftp_server_password = get_param('fma_customer_outstanding.ftp_server_password')
-            ftp_server_file_path = get_param('fma_customer_outstanding.ftp_server_file_path')
+            #get_param = self.env['ir.config_parameter'].sudo().get_param
+            #ftp_server_host = get_param('fma_customer_outstanding.ftp_server_host')
+            #ftp_server_username = get_param('fma_customer_outstanding.ftp_server_username')
+            #ftp_server_password = get_param('fma_customer_outstanding.ftp_server_password')
+            #ftp_server_file_path = get_param('fma_customer_outstanding.ftp_server_file_path')
+            ftp_server_host = '194.206.49.72'
+            ftp_server_username = 'csproginov'
+            ftp_server_password = 'g%tumR/n49:1=5qES6CT'
+            ftp_server_file_path = 'FMA/IN/'
             if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
                 _logger.error("Missing one or more FTP server credentials.")
                 return
