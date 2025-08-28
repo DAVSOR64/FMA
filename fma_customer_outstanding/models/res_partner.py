@@ -71,3 +71,5 @@ class ResPartner(models.Model):
             customer = customer_map.get(x_studio_compte)
             if customer:
                 customer.outstandings = outstandings
+                customer.x_studio_mtt_echu = debit
+                customer.x_studio_mtt_non_echu = credit
