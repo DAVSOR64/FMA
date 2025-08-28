@@ -43,7 +43,7 @@ class ResPartner(models.Model):
                 else:
                     session.quit()
         except Exception as e:
-            _logger.error(f"Failed to download customer file {filename}.txt to FTP server: {e}")
+            _logger.error(f"Failed to download customer file {filename} to FTP server: {e}")
 
     def _update_customer_outstandings(self, file_content):
         """Parse CSV file and update customer outstandings."""
