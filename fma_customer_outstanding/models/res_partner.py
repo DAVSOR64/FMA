@@ -135,17 +135,17 @@ class ResPartner(models.Model):
         customer_codes = [r[0] for r in rows]
 
         # Récupération des partenaires par leur code Proginov
-        customers = self.search([('part_code_tiers', 'in', customer_codes)])
-        customer_map = {c.part_code_tiers: c for c in customers}
+        customers = self.search([('x_studio_compte', 'in', customer_codes)])
+        customer_map = {c.x_studio_compte: c for c in customers}
 
         # Mise à jour des soldes
         updated = 0
         for row in rows:
             code = int(row[0])
-            _logger.info("CODE TIERS FICHIER %s", code)
+            _logger.info(" N° Compte %s", code)
             debit = float(row[1].replace(',', '.'))
             credit = float(row[2].replace(',', '.'))
-            outstandings = debit - credit
+            outstandings = debit + credit
 
             customer = customer_map.get(code)
             if customer:
