@@ -146,7 +146,7 @@ class ResPartner(models.Model):
         updated = 0
         for row in rows:
             cod = row[0]
-            code = (cod[3:])
+            code = int(cod[3:])
             _logger.info(" N° Compte %s", code)
             debit = float(row[1].replace(',', '.'))
             credit = float(row[2].replace(',', '.'))
