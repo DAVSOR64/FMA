@@ -141,7 +141,8 @@ class ResPartner(models.Model):
         # Mise à jour des soldes
         updated = 0
         for row in rows:
-            code = int(row[0])
+            cod = row[0]
+            code = int(cod[3:])
             _logger.info(" N° Compte %s", code)
             debit = float(row[1].replace(',', '.'))
             credit = float(row[2].replace(',', '.'))
