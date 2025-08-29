@@ -133,7 +133,11 @@ class ResPartner(models.Model):
 
         # Collecte des codes clients Proginov (col 0)
         customer_codes = [r[0] for r in rows]
-
+        # Vérifications de base
+        champ = 'x_studio_compte'  # essaie 'ref' si besoin
+        if champ not in self._fields:
+            _logger.warning("Champ %s inexistant sur res.partner. Champs dispo (extrait): %s",
+                            champ, list(self._fields.keys())[:50])
         # Récupération des partenaires par leur code Proginov
         customers = self.search([('x_studio_compte', 'in', customer_codes)])
         customer_map = {c.x_studio_compte: c for c in customers}
