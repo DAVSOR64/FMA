@@ -137,7 +137,7 @@ class ResPartner(models.Model):
         # Récupération des partenaires par leur code Proginov
         customers = self.search([('x_studio_compte', 'in', customer_codes)])
         customer_map = {c.x_studio_compte: c for c in customers}
-
+        _logger.info("Trouvés en base: %s", [c.x_studio_compte for c in customers])
         # Mise à jour des soldes
         updated = 0
         for row in rows:
