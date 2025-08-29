@@ -141,7 +141,7 @@ class ResPartner(models.Model):
         updated = 0
         for row in rows:
             code = int(row[0])
-            _logger.info("CODE TIERS FICHIER " %s code)
+            _logger.info("CODE TIERS FICHIER %s", code)
             debit = float(row[1].replace(',', '.'))
             credit = float(row[2].replace(',', '.'))
             outstandings = debit - credit
