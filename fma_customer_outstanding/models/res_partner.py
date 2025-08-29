@@ -140,7 +140,8 @@ class ResPartner(models.Model):
         # Mise à jour des soldes
         updated = 0
         for row in rows:
-            code = row[0]
+            code = int(row[0])
+            _logger.info("CODE TIERS FICHIER " %s code)
             debit = float(row[1].replace(',', '.'))
             credit = float(row[2].replace(',', '.'))
             outstandings = debit - credit
