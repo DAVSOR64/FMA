@@ -132,7 +132,7 @@ class ResPartner(models.Model):
             return
 
         # Collecte des codes clients Proginov (col 0)
-        customer_codes = [r[0] for r in rows]
+        customer_codes = [r[0][3:] for r in rows]
         # Vérifications de base
         champ = 'x_studio_compte'  # essaie 'ref' si besoin
         if champ not in self._fields:
