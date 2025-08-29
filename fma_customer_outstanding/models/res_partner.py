@@ -38,23 +38,38 @@ class ResPartner(models.Model):
                 return
 
             filename = 'ENCOURS_DAte.csv'
-            with ftplib.FTP(ftp_server_host, ftp_server_username, ftp_server_password) as session:
-                try:
-                    session.cwd(ftp_server_file_path)
-                    file_content = io.BytesIO()
-                    session.retrbinary(f"RETR {filename}", file_content.write)
-                    file_content.seek(0)
+            try :
+                transport = paramiko.Transport((ftp_server_host, 22))
+                transport.connect(username=ftp_server_user, password=ftp_server_password)
+                sftp = paramiko.SFTPClient.from_transport(transport)
+                sftp.chdir(ftp_server_file_path)
+        
+                # Téléchargement dans un fichier temporaire
+                with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                    local_path = tmp_file.name
+                sftp.get(filename, local_path)  
+        
+                sftp.close()
+                transport.close()
+        
+                # Lecture du contenu dans un buffer
+                with open(local_path, 'rb') as f:
+                    file_content = io.BytesIO(f.read())
+        
+                os.remove(local_path)  # Nettoyage du fichier temporaire
+        
+                file_content.seek(0)
+                self._update_invoices(file_content)
 
-                    self._update_customer_outstandings(file_content)
-                except ftplib.all_errors as ftp_error:
-                    _logger.error("FTP error while downloading file %s: %s", filename, ftp_error)
-                except Exception as upload_error:
-                    _logger.error("Unexpected error while downloading file %s: %s", filename, upload_error)
-                else:
-                    session.quit()
+                _logger.warning("Fichiers disponibles dans le dossier : %s", sftp.listdir())
+            
+            except Exception as sftp_error:
+                _logger.error("Fichiers disponibles dans le dossier : %s", sftp.listdir())
+                _logger.error("Error while connecting or retrieving file from SFTP: %s", sftp_error)
+
         except Exception as e:
-            _logger.error(f"Failed to download customer file {filename} to FTP server: {e}")
-
+            _logger.error("Failed to download customer file %s to SFTP server: %s", filename, e)
+            
     def _update_customer_outstandings(self, file_content):
         """Parse CSV file and update customer outstandings."""
         # Parse CSV and perform computations
