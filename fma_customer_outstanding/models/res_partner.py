@@ -36,7 +36,9 @@ class ResPartner(models.Model):
             if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
                 _logger.error("Missing one or more FTP server credentials.")
                 return
-
+            
+            sftp = ''
+            
             filename = 'ENCOURS_DAte.csv'
             try :
                 transport = paramiko.Transport((ftp_server_host, 22))
