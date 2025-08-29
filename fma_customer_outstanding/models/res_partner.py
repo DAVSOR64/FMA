@@ -134,8 +134,8 @@ class ResPartner(models.Model):
         customer_codes = [r[0] for r in rows]
 
         # Récupération des partenaires par leur code Proginov
-        customers = self.search([('x_studio_compte_proginov', 'in', customer_codes)])
-        customer_map = {c.x_studio_compte_proginov: c for c in customers}
+        customers = self.search([('part_code_tiers', 'in', customer_codes)])
+        customer_map = {c.part_code_tiers: c for c in customers}
 
         # Mise à jour des soldes
         updated = 0
