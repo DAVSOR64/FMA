@@ -8,7 +8,6 @@ class StockPicking(models.Model):
 
     def __init__(self, env, ids, prefetch_ids):
         super(StockPicking, self).__init__(env, ids, prefetch_ids)
-        _logger.warning("Le modèle StockPicking est chargé avec succès")
 
     # Champ sale_id (s'il n'existe pas déjà)
     sale_id = fields.Many2one('sale.order', string="Commande de Vente", help="Référence à la commande de vente associée")
