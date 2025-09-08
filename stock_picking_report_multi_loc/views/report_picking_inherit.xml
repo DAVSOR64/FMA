@@ -1,0 +1,59 @@
+<odoo>
+  <!-- On hérite du rapport PDF "Bon de préparation avec code barre" -->
+  <template id="report_picking_custom"
+            inherit_id="stock.report_picking"
+            priority="20">
+
+    <!-- Remplace TOUT l'en-tête du tableau pour éviter tout xpath fragile -->
+    <xpath expr="//table//thead" position="replace">
+      <thead>
+        <tr>
+          <th>Produit</th>
+          <th>Quantité</th>
+          <th>De</th>
+          <th>Emplacements existants</th>
+        </tr>
+      </thead>
+    </xpath>
+
+    <!-- Remplace le corps pour afficher tous les mouvements et la nouvelle colonne -->
+    <xpath expr="//table//tbody" position="replace">
+      <tbody>
+        <!-- On boucle sur les MOVES => affiche aussi les articles non réservés -->
+        <t t-foreach="o.move_ids_without_package" t-as="move">
+          <tr>
+            <!-- Produit -->
+            <td>
+              <t t-esc="move.product_id.display_name"/>
+            </td>
+
+            <!-- Quantité demandée -->
+            <td>
+              <t t-esc="move.product_uom_qty"/> <t t-esc="move.product_uom.name"/>
+            </td>
+
+            <!-- Emplacement source du picking -->
+            <td>
+              <t t-esc="o.location_id.complete_name"/>
+            </td>
+
+            <!-- Emplacements existants (stock interne disponible) -->
+            <td>
+              <t t-set="locs" t-value="o._report_locations_for_product(move.product_id)"/>
+              <t t-if="locs">
+                <ul style="margin:0; padding-left:16px;">
+                  <t t-foreach="locs" t-as="l">
+                    <li>
+                      <t t-esc="l['name']"/> — <t t-esc="l['qty']"/> <t t-esc="move.product_uom.name"/>
+                    </li>
+                  </t>
+                </ul>
+              </t>
+              <t t-else="">Aucun stock interne</t>
+            </td>
+          </tr>
+        </t>
+      </tbody>
+    </xpath>
+  </template>
+</odoo>
