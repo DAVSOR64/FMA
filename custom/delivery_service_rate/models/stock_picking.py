@@ -17,6 +17,7 @@ class StockPicking(models.Model):
         store=True,
     ) 
 
+    
     # % du taux de service du mois (non stocké)
     service_rate_percent = fields.Float(
         string="Taux de service (%)",
