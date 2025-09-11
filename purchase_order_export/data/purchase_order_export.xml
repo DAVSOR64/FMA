@@ -28,9 +28,8 @@
                         Worktype="03" 
                         FinalCusttype="03"
                     >
-                        <InternalRemarks><t t-value="po.x_studio_remise.x_name"/></InternalRemarks>
-                        <Remarks t-value="po.x_studio_commentaire_livraison_vitrage_"/>
-                        <!--<InternalRemarks  t-value="po.x_studio_remise.x_name"/>-->
+                        <InternalRemarks><t t-esc="po.x_studio_remise.x_name"/></InternalRemarks>
+                        <Remarks><t t-esc="po.x_studio_commentaire_livraison_vitrage_"/></Remarks>
                         <Address/>
                     </Header>
 
