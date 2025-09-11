@@ -15,7 +15,7 @@ class StockPicking(models.Model):
         string="Mois de livraison",
         compute="_compute_delivery_month",
         store=True,
-    )
+    ) 
 
     # % du taux de service du mois (non stocké)
     service_rate_percent = fields.Float(
