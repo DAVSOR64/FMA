@@ -2,6 +2,7 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
+
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
@@ -62,13 +63,23 @@ class StockPicking(models.Model):
 
     # ----- Computes -----
 
-    # ✅ Odoo 17 : move_ids (et on profite aussi de group_id.sale_id si présent)
-    @api.depends('group_id.sale_id', 'move_ids.sale_line_id.order_id')
+    # v17 SAFE : procurement.group n'a pas de sale_id → ne pas dépendre de group_id.sale_id
+    @api.depends('group_id', 'move_ids.sale_line_id.order_id', 'origin')
     def _compute_sale_id(self):
+        """Déduit la commande liée au picking en v17 :
+           1) via le procurement_group_id du SO si group_id est renseigné,
+           2) via les lignes de mouvements (sale_line_id.order_id),
+           3) fallback sur origin == name du SO.
+        """
+        Sale = self.env['sale.order']
         for picking in self:
-            sale = picking.group_id.sale_id
+            sale = False
+            if picking.group_id:
+                sale = Sale.search([('procurement_group_id', '=', picking.group_id.id)], limit=1)
             if not sale:
-                sale = picking.move_ids.mapped('sale_line_id.order_id')[:1]
+                sale = (picking.move_ids.mapped('sale_line_id.order_id') or [False])[0]
+            if not sale and picking.origin:
+                sale = Sale.search([('name', '=', picking.origin)], limit=1)
             picking.sale_id = sale.id if sale else False
 
     @api.depends('date_done', 'state', 'sale_id.so_date_de_livraison')
