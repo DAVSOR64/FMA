@@ -8,6 +8,7 @@
     'data': [
         'views/delivery_service_rate_view.xml',
         'data/delivery_service_rate_view.sql',
+        'views/stock_picking_form_reason.xml',
     ],
     'installable': True,
     'application': False,
