@@ -63,23 +63,33 @@ class StockPicking(models.Model):
 
     # ----- Computes -----
 
-    # v17 SAFE : procurement.group n'a pas de sale_id → ne pas dépendre de group_id.sale_id
-    @api.depends('group_id', 'move_ids.sale_line_id.order_id', 'origin')
+    # v17 SAFE & agnostique à sale_stock :
+    # - ne référence pas sale_line_id dans @depends (il peut ne pas exister)
+    @api.depends('group_id', 'move_ids', 'origin')
     def _compute_sale_id(self):
         """Déduit la commande liée au picking en v17 :
            1) via le procurement_group_id du SO si group_id est renseigné,
-           2) via les lignes de mouvements (sale_line_id.order_id),
+           2) via les lignes de mouvements si sale_line_id existe,
            3) fallback sur origin == name du SO.
         """
         Sale = self.env['sale.order']
+        move_has_sale_line = 'sale_line_id' in self.env['stock.move']._fields
         for picking in self:
             sale = False
+
+            # 1) Lien par groupe d'appro
             if picking.group_id:
                 sale = Sale.search([('procurement_group_id', '=', picking.group_id.id)], limit=1)
-            if not sale:
-                sale = (picking.move_ids.mapped('sale_line_id.order_id') or [False])[0]
+
+            # 2) Lien via les mouvements (si champ présent)
+            if not sale and move_has_sale_line:
+                orders = picking.move_ids.mapped('sale_line_id.order_id')
+                sale = orders[:1] if orders else False
+
+            # 3) Fallback via origin
             if not sale and picking.origin:
                 sale = Sale.search([('name', '=', picking.origin)], limit=1)
+
             picking.sale_id = sale.id if sale else False
 
     @api.depends('date_done', 'state', 'sale_id.so_date_de_livraison')
