@@ -1,19 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
   <data>
-    <!-- Héritage du formulaire Stock Picking pour afficher la raison quand la date planifiée change -->
     <record id="view_picking_form_inherit_planned_date_reason" model="ir.ui.view">
       <field name="name">stock.picking.form.planned.date.reason</field>
       <field name="model">stock.picking</field>
       <field name="inherit_id" ref="stock.view_picking_form"/>
       <field name="arch" type="xml">
-        <!-- Insérer juste après le champ Date planifiée -->
+        <!-- Insert right after the scheduled_date field -->
         <xpath expr="//field[@name='scheduled_date']" position="after">
+          <!-- In v17, use boolean expressions directly: -->
           <field name="planned_date_reason"
-                 attrs="{
-                   'invisible': [('require_planned_date_reason','=',False)],
-                   'required':  [('require_planned_date_reason','=',True)]
-                 }"/>
+                 invisible="not require_planned_date_reason"
+                 required="require_planned_date_reason"/>
         </xpath>
       </field>
     </record>
