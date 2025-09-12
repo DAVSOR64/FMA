@@ -62,11 +62,14 @@ class StockPicking(models.Model):
 
     # ----- Computes -----
 
-    @api.depends('move_lines.sale_line_id.order_id')
+    # ✅ Odoo 17 : move_ids (et on profite aussi de group_id.sale_id si présent)
+    @api.depends('group_id.sale_id', 'move_ids.sale_line_id.order_id')
     def _compute_sale_id(self):
         for picking in self:
-            orders = picking.move_lines.mapped('sale_line_id.order_id')
-            picking.sale_id = orders[:1].id if orders else False
+            sale = picking.group_id.sale_id
+            if not sale:
+                sale = picking.move_ids.mapped('sale_line_id.order_id')[:1]
+            picking.sale_id = sale.id if sale else False
 
     @api.depends('date_done', 'state', 'sale_id.so_date_de_livraison')
     def _compute_delivered_on_time(self):
@@ -131,25 +134,28 @@ class StockPicking(models.Model):
 
     def write(self, vals):
         planned_date_changed_now = False
+        old_dates_by_id = {}
         if 'scheduled_date' in vals:
             new_dt = fields.Datetime.to_datetime(vals.get('scheduled_date')) if vals.get('scheduled_date') else False
             for rec in self:
-                old_dt = rec.scheduled_date
-                if new_dt and old_dt and new_dt != old_dt:
+                old_dates_by_id[rec.id] = rec.scheduled_date
+                if new_dt and rec.scheduled_date and new_dt != rec.scheduled_date:
                     planned_date_changed_now = True
                     reason = vals.get('planned_date_reason') or rec.planned_date_reason
                     if not reason:
                         raise UserError(_("Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client)."))
         res = super().write(vals)
-        # Marqueur persistant + log chatter
+        # Marqueur persistant + log chatter (on réutilise l'ancienne date mémorisée)
         if planned_date_changed_now:
             for rec in self:
-                rec.sudo().write({'planned_date_changed': True})
-                rec.message_post(
-                    body=_("Date planifiée modifiée : %s → %s<br/>Motif : %s") % (
-                        fields.Datetime.to_string(rec._origin.scheduled_date) if rec._origin else '',
-                        fields.Datetime.to_string(rec.scheduled_date),
-                        dict(rec._fields['planned_date_reason'].selection).get(rec.planned_date_reason, '') or '-',
+                old_dt = old_dates_by_id.get(rec.id)
+                if old_dt:
+                    rec.sudo().write({'planned_date_changed': True})
+                    rec.message_post(
+                        body=_("Date planifiée modifiée : %s → %s<br/>Motif : %s") % (
+                            fields.Datetime.to_string(old_dt),
+                            fields.Datetime.to_string(rec.scheduled_date),
+                            dict(rec._fields['planned_date_reason'].selection).get(rec.planned_date_reason, '') or '-',
+                        )
                     )
-                )
         return res
