@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <!-- Héritage du formulaire Stock Picking (Odoo 17 : pas d'attrs/states) -->
+    <record id="view_picking_form_inherit_planned_date_reason" model="ir.ui.view">
+      <field name="name">stock.picking.form.planned.date.reason</field>
+      <field name="model">stock.picking</field>
+      <field name="inherit_id" ref="stock.view_picking_form"/>
+      <field name="arch" type="xml">
+        <xpath expr="//field[@name='scheduled_date']" position="after">
+          <!-- Champs support -->
+          <field name="require_planned_date_reason" invisible="1"/>
+          <field name="planned_date_changed" invisible="1"/>
+
+          <!-- Motif changement : visible si modifiée (en cours ou déjà) ; obligatoire pendant la modif -->
+          <field name="planned_date_reason"
+                 invisible="not (require_planned_date_reason or planned_date_changed or planned_date_reason)"
+                 required="require_planned_date_reason"
+                 readonly="not require_planned_date_reason"/>
+        </xpath>
+      </field>
+    </record>
+  </data>
+</odoo>
