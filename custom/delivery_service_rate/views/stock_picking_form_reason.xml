@@ -6,13 +6,18 @@
       <field name="model">stock.picking</field>
       <field name="inherit_id" ref="stock.view_picking_form"/>
       <field name="arch" type="xml">
-        <!-- Insert right after the scheduled_date field -->
+
+        <!-- Insert just after the scheduled_date field -->
         <xpath expr="//field[@name='scheduled_date']" position="after">
-          <!-- In v17, use boolean expressions directly: -->
+          <!-- 1) Make the helper boolean available to the view -->
+          <field name="require_planned_date_reason" invisible="1"/>
+
+          <!-- 2) The dropdown that becomes visible/required when the date changes -->
           <field name="planned_date_reason"
                  invisible="not require_planned_date_reason"
                  required="require_planned_date_reason"/>
         </xpath>
+
       </field>
     </record>
   </data>
