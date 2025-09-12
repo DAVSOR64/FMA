@@ -12,16 +12,7 @@ class StockPicking(models.Model):
         readonly=True,
     )
 
-    # ---- Date (type Date) de livraison côté devis/commande (related, stockée) ----
-    # Remplace 'sale_id.so_date_de_livraison' par le bon champ si besoin.
-    so_date_de_livraison = fields.Date(
-        string='Date de livraison (SO)',
-        related='sale_id.so_date_de_livraison',
-        store=True,
-        readonly=True,
-    )
-
-    # True si livré avant OU dans la même semaine ISO que la date prévue
+    # True si livré avant OU dans la même semaine ISO que la date prévue (SO)
     delivered_on_time = fields.Boolean(
         string='Livré à temps',
         compute='_compute_delivered_on_time',
@@ -51,26 +42,28 @@ class StockPicking(models.Model):
             orders = picking.move_lines.mapped('sale_line_id.order_id')
             picking.sale_id = orders[:1].id if orders else False
 
-    @api.depends('date_done', 'so_date_de_livraison', 'state')
+    @api.depends('date_done', 'state', 'sale_id.so_date_de_livraison')
     def _compute_delivered_on_time(self):
+        """Compare SO.so_date_de_livraison (Date) vs picking.date_done (Datetime, TZ user)."""
         for picking in self:
             on_time = False
-            if picking.state == 'done' and picking.date_done and picking.so_date_de_livraison:
-                # dd: date de fin réelle, convertie en TZ utilisateur puis réduite à la date
+            # conditions minimales
+            if picking.state == 'done' and picking.date_done and picking.sale_id and picking.sale_id.so_date_de_livraison:
+                # dd: date réelle en TZ utilisateur -> date()
                 dd = fields.Datetime.context_timestamp(picking, picking.date_done).date()
 
-                # sd: date prévue (type Date). Selon version, ça peut être str -> convertir en date
-                sd = picking.so_date_de_livraison
+                # sd: date prévue sur le SO (champ Date)
+                sd = picking.sale_id.so_date_de_livraison
                 if isinstance(sd, str):
-                    # to_date gère None/str -> date
-                    sd = fields.Date.to_date(sd)
+                    sd = fields.Date.to_date(sd)  # sécurité si string selon version
 
-                # comparer par semaine ISO
+                # ----- Comparaison par semaine ISO (comme spécifié) -----
                 dy, dw, _ = dd.isocalendar()
                 sy, sw, _ = sd.isocalendar()
-
-                # À temps si livré avant OU même semaine que prévu
                 on_time = (dy, dw) <= (sy, sw)
+
+                # ----- Variante "date à date" (si un jour tu préfères) -----
+                # on_time = dd <= sd
 
             picking.delivered_on_time = on_time
 
@@ -85,7 +78,7 @@ class StockPicking(models.Model):
 
     @api.depends('delivery_month', 'delivered_on_time', 'state')
     def _compute_service_rate_percent(self):
-        # On ne groupe que sur les mois visibles dans self (plus efficace)
+        """% de pickings livrés à temps pour chaque mois livré (basé sur delivery_month)."""
         months = set(self.mapped('delivery_month')) - {''}
         domain = [('state', '=', 'done')]
         if months:
