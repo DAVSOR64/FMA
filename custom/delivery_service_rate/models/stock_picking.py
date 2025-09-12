@@ -35,21 +35,27 @@ class StockPicking(models.Model):
         store=False,
     )
 
-    # ---- Raison obligatoire quand la Date planifiée (scheduled_date) est modifiée ----
+    # --- Motif + indicateur de changement de date planifiée ---
     planned_date_reason = fields.Selection(
         selection=[
             ('supplier', 'Fournisseur'),
             ('internal', 'Cause interne'),
             ('customer', 'Client'),
         ],
-        string="Raison modification date planifiée",
+        string="Motif changement",
         help="Obligatoire si la Date planifiée est modifiée.",
         tracking=True,
     )
 
-    # Flag UI (non stocké) : rend visible/obligatoire le champ ci-dessus quand la date change
+    planned_date_changed = fields.Boolean(
+        string="Date planifiée modifiée",
+        default=False,
+        readonly=True,
+        tracking=True,
+    )
+
+    # Helper UI (non stocké) pour détecter le changement en cours d'édition
     require_planned_date_reason = fields.Boolean(
-        string="Raison requise (UI)",
         compute='_compute_require_planned_date_reason',
         store=False,
     )
@@ -58,7 +64,6 @@ class StockPicking(models.Model):
 
     @api.depends('move_lines.sale_line_id.order_id')
     def _compute_sale_id(self):
-        """Associer le picking à la sale.order source via les moves."""
         for picking in self:
             orders = picking.move_lines.mapped('sale_line_id.order_id')
             picking.sale_id = orders[:1].id if orders else False
@@ -69,21 +74,15 @@ class StockPicking(models.Model):
         for picking in self:
             on_time = False
             if picking.state == 'done' and picking.date_done and picking.sale_id and picking.sale_id.so_date_de_livraison:
-                # date réelle (locale) -> date()
-                dd = fields.Datetime.context_timestamp(picking, picking.date_done).date()
-                # date prévue (Date sur SO)
-                sd = picking.sale_id.so_date_de_livraison
+                dd = fields.Datetime.context_timestamp(picking, picking.date_done).date()  # réel (local)
+                sd = picking.sale_id.so_date_de_livraison  # prévu (Date sur SO)
                 if isinstance(sd, str):
                     sd = fields.Date.to_date(sd)
-
-                # Comparaison par semaine ISO (comme tu le voulais)
                 dy, dw, _ = dd.isocalendar()
                 sy, sw, _ = sd.isocalendar()
                 on_time = (dy, dw) <= (sy, sw)
-
-                # Variante "date à date" :
+                # Variante "date à date" possible :
                 # on_time = dd <= sd
-
             picking.delivered_on_time = on_time
 
     @api.depends('date_done')
@@ -101,13 +100,11 @@ class StockPicking(models.Model):
         domain = [('state', '=', 'done')]
         if months:
             domain.append(('delivery_month', 'in', list(months)))
-
         group_data = self.env['stock.picking'].read_group(
             domain=domain,
             fields=['delivered_on_time'],
             groupby=['delivery_month', 'delivered_on_time'],
         )
-
         stats = {}
         for entry in group_data:
             month = entry['delivery_month']
@@ -117,7 +114,6 @@ class StockPicking(models.Model):
             stats[month]['total'] += count
             if on_time:
                 stats[month]['on_time'] += count
-
         for picking in self:
             month = picking.delivery_month
             if month and month in stats and stats[month]['total'] > 0:
@@ -125,7 +121,6 @@ class StockPicking(models.Model):
             else:
                 picking.service_rate_percent = 0.0
 
-    # ---- UI : déclenche le flag dès que l’utilisateur change la Date planifiée ----
     @api.depends('scheduled_date')
     def _compute_require_planned_date_reason(self):
         for rec in self:
@@ -134,22 +129,24 @@ class StockPicking(models.Model):
                 orig and orig.id and rec.scheduled_date and rec.scheduled_date != orig.scheduled_date
             )
 
-    # ---- Sécurité serveur : empêcher l’enregistrement sans raison si la date change ----
     def write(self, vals):
+        planned_date_changed_now = False
         if 'scheduled_date' in vals:
             new_dt = fields.Datetime.to_datetime(vals.get('scheduled_date')) if vals.get('scheduled_date') else False
             for rec in self:
                 old_dt = rec.scheduled_date
                 if new_dt and old_dt and new_dt != old_dt:
+                    planned_date_changed_now = True
                     reason = vals.get('planned_date_reason') or rec.planned_date_reason
                     if not reason:
-                        raise UserError(_("Veuillez sélectionner une raison pour la modification de la date planifiée (Fournisseur, Cause interne ou Client)."))
+                        raise UserError(_("Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client)."))
         res = super().write(vals)
-        # Log dans le chatter si modifié
-        if 'scheduled_date' in vals:
+        # Marqueur persistant + log chatter
+        if planned_date_changed_now:
             for rec in self:
+                rec.sudo().write({'planned_date_changed': True})
                 rec.message_post(
-                    body=_("Date planifiée modifiée : %s → %s<br/>Raison : %s") % (
+                    body=_("Date planifiée modifiée : %s → %s<br/>Motif : %s") % (
                         fields.Datetime.to_string(rec._origin.scheduled_date) if rec._origin else '',
                         fields.Datetime.to_string(rec.scheduled_date),
                         dict(rec._fields['planned_date_reason'].selection).get(rec.planned_date_reason, '') or '-',
