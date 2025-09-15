@@ -35,7 +35,7 @@ class StockPicking(models.Model):
         store=False,
     )
 
-    # --- Motif + indicateurs ---
+    # --- Motif + indicateurs (gestion modif date planifiée) ---
     planned_date_reason = fields.Selection(
         selection=[
             ('supplier', 'Fournisseur'),
@@ -43,7 +43,7 @@ class StockPicking(models.Model):
             ('customer', 'Client'),
         ],
         string="Motif changement",
-        help="Obligatoire si la Date planifiée est modifiée.",
+        help="Obligatoire si la Date planifiée est modifiée (sur livraison client).",
         tracking=True,
     )
 
@@ -62,7 +62,7 @@ class StockPicking(models.Model):
         readonly=True,
     )
 
-    # Helper UI (non stocké)
+    # Helper UI (non stocké) : indique que l'utilisateur est en train de modifier la date
     require_planned_date_reason = fields.Boolean(
         compute='_compute_require_planned_date_reason',
         store=False,
@@ -70,47 +70,67 @@ class StockPicking(models.Model):
 
     # ----- Computes -----
 
-    # ✅ Ne dépend que de champs garantis: move_ids (existe toujours) + origin.
-    #   On n'évoque pas sale_line_id dans @depends pour éviter l'erreur.
+    # Robuste: dépend seulement de champs garantis (pas de sale_line_id / pas de group_id.sale_id)
     @api.depends('move_ids', 'origin')
     def _compute_sale_id(self):
         SaleOrder = self.env['sale.order']
         for picking in self:
             sale = False
 
-            # 1) Fallback universel (marche sans sale_stock) : origin == SO.name
+            # 1) Fallback universel (sans sale_stock) : origin == SO.name
             if picking.origin:
                 sale = SaleOrder.search([('name', '=', picking.origin)], limit=1)
 
-            # 2) Si sale_stock est installé, on peut tenter via les moves — mais sans lister
-            #    sale_line_id dans @depends (on utilise getattr pour ne pas planter).
+            # 2) Si sale_stock est présent, tenter via les moves (sans le citer dans @depends)
             if not sale and picking.move_ids:
-                # getattr évite l'explosion si sale_line_id n'existe pas
                 try:
-                    sale_lines = picking.move_ids.mapped('sale_line_id')  # peut ne pas exister
+                    sale_lines = picking.move_ids.mapped('sale_line_id')  # peut ne pas exister si sale_stock absent
                     if sale_lines:
                         sale = sale_lines.mapped('order_id')[:1]
                 except Exception:
-                    # pas de sale_line_id: on ignore
                     pass
 
             picking.sale_id = sale.id if sale else False
 
-    @api.depends('date_done', 'state', 'sale_id.so_date_de_livraison')
+    # ❗️NE PAS référencer de champ SO en dotted path dans depends
+    @api.depends('date_done', 'state', 'sale_id')
     def _compute_delivered_on_time(self):
-        """Compare sale.order.so_date_de_livraison (Date) vs picking.date_done (Datetime, TZ user)."""
+        """Compare date prévue SO (champ Date/Datetime, nom variable) vs date_done (TZ user)."""
+        CANDIDATE_FIELDS = (
+            'so_date_de_livraison',   # ton champ custom (Date)
+            'commitment_date',        # standard (Datetime), si utilisé
+        )
         for picking in self:
             on_time = False
-            if picking.state == 'done' and picking.date_done and picking.sale_id and picking.sale_id.so_date_de_livraison:
-                dd = fields.Datetime.context_timestamp(picking, picking.date_done).date()  # réel (local)
-                sd = picking.sale_id.so_date_de_livraison  # prévu (Date sur SO)
-                if isinstance(sd, str):
-                    sd = fields.Date.to_date(sd)
-                dy, dw, _ = dd.isocalendar()
-                sy, sw, _ = sd.isocalendar()
-                on_time = (dy, dw) <= (sy, sw)
-                # Variante "date à date" possible :
-                # on_time = dd <= sd
+            if picking.state == 'done' and picking.date_done and picking.sale_id:
+                # date réelle (locale) -> date()
+                dd = fields.Datetime.context_timestamp(picking, picking.date_done).date()
+
+                # chercher une date prévue sur le SO (sans planter si le champ n'existe pas)
+                sd = None
+                so = picking.sale_id
+                for fname in CANDIDATE_FIELDS:
+                    if fname in so._fields:
+                        val = getattr(so, fname)
+                        if val:
+                            sd = val
+                            break
+
+                if sd:
+                    # normaliser en date
+                    if isinstance(sd, str):
+                        sd = fields.Date.to_date(sd)
+                    elif hasattr(sd, 'date'):
+                        try:
+                            sd = sd.date()
+                        except Exception:
+                            pass
+
+                    # comparaison semaine ISO (remplace par 'dd <= sd' si tu veux la date exacte)
+                    dy, dw, _ = dd.isocalendar()
+                    sy, sw, _ = sd.isocalendar()
+                    on_time = (dy, dw) <= (sy, sw)
+
             picking.delivered_on_time = on_time
 
     @api.depends('date_done')
@@ -164,6 +184,7 @@ class StockPicking(models.Model):
             usage = rec.location_dest_id.usage if rec.location_dest_id else False
             rec.is_customer_delivery = (code == 'outgoing') or (usage == 'customer')
 
+    # ---- Garde-fou serveur : exiger un motif sur livraison client quand la date change ----
     def write(self, vals):
         planned_date_changed_now = False
         old_dates_by_id = {}
@@ -177,7 +198,9 @@ class StockPicking(models.Model):
                         reason = vals.get('planned_date_reason') or rec.planned_date_reason
                         if not reason:
                             raise UserError(_("Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client) pour une livraison client."))
+
         res = super().write(vals)
+
         if planned_date_changed_now:
             for rec in self:
                 old_dt = old_dates_by_id.get(rec.id)
