@@ -2,7 +2,6 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
-
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
@@ -36,7 +35,7 @@ class StockPicking(models.Model):
         store=False,
     )
 
-    # --- Motif + indicateur de changement de date planifiée ---
+    # --- Motif + indicateurs ---
     planned_date_reason = fields.Selection(
         selection=[
             ('supplier', 'Fournisseur'),
@@ -55,7 +54,15 @@ class StockPicking(models.Model):
         tracking=True,
     )
 
-    # Helper UI (non stocké) pour détecter le changement en cours d'édition
+    # ✅ Nouveau : vrai pour une livraison vers un client (Partner Locations/Customers)
+    is_customer_delivery = fields.Boolean(
+        string="Livraison client",
+        compute="_compute_is_customer_delivery",
+        store=True,
+        readonly=True,
+    )
+
+    # Helper UI (non stocké) : détecte le changement en cours d'édition
     require_planned_date_reason = fields.Boolean(
         compute='_compute_require_planned_date_reason',
         store=False,
@@ -63,33 +70,11 @@ class StockPicking(models.Model):
 
     # ----- Computes -----
 
-    # v17 SAFE & agnostique à sale_stock :
-    # - ne référence pas sale_line_id dans @depends (il peut ne pas exister)
-    @api.depends('group_id', 'move_ids', 'origin')
+    # Odoo 17 : move_ids + group_id.sale_id
+    @api.depends('group_id.sale_id', 'move_ids.sale_line_id.order_id')
     def _compute_sale_id(self):
-        """Déduit la commande liée au picking en v17 :
-           1) via le procurement_group_id du SO si group_id est renseigné,
-           2) via les lignes de mouvements si sale_line_id existe,
-           3) fallback sur origin == name du SO.
-        """
-        Sale = self.env['sale.order']
-        move_has_sale_line = 'sale_line_id' in self.env['stock.move']._fields
         for picking in self:
-            sale = False
-
-            # 1) Lien par groupe d'appro
-            if picking.group_id:
-                sale = Sale.search([('procurement_group_id', '=', picking.group_id.id)], limit=1)
-
-            # 2) Lien via les mouvements (si champ présent)
-            if not sale and move_has_sale_line:
-                orders = picking.move_ids.mapped('sale_line_id.order_id')
-                sale = orders[:1] if orders else False
-
-            # 3) Fallback via origin
-            if not sale and picking.origin:
-                sale = Sale.search([('name', '=', picking.origin)], limit=1)
-
+            sale = picking.group_id.sale_id or (picking.move_ids.mapped('sale_line_id.order_id')[:1] or False)
             picking.sale_id = sale.id if sale else False
 
     @api.depends('date_done', 'state', 'sale_id.so_date_de_livraison')
@@ -153,6 +138,14 @@ class StockPicking(models.Model):
                 orig and orig.id and rec.scheduled_date and rec.scheduled_date != orig.scheduled_date
             )
 
+    # ✅ Détecter livraison client : soit par type "outgoing", soit par usage "customer"
+    @api.depends('picking_type_id.code', 'location_dest_id.usage')
+    def _compute_is_customer_delivery(self):
+        for rec in self:
+            code = rec.picking_type_id.code if rec.picking_type_id else False
+            usage = rec.location_dest_id.usage if rec.location_dest_id else False
+            rec.is_customer_delivery = (code == 'outgoing') or (usage == 'customer')
+
     def write(self, vals):
         planned_date_changed_now = False
         old_dates_by_id = {}
@@ -162,21 +155,26 @@ class StockPicking(models.Model):
                 old_dates_by_id[rec.id] = rec.scheduled_date
                 if new_dt and rec.scheduled_date and new_dt != rec.scheduled_date:
                     planned_date_changed_now = True
-                    reason = vals.get('planned_date_reason') or rec.planned_date_reason
-                    if not reason:
-                        raise UserError(_("Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client)."))
+                    # L'obligation n'existe que pour les livraisons clients
+                    if rec.is_customer_delivery:
+                        reason = vals.get('planned_date_reason') or rec.planned_date_reason
+                        if not reason:
+                            raise UserError(_("Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client) pour une livraison client."))
         res = super().write(vals)
-        # Marqueur persistant + log chatter (on réutilise l'ancienne date mémorisée)
+        # Marqueur persistant + log chatter
         if planned_date_changed_now:
             for rec in self:
                 old_dt = old_dates_by_id.get(rec.id)
                 if old_dt:
-                    rec.sudo().write({'planned_date_changed': True})
+                    # On loggue toujours le changement de date ; on marque le flag si livraison client
+                    if rec.is_customer_delivery:
+                        rec.sudo().write({'planned_date_changed': True})
                     rec.message_post(
-                        body=_("Date planifiée modifiée : %s → %s<br/>Motif : %s") % (
+                        body=_("Date planifiée modifiée : %s → %s%s") % (
                             fields.Datetime.to_string(old_dt),
                             fields.Datetime.to_string(rec.scheduled_date),
-                            dict(rec._fields['planned_date_reason'].selection).get(rec.planned_date_reason, '') or '-',
+                            ("<br/>Motif : %s" % (dict(rec._fields['planned_date_reason'].selection).get(rec.planned_date_reason, '') or '-'))
+                            if rec.is_customer_delivery else ""
                         )
                     )
         return res
