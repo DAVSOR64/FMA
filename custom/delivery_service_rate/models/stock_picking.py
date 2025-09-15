@@ -54,7 +54,7 @@ class StockPicking(models.Model):
         tracking=True,
     )
 
-    # ✅ Nouveau : vrai pour une livraison vers un client (Partner Locations/Customers)
+    # Livraison client ? (outgoing/customer)
     is_customer_delivery = fields.Boolean(
         string="Livraison client",
         compute="_compute_is_customer_delivery",
@@ -62,7 +62,7 @@ class StockPicking(models.Model):
         readonly=True,
     )
 
-    # Helper UI (non stocké) : détecte le changement en cours d'édition
+    # Helper UI (non stocké)
     require_planned_date_reason = fields.Boolean(
         compute='_compute_require_planned_date_reason',
         store=False,
@@ -70,11 +70,15 @@ class StockPicking(models.Model):
 
     # ----- Computes -----
 
-    # Odoo 17 : move_ids + group_id.sale_id
-    @api.depends('group_id.sale_id', 'move_ids.sale_line_id.order_id')
+    # ✅ Corrigé: ne dépend plus de group_id.sale_id (peut ne pas exister en v17)
+    @api.depends('move_ids.sale_line_id.order_id', 'origin')
     def _compute_sale_id(self):
+        """Trouver la commande de vente depuis les moves; sinon fallback par origin == SO.name."""
+        SaleOrder = self.env['sale.order']
         for picking in self:
-            sale = picking.group_id.sale_id or (picking.move_ids.mapped('sale_line_id.order_id')[:1] or False)
+            sale = picking.move_ids.mapped('sale_line_id.order_id')[:1]
+            if not sale and picking.origin:
+                sale = SaleOrder.search([('name', '=', picking.origin)], limit=1)
             picking.sale_id = sale.id if sale else False
 
     @api.depends('date_done', 'state', 'sale_id.so_date_de_livraison')
@@ -138,7 +142,6 @@ class StockPicking(models.Model):
                 orig and orig.id and rec.scheduled_date and rec.scheduled_date != orig.scheduled_date
             )
 
-    # ✅ Détecter livraison client : soit par type "outgoing", soit par usage "customer"
     @api.depends('picking_type_id.code', 'location_dest_id.usage')
     def _compute_is_customer_delivery(self):
         for rec in self:
@@ -155,18 +158,15 @@ class StockPicking(models.Model):
                 old_dates_by_id[rec.id] = rec.scheduled_date
                 if new_dt and rec.scheduled_date and new_dt != rec.scheduled_date:
                     planned_date_changed_now = True
-                    # L'obligation n'existe que pour les livraisons clients
                     if rec.is_customer_delivery:
                         reason = vals.get('planned_date_reason') or rec.planned_date_reason
                         if not reason:
                             raise UserError(_("Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client) pour une livraison client."))
         res = super().write(vals)
-        # Marqueur persistant + log chatter
         if planned_date_changed_now:
             for rec in self:
                 old_dt = old_dates_by_id.get(rec.id)
                 if old_dt:
-                    # On loggue toujours le changement de date ; on marque le flag si livraison client
                     if rec.is_customer_delivery:
                         rec.sudo().write({'planned_date_changed': True})
                     rec.message_post(
