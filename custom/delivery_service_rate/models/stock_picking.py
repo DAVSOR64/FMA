@@ -70,33 +70,25 @@ class StockPicking(models.Model):
 
     # ----- Computes -----
 
-    # Robuste: dépend seulement de champs garantis
     @api.depends('move_ids', 'origin')
     def _compute_sale_id(self):
         SaleOrder = self.env['sale.order']
         for picking in self:
             sale = False
-            # 1) Universel (sans sale_stock) : origin == SO.name
             if picking.origin:
                 sale = SaleOrder.search([('name', '=', picking.origin)], limit=1)
-            # 2) Si sale_stock est là, tenter via les moves (sans le citer en depends)
             if not sale and picking.move_ids:
                 try:
-                    sale_lines = picking.move_ids.mapped('sale_line_id')  # peut ne pas exister
+                    sale_lines = picking.move_ids.mapped('sale_line_id')  # si sale_stock absent -> except
                     if sale_lines:
                         sale = sale_lines.mapped('order_id')[:1]
                 except Exception:
                     pass
             picking.sale_id = sale.id if sale else False
 
-    # ❗️Ne pas référencer de champ SO en dotted path dans depends
     @api.depends('date_done', 'state', 'sale_id')
     def _compute_delivered_on_time(self):
-        """Compare date prévue SO (champ Date/Datetime) vs date_done (TZ user)."""
-        CANDIDATE_FIELDS = (
-            'so_date_de_livraison',   # custom (Date)
-            'commitment_date',        # standard (Datetime)
-        )
+        CANDIDATE_FIELDS = ('so_date_de_livraison', 'commitment_date')
         for picking in self:
             on_time = False
             if picking.state == 'done' and picking.date_done and picking.sale_id:
@@ -120,8 +112,6 @@ class StockPicking(models.Model):
                     dy, dw, _ = dd.isocalendar()
                     sy, sw, _ = sd.isocalendar()
                     on_time = (dy, dw) <= (sy, sw)
-                    # Variante "date à date":
-                    # on_time = dd <= sd
             picking.delivered_on_time = on_time
 
     @api.depends('date_done')
@@ -175,15 +165,23 @@ class StockPicking(models.Model):
             usage = rec.location_dest_id.usage if rec.location_dest_id else False
             rec.is_customer_delivery = (code == 'outgoing') or (usage == 'customer')
 
-    # ---- Garde-fou serveur : exiger un motif sur livraison client quand la date CHANGE (pas à la création)
+    # ---- Garde-fou serveur : exiger un motif sur livraison client quand la date CHANGE (pas à la création / 1er write)
     def write(self, vals):
         planned_date_changed_now = False
         old_dates_by_id = {}
+
         if 'scheduled_date' in vals:
             new_dt = fields.Datetime.to_datetime(vals.get('scheduled_date')) if vals.get('scheduled_date') else False
             for rec in self:
+                # 1) Si c'est le tout premier write après create, on n'impose pas
+                is_first_write = not bool(rec.write_date) or (rec.create_date and rec.write_date and rec.write_date <= rec.create_date)
                 old_dates_by_id[rec.id] = rec.scheduled_date
-                # ↳ condition clé : on ne déclenche que si une ancienne date existait déjà
+
+                if is_first_write:
+                    # on laisse passer sans contrôle au premier write
+                    continue
+
+                # 2) Contrôle uniquement si véritable changement d'une valeur existante
                 if new_dt and rec.scheduled_date and new_dt != rec.scheduled_date:
                     planned_date_changed_now = True
                     if rec.is_customer_delivery:
