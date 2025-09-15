@@ -70,15 +70,30 @@ class StockPicking(models.Model):
 
     # ----- Computes -----
 
-    # ✅ Corrigé: ne dépend plus de group_id.sale_id (peut ne pas exister en v17)
-    @api.depends('move_ids.sale_line_id.order_id', 'origin')
+    # ✅ Ne dépend que de champs garantis: move_ids (existe toujours) + origin.
+    #   On n'évoque pas sale_line_id dans @depends pour éviter l'erreur.
+    @api.depends('move_ids', 'origin')
     def _compute_sale_id(self):
-        """Trouver la commande de vente depuis les moves; sinon fallback par origin == SO.name."""
         SaleOrder = self.env['sale.order']
         for picking in self:
-            sale = picking.move_ids.mapped('sale_line_id.order_id')[:1]
-            if not sale and picking.origin:
+            sale = False
+
+            # 1) Fallback universel (marche sans sale_stock) : origin == SO.name
+            if picking.origin:
                 sale = SaleOrder.search([('name', '=', picking.origin)], limit=1)
+
+            # 2) Si sale_stock est installé, on peut tenter via les moves — mais sans lister
+            #    sale_line_id dans @depends (on utilise getattr pour ne pas planter).
+            if not sale and picking.move_ids:
+                # getattr évite l'explosion si sale_line_id n'existe pas
+                try:
+                    sale_lines = picking.move_ids.mapped('sale_line_id')  # peut ne pas exister
+                    if sale_lines:
+                        sale = sale_lines.mapped('order_id')[:1]
+                except Exception:
+                    # pas de sale_line_id: on ignore
+                    pass
+
             picking.sale_id = sale.id if sale else False
 
     @api.depends('date_done', 'state', 'sale_id.so_date_de_livraison')
