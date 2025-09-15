@@ -8,17 +8,18 @@
       <field name="inherit_id" ref="stock.view_picking_form"/>
       <field name="arch" type="xml">
         <xpath expr="//field[@name='scheduled_date']" position="after">
-          <!-- Champs support dans la vue -->
+          <!-- Champs support injectés dans la vue -->
           <field name="require_planned_date_reason" invisible="1"/>
           <field name="planned_date_changed" invisible="1"/>
           <field name="is_customer_delivery" invisible="1"/>
 
           <!-- Motif changement :
                - visible si (livraison client) ET (date modifiée en cours OU déjà modifiée OU motif déjà rempli)
-               - obligatoire seulement quand la date est en train d'être modifiée
+               - obligatoire seulement pendant la modification
                - readonly hors édition de la date
           -->
           <field name="planned_date_reason"
+                 string="Motif changement"
                  invisible="not (is_customer_delivery and (require_planned_date_reason or planned_date_changed or planned_date_reason))"
                  required="is_customer_delivery and require_planned_date_reason"
                  readonly="not require_planned_date_reason"/>
