@@ -22,7 +22,7 @@ class StockPicking(models.Model):
     )
 
     # AAAA-MM basé sur la date effective (en TZ utilisateur)
-    delivery_month = fields.Char(
+    delivery_month = fields.Char( 
         string="Mois de livraison",
         compute="_compute_delivery_month",
         store=True,
