@@ -100,7 +100,7 @@ class ExportSFTPScheduler(models.Model):
                 ', '.join([c.name for c in getattr(p, 'category_id', [])]) if getattr(p, 'category_id', False) else '',
                 ', '.join([b.acc_number for b in getattr(p, 'bank_ids', [])]) if getattr(p, 'bank_ids', False) else '',
                 len(getattr(p, 'child_ids', [])) if getattr(p, 'child_ids', False) else 0,
-                # Champs personnalisés demandés
+                # Champs personnalisés demandés (clients)
                 getattr(p, 'x_studio_ref_logikal', '') or '',
                 (getattr(getattr(p, 'x_studio_commercial_1', object()), 'name', getattr(p, 'x_studio_commercial_1', '')) or ''),
                 getattr(p, 'x_studio_gneration_n_compte_1', '') or '',
@@ -132,7 +132,7 @@ class ExportSFTPScheduler(models.Model):
             create_attachment(client_file, os.path.basename(client_file))
 
             # =========================================================
-            # Commandes (sale.order)
+            # Commandes (sale.order) + champs devis personnalisés
             # =========================================================
             orders = self.env['sale.order'].search([])
             order_data = [(
@@ -180,6 +180,30 @@ class ExportSFTPScheduler(models.Model):
                 getattr(o, 'confirmation_date', False) and o.confirmation_date.strftime('%Y-%m-%d %H:%M:%S') or '',
                 o.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(o, 'create_date', False) else '',
                 o.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(o, 'write_date', False) else '',
+                # -------- Champs personnalisés "devis" (sale.order) --------
+                (getattr(getattr(o, 'x_studio_commercial_1', object()), 'name', getattr(o, 'x_studio_commercial_1', '')) or ''),
+                getattr(o, 'x_studio_srie', '') or '',
+                getattr(o, 'x_studio_gamme', '') or '',
+                getattr(o, 'x_studio_avancement', '') or '',
+                getattr(o, 'x_studio_bureau_dtude', '') or '',
+                getattr(o, 'x_studio_projet', '') or '',
+                getattr(o, 'so_delai_confirme_en_semaine', '') or '',
+                getattr(o, 'so_commande_client', '') or '',
+                getattr(o, 'so_acces_bl', '') or '',
+                getattr(o, 'so_type_camion_bl', '') or '',
+                getattr(o, 'so_horaire_ouverture_bl', '') or '',
+                getattr(o, 'so_horaire_fermeture_bl', '') or '',
+                getattr(o, 'x_studio_mode_de_rglement', '') or '',
+                getattr(o, 'so_date_de_reception_devis', False) and o.so_date_de_reception_devis.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_du_devis', False) and o.so_date_du_devis.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_de_modification_devis', False) and o.so_date_de_modification_devis.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_devis_valide', False) and o.so_date_devis_valide.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_ARC', False) and o.so_date_ARC.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_bpe', False) and o.so_date_bpe.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_bon_pour_fab', False) and o.so_date_bon_pour_fab.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_de_fin_de_production_reel', False) and o.so_date_de_fin_de_production_reel.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_de_livraison', False) and o.so_date_de_livraison.strftime('%Y-%m-%d') or '',
+                getattr(o, 'so_date_de_livraison_prevu', False) and o.so_date_de_livraison_prevu.strftime('%Y-%m-%d') or '',
             ) for o in orders]
             order_file = write_xlsx(
                 f'commandes_{today}.xlsx',
@@ -193,7 +217,14 @@ class ExportSFTPScheduler(models.Model):
                     'ID Incoterm','Incoterm',
                     'Devise','Liste de prix','Terme de paiement','Position fiscale',
                     'Montant HT','TVA','Montant TTC','Statut facturation',
-                    'Tags','Note','Confirmée le','Créé le','Modifié le'
+                    'Tags','Note','Confirmée le','Créé le','Modifié le',
+                    # -------- En-têtes des champs devis ajoutés --------
+                    'Commercial (x_studio)','Série','Gamme','Avancement','Bureau d\'étude','Projet',
+                    'Délai confirmé (semaines)','Commande client','Accès BL','Type camion BL',
+                    'Horaire ouverture BL','Horaire fermeture BL','Mode de règlement (x_studio)',
+                    'Date réception devis','Date du devis','Date modification devis','Date devis validé',
+                    'Date ARC','Date BPE','Date bon pour fab','Date fin de production (réel)',
+                    'Date de livraison','Date de livraison prévue'
                 ],
                 order_data
             )
