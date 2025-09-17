@@ -22,6 +22,20 @@ class ExportSFTPScheduler(models.Model):
         self.env['ir.config_parameter'].sudo().set_param('export_powerbi.tmp_export_dir', temp_dir)
         _logger.info(f"[Export Power BI] Dossier temporaire : {temp_dir}")
 
+        # helper pour formater un float d'heure (ex: 8.5) en '08:30'
+        def _float_to_hhmm(val):
+            try:
+                if val is None or val == '':
+                    return ''
+                hours = int(val)
+                minutes = int(round((val - hours) * 60))
+                if minutes == 60:
+                    hours += 1
+                    minutes = 0
+                return f"{hours:02d}:{minutes:02d}"
+            except Exception:
+                return val
+
         def write_xlsx(filename, headers, rows):
             filepath = os.path.join(temp_dir, filename)
             workbook = xlsxwriter.Workbook(filepath)
@@ -100,7 +114,7 @@ class ExportSFTPScheduler(models.Model):
                 ', '.join([c.name for c in getattr(p, 'category_id', [])]) if getattr(p, 'category_id', False) else '',
                 ', '.join([b.acc_number for b in getattr(p, 'bank_ids', [])]) if getattr(p, 'bank_ids', False) else '',
                 len(getattr(p, 'child_ids', [])) if getattr(p, 'child_ids', False) else 0,
-                # Champs personnalisés demandés (clients)
+                # Champs personnalisés demandés
                 getattr(p, 'x_studio_ref_logikal', '') or '',
                 (getattr(getattr(p, 'x_studio_commercial_1', object()), 'name', getattr(p, 'x_studio_commercial_1', '')) or ''),
                 getattr(p, 'x_studio_gneration_n_compte_1', '') or '',
@@ -191,19 +205,19 @@ class ExportSFTPScheduler(models.Model):
                 getattr(o, 'so_commande_client', '') or '',
                 getattr(o, 'so_acces_bl', '') or '',
                 getattr(o, 'so_type_camion_bl', '') or '',
-                getattr(o, 'so_horaire_ouverture_bl', '') or '',
-                getattr(o, 'so_horaire_fermeture_bl', '') or '',
+                _float_to_hhmm(getattr(o, 'so_horaire_ouverture_bl', '')),
+                _float_to_hhmm(getattr(o, 'so_horaire_fermeture_bl', '')),
                 getattr(o, 'x_studio_mode_de_rglement', '') or '',
-                getattr(o, 'so_date_de_reception_devis', False) and o.so_date_de_reception_devis.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_du_devis', False) and o.so_date_du_devis.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_de_modification_devis', False) and o.so_date_de_modification_devis.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_devis_valide', False) and o.so_date_devis_valide.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_ARC', False) and o.so_date_ARC.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_bpe', False) and o.so_date_bpe.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_bon_pour_fab', False) and o.so_date_bon_pour_fab.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_de_fin_de_production_reel', False) and o.so_date_de_fin_de_production_reel.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_de_livraison', False) and o.so_date_de_livraison.strftime('%Y-%m-%d') or '',
-                getattr(o, 'so_date_de_livraison_prevu', False) and o.so_date_de_livraison_prevu.strftime('%Y-%m-%d') or '',
+                o.so_date_de_reception_devis.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_reception_devis', False) else '',
+                o.so_date_du_devis.strftime('%Y-%m-%d') if getattr(o, 'so_date_du_devis', False) else '',
+                o.so_date_de_modification_devis.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_modification_devis', False) else '',
+                o.so_date_devis_valide.strftime('%Y-%m-%d') if getattr(o, 'so_date_devis_valide', False) else '',
+                o.so_date_ARC.strftime('%Y-%m-%d') if getattr(o, 'so_date_ARC', False) else '',
+                o.so_date_bpe.strftime('%Y-%m-%d') if getattr(o, 'so_date_bpe', False) else '',
+                o.so_date_bon_pour_fab.strftime('%Y-%m-%d') if getattr(o, 'so_date_bon_pour_fab', False) else '',
+                o.so_date_de_fin_de_production_reel.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_fin_de_production_reel', False) else '',
+                o.so_date_de_livraison.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_livraison', False) else '',
+                o.so_date_de_livraison_prevu.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_livraison_prevu', False) else '',
             ) for o in orders]
             order_file = write_xlsx(
                 f'commandes_{today}.xlsx',
@@ -218,7 +232,6 @@ class ExportSFTPScheduler(models.Model):
                     'Devise','Liste de prix','Terme de paiement','Position fiscale',
                     'Montant HT','TVA','Montant TTC','Statut facturation',
                     'Tags','Note','Confirmée le','Créé le','Modifié le',
-                    # -------- En-têtes des champs devis ajoutés --------
                     'Commercial (x_studio)','Série','Gamme','Avancement','Bureau d\'étude','Projet',
                     'Délai confirmé (semaines)','Commande client','Accès BL','Type camion BL',
                     'Horaire ouverture BL','Horaire fermeture BL','Mode de règlement (x_studio)',
@@ -384,7 +397,7 @@ class ExportSFTPScheduler(models.Model):
                 # Quantité / UoM
                 getattr(l, 'quantity', 0.0) or 0.0,
                 (getattr(l, 'product_uom_id', False) and l.product_uom_id.name or ''),
-                # Prix / taxes / totaux (facture-line API)
+                # Prix / taxes / totaux
                 getattr(l, 'price_unit', 0.0) or 0.0,
                 ', '.join([t.name for t in getattr(l, 'tax_ids', [])]) if getattr(l, 'tax_ids', False) else '',
                 getattr(l, 'price_subtotal', 0.0) or 0.0,
