@@ -100,6 +100,12 @@ class ExportSFTPScheduler(models.Model):
                 ', '.join([c.name for c in getattr(p, 'category_id', [])]) if getattr(p, 'category_id', False) else '',
                 ', '.join([b.acc_number for b in getattr(p, 'bank_ids', [])]) if getattr(p, 'bank_ids', False) else '',
                 len(getattr(p, 'child_ids', [])) if getattr(p, 'child_ids', False) else 0,
+                # Champs personnalisés demandés
+                getattr(p, 'x_studio_ref_logikal', '') or '',
+                (getattr(getattr(p, 'x_studio_commercial_1', object()), 'name', getattr(p, 'x_studio_commercial_1', '')) or ''),
+                getattr(p, 'x_studio_gneration_n_compte_1', '') or '',
+                getattr(p, 'x_studio_compte', '') or '',
+                getattr(p, 'x_studio_code_diap', '') or '',
                 # Statut / notes / dates
                 bool(getattr(p, 'active', True)),
                 getattr(p, 'comment', '') or '',
@@ -118,6 +124,7 @@ class ExportSFTPScheduler(models.Model):
                     'ID Commercial','Commercial','ID Société','Société',
                     'Langue','Fuseau horaire',
                     'Tags','IBAN/Comptes bancaires','Nb. enfants',
+                    'x_studio_ref_logikal','x_studio_commercial_1','x_studio_gneration_n_compte_1','x_studio_compte','x_studio_code_diap',
                     'Actif','Note','Créé le','Modifié le'
                 ],
                 client_data
