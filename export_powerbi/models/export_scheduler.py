@@ -95,8 +95,10 @@ class ExportSFTPScheduler(models.Model):
             filepath = os.path.join(temp_dir, filename)
             workbook = xlsxwriter.Workbook(filepath)
             worksheet = workbook.add_worksheet()
+            # en-têtes
             for col, header in enumerate(headers):
                 worksheet.write(0, col, header)
+            # lignes
             for row_idx, row in enumerate(rows, 1):
                 for col_idx, cell in enumerate(row):
                     worksheet.write(row_idx, col_idx, _to_cell(cell))
@@ -370,78 +372,85 @@ class ExportSFTPScheduler(models.Model):
             # ==================== Factures (ENRICHI) ====================
             try:
                 invoices = self.env['account.move'].search([('move_type', '=', 'out_invoice'), ('state', '=', 'posted')])
-                invoice_data = [(
-                    # --- Identifiants & état ---
-                    i.id,
-                    i.name or '',
-                    getattr(i, 'state', '') or '',
-                    getattr(i, 'move_type', '') or '',
-                    # --- Dates ---
-                    i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
-                    i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
-                    i.date.strftime('%Y-%m-%d') if getattr(i, 'date', False) else '',
-                    # --- Références ---
-                    getattr(i, 'invoice_origin', '') or '',
-                    i.ref or '',
-                    i.payment_state or '',
-                    getattr(i, 'payment_reference', '') or '',
-                    # --- Partenaire & coordonnées ---
-                    (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
-                    (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
-                    (i.commercial_partner_id.id if getattr(i, 'commercial_partner_id', False) else ''),
-                    (i.commercial_partner_id.name if getattr(i, 'commercial_partner_id', False) else ''),
-                    getattr(i.partner_id, 'vat', '') or '',
-                    getattr(i.partner_id, 'email', '') or '',
-                    getattr(i.partner_id, 'phone', '') or '',
-                    getattr(i.partner_id, 'mobile', '') or '',
-                    getattr(i.partner_id, 'street', '') or '',
-                    getattr(i.partner_id, 'street2', '') or '',
-                    getattr(i.partner_id, 'city', '') or '',
-                    (getattr(i.partner_id, 'zip', '') or ''),
-                    (getattr(getattr(i.partner_id, 'state_id', None), 'name', '') or ''),
-                    (getattr(getattr(i.partner_id, 'country_id', None), 'name', '') or ''),
-                    # --- Vendeur / société / journal / devise ---
-                    (i.invoice_user_id.id if getattr(i, 'invoice_user_id', False) else ''),
-                    (i.invoice_user_id.name if getattr(i, 'invoice_user_id', False) else ''),
-                    (i.company_id.id if getattr(i, 'company_id', False) else ''),
-                    (i.company_id.name if getattr(i, 'company_id', False) else ''),
-                    (i.journal_id.id if getattr(i, 'journal_id', False) else ''),
-                    (i.journal_id.name if getattr(i, 'journal_id', False) else ''),
-                    (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
-                    (i.company_currency_id.name if getattr(i, 'company_currency_id', False) else ''),
-                    # --- Conditions / fiscales ---
-                    (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
-                    (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
-                    (i.invoice_incoterm_id.name if getattr(i, 'invoice_incoterm_id', False) else ''),
-                    # --- Banque (émetteur) ---
-                    (i.partner_bank_id.acc_number if getattr(i, 'partner_bank_id', False) else ''),
-                    (i.partner_bank_id.bank_id.name if getattr(i, 'partner_bank_id', False) else ''),
-                    # --- Montants ---
-                    getattr(i, 'amount_untaxed', 0.0) or 0.0,
-                    getattr(i, 'amount_tax', 0.0) or 0.0,
-                    getattr(i, 'amount_total', 0.0) or 0.0,
-                    getattr(i, 'amount_residual', 0.0) or 0.0,
-                    getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,
-                    getattr(i, 'amount_total_signed', 0.0) or 0.0,
-                    getattr(i, 'amount_residual_signed', 0.0) or 0.0,
-                    # --- Arrondi / autopost / réversion ---
-                    (i.invoice_cash_rounding_id.name if getattr(i, 'invoice_cash_rounding_id', False) else ''),
-                    getattr(i, 'auto_post', '') or '',
-                    i.auto_post_until.strftime('%Y-%m-%d') if getattr(i, 'auto_post_until', False) else '',
-                    (getattr(i, 'reversed_entry_id', False) and (i.reversed_entry_id.name or i.reversed_entry_id.id) or ''),
-                    (getattr(i, 'reversal_move_id', False) and (i.reversal_move_id.name or i.reversal_move_id.id) or ''),
-                    # --- Divers ---
-                    getattr(i, 'narration', '') or '',
-                    len(getattr(i, 'invoice_line_ids', [])),
-                    i.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'create_date', False) else '',
-                    i.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'write_date', False) else '',
-                    # --- CHAMPS CUSTOM demandés ---
-                    getattr(i, 'x_studio_rfrence_affaire', '') or '',
-                    _m2o_name(getattr(i, 'x_studio_projet_vente', None)) or (getattr(i, 'x_studio_projet_vente', '') or ''),
-                    _m2o_name(getattr(i, 'x_studio_commercial_1_mtn', None)) or (getattr(i, 'x_studio_commercial_1_mtn', '') or ''),
-                    _m2o_name(getattr(i, 'x_studio_mode_de_reglement_1', None)) or (getattr(i, 'x_studio_mode_de_reglement_1', '') or ''),
-                    getattr(i, 'x_studio_libelle_1', '') or '',
-                ) for i in invoices]
+
+                invoice_data = []
+                for i in invoices:
+                    try:
+                        row = (
+                            # --- Identifiants & état ---
+                            i.id,
+                            i.name or '',
+                            getattr(i, 'state', '') or '',
+                            getattr(i, 'move_type', '') or '',
+                            # --- Dates ---
+                            i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
+                            i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
+                            i.date.strftime('%Y-%m-%d') if getattr(i, 'date', False) else '',
+                            # --- Références ---
+                            getattr(i, 'invoice_origin', '') or '',
+                            i.ref or '',
+                            i.payment_state or '',
+                            getattr(i, 'payment_reference', '') or '',
+                            # --- Partenaire & coordonnées ---
+                            (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
+                            (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
+                            (i.commercial_partner_id.id if getattr(i, 'commercial_partner_id', False) else ''),
+                            (i.commercial_partner_id.name if getattr(i, 'commercial_partner_id', False) else ''),
+                            getattr(i.partner_id, 'vat', '') or '',
+                            getattr(i.partner_id, 'email', '') or '',
+                            getattr(i.partner_id, 'phone', '') or '',
+                            getattr(i.partner_id, 'mobile', '') or '',
+                            getattr(i.partner_id, 'street', '') or '',
+                            getattr(i.partner_id, 'street2', '') or '',
+                            getattr(i.partner_id, 'city', '') or '',
+                            (getattr(i.partner_id, 'zip', '') or ''),
+                            (getattr(getattr(i.partner_id, 'state_id', None), 'name', '') or ''),
+                            (getattr(getattr(i.partner_id, 'country_id', None), 'name', '') or ''),
+                            # --- Vendeur / société / journal / devise ---
+                            (i.invoice_user_id.id if getattr(i, 'invoice_user_id', False) else ''),
+                            (i.invoice_user_id.name if getattr(i, 'invoice_user_id', False) else ''),
+                            (i.company_id.id if getattr(i, 'company_id', False) else ''),
+                            (i.company_id.name if getattr(i, 'company_id', False) else ''),
+                            (i.journal_id.id if getattr(i, 'journal_id', False) else ''),
+                            (i.journal_id.name if getattr(i, 'journal_id', False) else ''),
+                            (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
+                            (i.company_currency_id.name if getattr(i, 'company_currency_id', False) else ''),
+                            # --- Conditions / fiscales ---
+                            (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
+                            (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
+                            (i.invoice_incoterm_id.name if getattr(i, 'invoice_incoterm_id', False) else ''),
+                            # --- Banque (émetteur) ---
+                            (i.partner_bank_id.acc_number if getattr(i, 'partner_bank_id', False) else ''),
+                            (i.partner_bank_id.bank_id.name if getattr(i, 'partner_bank_id', False) else ''),
+                            # --- Montants ---
+                            getattr(i, 'amount_untaxed', 0.0) or 0.0,
+                            getattr(i, 'amount_tax', 0.0) or 0.0,
+                            getattr(i, 'amount_total', 0.0) or 0.0,
+                            getattr(i, 'amount_residual', 0.0) or 0.0,
+                            getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,
+                            getattr(i, 'amount_total_signed', 0.0) or 0.0,
+                            getattr(i, 'amount_residual_signed', 0.0) or 0.0,
+                            # --- Arrondi / autopost / réversion ---
+                            (i.invoice_cash_rounding_id.name if getattr(i, 'invoice_cash_rounding_id', False) else ''),
+                            getattr(i, 'auto_post', '') or '',
+                            i.auto_post_until.strftime('%Y-%m-%d') if getattr(i, 'auto_post_until', False) else '',
+                            (getattr(i, 'reversed_entry_id', False) and (i.reversed_entry_id.name or i.reversed_entry_id.id) or ''),
+                            (getattr(i, 'reversal_move_id', False) and (i.reversal_move_id.name or i.reversal_move_id.id) or ''),
+                            # --- Divers ---
+                            getattr(i, 'narration', '') or '',
+                            len(getattr(i, 'invoice_line_ids', [])),
+                            i.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'create_date', False) else '',
+                            i.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'write_date', False) else '',
+                            # --- CHAMPS CUSTOM demandés ---
+                            getattr(i, 'x_studio_rfrence_affaire', '') or '',
+                            _m2o_name(getattr(i, 'x_studio_projet_vente', None)) or (getattr(i, 'x_studio_projet_vente', '') or ''),
+                            _m2o_name(getattr(i, 'x_studio_commercial_1_mtn', None)) or (getattr(i, 'x_studio_commercial_1_mtn', '') or ''),
+                            _m2o_name(getattr(i, 'x_studio_mode_de_reglement_1', None)) or (getattr(i, 'x_studio_mode_de_reglement_1', '') or ''),
+                            getattr(i, 'x_studio_libelle_1', '') or '',
+                        )
+                        invoice_data.append(row)
+                    except Exception as e_row:
+                        _logger.exception("[Export Power BI] Facture ID %s ignorée (donnée invalide): %s", getattr(i, 'id', 'n/a'), e_row)
 
                 invoice_file = write_xlsx(
                     f'factures_{today}.xlsx',
@@ -479,7 +488,7 @@ class ExportSFTPScheduler(models.Model):
                     invoice_data
                 )
                 create_attachment(invoice_file, os.path.basename(invoice_file))
-                _logger.info("[Export Power BI] Factures: %s lignes", len(invoice_data))
+                _logger.info("[Export Power BI] Factures: %s lignes (dont %s ignorées si erreurs)", len(invoice_data), len(invoices) - len(invoice_data))
             except Exception as e:
                 _logger.exception("[Export Power BI] ERREUR section Factures: %s", e)
 
@@ -530,6 +539,10 @@ class ExportSFTPScheduler(models.Model):
                     ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
                     # Lien vente
                     (l.sale_line_ids[0].id if getattr(l, 'sale_line_ids', False) and l.sale_line_ids else ''),
+                    # Champs custom demandés (ligne de facture)
+                    getattr(l, 'x_studio_hauteur', '') or '',
+                    getattr(l, 'x_studio_largeur', '') or '',
+                    getattr(l, 'x_studio_position', '') or '',
                     # Méta
                     l.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'create_date', False) else '',
                     l.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'write_date', False) else '',
@@ -547,6 +560,7 @@ class ExportSFTPScheduler(models.Model):
                         'Compte code','Compte libellé','Débit','Crédit','Balance','Montant devise',
                         'Compte Analytique','Tags analytiques',
                         'ID Ligne Commande',
+                        'Hauteur (x_studio)','Largeur (x_studio)','Position (x_studio)',
                         'Créé le','Modifié le'
                     ],
                     invoice_line_data
