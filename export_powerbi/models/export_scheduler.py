@@ -18,7 +18,7 @@ class ExportSFTPScheduler(models.Model):
     def cron_generate_files(self):
         """Génère les fichiers Excel pour clients, commandes, factures, et les stocke en pièces jointes"""
         today = datetime.now().strftime('%Y%m%d')
-        temp_dir = tempfile.mkdtemp()
+        temp_dir = tempfile.mkdtemp() 
         self.env['ir.config_parameter'].sudo().set_param('export_powerbi.tmp_export_dir', temp_dir)
         _logger.info(f"[Export Power BI] Dossier temporaire : {temp_dir}")
 
