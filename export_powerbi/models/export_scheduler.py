@@ -36,6 +36,20 @@ class ExportSFTPScheduler(models.Model):
             except Exception:
                 return val
 
+        # helper M2O -> texte (safe)
+        def _m2o_name(val):
+            try:
+                if not val:
+                    return ''
+                # Many2one en Odoo est un record singleton => a .name
+                name = getattr(val, 'name', None)
+                if name is None:
+                    # si ce n'est pas un record, renvoyer la valeur brute (char/selection)
+                    return val
+                return name or ''
+            except Exception:
+                return ''
+
         def write_xlsx(filename, headers, rows):
             filepath = os.path.join(temp_dir, filename)
             workbook = xlsxwriter.Workbook(filepath)
@@ -54,7 +68,7 @@ class ExportSFTPScheduler(models.Model):
             self.env['ir.attachment'].create({
                 'name': name,
                 'type': 'binary',
-                'datas': base64.b64encode(file_content),
+                'datas': base64.b64encode(file_content).decode(),  # str attendu
                 'res_model': 'export.sftp.scheduler',
                 'res_id': 0,  # Pas de record spécifique
                 'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -116,7 +130,7 @@ class ExportSFTPScheduler(models.Model):
                 len(getattr(p, 'child_ids', [])) if getattr(p, 'child_ids', False) else 0,
                 # Champs personnalisés demandés
                 getattr(p, 'x_studio_ref_logikal', '') or '',
-                (getattr(getattr(p, 'x_studio_commercial_1', object()), 'name', getattr(p, 'x_studio_commercial_1', '')) or ''),
+                _m2o_name(getattr(p, 'x_studio_commercial_1', None)) or (getattr(p, 'x_studio_commercial_1', '') or ''),
                 getattr(p, 'x_studio_gneration_n_compte_1', '') or '',
                 getattr(p, 'x_studio_compte', '') or '',
                 getattr(p, 'x_studio_code_diap', '') or '',
@@ -195,19 +209,19 @@ class ExportSFTPScheduler(models.Model):
                 o.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(o, 'create_date', False) else '',
                 o.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(o, 'write_date', False) else '',
                 # -------- Champs personnalisés "devis" (sale.order) --------
-                (getattr(getattr(o, 'x_studio_commercial_1', object()), 'name', getattr(o, 'x_studio_commercial_1', '')) or ''),
-                getattr(o, 'x_studio_srie', '') or '',
-                getattr(o, 'x_studio_gamme', '') or '',
+                _m2o_name(getattr(o, 'x_studio_commercial_1', None)) or (getattr(o, 'x_studio_commercial_1', '') or ''),
+                _m2o_name(getattr(o, 'x_studio_srie', None)) or (getattr(o, 'x_studio_srie', '') or ''),
+                _m2o_name(getattr(o, 'x_studio_gamme', None)) or (getattr(o, 'x_studio_gamme', '') or ''),
                 getattr(o, 'x_studio_avancement', '') or '',
-                getattr(o, 'x_studio_bureau_dtude', '') or '',
-                getattr(o, 'x_studio_projet', '') or '',
+                _m2o_name(getattr(o, 'x_studio_bureau_dtude', None)) or (getattr(o, 'x_studio_bureau_dtude', '') or ''),
+                _m2o_name(getattr(o, 'x_studio_projet', None)) or (getattr(o, 'x_studio_projet', '') or ''),
                 getattr(o, 'so_delai_confirme_en_semaine', '') or '',
                 getattr(o, 'so_commande_client', '') or '',
                 getattr(o, 'so_acces_bl', '') or '',
-                getattr(o, 'so_type_camion_bl', '') or '',
+                _m2o_name(getattr(o, 'so_type_camion_bl', None)) or (getattr(o, 'so_type_camion_bl', '') or ''),
                 _float_to_hhmm(getattr(o, 'so_horaire_ouverture_bl', '')),
                 _float_to_hhmm(getattr(o, 'so_horaire_fermeture_bl', '')),
-                getattr(o, 'x_studio_mode_de_rglement', '') or '',
+                _m2o_name(getattr(o, 'x_studio_mode_de_rglement', None)) or (getattr(o, 'x_studio_mode_de_rglement', '') or ''),
                 o.so_date_de_reception_devis.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_reception_devis', False) else '',
                 o.so_date_du_devis.strftime('%Y-%m-%d') if getattr(o, 'so_date_du_devis', False) else '',
                 o.so_date_de_modification_devis.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_modification_devis', False) else '',
