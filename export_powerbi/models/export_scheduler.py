@@ -83,9 +83,15 @@ class ExportSFTPScheduler(models.Model):
                 except Exception:
                     pass
                 # itérables standards
-                if isinstance(v, (list, tuple, set)):
-                    parts = [_to_cell(x) for x in v]
-                    return ', '.join([str(p) for p in parts])
+                if isinstance(v, (list, tuple, set, dict)):
+                    # dict -> str ; list/tuple/set -> joindre
+                    try:
+                        if isinstance(v, dict):
+                            return str(v)
+                        parts = [_to_cell(x) for x in v]
+                        return ', '.join([str(p) for p in parts])
+                    except Exception:
+                        return str(v)
                 # fallback
                 return str(v)
             except Exception:
@@ -304,7 +310,7 @@ class ExportSFTPScheduler(models.Model):
             except Exception as e:
                 _logger.exception("[Export Power BI] ERREUR section Commandes: %s", e)
 
-            # ==================== Lignes de commandes ====================
+            # ==================== Lignes de commandes (ENRICHI) ====================
             try:
                 order_lines = self.env['sale.order.line'].search([('product_id', '!=', False)])
                 order_line_data = [(
@@ -315,52 +321,94 @@ class ExportSFTPScheduler(models.Model):
                     (l.order_id.name if getattr(l, 'order_id', False) else ''),
                     getattr(l, 'name', '') or '',
                     (getattr(l, 'display_type', '') or ''),
-                    (l.order_id.state if getattr(l, 'order_id', False) else ''),
+                    # États & facturation
+                    getattr(l, 'state', '') or (l.order_id.state if getattr(l, 'order_id', False) else ''),
+                    getattr(l, 'invoice_status', '') or '',
+                    # Dates
                     (l.order_id.date_order.strftime('%Y-%m-%d %H:%M:%S') if (getattr(l, 'order_id', False) and getattr(l.order_id, 'date_order', False)) else ''),
-                    # Client
+                    # Client / partenaires
                     (l.order_id.partner_id.id if (getattr(l, 'order_id', False) and getattr(l.order_id, 'partner_id', False)) else ''),
                     (l.order_id.partner_id.name if (getattr(l, 'order_id', False) and getattr(l.order_id, 'partner_id', False)) else ''),
+                    (getattr(l, 'order_partner_id', False) and l.order_partner_id.id or ''),
+                    (getattr(l, 'order_partner_id', False) and l.order_partner_id.name or ''),
                     # Produit
                     (l.product_id.id if getattr(l, 'product_id', False) else ''),
                     (l.product_id.default_code if getattr(l, 'product_id', False) else '') or '',
                     (l.product_id.name if getattr(l, 'product_id', False) else '') or '',
+                    (l.product_id.barcode if getattr(l, 'product_id', False) else '') or '',
+                    (getattr(l.product_id, 'detailed_type', '') if getattr(l, 'product_id', False) else '') or '',
+                    (l.product_id.product_tmpl_id.id if getattr(l, 'product_id', False) else ''),
+                    (l.product_id.product_tmpl_id.name if getattr(l, 'product_id', False) else '') or '',
                     (l.product_id.categ_id.name if (getattr(l, 'product_id', False) and getattr(l.product_id, 'categ_id', False)) else '') or '',
-                    # Quantités / UoM / lead time
+                    # UoM
+                    (l.product_uom.name if getattr(l, 'product_uom', False) else ''),
+                    (getattr(l, 'product_uom', False) and getattr(l.product_uom, 'category_id', False) and l.product_uom.category_id.name or ''),
+                    # Quantités & flux
                     getattr(l, 'product_uom_qty', 0.0) or 0.0,
                     getattr(l, 'qty_delivered', 0.0) or 0.0,
                     getattr(l, 'qty_invoiced', 0.0) or 0.0,
-                    (l.product_uom.name if getattr(l, 'product_uom', False) else ''),
+                    getattr(l, 'qty_to_invoice', 0.0) or 0.0,
                     getattr(l, 'customer_lead', 0.0) or 0.0,
+                    getattr(l, 'qty_delivered_method', '') or '',
                     # Prix / taxes / totaux
                     getattr(l, 'price_unit', 0.0) or 0.0,
                     getattr(l, 'discount', 0.0) or 0.0,
+                    getattr(l, 'price_reduce', 0.0) if hasattr(l, 'price_reduce') else '',
+                    getattr(l, 'price_reduce_taxexcl', 0.0) if hasattr(l, 'price_reduce_taxexcl') else '',
+                    getattr(l, 'price_reduce_taxinc', 0.0) if hasattr(l, 'price_reduce_taxinc') else '',
                     ', '.join([t.name for t in getattr(l, 'tax_id', [])]) if getattr(l, 'tax_id', False) else '',
                     getattr(l, 'price_subtotal', 0.0) or 0.0,
                     getattr(l, 'price_tax', 0.0) or 0.0,
                     getattr(l, 'price_total', 0.0) or 0.0,
                     # Devise / société / vendeur
                     (l.currency_id.name if getattr(l, 'currency_id', False) else ''),
+                    (l.company_id.id if getattr(l, 'company_id', False) else ''),
                     (l.company_id.name if getattr(l, 'company_id', False) else ''),
                     (l.order_id.user_id.name if (getattr(l, 'order_id', False) and getattr(l.order_id, 'user_id', False)) else ''),
+                    (l.order_id.team_id.name if (getattr(l, 'order_id', False) and getattr(l.order_id, 'team_id', False)) else ''),
+                    # Logistique (si sale_stock installé)
+                    (getattr(l, 'route_id', False) and l.route_id.name or ''),
+                    (getattr(l, 'warehouse_id', False) and l.warehouse_id.name or ''),
+                    (getattr(l, 'product_packaging_id', False) and l.product_packaging_id.name or ''),
                     # Analytique
                     (l.analytic_account_id.name if getattr(l, 'analytic_account_id', False) else ''),
                     ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
-                    # Dates / meta
+                    getattr(l, 'analytic_distribution', '') if hasattr(l, 'analytic_distribution') else '',
+                    # Indicateurs
+                    bool(getattr(l, 'is_downpayment', False)),
+                    bool(getattr(l, 'is_expense', False)),
+                    bool(getattr(l, 'is_delivery', False)),
+                    # Champs custom demandés (ligne de commande)
+                    getattr(l, 'x_studio_position', '') or '',
+                    getattr(l, 'x_studio_hauteur_mm_1', '') or '',
+                    getattr(l, 'x_studio_largeur_mm_1', '') or '',
+                    # Auteurs / méta
+                    (getattr(l, 'create_uid', False) and l.create_uid.name or ''),
+                    (getattr(l, 'write_uid', False) and l.write_uid.name or ''),
                     l.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'create_date', False) else '',
                     l.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'write_date', False) else '',
+                    getattr(l, 'display_name', '') or '',
                 ) for l in order_lines]
                 order_line_file = write_xlsx(
                     f'lignes_commandes_{today}.xlsx',
                     [
                         'ID Ligne','Sequence',
-                        'ID Commande','N° Commande','Description','Type affichage','État commande','Date commande',
-                        'ID Client','Client',
-                        'ID Article','Code article','Nom article','Catégorie article',
-                        'Qté commandée','Qté livrée','Qté facturée','UoM','Délai client (j)',
-                        'PU HT','Remise %','Taxes','Sous-total HT','TVA','Total TTC',
-                        'Devise','Société','Commercial',
-                        'Compte Analytique','Tags analytiques',
-                        'Créé le','Modifié le'
+                        'ID Commande','N° Commande','Description','Type affichage',
+                        'État ligne','Statut facturation ligne',
+                        'Date commande',
+                        'ID Client','Client','ID Partenaire (ligne)','Partenaire (ligne)',
+                        'ID Article','Code article','Nom article','Code-barres','Type article',
+                        'ID Template','Nom Template','Catégorie article',
+                        'UoM','Catégorie UoM',
+                        'Qté commandée','Qté livrée','Qté facturée','Qté à facturer','Délai client (j)','Méthode livraison',
+                        'PU HT','Remise %','Prix réduit','Prix réduit HT','Prix réduit TTC','Taxes',
+                        'Sous-total HT','TVA','Total TTC',
+                        'Devise','ID Société','Société','Commercial','Équipe',
+                        'Route','Entrepôt','Packaging',
+                        'Compte Analytique','Tags analytiques','Distribution analytique (JSON)',
+                        'Acompte ?','Dépense ?','Livraison ?',
+                        'Position (x_studio)','Hauteur mm (x_studio)','Largeur mm (x_studio)',
+                        'Créé par','Modifié par','Créé le','Modifié le','Nom affiché'
                     ],
                     order_line_data
                 )
@@ -539,7 +587,7 @@ class ExportSFTPScheduler(models.Model):
                     ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
                     # Lien vente
                     (l.sale_line_ids[0].id if getattr(l, 'sale_line_ids', False) and l.sale_line_ids else ''),
-                    # Champs custom demandés (ligne de facture)
+                    # Champs custom demandés (ligne de facture) — déjà ajoutés précédemment
                     getattr(l, 'x_studio_hauteur', '') or '',
                     getattr(l, 'x_studio_largeur', '') or '',
                     getattr(l, 'x_studio_position', '') or '',
