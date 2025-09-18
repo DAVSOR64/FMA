@@ -1120,7 +1120,8 @@ class SqliteConnector(models.Model):
                     if not self.env['product.product'].search([('default_code', '=', refinterne)], limit=1):
                         vals = {
                             'default_code': refinterne,
-                            'name': vitrage + " " + Id,
+                            #'name': vitrage + " " + Id,
+                            'name': vitrage,
                             'lst_price': 1,
                             'standard_price': prix,
                             'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
