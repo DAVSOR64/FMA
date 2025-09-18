@@ -54,7 +54,7 @@ class ExportSFTPScheduler(models.Model):
             try:
                 if v is None:
                     return ''
-                # types primitifs: laisser tel quel
+                # primitifs
                 if isinstance(v, (int, float, bool)):
                     return v
                 if isinstance(v, str):
@@ -68,29 +68,25 @@ class ExportSFTPScheduler(models.Model):
                         return v.decode('utf-8', errors='ignore')
                     except Exception:
                         return str(v)
-                # recordset Odoo (singleton ou non)
+                # recordset Odoo
                 try:
-                    # models.BaseModel existe toujours; si v a un attribut env, c'est un recordset
                     from odoo.models import BaseModel
                     if isinstance(v, BaseModel):
-                        # recordset vide
                         if not v:
                             return ''
-                        # singleton -> name ou id
                         if len(v) == 1:
                             return getattr(v, 'display_name', None) or getattr(v, 'name', None) or v.id
-                        # multiple -> liste de display_name / id
                         parts = []
                         for rec in v:
                             parts.append(getattr(rec, 'display_name', None) or getattr(rec, 'name', None) or str(rec.id))
                         return ', '.join([str(p) for p in parts])
                 except Exception:
                     pass
-                # itérables standards (list/tuple/set) -> joindre
+                # itérables standards
                 if isinstance(v, (list, tuple, set)):
                     parts = [_to_cell(x) for x in v]
                     return ', '.join([str(p) for p in parts])
-                # fallback: texte
+                # fallback
                 return str(v)
             except Exception:
                 return str(v)
@@ -99,10 +95,8 @@ class ExportSFTPScheduler(models.Model):
             filepath = os.path.join(temp_dir, filename)
             workbook = xlsxwriter.Workbook(filepath)
             worksheet = workbook.add_worksheet()
-            # en-têtes
             for col, header in enumerate(headers):
                 worksheet.write(0, col, header)
-            # lignes
             for row_idx, row in enumerate(rows, 1):
                 for col_idx, cell in enumerate(row):
                     worksheet.write(row_idx, col_idx, _to_cell(cell))
@@ -373,24 +367,40 @@ class ExportSFTPScheduler(models.Model):
             except Exception as e:
                 _logger.exception("[Export Power BI] ERREUR section Lignes de commandes: %s", e)
 
-            # ==================== Factures ====================
+            # ==================== Factures (ENRICHI) ====================
             try:
                 invoices = self.env['account.move'].search([('move_type', '=', 'out_invoice'), ('state', '=', 'posted')])
                 invoice_data = [(
+                    # --- Identifiants & état ---
                     i.id,
                     i.name or '',
                     getattr(i, 'state', '') or '',
                     getattr(i, 'move_type', '') or '',
+                    # --- Dates ---
                     i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
                     i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
+                    i.date.strftime('%Y-%m-%d') if getattr(i, 'date', False) else '',
+                    # --- Références ---
                     getattr(i, 'invoice_origin', '') or '',
                     i.ref or '',
                     i.payment_state or '',
-                    # Partenaire / bancaire
+                    getattr(i, 'payment_reference', '') or '',
+                    # --- Partenaire & coordonnées ---
                     (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
                     (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
-                    (i.partner_bank_id.acc_number if getattr(i, 'partner_bank_id', False) else ''),
-                    # Organisation
+                    (i.commercial_partner_id.id if getattr(i, 'commercial_partner_id', False) else ''),
+                    (i.commercial_partner_id.name if getattr(i, 'commercial_partner_id', False) else ''),
+                    getattr(i.partner_id, 'vat', '') or '',
+                    getattr(i.partner_id, 'email', '') or '',
+                    getattr(i.partner_id, 'phone', '') or '',
+                    getattr(i.partner_id, 'mobile', '') or '',
+                    getattr(i.partner_id, 'street', '') or '',
+                    getattr(i.partner_id, 'street2', '') or '',
+                    getattr(i.partner_id, 'city', '') or '',
+                    (getattr(i.partner_id, 'zip', '') or ''),
+                    (getattr(getattr(i.partner_id, 'state_id', None), 'name', '') or ''),
+                    (getattr(getattr(i.partner_id, 'country_id', None), 'name', '') or ''),
+                    # --- Vendeur / société / journal / devise ---
                     (i.invoice_user_id.id if getattr(i, 'invoice_user_id', False) else ''),
                     (i.invoice_user_id.name if getattr(i, 'invoice_user_id', False) else ''),
                     (i.company_id.id if getattr(i, 'company_id', False) else ''),
@@ -398,36 +408,73 @@ class ExportSFTPScheduler(models.Model):
                     (i.journal_id.id if getattr(i, 'journal_id', False) else ''),
                     (i.journal_id.name if getattr(i, 'journal_id', False) else ''),
                     (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
+                    (i.company_currency_id.name if getattr(i, 'company_currency_id', False) else ''),
+                    # --- Conditions / fiscales ---
                     (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
                     (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
-                    # Montants
+                    (i.invoice_incoterm_id.name if getattr(i, 'invoice_incoterm_id', False) else ''),
+                    # --- Banque (émetteur) ---
+                    (i.partner_bank_id.acc_number if getattr(i, 'partner_bank_id', False) else ''),
+                    (i.partner_bank_id.bank_id.name if getattr(i, 'partner_bank_id', False) else ''),
+                    # --- Montants ---
                     getattr(i, 'amount_untaxed', 0.0) or 0.0,
                     getattr(i, 'amount_tax', 0.0) or 0.0,
                     getattr(i, 'amount_total', 0.0) or 0.0,
                     getattr(i, 'amount_residual', 0.0) or 0.0,
                     getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,
                     getattr(i, 'amount_total_signed', 0.0) or 0.0,
-                    # Références / incoterm / paiement
-                    getattr(i, 'payment_reference', '') or '',
-                    (getattr(i, 'invoice_incoterm_id', False) and i.invoice_incoterm_id.name or ''),
-                    # Divers
+                    getattr(i, 'amount_residual_signed', 0.0) or 0.0,
+                    # --- Arrondi / autopost / réversion ---
+                    (i.invoice_cash_rounding_id.name if getattr(i, 'invoice_cash_rounding_id', False) else ''),
+                    getattr(i, 'auto_post', '') or '',
+                    i.auto_post_until.strftime('%Y-%m-%d') if getattr(i, 'auto_post_until', False) else '',
+                    (getattr(i, 'reversed_entry_id', False) and (i.reversed_entry_id.name or i.reversed_entry_id.id) or ''),
+                    (getattr(i, 'reversal_move_id', False) and (i.reversal_move_id.name or i.reversal_move_id.id) or ''),
+                    # --- Divers ---
                     getattr(i, 'narration', '') or '',
                     len(getattr(i, 'invoice_line_ids', [])),
                     i.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'create_date', False) else '',
                     i.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'write_date', False) else '',
+                    # --- CHAMPS CUSTOM demandés ---
+                    getattr(i, 'x_studio_rfrence_affaire', '') or '',
+                    _m2o_name(getattr(i, 'x_studio_projet_vente', None)) or (getattr(i, 'x_studio_projet_vente', '') or ''),
+                    _m2o_name(getattr(i, 'x_studio_commercial_1_mtn', None)) or (getattr(i, 'x_studio_commercial_1_mtn', '') or ''),
+                    _m2o_name(getattr(i, 'x_studio_mode_de_reglement_1', None)) or (getattr(i, 'x_studio_mode_de_reglement_1', '') or ''),
+                    getattr(i, 'x_studio_libelle_1', '') or '',
                 ) for i in invoices]
+
                 invoice_file = write_xlsx(
                     f'factures_{today}.xlsx',
                     [
+                        # --- Identifiants & état ---
                         'ID','N° Facture','État','Type',
-                        'Date','Échéance','Origine','Référence','État Paiement',
-                        'ID Client','Client','Compte bancaire client',
+                        # --- Dates ---
+                        'Date facture','Date échéance','Date comptable',
+                        # --- Références ---
+                        'Origine','Référence (ref)','État paiement','Référence paiement',
+                        # --- Partenaire & coordonnées ---
+                        'ID Client','Client','ID Partenaire commercial','Partenaire commercial',
+                        'TVA client','Email client','Téléphone client','Mobile client',
+                        'Rue','Rue 2','Ville','Code Postal','État/Province','Pays',
+                        # --- Vendeur / société / journal / devise ---
                         'ID Vendeur','Vendeur','ID Société','Société',
-                        'ID Journal','Journal','Devise','Terme de paiement','Position fiscale',
+                        'ID Journal','Journal','Devise','Devise société',
+                        # --- Conditions / fiscales ---
+                        'Terme de paiement','Position fiscale','Incoterm',
+                        # --- Banque (émetteur) ---
+                        'IBAN/Compte bancaire','Banque',
+                        # --- Montants ---
                         'Montant HT','TVA','Montant TTC','Solde',
-                        'Montant HT signé','Montant TTC signé',
-                        'Référence paiement','Incoterm','Narration','Nb. lignes',
-                        'Créé le','Modifié le'
+                        'Montant HT signé','Montant TTC signé','Solde signé',
+                        # --- Arrondi / autopost / réversion ---
+                        'Rounding','Auto-post','Auto-post jusqu\'au',
+                        'Écriture d\'origine (si réversion)','Écriture de réversion',
+                        # --- Divers ---
+                        'Narration','Nb. lignes',
+                        'Créé le','Modifié le',
+                        # --- CHAMPS CUSTOM ---
+                        'x_studio_rfrence_affaire','x_studio_projet_vente',
+                        'x_studio_commercial_1_mtn','x_studio_mode_de_reglement_1','x_studio_libelle_1'
                     ],
                     invoice_data
                 )
