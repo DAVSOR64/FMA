@@ -6,7 +6,6 @@
     <field name="arch" type="xml">
       <pivot string="KPI Facturation vs Livraison (planifiée)">
         <field name="sale_order_name" type="row"/>
-        <field name="tag_name" type="row"/>
         <field name="month_date" type="col" interval="month"/>
         <field name="iso_week" type="col"/>
         <measure name="amount_invoiced"/>
@@ -22,7 +21,6 @@
     <field name="arch" type="xml">
       <tree create="false" edit="false">
         <field name="sale_order_name"/>
-        <field name="tag_name"/>
         <field name="scheduled_datetime"/>
         <field name="month_date"/>
         <field name="iso_year"/>
@@ -53,11 +51,9 @@
     <field name="arch" type="xml">
       <search string="Filtrer">
         <field name="sale_order_name" string="Affaire"/>
-        <field name="tag_name" string="Étiquette"/>
         <field name="company_id" string="Société"/>
         <group expand="0" string="Regrouper par">
           <filter string="Affaire" name="grp_so" context="{'group_by':'sale_order_name'}"/>
-          <filter string="Étiquette" name="grp_tag" context="{'group_by':'tag_name'}"/>
           <filter string="Mois" name="grp_month" context="{'group_by':'month_date'}"/>
           <filter string="Semaine" name="grp_week" context="{'group_by':'iso_week'}"/>
         </group>
