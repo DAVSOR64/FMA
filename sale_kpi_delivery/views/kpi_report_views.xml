@@ -10,7 +10,7 @@
         <field name="iso_week" type="col"/>
         <field name="amount_invoiced" type="measure"/>
         <field name="amount_to_invoice" type="measure"/>
-        <field name="order_count" type="measure"/> <!-- NEW -->
+        <field name="order_count" type="measure"/> <!-- pour afficher aussi les 'no' à 0€ -->
       </pivot>
     </field>
   </record>
@@ -27,7 +27,7 @@
         <field name="iso_year"/>
         <field name="iso_week"/>
         <field name="invoice_status"/>
-        <field name="order_count"/> <!-- NEW -->
+        <field name="order_count"/>
         <field name="amount_to_invoice" sum="Total"/>
         <field name="amount_invoiced" sum="Total"/>
       </tree>
@@ -43,10 +43,46 @@
         <field name="month_date" type="row" interval="month"/>
         <field name="amount_invoiced" type="measure"/>
         <field name="amount_to_invoice" type="measure"/>
-        <field name="order_count" type="measure"/> <!-- NEW (utile si tu veux un graphe de volumes) -->
+        <field name="order_count" type="measure"/>
       </graph>
     </field>
   </record>
 
-  <!-- SEARCH: inchangé (garde tes filtres) -->
+  <!-- SEARCH -->
+  <record id="view_kpi_delivery_search" model="ir.ui.view">
+    <field name="name">kpi.delivery.billing.search</field>
+    <field name="model">kpi.delivery.billing</field>
+    <field name="arch" type="xml">
+      <search string="Filtrer">
+        <field name="sale_order_name" string="Affaire"/>
+        <field name="company_id" string="Société"/>
+        <field name="invoice_status" string="Statut facturation"/>
+        <filter string="À facturer" name="flt_to_invoice" domain="[('invoice_status','=','to invoice')]"/>
+        <filter string="Rien à facturer" name="flt_nothing" domain="[('invoice_status','=','no')]"/>
+        <filter string="Tout facturé" name="flt_invoiced" domain="[('invoice_status','=','invoiced')]"/>
+        <filter string="À facturer + Rien à facturer" name="flt_to_invoice_or_no"
+                domain="[('invoice_status','in',('to invoice','no'))]"/>
+        <group expand="0" string="Regrouper par">
+          <filter string="Affaire" name="grp_so" context="{'group_by':'sale_order_name'}"/>
+          <filter string="Mois" name="grp_month" context="{'group_by':'month_date'}"/>
+          <filter string="Semaine" name="grp_week" context="{'group_by':'iso_week'}"/>
+          <filter string="Statut facturation" name="grp_invst" context="{'group_by':'invoice_status'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <!-- ACTION + MENU -->
+  <record id="action_kpi_delivery" model="ir.actions.act_window">
+    <field name="name">KPI Facturation vs Livraison</field>
+    <field name="res_model">kpi.delivery.billing</field>
+    <field name="view_mode">pivot,graph,tree</field>
+    <!-- filtre par défaut: à facturer + rien à facturer -->
+    <field name="context">{'search_default_flt_to_invoice_or_no': 1}</field>
+    <field name="search_view_id" ref="view_kpi_delivery_search"/>
+  </record>
+
+  <menuitem id="menu_kpi_root" name="KPI Livraison" parent="sale.sale_menu_root"/>
+  <menuitem id="menu_kpi_delivery" name="Facturation vs Livraison"
+            parent="menu_kpi_root" action="action_kpi_delivery"/>
 </odoo>
