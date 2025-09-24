@@ -11,11 +11,13 @@ class KpiDeliveryBilling(models.Model):
     company_id      = fields.Many2one("res.company", string="Société", readonly=True)
     currency_id     = fields.Many2one("res.currency", string="Devise", readonly=True)
 
-    # Date de référence = planned delivery date from picking
     scheduled_datetime = fields.Datetime("Livraison planifiée", readonly=True)
     month_date   = fields.Date("Mois (1er jour)", readonly=True)
     iso_year     = fields.Char("Année ISO", readonly=True)
     iso_week     = fields.Char("Semaine ISO", readonly=True)
+
+    # NEW: statut de facturation de la commande (permet de filtrer 'à facturer' + 'rien à facturer')
+    invoice_status = fields.Char("Statut facturation", readonly=True)
 
     # Mesures
     amount_invoiced   = fields.Monetary("Facturé HT", currency_field="currency_id", readonly=True)
@@ -31,6 +33,7 @@ class KpiDeliveryBilling(models.Model):
                 so.name                                         AS sale_order_name,
                 so.company_id                                   AS company_id,
                 so.currency_id                                  AS currency_id,
+                so.invoice_status                               AS invoice_status,
                 sp.scheduled_date                               AS scheduled_datetime,
                 date_trunc('month', sp.scheduled_date)::date    AS month_date,
                 to_char(sp.scheduled_date, 'IYYY')              AS iso_year,
@@ -59,7 +62,7 @@ class KpiDeliveryBilling(models.Model):
             LEFT JOIN stock_picking sp   ON sp.id = sm.picking_id    AND sp.state != 'cancel'
             WHERE so.state IN ('sale','done')
               AND sp.scheduled_date IS NOT NULL
-            GROUP BY so.id, so.name, so.company_id, so.currency_id, sp.scheduled_date
+            GROUP BY so.id, so.name, so.company_id, so.currency_id, so.invoice_status, sp.scheduled_date
         """
 
     @api.model
