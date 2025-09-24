@@ -6,11 +6,11 @@
     <field name="arch" type="xml">
       <pivot string="KPI Facturation vs Livraison (planifiée)">
         <field name="sale_order_name" type="row"/>
-        <field name="tag_name" type="row" optional="show"/>
-        <!-- Colonnes temps : d'abord Mois, puis Semaine -->
+        <field name="tag_name" type="row"/>
+        <!-- Colonnes temps -->
         <field name="month_date" type="col" interval="month"/>
-        <field name="iso_year" type="col" optional="hide"/>
-        <field name="iso_week" type="col" optional="show"/>
+        <field name="iso_week" type="col"/>
+        <!-- Mesures -->
         <measure name="amount_invoiced"/>
         <measure name="amount_to_invoice"/>
       </pivot>
@@ -48,24 +48,15 @@
     </field>
   </record>
 
-  <!-- ACTION + SEARCH VIEW (filtres tags, société, date) -->
-  <record id="action_kpi_delivery" model="ir.actions.act_window">
-    <field name="name">KPI Facturation vs Livraison</field>
-    <field name="res_model">kpi.delivery.billing</field>
-    <field name="view_mode">pivot,graph,tree</field>
-    <field name="context">{}</field>
-  </record>
-
+  <!-- SEARCH (filtre sur tag_name plutôt que tag_id) -->
   <record id="view_kpi_delivery_search" model="ir.ui.view">
     <field name="name">kpi.delivery.billing.search</field>
     <field name="model">kpi.delivery.billing</field>
     <field name="arch" type="xml">
       <search string="Filtrer">
         <field name="sale_order_name" string="Affaire"/>
-        <field name="tag_id" string="Étiquette"/>
+        <field name="tag_name" string="Étiquette"/>
         <field name="company_id" string="Société"/>
-        <filter string="Ce mois" name="this_month" domain="[('month_date','>=', context_today().replace(day=1))]"/>
-        <filter string="Tags non définis" name="no_tag" domain="[('tag_id','=',False)]"/>
         <group expand="0" string="Regrouper par">
           <filter string="Affaire" name="grp_so" context="{'group_by':'sale_order_name'}"/>
           <filter string="Étiquette" name="grp_tag" context="{'group_by':'tag_name'}"/>
@@ -76,7 +67,14 @@
     </field>
   </record>
 
-  <!-- MENUS -->
+  <!-- ACTION + MENU -->
+  <record id="action_kpi_delivery" model="ir.actions.act_window">
+    <field name="name">KPI Facturation vs Livraison</field>
+    <field name="res_model">kpi.delivery.billing</field>
+    <field name="view_mode">pivot,graph,tree</field>
+    <field name="search_view_id" ref="view_kpi_delivery_search"/>
+  </record>
+
   <menuitem id="menu_kpi_root" name="KPI Livraison" parent="sale.sale_menu_root"/>
   <menuitem id="menu_kpi_delivery" name="Facturation vs Livraison"
             parent="menu_kpi_root" action="action_kpi_delivery"/>
