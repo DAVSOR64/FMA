@@ -23,6 +23,7 @@ class KpiDeliveryBilling(models.Model):
     # Mesures
     amount_invoiced   = fields.Monetary("Facturé HT", currency_field="currency_id", readonly=True)
     amount_to_invoice = fields.Monetary("RAF HT",     currency_field="currency_id", readonly=True)
+    order_count       = fields.Integer("Nb devis", readonly=True)  # <<< NEW
 
     def _select(self):
         # amount_invoiced = Total HT proratisé sur qty_invoiced
@@ -49,7 +50,9 @@ class KpiDeliveryBilling(models.Model):
                         WHEN COALESCE(sol.product_uom_qty,0) = 0 THEN 0
                         ELSE sol.price_subtotal
                            - (sol.price_subtotal * (sol.qty_invoiced / NULLIF(sol.product_uom_qty,0)))
-                    END AS amt_raf
+                    END AS amt_raf,
+
+                    1 AS order_count_part
                 FROM sale_order_line sol
                 JOIN sale_order so      ON so.id = sol.order_id
                 LEFT JOIN stock_move sm ON sm.sale_line_id = sol.id AND sm.state != 'cancel'
@@ -68,7 +71,8 @@ class KpiDeliveryBilling(models.Model):
                 to_char(scheduled_ref, 'IYYY')           AS iso_year,
                 to_char(scheduled_ref, 'IW')             AS iso_week,
                 SUM(amt_invoiced)                        AS amount_invoiced,
-                SUM(amt_raf)                             AS amount_to_invoice
+                SUM(amt_raf)                             AS amount_to_invoice,
+                SUM(order_count_part)                    AS order_count
             FROM base
             GROUP BY sale_order_id, sale_order_name, company_id, currency_id,
                      invoice_status, scheduled_ref
