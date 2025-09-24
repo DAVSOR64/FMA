@@ -7,10 +7,8 @@
       <pivot string="KPI Facturation vs Livraison (planifiée)">
         <field name="sale_order_name" type="row"/>
         <field name="tag_name" type="row"/>
-        <!-- Colonnes temps -->
         <field name="month_date" type="col" interval="month"/>
         <field name="iso_week" type="col"/>
-        <!-- Mesures -->
         <measure name="amount_invoiced"/>
         <measure name="amount_to_invoice"/>
       </pivot>
@@ -48,7 +46,7 @@
     </field>
   </record>
 
-  <!-- SEARCH (filtre sur tag_name plutôt que tag_id) -->
+  <!-- SEARCH -->
   <record id="view_kpi_delivery_search" model="ir.ui.view">
     <field name="name">kpi.delivery.billing.search</field>
     <field name="model">kpi.delivery.billing</field>
