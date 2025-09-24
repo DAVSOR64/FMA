@@ -8,8 +8,8 @@
         <field name="sale_order_name" type="row"/>
         <field name="month_date" type="col" interval="month"/>
         <field name="iso_week" type="col"/>
-        <measure name="amount_invoiced"/>
-        <measure name="amount_to_invoice"/>
+        <field name="amount_invoiced" type="measure"/>
+        <field name="amount_to_invoice" type="measure"/>
       </pivot>
     </field>
   </record>
