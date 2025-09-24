@@ -16,17 +16,13 @@ class KpiDeliveryBilling(models.Model):
     iso_year     = fields.Char("Année ISO", readonly=True)
     iso_week     = fields.Char("Semaine ISO", readonly=True)
 
-    # Tags (facultatifs)
-    tag_id       = fields.Integer("Tag ID", readonly=True)
-    tag_name     = fields.Char("Étiquette", readonly=True)
-
     amount_invoiced   = fields.Monetary("Facturé HT", currency_field="currency_id", readonly=True)
     amount_to_invoice = fields.Monetary("RAF HT",     currency_field="currency_id", readonly=True)
 
-    def _base_subquery(self):
+    def _select(self):
         return """
             SELECT
-                (100000000 + COALESCE(sm.id, sol.id)) AS row_id,
+                row_number() over() AS id,
                 so.id       AS sale_order_id,
                 so.name     AS sale_order_name,
                 so.company_id,
@@ -35,79 +31,26 @@ class KpiDeliveryBilling(models.Model):
                 date_trunc('month', sp.scheduled_date)::date AS month_date,
                 to_char(sp.scheduled_date, 'IYYY') AS iso_year,
                 to_char(sp.scheduled_date, 'IW')   AS iso_week,
-                CASE WHEN COALESCE(sol.product_uom_qty,0) = 0 THEN 0
-                     ELSE sol.price_subtotal * (sol.qty_invoiced / NULLIF(sol.product_uom_qty,0))
-                END AS amount_invoiced,
-                CASE WHEN COALESCE(sol.product_uom_qty,0) = 0 THEN 0
-                     ELSE sol.price_subtotal * (sol.qty_to_invoice / NULLIF(sol.product_uom_qty,0))
-                END AS amount_to_invoice
+                SUM(
+                    CASE WHEN COALESCE(sol.product_uom_qty,0) = 0 THEN 0
+                         ELSE sol.price_subtotal * (sol.qty_invoiced / NULLIF(sol.product_uom_qty,0))
+                    END
+                ) AS amount_invoiced,
+                SUM(
+                    CASE WHEN COALESCE(sol.product_uom_qty,0) = 0 THEN 0
+                         ELSE sol.price_subtotal * (sol.qty_to_invoice / NULLIF(sol.product_uom_qty,0))
+                    END
+                ) AS amount_to_invoice
             FROM sale_order_line sol
             JOIN sale_order so ON so.id = sol.order_id
             LEFT JOIN stock_move sm ON sm.sale_line_id = sol.id AND sm.state != 'cancel'
             LEFT JOIN stock_picking sp ON sp.id = sm.picking_id AND sp.state != 'cancel'
             WHERE so.state IN ('sale','done')
               AND sp.scheduled_date IS NOT NULL
+            GROUP BY so.id, so.name, so.company_id, so.currency_id, sp.scheduled_date
         """
 
     @api.model
     def init(self):
         tools.drop_view_if_exists(self._cr, self._table)
-
-        # détection des tables des tags
-        self._cr.execute("SELECT to_regclass('public.sale_order_tag')")
-        has_sale_order_tag = bool(self._cr.fetchone()[0])
-
-        self._cr.execute("SELECT to_regclass('public.sale_order_tag_rel')")
-        has_rel_1 = bool(self._cr.fetchone()[0])
-
-        self._cr.execute("SELECT to_regclass('public.sale_order_sale_order_tag_rel')")
-        has_rel_2 = bool(self._cr.fetchone()[0])
-
-        base = self._base_subquery()
-
-        if has_sale_order_tag and (has_rel_1 or has_rel_2):
-            rel_table = "sale_order_tag_rel" if has_rel_1 else "sale_order_sale_order_tag_rel"
-            select_sql = f"""
-                SELECT
-                    MIN(row_id) AS id,
-                    b.sale_order_id,
-                    b.sale_order_name,
-                    b.company_id,
-                    b.currency_id,
-                    b.scheduled_datetime,
-                    b.month_date,
-                    b.iso_year,
-                    b.iso_week,
-                    sot.id   AS tag_id,
-                    sot.name AS tag_name,
-                    SUM(b.amount_invoiced)   AS amount_invoiced,
-                    SUM(b.amount_to_invoice) AS amount_to_invoice
-                FROM ({base}) b
-                LEFT JOIN {rel_table} rel ON rel.order_id = b.sale_order_id
-                LEFT JOIN sale_order_tag sot ON sot.id = rel.tag_id
-                GROUP BY b.sale_order_id, b.sale_order_name, b.company_id, b.currency_id,
-                         b.scheduled_datetime, b.month_date, b.iso_year, b.iso_week,
-                         sot.id, sot.name
-            """
-        else:
-            select_sql = f"""
-                SELECT
-                    MIN(row_id) AS id,
-                    sale_order_id,
-                    sale_order_name,
-                    company_id,
-                    currency_id,
-                    scheduled_datetime,
-                    month_date,
-                    iso_year,
-                    iso_week,
-                    NULL::integer AS tag_id,
-                    NULL::varchar AS tag_name,
-                    SUM(amount_invoiced)   AS amount_invoiced,
-                    SUM(amount_to_invoice) AS amount_to_invoice
-                FROM ({base}) b
-                GROUP BY sale_order_id, sale_order_name, company_id, currency_id,
-                         scheduled_datetime, month_date, iso_year, iso_week
-            """
-
-        self._cr.execute(f"CREATE VIEW {self._table} AS {select_sql}")
+        self._cr.execute(f"CREATE OR REPLACE VIEW {self._table} AS ({self._select()})")
