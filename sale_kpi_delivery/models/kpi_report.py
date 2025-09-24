@@ -16,15 +16,14 @@ class KpiDeliveryBilling(models.Model):
     iso_year     = fields.Char("Année ISO", readonly=True)
     iso_week     = fields.Char("Semaine ISO", readonly=True)
 
-    # Champs tags (étiquettes) — peuvent rester vides si tags absents en base
-    tag_id       = fields.Many2one(comodel_name="ir.model", string="Étiquette (id)", readonly=True)  # type neutre
+    # Tags (facultatifs)
+    tag_id       = fields.Integer("Tag ID", readonly=True)
     tag_name     = fields.Char("Étiquette", readonly=True)
 
     amount_invoiced   = fields.Monetary("Facturé HT", currency_field="currency_id", readonly=True)
     amount_to_invoice = fields.Monetary("RAF HT",     currency_field="currency_id", readonly=True)
 
     def _base_subquery(self):
-        # Montants pro-ratés par quantités, date = scheduled_date du picking
         return """
             SELECT
                 (100000000 + COALESCE(sm.id, sol.id)) AS row_id,
@@ -54,7 +53,7 @@ class KpiDeliveryBilling(models.Model):
     def init(self):
         tools.drop_view_if_exists(self._cr, self._table)
 
-        # Détection des tables de tags possibles
+        # détection des tables des tags
         self._cr.execute("SELECT to_regclass('public.sale_order_tag')")
         has_sale_order_tag = bool(self._cr.fetchone()[0])
 
@@ -64,7 +63,6 @@ class KpiDeliveryBilling(models.Model):
         self._cr.execute("SELECT to_regclass('public.sale_order_sale_order_tag_rel')")
         has_rel_2 = bool(self._cr.fetchone()[0])
 
-        # on construit le SQL final
         base = self._base_subquery()
 
         if has_sale_order_tag and (has_rel_1 or has_rel_2):
@@ -72,26 +70,26 @@ class KpiDeliveryBilling(models.Model):
             select_sql = f"""
                 SELECT
                     MIN(row_id) AS id,
-                    sale_order_id,
-                    sale_order_name,
-                    company_id,
-                    currency_id,
-                    scheduled_datetime,
-                    month_date,
-                    iso_year,
-                    iso_week,
+                    b.sale_order_id,
+                    b.sale_order_name,
+                    b.company_id,
+                    b.currency_id,
+                    b.scheduled_datetime,
+                    b.month_date,
+                    b.iso_year,
+                    b.iso_week,
                     sot.id   AS tag_id,
                     sot.name AS tag_name,
-                    SUM(amount_invoiced)   AS amount_invoiced,
-                    SUM(amount_to_invoice) AS amount_to_invoice
+                    SUM(b.amount_invoiced)   AS amount_invoiced,
+                    SUM(b.amount_to_invoice) AS amount_to_invoice
                 FROM ({base}) b
                 LEFT JOIN {rel_table} rel ON rel.order_id = b.sale_order_id
                 LEFT JOIN sale_order_tag sot ON sot.id = rel.tag_id
-                GROUP BY sale_order_id, sale_order_name, company_id, currency_id,
-                         scheduled_datetime, month_date, iso_year, iso_week, sot.id, sot.name
+                GROUP BY b.sale_order_id, b.sale_order_name, b.company_id, b.currency_id,
+                         b.scheduled_datetime, b.month_date, b.iso_year, b.iso_week,
+                         sot.id, sot.name
             """
         else:
-            # Pas de tables de tags : on met des NULL pour tag_id/tag_name
             select_sql = f"""
                 SELECT
                     MIN(row_id) AS id,
