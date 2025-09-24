@@ -11,24 +11,24 @@ class KpiDeliveryBilling(models.Model):
     company_id      = fields.Many2one("res.company", string="Société", readonly=True)
     currency_id     = fields.Many2one("res.currency", string="Devise", readonly=True)
 
-    # Date de référence: picking.scheduled_date sinon SO.commitment_date sinon SO.date_order
+    # Date de référence: picking.scheduled_date -> SO.commitment_date -> SO.date_order
     scheduled_datetime = fields.Datetime("Livraison planifiée / Engagement / Date commande", readonly=True)
     month_date   = fields.Date("Mois (1er jour)", readonly=True)
     iso_year     = fields.Char("Année ISO", readonly=True)
     iso_week     = fields.Char("Semaine ISO", readonly=True)
 
-    # Statut de facturation
+    # Statut de facturation de la commande
     invoice_status = fields.Char("Statut facturation", readonly=True)
 
     # Mesures
     amount_invoiced   = fields.Monetary("Facturé HT", currency_field="currency_id", readonly=True)
     amount_to_invoice = fields.Monetary("RAF HT",     currency_field="currency_id", readonly=True)
-    order_count       = fields.Integer("Nb devis", readonly=True)  # <<< NEW
+    order_count       = fields.Integer("Nb devis", readonly=True)
 
     def _select(self):
         # amount_invoiced = Total HT proratisé sur qty_invoiced
-        # amount_to_invoice = Total HT - amount_invoiced  (RAF net)
-        # scheduled_ref = picking.scheduled_date -> SO.commitment_date -> SO.date_order
+        # amount_to_invoice = Total HT - amount_invoiced  (RAF net des factures postées)
+        # scheduled_ref = date pivot
         return """
             WITH base AS (
                 SELECT
@@ -54,10 +54,11 @@ class KpiDeliveryBilling(models.Model):
 
                     1 AS order_count_part
                 FROM sale_order_line sol
-                JOIN sale_order so      ON so.id = sol.order_id
-                LEFT JOIN stock_move sm ON sm.sale_line_id = sol.id AND sm.state != 'cancel'
-                LEFT JOIN stock_picking sp ON sp.id = sm.picking_id AND sp.state != 'cancel'
+                JOIN sale_order so        ON so.id = sol.order_id
+                LEFT JOIN stock_move sm   ON sm.sale_line_id = sol.id AND sm.state != 'cancel'
+                LEFT JOIN stock_picking sp ON sp.id = sm.picking_id  AND sp.state != 'cancel'
                 WHERE so.state IN ('sale','done')
+                  AND COALESCE(sol.display_type,'') = ''  -- <== ignore sections/notes
             )
             SELECT
                 row_number() OVER()                      AS id,
