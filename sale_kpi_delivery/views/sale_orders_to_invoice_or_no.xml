@@ -1,0 +1,18 @@
+<odoo>
+  <!-- Action : Commandes à facturer + Rien à facturer -->
+  <record id="action_orders_to_invoice_or_no" model="ir.actions.act_window">
+    <field name="name">Commandes à facturer (+ Rien à facturer)</field>
+    <field name="res_model">sale.order</field>
+    <field name="view_mode">tree,form,pivot,graph,calendar,activity</field>
+    <!-- Montre les deux statuts -->
+    <field name="domain">[('invoice_status','in',('to invoice','no'))]</field>
+  </record>
+
+  <!-- Menu : sous Ventes → Commandes -->
+  <!-- Si tu veux le placer ailleurs, adapte le parent.  -->
+  <menuitem id="menu_orders_to_invoice_or_no"
+            name="À facturer + Rien à facturer"
+            parent="sale.menu_sale_order"
+            action="action_orders_to_invoice_or_no"
+            sequence="25"/>
+</odoo>
