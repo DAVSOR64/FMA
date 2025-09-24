@@ -25,6 +25,7 @@
         <field name="month_date"/>
         <field name="iso_year"/>
         <field name="iso_week"/>
+        <field name="invoice_status"/>
         <field name="amount_to_invoice" sum="Total"/>
         <field name="amount_invoiced" sum="Total"/>
       </tree>
@@ -52,10 +53,24 @@
       <search string="Filtrer">
         <field name="sale_order_name" string="Affaire"/>
         <field name="company_id" string="Société"/>
+        <field name="invoice_status" string="Statut facturation"/>
+
+        <!-- Filtres rapides -->
+        <filter string="À facturer" name="flt_to_invoice"
+                domain="[('invoice_status','=','to invoice')]"/>
+        <filter string="Rien à facturer" name="flt_nothing"
+                domain="[('invoice_status','=','no')]"/>
+        <filter string="Tout facturé" name="flt_invoiced"
+                domain="[('invoice_status','=','invoiced')]"/>
+        <!-- Par défaut: À facturer + Rien à facturer -->
+        <filter string="À facturer + Rien à facturer" name="flt_to_invoice_or_no"
+                domain="[('invoice_status','in',('to invoice','no'))]"/>
+
         <group expand="0" string="Regrouper par">
           <filter string="Affaire" name="grp_so" context="{'group_by':'sale_order_name'}"/>
           <filter string="Mois" name="grp_month" context="{'group_by':'month_date'}"/>
           <filter string="Semaine" name="grp_week" context="{'group_by':'iso_week'}"/>
+          <filter string="Statut facturation" name="grp_invst" context="{'group_by':'invoice_status'}"/>
         </group>
       </search>
     </field>
@@ -66,6 +81,8 @@
     <field name="name">KPI Facturation vs Livraison</field>
     <field name="res_model">kpi.delivery.billing</field>
     <field name="view_mode">pivot,graph,tree</field>
+    <!-- active PAR DÉFAUT le filtre 'À facturer + Rien à facturer' -->
+    <field name="context">{'search_default_flt_to_invoice_or_no': 1}</field>
     <field name="search_view_id" ref="view_kpi_delivery_search"/>
   </record>
 
