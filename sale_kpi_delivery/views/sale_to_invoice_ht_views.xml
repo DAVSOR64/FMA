@@ -1,0 +1,25 @@
+<odoo>
+  <!-- Liste des commandes : colonne HT -->
+  <record id="view_order_tree_inherit_amount_to_invoice_ht" model="ir.ui.view">
+    <field name="name">sale.order.tree.amount_to_invoice_ht</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_quotation_tree"/>
+    <field name="arch" type="xml">
+      <xpath expr="//tree/field[@name='amount_total']" position="after">
+        <field name="amount_to_invoice_ht" optional="show"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- Pivot des commandes : mesure HT -->
+  <record id="view_order_pivot_inherit_amount_to_invoice_ht" model="ir.ui.view">
+    <field name="name">sale.order.pivot.amount_to_invoice_ht</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="sale.view_order_pivot"/>
+    <field name="arch" type="xml">
+      <xpath expr="//pivot" position="inside">
+        <field name="amount_to_invoice_ht" type="measure"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
