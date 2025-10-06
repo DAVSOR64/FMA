@@ -7,6 +7,7 @@
     "data": [
         "views/kpi_report_views.xml",
         "views/sale_orders_to_invoice_or_no.xml",
+        "views/sale_to_invoice_ht_views.xml",
     ],
     "license": "LGPL-3",
     "installable": True,
