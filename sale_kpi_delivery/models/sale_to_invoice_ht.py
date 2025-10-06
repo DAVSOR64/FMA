@@ -3,6 +3,7 @@ from odoo import api, fields, models
 class SaleOrderLine(models.Model):
     _inherit = "sale.order.line"
 
+    # Optionnel : utile pour la liste des lignes, mais ne doit PAS être utilisé par le compute de la commande
     amount_to_invoice_ht_line = fields.Monetary(
         string="À facturer HT (ligne)",
         currency_field="currency_id",
@@ -32,9 +33,19 @@ class SaleOrder(models.Model):
         readonly=True,
     )
 
-    @api.depends("order_line.amount_to_invoice_ht_line", "order_line.display_type")
+    # ⚠️ IMPORTANT : ne dépend plus du champ amount_to_invoice_ht_line (qui n’existe pas encore à l’init)
+    @api.depends(
+        "order_line.price_subtotal",
+        "order_line.product_uom_qty",
+        "order_line.qty_to_invoice",
+        "order_line.display_type",
+    )
     def _compute_amount_to_invoice_ht(self):
         for order in self:
-            order.amount_to_invoice_ht = sum(
-                l.amount_to_invoice_ht_line for l in order.order_line if not l.display_type
-            )
+            total = 0.0
+            for l in order.order_line:
+                if l.display_type or not l.product_uom_qty:
+                    continue
+                ratio = max(l.qty_to_invoice, 0.0) / l.product_uom_qty
+                total += l.price_subtotal * ratio
+            order.amount_to_invoice_ht = total
