@@ -4,7 +4,7 @@ from odoo import api, fields, models
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
-    # Taxes à facturer (TTC - HT sur la quantité à facturer, via moteur de taxes, multi-taux, positions fiscales ok)
+    # Taxes à facturer (TTC - HT calculé via moteur de taxes sur qty_to_invoice)
     amount_to_invoice_tax = fields.Monetary(
         string="Taxes",
         currency_field="currency_id",
@@ -13,7 +13,7 @@ class SaleOrder(models.Model):
         readonly=True,
     )
 
-    # HT = TTC standard - Taxes calculées ci-dessus
+    # HT = TTC standard - Taxes
     amount_to_invoice_ht = fields.Monetary(
         string="Montant à facturer HT",
         currency_field="currency_id",
@@ -44,10 +44,13 @@ class SaleOrder(models.Model):
                 price_net = line.price_unit * (1.0 - (line.discount or 0.0) / 100.0)
 
                 taxes = line.tax_id
-                if order.fiscal_position_id:
-                    taxes = order.fiscal_position_id.map_tax(
-                        taxes, product=line.product_id, partner=order.partner_id
-                    )
+                fpos = order.fiscal_position_id
+                if fpos and taxes:
+                    # Compatibilité : certaines versions n'acceptent pas product/partner
+                    try:
+                        taxes = fpos.map_tax(taxes, product=line.product_id, partner=order.partner_id)
+                    except TypeError:
+                        taxes = fpos.map_tax(taxes)
 
                 res = taxes.compute_all(
                     price_net,
