@@ -1,5 +1,5 @@
 <odoo>
-  <!-- Liste des commandes : colonne HT -->
+  <!-- LISTE des commandes : ajoute la colonne HT -->
   <record id="view_order_tree_inherit_amount_to_invoice_ht" model="ir.ui.view">
     <field name="name">sale.order.tree.amount_to_invoice_ht</field>
     <field name="model">sale.order</field>
@@ -11,15 +11,21 @@
     </field>
   </record>
 
-  <!-- Pivot des commandes : mesure HT -->
-  <record id="view_order_pivot_inherit_amount_to_invoice_ht" model="ir.ui.view">
+  <!-- PIVOT personnalisé sur sale.order (pas d'héritage) -->
+  <record id="view_order_pivot_amount_to_invoice_ht" model="ir.ui.view">
     <field name="name">sale.order.pivot.amount_to_invoice_ht</field>
     <field name="model">sale.order</field>
-    <field name="inherit_id" ref="sale.view_order_pivot"/>
     <field name="arch" type="xml">
-      <xpath expr="//pivot" position="inside">
+      <pivot string="Commandes (pivot)">
+        <!-- Dimensions usuelles : adapte si besoin -->
+        <field name="company_id" type="row"/>
+        <field name="partner_id" type="row"/>
+        <field name="date_order" type="col" interval="month"/>
+
+        <!-- Mesures -->
         <field name="amount_to_invoice_ht" type="measure"/>
-      </xpath>
+        <field name="amount_total" type="measure"/>
+      </pivot>
     </field>
   </record>
 </odoo>
