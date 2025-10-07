@@ -306,15 +306,15 @@ class SqliteConnector(models.Model):
         for row in resultBP :
             _logger.warning("*****************************UserVars**************** %s " % row[0])
             _logger.warning("*****************************UserInteger2**************** %s " % row[1])
-          if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
-            _logger.warning("*****************************adresse**************** %s " % row[2])
-            if (row[2] == '0')  :
-                address = 'LRE'
-            if (row[2] == '1') :
-                address = 'CBM'
-            if (row[2] == '2') :
-                address = 'REM'
-          if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
+            if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
+                _logger.warning("*****************************adresse**************** %s " % row[2])
+                if (row[2] == '0')  :
+                    address = 'LRE'
+                if (row[2] == '1') :
+                    address = 'CBM'
+                if (row[2] == '2') :
+                    address = 'REM'
+            if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
                 fab = float(row[2])
           #if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
           #  date_time = row[2]
