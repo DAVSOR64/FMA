@@ -305,6 +305,7 @@ class SqliteConnector(models.Model):
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
           if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
+            _logger.warning("*****************************adresse**************** %s " % address)
             if (row[2] == '0')  :
                 address = 'LRE'
             if (row[2] == '1') :
@@ -333,6 +334,7 @@ class SqliteConnector(models.Model):
             pro = project.split('/')
             nbelem = len(pro)
             if nbelem == 1 :
+                logger.warning("*****************************adresse**************** %s " % address)
                 if (address == 'LRE') or (address == 'CBM' ) :
                     etiana = 'ALU'
                     eticom = 'FMA'
@@ -349,6 +351,7 @@ class SqliteConnector(models.Model):
                   etiana = 'ACIER Tranche ' + project.split('/')[1]
                   eticom = 'F2M'
                 project = project
+        logger.warning("*****************************eticom**************** %s " % eticom)
         #_logger.warning("projet  2 %s " % projet)
         # account_analytic_tag_id = account_analytic_tags.filtered(lambda t: t.name == etiana)
         # if account_analytic_tag_id:
