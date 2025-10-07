@@ -94,9 +94,13 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     if len(str(LengthLogikal)) < 7:
+                        _logger.warning("**********article pour WICONA < 7********* %s " % RefLogikal )
                         RefLogikal = 'W' + RefLogikal.rjust(7, '0')
+                        _logger.warning("**********article pour WICONA < 7 ********* %s " % RefLogikal )
                     else:
+                        _logger.warning("**********article pour WICONA********* %s " % RefLogikal )
                         RefLogikal = 'W' + RefLogikal
+                        _logger.warning("**********article pour WICONA********* %s " % RefLogikal )
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen':
                 refart = 'JAN' + ' ' + row[8]
             refart = refart.replace("RYN","REY")
@@ -154,10 +158,15 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     if int(str(LengthLogikal)) < 7 :
+                        _logger.warning("**********APRES Profile <7********* %s " % RefLogikal )
                         RefLogikal = 'W' + RefLogikal.zfill(7)
+                        _logger.warning("**********APRES Profile <7********* %s " % RefLogikal )
                     else :
+                        _logger.warning("**********APRES Profile ********* %s " % RefLogikal )
                         RefLogikal = 'W' + RefLogikal
-                #_logger.warning("**********APRES Profile pour MAJ********* %s " % RefLogikal )
+                        _logger.warning("**********APRES Profile ********* %s " % RefLogikal )
+                _logger.warning("**********APRES Profile pour MAJ********* %s " % RefLogikal )
+               
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen' :
                 refart = 'JAN' + ' ' + row[2]
             refart = refart.replace("RYN","REY")
