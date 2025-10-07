@@ -542,7 +542,7 @@ class SqliteConnector(models.Model):
                 if RefLogikal.startswith("X") :
                     RefLogikal = RefLogikal
                 else :
-                    RefLogikal = 'W' + RefLogikal
+                    #RefLogikal = 'W' + RefLogikal
                     if int(LengthLogi) < 7 :
                         RefLogikal = 'W' + RefLogikal.zfill(7)
                     else :
@@ -760,7 +760,7 @@ class SqliteConnector(models.Model):
                     if RefLogikal.startswith("X") :
                         RefLogikal = RefLogikal
                     else :
-                        RefLogikal = 'W' + RefLogikal
+                        #RefLogikal = 'W' + RefLogikal
                         if int(LengthLogi) < 7 :
                             RefLogikal = 'W' + RefLogikal.zfill(7)
                         else :
