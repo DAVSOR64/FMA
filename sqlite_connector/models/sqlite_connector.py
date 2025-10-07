@@ -173,14 +173,18 @@ class SqliteConnector(models.Model):
                 
             couleurext = row[6] if row[6] else ''
             couleurint = row[7] if row[7] else ''
+            _logger.warning("**********couleur ext********* %s " % couleurext )
+            _logger.warning("**********couleur int********* %s " % couleurint )
             if couleurext not in ['', None] and couleurint not in  ['', None] :
                 couleur = couleurext + '/' + couleurint
             else :
                 couleur = str(row[8])
+                _logger.warning("**********couleur 2 ********* %s " % couleur )
                 if couleur == '' or couleur == ' ' :
                     couleur = str(row[3])
                     if couleur == 'Sans' or couleur == 'sans' or couleur == 'RAL':
                         couleur = ''
+            _logger.warning("**********couleur finale********* %s " % couleur )
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
                 #RefLogikal = 'T' + RefLogikal
@@ -845,22 +849,27 @@ class SqliteConnector(models.Model):
                 if fournisseur == 'Forster' :
                     refart = 'FRS' + ' ' + row[9]
                     refart = refart.replace('.','')
-                couleurext = row[9] if row[9] else ''
-                couleurint = row[10] if row[10] else ''
                 if fournisseur == 'RPT' or fournisseur == 'rpt' :
                     fournisseur = 'KDI'
-    
+
+                couleurext = row[9] if row[9] else ''
+                couleurint = row[10] if row[10] else ''
+                _logger.warning("**********couleur ext pour profile********* %s " % couleurext )
+                _logger.warning("**********couleur int pour profile********* %s " % couleurint )                
+                    
                 if couleurext != '' and couleurext != 'None' and couleurint != '' and couleurint !='None' :
                     couleur = couleurext + '/' + couleurint
                 else :
                     couleur = row[11] if row[11] else ''
+                    _logger.warning("**********couleur 2 pour profile********* %s " % couleur )
                     if couleur == '' or couleur == ' '  :
                         couleur = row[4] if row[4] else ''
                         if couleur == 'Sans' or couleur == 'sans':
                             couleur = ''
+                _logger.warning("**********eticom********* %s " % eticom )
                 if eticom == 'F2M' :
                     couleur =''
-    
+                _logger.warning("**********couleur finale pour profile********* %s " % couleur )
                 ColorLogikal = couleur
                 
                 
