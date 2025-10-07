@@ -305,7 +305,7 @@ class SqliteConnector(models.Model):
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
           if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
-            _logger.warning("*****************************adresse**************** %s " % address)
+            _logger.warning("*****************************adresse**************** %s " % row[2])
             if (row[2] == '0')  :
                 address = 'LRE'
             if (row[2] == '1') :
