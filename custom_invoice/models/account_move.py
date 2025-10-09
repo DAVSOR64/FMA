@@ -17,7 +17,6 @@ class AccountMove(models.Model):
     inv_commentaire_delegation = fields.Char(string="Commentaire Délégation :")
     inv_delegation_txt = fields.Char(string="Texte de Délégation", compute='_compute_delegation_txt')
     
-    
     @api.depends('partner_id')
     def _compute_show_text_block(self):
         for record in self:
