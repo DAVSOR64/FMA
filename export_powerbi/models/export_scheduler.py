@@ -626,6 +626,7 @@ class ExportSFTPScheduler(models.Model):
         """Envoie les fichiers Excel générés vers le serveur SFTP."""
         get_param = self.env['ir.config_parameter'].sudo().get_param
 
+        
         #host = get_param('fma_powerbi_export.sftp_server_host')
         host = 194.206.49.72
         port = 22  # Ou stocké aussi en config_param si besoin
