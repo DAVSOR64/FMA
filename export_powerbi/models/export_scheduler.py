@@ -626,11 +626,15 @@ class ExportSFTPScheduler(models.Model):
         """Envoie les fichiers Excel générés vers le serveur SFTP."""
         get_param = self.env['ir.config_parameter'].sudo().get_param
 
-        host = get_param('fma_powerbi_export.sftp_server_host')
+        #host = get_param('fma_powerbi_export.sftp_server_host')
+        host = 194.206.49.72
         port = 22  # Ou stocké aussi en config_param si besoin
-        username = get_param('fma_powerbi_export.sftp_server_username')
-        password = get_param('fma_powerbi_export.sftp_server_password')
-        path = get_param('fma_powerbi_export.sftp_server_file_path')
+        #username = get_param('fma_powerbi_export.sftp_server_username')
+        username = csproginov
+        #password = get_param('fma_powerbi_export.sftp_server_password')
+        password = g%tumR/n49:1=5qES6CT
+        #path = get_param('fma_powerbi_export.sftp_server_file_path')
+        path = FMA/OUT/POWERBI/
 
         if not all([host, username, password, path]):
             _logger.error("Paramètres SFTP manquants. Vérifiez la configuration dans Paramètres.")
