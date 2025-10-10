@@ -622,20 +622,20 @@ class ExportSFTPScheduler(models.Model):
             _logger.exception("Erreur globale lors de la génération des fichiers Power BI : %s", e)
 
     def _mkdir_p_sftp(sftp, remote_dir: str):
-    """Crée le dossier distant récursivement (équivalent mkdir -p)."""
-    remote_dir = remote_dir.strip().rstrip('/')
-    if not remote_dir:
-        return
-    parts = remote_dir.split('/')
-    cur = ''
-    for p in parts:
-        if not p:
-            continue
-        cur = f"{cur}/{p}" if cur else p
-        try:
-            sftp.stat(cur)
-        except IOError:
-            sftp.mkdir(cur)
+        """Crée le dossier distant récursivement (équivalent mkdir -p)."""
+        remote_dir = remote_dir.strip().rstrip('/')
+        if not remote_dir:
+            return
+        parts = remote_dir.split('/')
+        cur = ''
+        for p in parts:
+            if not p:
+                continue
+            cur = f"{cur}/{p}" if cur else p
+            try:
+                sftp.stat(cur)
+            except IOError:
+                sftp.mkdir(cur)
 
     @api.model
     def cron_send_files_to_sftp(self):
