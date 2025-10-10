@@ -4,6 +4,7 @@ import shutil
 import base64
 import paramiko
 import xlsxwriter
+from pathlib import Path
 from datetime import datetime, date
 from odoo import models, fields, api
 import logging
