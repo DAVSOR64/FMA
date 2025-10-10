@@ -639,80 +639,95 @@ class ExportSFTPScheduler(models.Model):
                 except IOError:
                     sftp.mkdir(cur)
 
-    @api.model
-    def cron_send_files_to_sftp(self):
-        """Envoie les fichiers Excel/CSV générés vers le serveur SFTP."""
-        ICP = self.env['ir.config_parameter'].sudo()
-        # ➜ récup paramètres (idéalement tous en ICP)
-        host = '194.206.49.72'
-        port = 22
-        username = 'csproginov'
-        password = 'g%tumR/n49:1=5qES6CT'
-        remote_path = 'FMA/OUT/POWERBI/'
+    class ExportSFTPScheduler(models.Model):
+        _name = 'export.sftp.scheduler'
+        _description = 'Export automatique vers SFTP'
     
-        if not all([host, username, remote_path]) or (not password and not ICP.get_param('fma_powerbi_export.ssh_key_path')):
-            _logger.error("Paramètres SFTP manquants/incomplets. Vérifiez Paramètres système.")
-            return
+        @api.model
+        def cron_send_files_to_sftp(self):
+            """Envoie les fichiers Excel/CSV générés vers le serveur SFTP."""
     
-        # ➜ dossier temporaire (clé alignée + fallback)
-        # Tu utilises 'export_powerbi.tmp_export_dir' : on la garde, mais on assure un fallback sûr.
-        configured_tmp = (ICP.get_param('export_powerbi.tmp_export_dir') or '').strip()
-        temp_dir = Path(configured_tmp) if configured_tmp else Path(tempfile.gettempdir()) / "export_powerbi"
-    
-        try:
-            temp_dir.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            _logger.exception("Impossible de créer le répertoire temporaire %s", temp_dir)
-            # Log + stop proprement pour le cron
-            return
-    
-        if not os.access(str(temp_dir), os.W_OK):
-            _logger.error("Pas de droits d'écriture sur le répertoire temporaire: %s", temp_dir)
-            return
-    
-        # ➜ Connexion SFTP (password ou clé)
-        transport = None
-        try:
-            transport = paramiko.Transport((host, port))
-            pkey_path = ICP.get_param('fma_powerbi_export.ssh_key_path')  # optionnel
-            if pkey_path:
-                pkey = paramiko.RSAKey.from_private_key_file(pkey_path)
-                transport.connect(username=username, pkey=pkey)
-            else:
-                transport.connect(username=username, password=password)
-    
-            sftp = paramiko.SFTPClient.from_transport(transport)
-    
-            # Assure le répertoire distant
-            self._mkdir_p_sftp(sftp, remote_path)
-    
-            # Envoi des fichiers présents
-            sent = 0
-            for filename in os.listdir(temp_dir):
-                file_path = temp_dir / filename
-                if file_path.is_file():
-                    remote_file = posixpath.join(remote_path.rstrip('/'), filename)
-                    sftp.put(str(file_path), remote_file)
-                    _logger.info("Fichier envoyé sur SFTP: %s -> %s", file_path, remote_file)
-                    sent += 1
-                    # Nettoyage fichier après envoi réussi
+            # --- 🔧 Helper local pour créer les dossiers distants récursivement ---
+            def _mkdir_p_sftp_local(sftp, remote_dir: str):
+                remote_dir = (remote_dir or "").strip().rstrip('/')
+                if not remote_dir:
+                    return
+                parts = [p for p in remote_dir.split('/') if p]
+                cur = ''
+                for p in parts:
+                    cur = f"{cur}/{p}" if cur else p
                     try:
-                        file_path.unlink()
-                    except Exception:
-                        _logger.warning("Impossible de supprimer le fichier temporaire %s", file_path)
+                        sftp.stat(cur)  # dossier existe déjà
+                    except IOError:
+                        sftp.mkdir(cur)  # sinon on le crée
     
-            sftp.close()
-            if sent == 0:
-                _logger.info("Aucun fichier à envoyer depuis %s.", temp_dir)
+            # 🔐 Paramètres SFTP (⚠️ à remplacer par des get_param si besoin)
+            host = '194.206.49.72'
+            port = 22
+            username = 'csproginov'
+            password = 'g%tumR/n49:1=5qES6CT'
+            remote_path = 'FMA/OUT/POWERBI/'
     
-            # ⚠️ on NE supprime PAS le dossier lui-même : il reste prêt pour le prochain export.
-            # (Si tu tiens à le vider régulièrement, fais un cron séparé qui supprime les fichiers âgés.)
+            # 🛑 Vérification paramètres
+            if not all([host, username, remote_path]) or not password:
+                _logger.error("❌ Paramètres SFTP manquants ou incomplets. Vérifiez la configuration.")
+                return
     
-        except Exception as e:
-            _logger.exception("Erreur lors de l'envoi des fichiers vers le SFTP : %s", e)
-        finally:
+            # 📁 Localisation du dossier temporaire (configuré ou fallback)
+            ICP = self.env['ir.config_parameter'].sudo()
+            configured_tmp = (ICP.get_param('export_powerbi.tmp_export_dir') or '').strip()
+            temp_dir = Path(configured_tmp) if configured_tmp else Path(tempfile.gettempdir()) / "export_powerbi"
+    
+            # 📂 Création du dossier temporaire s’il n’existe pas
             try:
-                if transport:
-                    transport.close()
-            except Exception:
-                pass
+                temp_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                _logger.exception("❌ Impossible de créer le répertoire temporaire : %s", temp_dir)
+                return
+    
+            # ✅ Vérifie qu’on a bien le droit d’écrire dedans
+            if not os.access(str(temp_dir), os.W_OK):
+                _logger.error("❌ Pas de droits d'écriture sur le répertoire temporaire : %s", temp_dir)
+                return
+    
+            # 🔌 Connexion SFTP
+            transport = None
+            try:
+                transport = paramiko.Transport((host, port))
+                transport.connect(username=username, password=password)
+                sftp = paramiko.SFTPClient.from_transport(transport)
+                _logger.info("✅ Connexion SFTP réussie à %s", host)
+    
+                # 📁 Crée le dossier distant si besoin
+                _mkdir_p_sftp_local(sftp, remote_path)
+    
+                # 📤 Envoi des fichiers présents dans le répertoire temporaire
+                sent = 0
+                for filename in os.listdir(temp_dir):
+                    file_path = temp_dir / filename
+                    if file_path.is_file():
+                        remote_file = posixpath.join(remote_path.rstrip('/'), filename)
+                        sftp.put(str(file_path), remote_file)
+                        _logger.info("📤 Fichier envoyé : %s -> %s", file_path, remote_file)
+                        sent += 1
+    
+                        # ✅ Supprime le fichier local après envoi réussi
+                        try:
+                            file_path.unlink()
+                        except Exception:
+                            _logger.warning("⚠️ Impossible de supprimer le fichier temporaire : %s", file_path)
+    
+                if sent == 0:
+                    _logger.info("ℹ️ Aucun fichier à envoyer depuis %s.", temp_dir)
+                else:
+                    _logger.info("✅ %s fichier(s) envoyé(s) vers %s.", sent, remote_path)
+    
+            except Exception as e:
+                _logger.exception("❌ Erreur lors de l'envoi des fichiers vers le SFTP : %s", e)
+            finally:
+                # 🔌 Ferme proprement la connexion
+                try:
+                    if transport:
+                        transport.close()
+                except Exception:
+                    pass
