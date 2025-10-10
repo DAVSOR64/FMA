@@ -4,6 +4,7 @@ import shutil
 import base64
 import paramiko
 import xlsxwriter
+import posixpath
 from pathlib import Path
 from datetime import datetime, date
 from odoo import models, fields, api
@@ -622,21 +623,21 @@ class ExportSFTPScheduler(models.Model):
         except Exception as e:
             _logger.exception("Erreur globale lors de la génération des fichiers Power BI : %s", e)
 
-    def _mkdir_p_sftp(sftp, remote_dir: str):
-        """Crée le dossier distant récursivement (équivalent mkdir -p)."""
-        remote_dir = remote_dir.strip().rstrip('/')
-        if not remote_dir:
-            return
-        parts = remote_dir.split('/')
-        cur = ''
-        for p in parts:
-            if not p:
-                continue
-            cur = f"{cur}/{p}" if cur else p
-            try:
-                sftp.stat(cur)
-            except IOError:
-                sftp.mkdir(cur)
+    class ExportSFTPScheduler(models.Model):
+        _name = 'export.sftp.scheduler'
+    
+        def _mkdir_p_sftp(self, sftp, remote_dir: str):
+            remote_dir = (remote_dir or "").strip().rstrip('/')
+            if not remote_dir:
+                return
+            parts = [p for p in remote_dir.split('/') if p]
+            cur = ''
+            for p in parts:
+                cur = f"{cur}/{p}" if cur else p
+                try:
+                    sftp.stat(cur)
+                except IOError:
+                    sftp.mkdir(cur)
 
     @api.model
     def cron_send_files_to_sftp(self):
@@ -683,7 +684,7 @@ class ExportSFTPScheduler(models.Model):
             sftp = paramiko.SFTPClient.from_transport(transport)
     
             # Assure le répertoire distant
-            _mkdir_p_sftp(sftp, remote_path)
+            self._mkdir_p_sftp(sftp, remote_path)
     
             # Envoi des fichiers présents
             sent = 0
