@@ -13,7 +13,7 @@ class MRPPlanningAnalysisReport(models.Model):
 
     resource_id = fields.Many2one("resource.resource", string="Resource", readonly=True)
     workcenter_id = fields.Many2one("mrp.workcenter", string="Workcenter")
-    production_id = fields.Many2one("mrp.production", string="Production")
+    projet_so_id = fields.Many2one("project.project", string="MTN Projet SO")
     day = fields.Date("Day", readonly=True)
     availability = fields.Integer('Availability', readonly=True, group_operator="sum")
     needed = fields.Integer('Needed', readonly=True, group_operator="sum")
@@ -35,16 +35,16 @@ class MRPPlanningAnalysisReport(models.Model):
         WITH RECURSIVE base AS (
           SELECT
             mw.workcenter_id,
-            mw.production_id,
+            mp.x_studio_projet_so,
             mw.date_macro::date AS day,
             ROUND((mw.duration_expected::numeric / 60)) AS total_needed
-          FROM mrp_workorder mw
+          FROM mrp_workorder mw inner join mrp_production mp on mp.id = mw.production_id
         ),
         splitted AS (
           -- ligne initiale
           SELECT
             workcenter_id,
-            production_id,
+            x_studio_projet_so,
             day,
             CASE WHEN total_needed > 8 THEN 8 ELSE total_needed END AS needed,
             CASE WHEN total_needed > 8 THEN total_needed - 8 ELSE 0 END AS remaining
@@ -55,7 +55,7 @@ class MRPPlanningAnalysisReport(models.Model):
           -- lignes suivantes tant qu'il reste > 0
           SELECT
             workcenter_id,
-            production_id,
+            x_studio_projet_so,
             day + 1,
             CASE WHEN remaining > 8 THEN 8 ELSE remaining END AS needed,
             CASE WHEN remaining > 8 THEN remaining - 8 ELSE 0 END AS remaining
@@ -63,10 +63,10 @@ class MRPPlanningAnalysisReport(models.Model):
           WHERE remaining > 0
         )
         SELECT
-          row_number() OVER (PARTITION BY splitted.workcenter_id, splitted.production_id ORDER BY splitted.day) AS id,
+          row_number() OVER (PARTITION BY splitted.workcenter_id, splitted.x_studio_projet_so ORDER BY splitted.day) AS id,
           ps.resource_id,
           splitted.workcenter_id,
-          splitted.production_id,
+          splitted.x_studio_projet_so,
           splitted.day,
           CASE WHEN ps.resource_id IS NOT NULL THEN 8 ELSE 0 END AS availability,
           splitted.needed
@@ -74,7 +74,7 @@ class MRPPlanningAnalysisReport(models.Model):
         FULL OUTER JOIN mrp_workorder mo ON mo.workcenter_id = splitted.workcenter_id
         FULL OUTER JOIN planning_slot_day ps ON ps.workcenter_id = splitted.workcenter_id  AND ps.day = splitted.day
         WHERE mo.state not in ('done', 'cancel')
-        ORDER BY splitted.workcenter_id, splitted.production_id, splitted.day
+        ORDER BY splitted.workcenter_id, splitted.x_studio_projet_so, splitted.day
         """
 
     def init(self):
