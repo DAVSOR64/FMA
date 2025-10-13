@@ -13,7 +13,7 @@ class MRPPlanningAnalysisReport(models.Model):
 
     resource_id = fields.Many2one("resource.resource", string="Resource", readonly=True)
     workcenter_id = fields.Many2one("mrp.workcenter", string="Workcenter")
-    projet_so_id = fields.Many2one("project.project", string="MTN Projet SO")
+    x_studio_projet_so = fields.Many2one("project.project", string="MTN Projet SO")
     day = fields.Date("Day", readonly=True)
     availability = fields.Integer('Availability', readonly=True, group_operator="sum")
     needed = fields.Integer('Needed', readonly=True, group_operator="sum")
