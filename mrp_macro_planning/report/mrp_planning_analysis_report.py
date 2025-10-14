@@ -15,8 +15,8 @@ class MRPPlanningAnalysisReport(models.Model):
     workcenter_id = fields.Many2one("mrp.workcenter", string="Workcenter")
     x_studio_projet_so = fields.Many2one("project.project", string="MTN Projet SO")
     day = fields.Date("Day", readonly=True)
-    availability = fields.Integer('Availability', readonly=True, group_operator="sum")
-    needed = fields.Integer('Needed', readonly=True, group_operator="sum")
+    availability = fields.Integer('Availability', readonly=True, group_operator="avg")
+    needed = fields.Integer('Needed', readonly=True, group_operator="avg")
     is_shortage = fields.Integer(
         string='Shortage',
         compute='_compute_is_shortage_grouped',
