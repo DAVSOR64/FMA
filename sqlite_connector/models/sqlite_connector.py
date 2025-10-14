@@ -1,4 +1,5 @@
 
+
 import sqlite3
 import logging
 import math
@@ -12,7 +13,6 @@ from odoo import Command, models, fields, registry, SUPERUSER_ID, api, _
 from datetime import datetime, timedelta
 
 _logger = logging.getLogger(__name__)
-
 
 class SqliteConnector(models.Model):
     _name = 'sqlite.connector'
@@ -94,13 +94,9 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     if len(str(LengthLogikal)) < 7:
-                        _logger.warning("**********article pour WICONA < 7********* %s " % RefLogikal )
                         RefLogikal = 'W' + RefLogikal.rjust(7, '0')
-                        _logger.warning("**********article pour WICONA < 7 ********* %s " % RefLogikal )
                     else:
-                        _logger.warning("**********article pour WICONA********* %s " % RefLogikal )
                         RefLogikal = 'W' + RefLogikal
-                        _logger.warning("**********article pour WICONA********* %s " % RefLogikal )
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen':
                 refart = 'JAN' + ' ' + row[8]
             refart = refart.replace("RYN","REY")
@@ -150,7 +146,7 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     RefLogikal = 'S' + RefLogikal
-            #_logger.warning("**********AVANT Profile pour MAJ********* %s " % RefLogikal )
+            _logger.warning("**********AVANT Profile pour MAJ********* %s " % RefLogikal )
             if fournisseur == 'WICONA' :
                 refart = 'WIC' + ' ' + row[2][1:]
                 Length= row[9]
@@ -158,38 +154,29 @@ class SqliteConnector(models.Model):
                     RefLogikal = RefLogikal
                 else :
                     if int(str(LengthLogikal)) < 7 :
-                        _logger.warning("**********APRES Profile <7********* %s " % RefLogikal )
                         RefLogikal = 'W' + RefLogikal.zfill(7)
-                        _logger.warning("**********APRES Profile <7********* %s " % RefLogikal )
-                    else :
-                        _logger.warning("**********APRES Profile ********* %s " % RefLogikal )
+                    else:
                         RefLogikal = 'W' + RefLogikal
-                        _logger.warning("**********APRES Profile ********* %s " % RefLogikal )
                 _logger.warning("**********APRES Profile pour MAJ********* %s " % RefLogikal )
-               
             if fournisseur == 'JANSEN' or fournisseur == 'Jansen' :
                 refart = 'JAN' + ' ' + row[2]
             refart = refart.replace("RYN","REY")
                 
             couleurext = row[6] if row[6] else ''
             couleurint = row[7] if row[7] else ''
-            _logger.warning("**********couleur ext********* %s " % couleurext )
-            _logger.warning("**********couleur int********* %s " % couleurint )
             if couleurext not in ['', None] and couleurint not in  ['', None] :
                 couleur = couleurext + '/' + couleurint
             else :
                 couleur = str(row[8])
-                _logger.warning("**********couleur 2 ********* %s " % couleur )
                 if couleur == '' or couleur == ' ' :
                     couleur = str(row[3])
                     if couleur == 'Sans' or couleur == 'sans' or couleur == 'RAL':
                         couleur = ''
-            _logger.warning("**********couleur finale********* %s " % couleur )
             if couleur not in ['', None, 'None']:
                 refart = refart + '.' + couleur
                 #RefLogikal = 'T' + RefLogikal
                 
-            #_logger.warning("**********Profile pour MAJ********* %s " % refart )
+            _logger.warning("**********Profile pour MAJ********* %s " % refart )
             profiles.append({
                 'article': refart,
                 'prix': row[1],
@@ -207,8 +194,8 @@ class SqliteConnector(models.Model):
             name = str(row[1])
             if name in ['', None,'None'] :
                 name = 'NonDef'
-            #_logger.warning('fournisseur ID %s' % row[0])
-            #_logger.warning('fournisseur Nom %s' % name)
+            _logger.warning('fournisseur ID %s' % row[0])
+            _logger.warning('fournisseur Nom %s' % name)
             suppliers.append({
                 'id': row[0],
                 'name' : name
@@ -233,10 +220,10 @@ class SqliteConnector(models.Model):
 
         # To check if product already exists in odoo from articles
         for profile in profiles:
-            #_logger.warning("**********Profile dans la MAJ********* %s " % profile['article'] )
+            _logger.warning("**********Profile dans la MAJ********* %s " % profile['article'] )
             product = self.env['product.product'].search([('default_code', '=', profile['article'])])
             if product:
-                #_logger.warning("**********Profile dans la MAJ pour ref logikal********* %s " % profile['RefLogikal'] )
+                _logger.warning("**********Profile dans la MAJ pour ref logikal********* %s " % profile['RefLogikal'] )
                 product = product[0]
                 product.x_studio_ref_int_logikal = profile['RefLogikal']
                 product.x_studio_color_logikal = profile['ColorLogikal']
@@ -249,16 +236,16 @@ class SqliteConnector(models.Model):
             #    message = _("Standard Price is updated for product: ") + product._get_html_link()
             #    self.message_post(body=message)
 
-        # At FMA, they have a concept of tranches, that is to say that the project is didelaid into
+        # At FMA, they have a concept of tranches, that is to say that the project is divided into
         # several phases (they call it tranches). So I come to see if it is a project with installments or
         # not and I come to get the installment number
 
         Tranche = '0'
         PersonBE = ''
         project = ''
-        fab = 1
+        delaifab = 1
         zero_delay_products = []
-        fab_delay_products = []
+        delaifab_delay_products = []
         
         #_logger.warning("testttttt %s " % )
         
@@ -266,17 +253,17 @@ class SqliteConnector(models.Model):
 
         for row in resultp :
             project = row[1]
+            project = project.strip()
             pro = project.split('/')
             nbelem = len(pro)
-            PersonBE = row[2]
+            #PersonBE = row[2]
             if nbelem == 1 :
                 projet = row[1]
-                projet = projet.strip()
             else:
                 projet = project.split('/')[0]
                 Tranche = project.split('/')[1]
             proj = ['', projet]
-        #_logger.warning("Projet %s " % projet )
+        _logger.warning("Projet %s " % projet )
         user_id = res_users.filtered(lambda p: p.name == re.sub(' +', ' ', PersonBE.strip()))
         if user_id:
             user_id = user_id.id
@@ -304,28 +291,16 @@ class SqliteConnector(models.Model):
 
         resultBP=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
         for row in resultBP :
-            _logger.warning("*****************************UserVars**************** %s " % row[0])
-            _logger.warning("*****************************UserInteger2**************** %s " % row[1])
-            if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
-                _logger.warning("*****************************adresse**************** %s " % row[2])
-                if (row[2] == '0')  :
-                    address = 'LRE'
-                if (row[2] == '1') :
-                    address = 'CBM'
-                if (row[2] == '2') :
-                    address = 'REM'
-            if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
-                fab = float(row[2])
-          #if (row[0] == 'UserVars') and (row[1] == 'UserDate2') :
-          #  date_time = row[2]
-          #  def convert(date_time):
-          #      if date_time:
-          #          format = '%d/%m/%Y'  # The format
-          #          datetime_str = datetime.strptime(date_time, format).strftime('%Y-%m-%d')
-          #          return datetime_str
-          #      return datetime.now()
-          #  dateliv = convert(date_time)
-        
+          if (row[0] == 'UserVars') and (row[1] == 'UserInteger2') :
+            if (row[2] == '0')  :
+                address = 'LRE'
+            if (row[2] == '1') :
+                address = 'CBM'
+            if (row[2] == '2') :
+                address = 'REM'
+          if (row[0] == 'UserVars') and (row[1] == 'UserFloat1') :
+                delaifab = float(row[2])
+          
         # Depending on the parameters of the MDB database, I create commercial and analytical labels.
         
         resultp=cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
@@ -336,7 +311,6 @@ class SqliteConnector(models.Model):
             pro = project.split('/')
             nbelem = len(pro)
             if nbelem == 1 :
-                _logger.warning("*****************************adresse**************** %s " % address)
                 if (address == 'LRE') or (address == 'CBM' ) :
                     etiana = 'ALU'
                     eticom = 'FMA'
@@ -353,14 +327,6 @@ class SqliteConnector(models.Model):
                   etiana = 'ACIER Tranche ' + project.split('/')[1]
                   eticom = 'F2M'
                 project = project
-        _logger.warning("*****************************eticom**************** %s " % eticom)
-        #_logger.warning("projet  2 %s " % projet)
-        # account_analytic_tag_id = account_analytic_tags.filtered(lambda t: t.name == etiana)
-        # if account_analytic_tag_id:
-        #     account_analytic_tag_id = account_analytic_tag_id.id
-        # else:
-        #     account_analytic_tag_id = False
-        #     self.log_request("Unable to find analytic account tag.", etiana, 'Projects Data')
 
         # We come to create the item which is sold
 
@@ -368,35 +334,17 @@ class SqliteConnector(models.Model):
         # BPA, or BPE, or BPA-BPE. This parameter is very important because if you are in BPA, we will
         # only create purchase orders and not bills of materials.
 
-        #BP = ''
-        #resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-        #for row in resultBP :
-        #    if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
-        #        if (row[2] == '1')  :
-        #            BP = 'BPA'
-        #        if (row[2] == '3') :
-        #            BP = 'BPE'
-        #        if (row[2] == '2') :
-        #            BP = 'BPA-BPE'
-        value = ''
         BP = ''
         resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-        rows = resultBP.fetchall()
-        #_logger.warning("Nombre de lignes dans REPORTVARIABLES : %d" % len(rows))
-        
-        for row in rows:
-           # _logger.warning("Ligne : %s" % str(row))
-            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1'):
-                value = row[2].strip().replace(' ', '')
-                #_logger.warning("Valeur nettoyée : %s" % value)
-                if value == '1':
+        for row in resultBP :
+            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
+                if (row[2] == '1')  :
                     BP = 'BPA'
-                elif value == '3':
+                if (row[2] == '3') :
                     BP = 'BPE'
-                elif value == '2':
+                if (row[2] == '2') :
                     BP = 'BPA-BPE'
-                
-        #_logger.warning("Profile %s " % value )
+
         # If we are not in BPA, we come and create the items that we will put in the customer quote.
         # This we put in the articlesm.xlsx files
 
@@ -459,7 +407,6 @@ class SqliteConnector(models.Model):
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         for row in resultp:
             refart = str(row[1])
-            refart = refart.strip()
             categ = self.env.ref('product.product_category_all')
             affaire = row[0]
             if BP == 'BPA':
@@ -468,12 +415,6 @@ class SqliteConnector(models.Model):
                 idrefart = ''
             p = self.env['product.product'].search([('default_code', '=', refart)])
             if not p:
-                #sale_order = self.env['sale.order'].search([('name', '=', refart), ('state', 'not in', ['done', 'cancel'])], limit=1)
-                #if sale_order :
-                #    affaire = sale_order.x_studio_ref_affaire 
-                
-                #_logger.warning("**************ARTCILE NOMENCLATURE*************  2 %s " % affaire) 
-                #_logger.warning("**************ARTCILE NOMENCLATURE*************  2 %s " % refart)
                 
                 product = self.env['product.product'].create({
                     "name": affaire,
@@ -490,7 +431,7 @@ class SqliteConnector(models.Model):
                     # Staging before merge :"_ids": [(4, self.env.ref('stock._warehouse0_mto').id), (4,self.env.ref('__export__.stock_location__99_adb9a7a8').id)],
                     "invoice_policy":"delivery",
                 })
-                fab_delay_products.append(product.product_tmpl_id.id)
+                delaifab_delay_products.append(product.product_tmpl_id.id)
                 message = _("Product has been Created: ") + product._get_html_link()
                 self.message_post(body=message)
                 self.env.cr.commit()
@@ -526,8 +467,7 @@ class SqliteConnector(models.Model):
         datejourd = fields.Date.today()
         # On vient créer une fonction permettant de créer la liste des articles/profilés 
         QteArt = 0    
-        delai = ''
-        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix,delai,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal):
+        def creation_article(Article, refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal):
             trouve = False
             for item in Article:
                 # Si l'article existe déjà on ne fait rien
@@ -539,21 +479,18 @@ class SqliteConnector(models.Model):
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix,delai,UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
+                Article.append([refinterne, nom, unstk, categorie, fournisseur, prix, delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal])
                 
         # On vient créer une fonction permettant de créer les Purchase Order   
-        def creation_commande(Commande, refinterne, unstk, fournisseur, prix,delai,UV, Qte):
+        def creation_commande(Commande, refinterne, unstk, fournisseur, prix, delai, UV, Qte):
             trouve = False
             for item in Commande:
                 if item[0] == refinterne :
-                    QteArt = float(item[6])
-                    QteArt += float(Qte)
-                    item[6] = str(QteArt)
                     trouve = True
                     break
             # Si l 'article n'est pas trouvé, ajouter une nouvelle ligne
             if not trouve:
-                Commande.append([refinterne, unstk, fournisseur, prix,delai , UV, Qte])
+                Commande.append([refinterne, unstk, fournisseur, prix, delai, UV, Qte])
         
         # On vient créer une fonction permettant de créer les Nomenclatures   
         def creation_nomenclature(Nomenclature, refinterne, unstk,  Qte):
@@ -570,7 +507,7 @@ class SqliteConnector(models.Model):
         Article = []
         Commande = []
         Nomenclature = []
-        Qte = 0
+        delai = 0
         QteBesoin = 0
         LstArt = ''
         CptLb = 0
@@ -695,14 +632,15 @@ class SqliteConnector(models.Model):
                    
             refart = ligne[0]
             nom = ligne[1]
-            prix = float (ligne[5]) if ligne[5] not in (None, '', ' ') else 0.0
+            #prix = float (ligne[5])
+            prix = float(ligne[5]) if ligne[5] not in (None, '') else 0.0
             categorie = ligne[3]
             categ_id = self.env.ref(categorie)
             # Created new article
             #_logger.warning("**********Prix  Article********* %s " % str(prix) )
             _logger.warning("**********Article********* %s " % refart )
             if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                #_logger.warning("**********Creation Article********* %s " % refart )
+                _logger.warning("**********Creation Article********* %s " % refart )
                 vals = {
                     'default_code': refart,
                     'name': nom,
@@ -714,7 +652,7 @@ class SqliteConnector(models.Model):
                     'sale_ok': True,
                     'detailed_type': 'product',
                     'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                    'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
+                    'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_54_b165c5dc').id)],
                     'x_studio_hauteur_mm': 0,
                     'x_studio_largeur_mm': 0,
                     'x_studio_ref_int_logikal' : ligne[10],
@@ -769,34 +707,22 @@ class SqliteConnector(models.Model):
                     Qte = float(ligne[6])
                     _logger.info(f"L'article {refart} n'est PAS configuré en MTO.")
             
-            #QteBesoin = float(ligne[6])
-            # created nomenclature
-            #_logger.warning("**********Article********* %s " % refart )
-            #_logger.warning("**********Article********* %s " % str(QteBesoin) )
             creation_nomenclature(Nomenclature, refart, idun, Qte)
             
        
         # Process data for profile
-        #value = ''
-        #BP = ''
-        #resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
-        #rows = resultBP.fetchall()
-        #_logger.warning("Nombre de lignes dans REPORTVARIABLES : %d" % len(rows))
-        
-        #for row in rows:
-        #    _logger.warning("Ligne : %s" % str(row))
-        #    if (row[0] == 'UserVars') and (row[1] == 'UserInteger1'):
-        #        value = row[2].strip().replace(' ', '')
-        #        _logger.warning("Valeur nettoyée : %s" % value)
-        #        if value == '1':
-        #            BP = 'BPA'
-        #        elif value == '3':
-        #            BP = 'BPE'
-        #        elif value == '2':
-        #            BP = 'BPA-BPE'
-                
-        #_logger.warning("Profile %s " % value )
-        #BP = 'BPE'
+        resultBP = cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
+        BP = ''
+
+        for row in resultBP:
+            if (row[0] == 'UserVars') and (row[1] == 'UserInteger1') :
+                if (row[2] == '1')  :
+                    BP = 'BPA'
+                if (row[2] == '3') :
+                    BP = 'BPE'
+                if (row[2] == '2') :
+                    BP = 'BPA-BPE'
+
         if BP != 'BPA-BPE':
             resultpf = cursor.execute("select AllProfiles.ArticleCode, AllProfiles.Description, AllProfiles.ArticleCode_Supplier, AllProfiles.Description, AllProfiles.Color, AllProfiles.Price, AllProfiles.Units, AllProfiles.Amount, AllProfiles.IsManual, AllProfiles.OuterColorInfoInternal, AllProfiles.InnerColorInfoInternal, AllProfiles.ColorInfoInternal, AllProfiles.ArticleCode_BaseNumber, AllProfiles.ArticleCode_Number, AllProfiles.PUSize, AllProfiles.Length  from AllProfiles order by AllProfiles.ArticleCode_Supplier")
             idun =''
@@ -804,9 +730,8 @@ class SqliteConnector(models.Model):
             UV = 0
             Article = []
             Commande = []
-    
+
             for row in resultpf:
-                #_logger.warning("Profile %s " % row[0] )
                 refart = row[0]
                 refartini = row[0]
                 name = row[1]
@@ -854,27 +779,22 @@ class SqliteConnector(models.Model):
                 if fournisseur == 'Forster' :
                     refart = 'FRS' + ' ' + row[9]
                     refart = refart.replace('.','')
+                couleurext = row[9] if row[9] else ''
+                couleurint = row[10] if row[10] else ''
                 if fournisseur == 'RPT' or fournisseur == 'rpt' :
                     fournisseur = 'KDI'
 
-                couleurext = row[9] if row[9] else ''
-                couleurint = row[10] if row[10] else ''
-                _logger.warning("**********couleur ext pour profile********* %s " % couleurext )
-                _logger.warning("**********couleur int pour profile********* %s " % couleurint )                
-                    
                 if couleurext != '' and couleurext != 'None' and couleurint != '' and couleurint !='None' :
                     couleur = couleurext + '/' + couleurint
                 else :
                     couleur = row[11] if row[11] else ''
-                    _logger.warning("**********couleur 2 pour profile********* %s " % couleur )
                     if couleur == '' or couleur == ' '  :
                         couleur = row[4] if row[4] else ''
                         if couleur == 'Sans' or couleur == 'sans':
                             couleur = ''
-                _logger.warning("**********eticom********* %s " % eticom )
                 if eticom == 'F2M' :
                     couleur =''
-                _logger.warning("**********couleur finale pour profile********* %s " % couleur )
+
                 ColorLogikal = couleur
                 
                 
@@ -885,38 +805,24 @@ class SqliteConnector(models.Model):
                     refartfic = ''
                 
                 for profile in profiles:
-                    #_logger.warning("**********Profile dans la base********* %s " % refart )
-                    #_logger.warning("**********Profile dans la liste********* %s " % profile['article'] )
                     if refart == profile['article']:
                         prix = profile['prix']
                         prixB = float(prix) * float(row[6])
-                        #_logger.warning("**********Profile********* %s " % refart )
-                        #_logger.warning("**********Prix********* %s " % str(prix) )
-                        #_logger.warning("**********Unit********* %s " % str(float(row[6])) )
-                        #_logger.warning("**********Unit********* %s " % str((row[6])) )
-                        #_logger.warning("**********Prix B********* %s " % str(prixB) )
                 
                 uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
                 if uom:
                     unit = uom.name
                 
-                #product_product = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
-                #unme = product_product.uom_id if product_product.uom_id else ""
-                #if unme.name == 'BARRE6.5M' :
-                #    unit = 'BARRE6.5ML'
-                #else :
-                #    unit = str(unme.name) if product_product.uom_id else ""
                 
                 trouve = 1
                 tache = 0
                 regle = 0
-    
+
                 #_logger.warning("**********Unite de mesure********* %s " % str(unit) )
                 categorie = '__export__.product_category_19_b8423373'
                 if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
                     creation_article(Article, refart, nom, unit, categorie ,fournisseur,prixB ,delai, UV, SaisieManuelle, Qte,RefLogikal,ColorLogikal,UnitLogikal,LengthLogikal)
                 else :
-                    #_logger.warning("Profil existant %s " % refart )
                     creation_commande(Commande, refart, unit, fournisseur,prixB ,delai, UV, Qte)
             
             for ligne in Article :
@@ -966,7 +872,7 @@ class SqliteConnector(models.Model):
                             'sale_ok': True,
                             'detailed_type': 'product',
                             'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
+                            'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_54_b165c5dc').id)],
                             'x_studio_hauteur_mm': 0,
                             'x_studio_largeur_mm': 0,
                             'x_studio_ref_int_logikal' : ligne[10],
@@ -980,7 +886,7 @@ class SqliteConnector(models.Model):
                             seller = self.env['product.supplierinfo'].create({
                             'partner_id': idfrs,
                             'price': prix,
-                            'delay':delai,
+                            'delay': delai,
                             })
                             vals.update({'seller_ids': [Command.set([seller.id])]})
                         product = self.env['product.product'].create(vals)
@@ -1009,8 +915,8 @@ class SqliteConnector(models.Model):
                 refart = ligne[0]
                 
                 # created nomenclature
-                creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
-                
+                creation_nomenclature(Nomenclature, refart, idun, QteBesoin)     
+       
         
         # To process glass data
         BP = ''
@@ -1033,30 +939,19 @@ class SqliteConnector(models.Model):
                 proj = projet
 
             # On vient créer une fonction permettant de créer la liste des vitrages 
-            _logger.warning('proj %s : ' % proj)
             
-            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti ):
+            def mettre_a_jour_ou_ajouter(Glass, fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,Id,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti):
                 trouve = False
                 for item in Glass:
-                    _logger.warning('Vitrage trouve %s' % nom)
                     # Si le vitrage existe déjà on vient mettre à jour la quantité
-                    if item[0] == fournisseur and item[1] == livraison and item [2] == position and item [3] == nom and item [4] == largeur and item[5] == hauteur and item[11] == type:
-                        _logger.warning('Vitrage trouve %s' % fournisseur)
-                        _logger.warning('Vitrage trouve %s' % livraison)
-                        _logger.warning('Vitrage trouve %s' % position)
-                        _logger.warning('Vitrage trouve %s' % nom)
-                        _logger.warning('Vitrage trouve %s' % largeur)
-                        _logger.warning('Vitrage trouve %s' % hauteur)
-                        _logger.warning('Vitrage trouve %s' % type)
+                    if item[0] == fournisseur and item[1] == livraison and item [2] == position and item [3] == nom and item [4] == largeur and item[5] == hauteur and item[10] == type:
                         item[8] = str(int(item [8]) + int(quantite_ajoutee))
                         trouve = True
                         break
             
                 # Si le vitrage n'est pas trouvé, ajouter une nouvelle ligne
                 if not trouve:
-                    _logger.warning('Vitrage pas trouve NOM %s : ' % nom)
-                    _logger.warning('Vitrage pas trouve Position %s : ' % position)
-                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti])
+                    Glass.append([fournisseur, livraison, position, nom, largeur, hauteur, prix, spacer, quantite_ajoutee,delai,type,Id,pbname,NbHori,NbVerti,PosiHoriX,PosiVertiX,PosiHoriY,PosiVertiY,LongHori,LongVerti])
                        
             Glass = []
             position = ''
@@ -1066,10 +961,10 @@ class SqliteConnector(models.Model):
             delai = 0
             sname = ''
             
-            cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId, Glass.ModelType from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
+            
+            resultg=cursor.execute("select Glass.Info1, Glass.NameShort, Glass.Origin, Glass.Price, Glass.Width_Output, Glass.Height_Output,Glass.InsertionId,Glass.Info2,Glass.FieldNo,Elevations.Name, Elevations.Amount, Insertions.InsertionID, Insertions.ElevationId, Glass.AreaOffer, Glass.SpacerGap_Output,Glass.Name,Glass.GlassID,Glass.LK_SupplierId, Glass.ModelType  from (Glass INNER JOIN Insertions ON Insertions.InsertionID = Glass.InsertionId) LEFT JOIN Elevations ON Elevations.ElevationID = Insertions.ElevationId order by Glass.LK_SupplierId, Glass.Info2, Glass.Info2, Glass.Width_Output, Glass.Height_Output, Elevations.Name ,Glass.FieldNo")
             resultg = cursor.fetchall()
             for row in resultg:
-                _logger.warning('Name %s :' % str(row[1]))
                 if row[13] != 'Glass' :
                     Info2 = ''
                     spacer = ''
@@ -1084,16 +979,14 @@ class SqliteConnector(models.Model):
                     position = str(row[9])
                 
                 Frsid = row[17]
-                _logger.warning('Spacer %s :' % str(spacer))
-                
+                Id = str(row[16])
+                #_logger.warning('fournisseur %s :' % str(Frsid))
+                typeglass = ''
                 type = row[18]
-                _logger.warning('Type %s :' % str(type))
-                
-                if type == '0':
-                    type = 'RECTANGULAIRE'
+                if type == 0:
+                    typeglass = 'RECTANGULAIRE'
                 else :
-                    type = 'FORME SPECIALE'
-                _logger.warning('Type %s : ' % type)
+                    typeglass = 'FORME SPECIALE'
                 
                 res_partner = False
                 for sup in suppliers :
@@ -1104,11 +997,15 @@ class SqliteConnector(models.Model):
                     if sname == (part.x_studio_ref_logikal):
                         res_partner = part
                         #_logger.warning('----- %s' % res_partner)
+                
                 if res_partner:
-                    frsnomf = res_partner[0].name
+                    for partner in res_partner:
+                        _logger.warning('Dans la boucle %s' % partner.name)
+                    frsnomf = res_partner[0].name  # ou une autre logique selon ton besoin
                 else:
                     self.log_request('Unable to find supplier with LK Supplier ID', str(Frsid), 'Glass Data')
-
+                    frsnomf = ''  # ou ce que tu veux comme valeur de secours
+                    
                 type_petits_bois = ''
                 nb_barre_horizontale = 0
                 nb_barre_verticale = 0
@@ -1118,7 +1015,7 @@ class SqliteConnector(models.Model):
                 pos_y_barre_verticale = ''
                 longueur_barre_horizontale = ''
                 longueur_barre_verticale = ''
-                    
+                
                 glass_id = row[16] 
                 #Récupérer tous les petits bois associés
                 cursor.execute("""
@@ -1126,9 +1023,9 @@ class SqliteConnector(models.Model):
                     FROM GeorgianBars
                     WHERE GlassID = ?
                 """, (glass_id,))
+                
                 pb = cursor.fetchall()
-            
-                if pb:
+                if pb :
                     #Séparer en barres horizontales et verticales
                     horizontaux = [r for r in pb if r[1] == 'Horizontal']
                     verticaux = [r for r in pb if r[1] == 'Vertical']
@@ -1147,7 +1044,7 @@ class SqliteConnector(models.Model):
                         return " # ".join([f"{fmt(pbs[i_start])}/{fmt(pbs[i_end])}" for pbs in data])
     
                     # Sélection du type (nom du petit bois)
-                    type_petits_bois = pb[0][0] if pb else ''
+                    type_petits_bois = pb[0]
                     
                     # Nombre de barres
                     nb_barre_horizontale = len(horizontaux)
@@ -1165,7 +1062,7 @@ class SqliteConnector(models.Model):
                     longueur_barre_horizontale = join_longueurs(horizontaux, 6, 2, 3)
                     longueur_barre_verticale = join_longueurs(verticaux, 6, 2, 3)
                 
-                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,type,type_petits_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
+                mettre_a_jour_ou_ajouter(Glass,frsnomf,Info2,position,row[1],row[4],row[5],row[3],spacer,row[10],delai,typeglass,Id,type_petits_bois,nb_barre_horizontale,nb_barre_verticale,pos_x_barre_horizontale,pos_x_barre_verticale,pos_y_barre_horizontale,pos_y_barre_verticale,longueur_barre_horizontale,longueur_barre_verticale)
             
             fournisseur = ''
             info_livraison =''
@@ -1182,15 +1079,21 @@ class SqliteConnector(models.Model):
                 uom_uom = uom_uoms.filtered(lambda u: u.name == unnomf)
                 if uom_uom:
                     idun = uom_uom.id
+                
                 res_partner = res_partners.filtered(lambda p: p.name == ligne[0])
                 if res_partner:
-                    idfrs = res_partner.id
+                    for partner in res_partner:
+                        _logger.warning('Dans la boucle %s' % partner.name)
+                    idfrs = res_partner[0].id  # ou autre logique si plusieurs
+                else:
+                    _logger.warning('Aucun partenaire trouvé pour %s' % ligne[0])
+                    idfrs = False
+
                 if fournisseur != ligne[0] or info_livraison != ligne[1] :
                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
-                   
+                    
                 if vitrage != (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5])) :
                     refinterne = proj + "_" + str(cpt)
-                    _logger.warning('Refinterne vitrage %s : ' % refinterne)
                     vitrage = ligne[3]
                     position = ligne[2]
                     prix = ligne[6]
@@ -1200,24 +1103,25 @@ class SqliteConnector(models.Model):
                     HautNum = int(HautNumDec)
                     largNum = int(largNumDec)
                     spacer = ligne[7]
-                    _logger.warning('Spacer %s' % spacer)
                     delai = ligne[9]
                     type = ligne[10]
-                    Pbname = ligne[11]
-                    NbHori = int(ligne[12])
-                    NbVerti = int(ligne[13])
-                    PosiHoriX = ligne[14]
-                    PosiVertiX = ligne[15]
-                    PosiHoriY = ligne[16]
-                    PosiVertiY = ligne[17]
-                    LongHori = ligne[18]
-                    LongVerti = ligne[19]
-                    #dateliv = datejourd + timedelta(days=)
+                    Id = ligne[11]
+                    Pbname = ligne[12]
+                    NbHori = int(ligne[13])
+                    NbVerti = int(ligne[14])
+                    PosiHoriX = ligne[15]
+                    PosiVertiX = ligne[16]
+                    PosiHoriY = ligne[17]
+                    PosiVertiY = ligne[18]
+                    LongHori = ligne[19]
+                    LongVerti = ligne[20]
+                    #dateliv = datejourd + timedelta(days=delai)
                     categ_id = self.env.ref('__export__.product_category_23_31345211').id
                     # On vient créer l'article
                     if not self.env['product.product'].search([('default_code', '=', refinterne)], limit=1):
                         vals = {
                             'default_code': refinterne,
+                            #'name': vitrage + " " + Id,
                             'name': vitrage,
                             'lst_price': 1,
                             'standard_price': prix,
@@ -1227,12 +1131,13 @@ class SqliteConnector(models.Model):
                             'sale_ok': True,
                             'detailed_type': 'product',
                             'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_61_d1ff2535').id)],
+                            'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_54_b165c5dc').id)],
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
                             'x_studio_cration_auto' : True,
-                            'x_studio_spacer' : spacer,
-                            'x_studio_type' : type,
+                            'x_studio_spacer': spacer,
+                            'x_studio_position': position,
+                            'x_studio_type': type,
                             'x_studio_type_pb' : Pbname,
                             'x_studio_nbr_pb_horizontal' : NbHori,
                             'x_studio_nbr_pb_vertical' : NbVerti,
@@ -1242,7 +1147,6 @@ class SqliteConnector(models.Model):
                             'x_studio_position_en_y_pb_vertical_1' : PosiVertiY,
                             'x_studio_longueur_pb_horizontal_1' : LongHori,
                             'x_studio_longueur_pb_vertical' : LongVerti,
-                            # 'x_studio_positionn': Posint,
                         }
                         if idfrs:
                             seller = self.env['product.supplierinfo'].create({
@@ -1259,7 +1163,9 @@ class SqliteConnector(models.Model):
                 fournisseur = ligne[0]
                 info_livraison = ligne[1]
                 vitrage = (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5]))
-                     
+            
+        
+                  
 
         # We then create the customer quote with delivery dates and possible discounts.
         # We come to create the quote
@@ -1274,7 +1180,8 @@ class SqliteConnector(models.Model):
                     address = 'CBM'
                 if (row[2] == '2') :
                     address = 'REM'
-            
+
+
         PourRem = 0
         PourRemProj = 0
         resultrem=cursor.execute("select subNode, FieldName, SValue from REPORTVARIABLES")
@@ -1299,7 +1206,6 @@ class SqliteConnector(models.Model):
         NumLig = 0
         price = 0
         Qty = 0
-        so_data = {}
 
         if 'ALU' in etiana :
             if address == 'LRE' :
@@ -1313,21 +1219,20 @@ class SqliteConnector(models.Model):
             for row in resultp:
                 deviseur = row[13]
                 NbrLig = NbrLig + 1
-                
                 # On vient mettre les données de l entete
                 if clientID != row[2] :
                     clientID = row[2]
-                
+                    
                 if ( row[8] == None ) :
                     PrixTot = PrixTot + 0
                 else :
                     PrixTot = float(row[8]) + PrixTot
-                
+                    
                 if ( row[6] == None ) :
                     QteTot = QteTot + 0
                 else :
                     QteTot = float(row[6]) + QteTot
-                
+                    
                 # En position texte on ne prend que ECO CONTRIBUTION sinon on passe tout en FRAIS DE LIVRAISON
                 if row[5] == 'Position texte':
                     PourRem = 0
@@ -1375,74 +1280,56 @@ class SqliteConnector(models.Model):
                         proj = projet.strip()
                     if BP == 'BPA':
                         proj = proj + '_BPA'
-                
+                        
                 part = res_partners.filtered(lambda p: p.name == row[2])
                 pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
-                _logger.warning('Dans la creation du sale order article %s' % str(refart))
+                warehouse = False
                 warehouse = False
                 if entrepot:
                     warehouse = self.env.ref(entrepot).id
-                
+                    
+                _logger.warning('Dans la creation du sale order %s' % proj)
                 sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
-                if sale_order.id not in so_data:
-                    so_data[sale_order.id] = {
-                        "partner_id": sale_order.partner_id.id,
-                        "order_line": [],
-                    }
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-                #_logger.warning("SALE ORDER %s " % proj )
+                
                 if sale_order:
-                    _logger.warning("DANS LE SALE ORDER " )
-                    #if so_data.get(sale_order.id, 0) == 0 and pro:
-                    #_logger.warning("Pas de Ligne donc creation " )
-                    #so_data[sale_order.id] = {
-                    #"partner_id": part.id if part else sale_order.partner_id.id,
-                    #"partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
-                    #"partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
-                    #"date_order": fields.Date.today(),
-                    #"order_line": [Command.create({
-                    #        'product_id': pro.id,
-                    #        'price_unit': float(row[8]),
-                    #        'product_uom_qty': float(row[6]),
-                    #        #'name': dimension,
-                    #        'discount': PourRem,
-                    #        'product_uom': pro.uom_id.id,
-                    #        # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                    #        })],
-                    #}
-                    #else:
-                    _logger.warning("DEJA UNE LIGNE " )
-                    #if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
-                    if pro  :
-                        _logger.warning("ON RAJOUTE DES LIGNES DANS LE SALE ORDER " )
-                        so_data[sale_order.id].get('order_line').append(Command.create({
-                            'product_id': pro.id,
-                            'price_unit': price,
-                            'product_uom_qty': Qty,
-                            #'name': dimension,
-                            'discount': PourRem,
-                            'product_uom': pro.uom_id.id,
-                            # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
-                            }))
-        
-            #sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
-            #ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
-            #proj = ''
-            #if Tranche != '0' :
-            #    proj = projet + '/' + str(Tranche)
-            #else :
-            #    proj = projet
-            #if BP == 'BPA':
-            #    proj = proj + '_BPA'
-            pro_name =proj                
+                    if so_data.get(sale_order.id, 0) == 0 and pro:
+                        so_data[sale_order.id] = {
+                        "partner_id": part.id if part else sale_order.partner_id.id,
+                        "partner_shipping_id": part.id if part else sale_order.partner_shipping_id.id,
+                        "partner_invoice_id": part.id if part else sale_order.partner_invoice_id.id,
+                        "date_order": fields.Date.today(),
+                        "order_line": [Command.create({
+                                'product_id': pro.id,
+                                'price_unit': price,
+                                'product_uom_qty': Qty,
+                                #'name': dimension,
+                                'discount': PourRem,
+                                'product_uom': pro.uom_id.id,
+                                # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                })],
+                        }
+                    else:
+                        if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
+                            so_data[sale_order.id].get('order_line').append(Command.create({
+                                'product_id': pro.id,
+                                'price_unit': price,
+                                'product_uom_qty': Qty,
+                                #'name': dimension,
+                                'discount': PourRem,
+                                'product_uom': pro.uom_id.id,
+                                # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
+                                }))
+            sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+            
+            ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
+                            
             dimension = ''
-            #_logger.warning('Artcile pour devis %s', pro_name)
-            pro = self.env['product.product'].search([('default_code', '=', pro_name)], limit=1)
+            pro = self.env['product.product'].search([('default_code', '=', proj)], limit=1)
+            
             if sale_order:
             # stagging before merge if sale_order and so_data:
-               #if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
-                #if pro and sale_order.id in so_data and so_data[sale_order.id].get('order_line'):
-                if pro and so_data[sale_order.id] :
+               if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                     so_data[sale_order.id].get('order_line').append(Command.create({
                         'product_id': pro.id,
                         'price_unit': 0,
@@ -1571,7 +1458,7 @@ class SqliteConnector(models.Model):
             cpt = cpt + 1
             refart = proj + '_' + str(cpt)
             Qte = ligne[8]
-            _logger.warning('Dans les vitrages %s', refart)
+            #_logger.warning('Dans les vitrages %s', refart)
             pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
             if pro:
                 #_logger.warning('Affaire %s', proj)
@@ -1581,118 +1468,65 @@ class SqliteConnector(models.Model):
                 'product_uom_id': pro.uom_id.id
                 }))
                 
-        #For operations
+         #For operations
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
-
-        #resu = cursor.execute("SELECT * FROM LabourTimes")
-        #for row in resu :
-            #_logger.warning("Temps %s " % str(row[7]))        
         
-        #cursor.execute("SELECT COUNT(*) FROM LabourTimes")
-        #count = cursor.fetchone()[0]    
-        #_logger.warning("Nombre de lignes %s " % str(count) )
+        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId FROM LabourTimes order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
         
-        resuOpe = []
-        cursor.execute("""
-            SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId 
-            FROM LabourTimes 
-            ORDER BY CAST(LabourTimes.LabourTimeId AS INTEGER)
-        """)
-        while True:
-            rows = cursor.fetchmany(500)
-            if not rows:
-                break
-            resuOpe.extend(rows)
         name = ''
         ope = ''
         temps = 0
         reference = ''
-        delai_total_minutes = 0
         
         for rowOpe in resuOpe:
-            temps = float(rowOpe[0]) if rowOpe[0] else 0.0
+            temps = float(rowOpe[0])
             reference = rowOpe[1].strip() if rowOpe[1] else ''
-            nom_base = rowOpe[2].strip() if rowOpe[2] else ''
-            #_logger.warning("**********ID********* %s " % str(rowOpe[3]) )
+            _logger.warning("**********ID********* %s " % str(rowOpe[3]) )
             if rowOpe[2] is not None and rowOpe[2] != '' :
-                if rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage':
+                if ( rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage') and eticom == 'F2M':
                     name = 'Remontage'  + ' ' + eticom
                 else :
-                    if rowOpe[2].strip() == 'Prépa' :
+                    if rowOpe[2].strip() == 'Prépa'  and eticom == 'F2M':
                         name = 'Usinage'  + ' ' + eticom
                     else :
-                        if rowOpe[2].strip() == 'Parcloses ACIER' :
-                            name = 'Débit'  + ' ' + eticom
+                        if rowOpe[2].strip() == 'Parcloses ACIER'  and eticom == 'F2M':
+                            name = 'Débit'  + ' ' + eticom													  
                         else :
                             name = rowOpe[2].strip() + ' ' + eticom
         
-            if rowOpe[1] is not None and rowOpe[1] != '' : 
+            if rowOpe[1] is not None and rowOpe[1] != '' : 	  
                 ope = name
                 if ope in aggregated_data:
                     aggregated_data[ope]['temps'] += temps
                 else:
                     aggregated_data[ope] = {'temps': temps, 'name': name}
         
-        # Trier les opérations selon x_sequence du poste de travail
-        sorted_operations = sorted(
-            aggregated_data.items(),
-            key=lambda item: self.env['mrp.workcenter'].search([('name', '=', item[1]['name'])], limit=1).code or '999'
-        )
-        
-        # Calcul du délai global (temps total des opérations + délais inter-opérations)
-        _total_minutes = 0
-        previous_workcenter = None
-        operation_cmds = []
-        operation_links = {}  # stocke les relations de dépendance
-        sequence = 1
-        
-        for ope, data in sorted_operations:
+        # Étape 2: Créer les opérations dans Odoo
+        for ope, data in aggregated_data.items():
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
                 continue
-        
-            temps = data['temps']
-            delai_total_minutes += temps
-        
-            # Rechercher des délais tampons
-            delay = self.env['x_delai_entre_operatio'].search([
-                ('x_studio_poste_de_travail_deb', '=', previous_workcenter.id if previous_workcenter else False),
-                ('x_studio_poste_de_travail_fin', '=', workcenter.id)
-            ], limit=1)
-        
-            delay_minutes = delay.x_studio_dlai_entre_oprations if delay else 0.0
-            delai_total_minutes += delay_minutes
-                
             operation_data = {
                 'name': ope,
-                'time_cycle_manual': temps,
-                'workcenter_id': workcenter.id,
-                'sequence': sequence,
+                'time_cycle_manual': data['temps'],
+                'workcenter_id': workcenter.id
             }
         
-            op_cmd = Command.create(operation_data)
-            operation_cmds.append(op_cmd)
-            operation_links[workcenter.id] = {'sequence': sequence, 'command': op_cmd, 'blockers': []}
-        
-            previous_workcenter = workcenter
-            sequence += 1
-        
-        # Conversion du délai total en jours (base 480 min/jour) arrondi au supérieur
-        delai_jours = math.ceil(delai_total_minutes / 480)
-        
-        # Affecter les opérations et le délai sur la nomenclature
-        if nomenclatures_data:
-            nomenclatures_data[0]['operation_ids'] = operation_cmds
-            nomenclatures_data[0]['ready_to_produce'] = 'asap'
-            nomenclatures_data[0]['consumption'] = 'flexible'
-            nomenclatures_data[0]['allow_operation_dependencies'] = True
-            nomenclatures_data[0]['produce_delay'] = delai_jours
-        
+            if nomenclatures_data:
+                nomenclatures_data[0]['operation_ids'].append(Command.create(operation_data))
+
         cursor.close()
         temp_file.close()
         cursor1.close()
         
+        for bom_data in nomenclatures_data:
+            product_tmpl_id = bom_data.get("product_tmpl_id")
+            if product_tmpl_id in zero_delay_products:
+                bom_data["produce_delay"] = 0
+            elif product_tmpl_id in delaifab_delay_products:
+                bom_data["produce_delay"] = delaifab
+
         for so in so_data:
             for so_to_update in self.env['sale.order'].browse(so):
                 so_to_update.write(so_data[so])
@@ -1704,39 +1538,6 @@ class SqliteConnector(models.Model):
             note = "Bill Of Material Created > %s" % (bom.display_name)
             message = _("Bill Of Material has been Created: ") + bom._get_html_link()
             self.message_post(body=message)
-            # 🔍 Récupérer les opérations créées
-            operations = bom.operation_ids
-            
-            # Parcours de tous les enregistrements du modèle Studio
-            delai_records = self.env['x_delai_entre_operatio'].search([])
-
-            for ope in operations :
-                for record in delai_records:
-                    if record.x_studio_poste_de_travail_fin.name == ope.name :
-                        blockers = []
-                        poste_bloc_1 = record.x_studio_poste_bloquant_1.name if record.x_studio_poste_bloquant_1 else 'N/A'
-                        poste_bloc_2 = record.x_studio_poste_bloquant_2.name if record.x_studio_poste_bloquant_2 else 'N/A'    
-    
-                        if record.x_studio_poste_bloquant_1:
-                            blocker_op_1 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_1.id)
-                            if blocker_op_1:
-                                blockers.append(blocker_op_1.id)
-                                #ope.blocked_by_operation_ids = [(6, 0, [blocker_op_1.id])]
-                                _logger.warning("✅ Dépendance 1 ajoutée à %s", ope.name)
-                            else:
-                                _logger.warning("❌ Poste bloquant 1 non trouvé pour %s", ope.name)
-                        if record.x_studio_poste_bloquant_2:
-                            blocker_op_2 = operations.filtered(lambda o: o.workcenter_id.id == record.x_studio_poste_bloquant_2.id)
-                            if blocker_op_2:
-                                blockers.append(blocker_op_2.id)
-                                #ope.blocked_by_operation_ids = [(6, 0, [blocker_op_2.id])]
-                                _logger.warning("✅ Dépendance 2 ajoutée à %s", ope.name)
-                            else:
-                                _logger.warning("❌ Poste bloquant 2 non trouvé pour %s", ope.name)    
-                        if blockers :
-                            _logger.warning("📋 blockers = %s ", blockers)
-                            ope.blocked_by_operation_ids = [(6, 0, blockers)]
-                            
             self.env.cr.commit()
 
         self.state = 'done'
