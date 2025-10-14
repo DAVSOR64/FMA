@@ -20,7 +20,7 @@
                         CustomerNumber="130172" 
                         CustomerEmail="" 
                         BuildingProjectID=""
-                        DeliveryDate = "po.date_planned"
+                        DeliveryDate = "po.date_planned.strftime('%Y%m%d') if po.date_planned else ''"
                         t-att-DocumentNumber="po.name or ''"
                         t-att-DocumentDate="po.create_date.strftime('%Y%m%d') if po.create_date else ''"
                         t-att-OrderReference="(po.x_studio_rfrence.replace('-', '').replace(' ', '') if po.x_studio_rfrence else '')[:35]"
