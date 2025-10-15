@@ -3,7 +3,7 @@ import os
 import shutil
 import base64
 import paramiko
-import xlsxwriter
+import csv
 import posixpath
 from pathlib import Path
 from datetime import datetime, date
@@ -20,7 +20,7 @@ class ExportSFTPScheduler(models.Model):
         """Obtient ou crée le dossier temporaire persistant pour les exports."""
         ICP = self.env['ir.config_parameter'].sudo()
         temp_dir = ICP.get_param('export_powerbi.tmp_export_dir')
-        
+
         if not temp_dir or not os.path.exists(temp_dir):
             # Créer un dossier persistant dans le répertoire des données Odoo
             base_dir = Path(self.env['ir.attachment']._filestore())
@@ -28,7 +28,7 @@ class ExportSFTPScheduler(models.Model):
             temp_dir.mkdir(parents=True, exist_ok=True)
             ICP.set_param('export_powerbi.tmp_export_dir', str(temp_dir))
             _logger.info(f"[Export Power BI] Dossier temporaire créé : {temp_dir}")
-        
+
         return temp_dir
 
     def _mkdir_p_sftp(self, sftp, remote_dir: str):
@@ -125,16 +125,13 @@ class ExportSFTPScheduler(models.Model):
             except Exception:
                 return str(v)
 
-        def write_xlsx(filename, headers, rows):
+        def write_csv(filename, headers, rows):
             filepath = os.path.join(temp_dir, filename)
-            workbook = xlsxwriter.Workbook(filepath)
-            worksheet = workbook.add_worksheet()
-            for col, header in enumerate(headers):
-                worksheet.write(0, col, header)
-            for row_idx, row in enumerate(rows, 1):
-                for col_idx, cell in enumerate(row):
-                    worksheet.write(row_idx, col_idx, _to_cell(cell))
-            workbook.close()
+            with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(headers)
+                for row in rows:
+                    writer.writerow([_to_cell(cell) for cell in row])
             _logger.info(f"[Export Power BI] Fichier créé : {filepath}")
             return filepath
 
@@ -147,7 +144,7 @@ class ExportSFTPScheduler(models.Model):
                 'datas': base64.b64encode(file_content).decode(),
                 'res_model': 'export.sftp.scheduler',
                 'res_id': 0,
-                'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'mimetype': 'text/csv',
             })
             _logger.info(f"[Export Power BI] Pièce jointe créée : {name}")
 
@@ -207,8 +204,8 @@ class ExportSFTPScheduler(models.Model):
                     p.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'create_date', False) else '',
                     p.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'write_date', False) else '',
                 ) for p in clients]
-                client_file = write_xlsx(
-                    f'clients_{today}.xlsx',
+                client_file = write_csv(
+                    f'clients_{today}.csv',
                     [
                         'ID','Nom','Nom affiché','Référence','Type société','Est société',
                         'ID Parent','Parent','Société commerciale','ID Partenaire commercial','Partenaire commercial',
@@ -295,8 +292,8 @@ class ExportSFTPScheduler(models.Model):
                     o.so_date_de_livraison.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_livraison', False) else '',
                     o.so_date_de_livraison_prevu.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_livraison_prevu', False) else '',
                 ) for o in orders]
-                order_file = write_xlsx(
-                    f'commandes_{today}.xlsx',
+                order_file = write_csv(
+                    f'commandes_{today}.csv',
                     [
                         'ID','Référence','État','Date commande','Date validité','Origine','Réf client',
                         'ID Client','Client','ID Facturation','Adresse Facturation',
@@ -334,7 +331,7 @@ class ExportSFTPScheduler(models.Model):
     @api.model
     def cron_send_files_to_sftp(self):
         """Envoie les fichiers Excel/CSV générés vers le serveur SFTP."""
-        
+
         # 🔐 Paramètres SFTP - À ADAPTER AVEC VOS VALEURS SÉCURISÉES
         ICP = self.env['ir.config_parameter'].sudo()
         host = ICP.get_param('export_powerbi.sftp_host', '194.206.49.72')
@@ -361,8 +358,8 @@ class ExportSFTPScheduler(models.Model):
             return
 
         # 📋 Liste des fichiers à envoyer
-        files_to_send = [f for f in temp_dir.iterdir() if f.is_file() and f.suffix in ['.xlsx', '.csv']]
-        
+        files_to_send = [f for f in temp_dir.iterdir() if f.is_file() and f.suffix in ['.csv']]
+
         if not files_to_send:
             _logger.info("ℹ️ Aucun fichier à envoyer depuis %s.", temp_dir)
             return
