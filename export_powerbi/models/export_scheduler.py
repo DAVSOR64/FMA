@@ -205,7 +205,7 @@ class ExportSFTPScheduler(models.Model):
                     p.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'write_date', False) else '',
                 ) for p in clients]
                 client_file = write_csv(
-                    f'clients_{today}.csv',
+                    f'clients.csv',
                     [
                         'ID','Nom','Nom affiché','Référence','Type société','Est société',
                         'ID Parent','Parent','Société commerciale','ID Partenaire commercial','Partenaire commercial',
@@ -293,7 +293,7 @@ class ExportSFTPScheduler(models.Model):
                     o.so_date_de_livraison_prevu.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_livraison_prevu', False) else '',
                 ) for o in orders]
                 order_file = write_csv(
-                    f'commandes_{today}.csv',
+                    f'commandes.csv',
                     [
                         'ID','Référence','État','Date commande','Date validité','Origine','Réf client',
                         'ID Client','Client','ID Facturation','Adresse Facturation',
@@ -369,7 +369,7 @@ class ExportSFTPScheduler(models.Model):
                 l.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'write_date', False) else '',
             ) for l in order_lines]
             order_line_file = write_csv(
-                f'lignes_commandes_{today}.csv',
+                f'lignes_commandes.csv',
                 [
                     'ID Ligne','Sequence',
                     'ID Commande','N° Commande','Description','Type affichage','État commande','Date commande',
@@ -430,7 +430,7 @@ class ExportSFTPScheduler(models.Model):
                 i.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'write_date', False) else '',
             ) for i in invoices]
             invoice_file = write_csv(
-                f'factures_{today}.csv',
+                f'factures.csv',
                 [
                     'ID','N° Facture','État','Type',
                     'Date','Échéance','Origine','Référence','État Paiement',
@@ -499,7 +499,7 @@ class ExportSFTPScheduler(models.Model):
                 l.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'write_date', False) else '',
             ) for l in invoice_lines]
             invoice_line_file = write_csv(
-                f'lignes_factures_{today}.csv',
+                f'lignes_factures.csv',
                 [
                     'ID Ligne','Sequence',
                     'ID Facture','N° Facture','État facture','Date facture',
