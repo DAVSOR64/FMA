@@ -554,7 +554,7 @@ class ExportSFTPScheduler(models.Model):
                 (getattr(i, 'product_uom_id', False) and i.product_uom_id.name or ''),
                 # Prix / taxes / totaux (facture-line API)
                 getattr(i, 'price_unit', 0.0) or 0.0,
-                ', '.join([t.name for t in getattr(i, 'tax_ids', [])]) if getattr(i 'tax_ids', False) else '',
+                ', '.join([t.name for t in getattr(i, 'tax_ids', [])]) if getattr(i, 'tax_ids', False) else '',
                 getattr(i, 'price_subtotal', 0.0) or 0.0,
                 getattr(i, 'price_total', 0.0) or 0.0,
                 (l.currency_id.name if getattr(i, 'currency_id', False) else ''),
