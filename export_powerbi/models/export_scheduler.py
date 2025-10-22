@@ -539,7 +539,7 @@ class ExportSFTPScheduler(models.Model):
             line_purchases = self.env['purchase.order.line'].search([])
             line_purchase_data = [(
                 i.id,
-                i.name ir '',
+                i.name or '',
                 i.product_id.id or '',
                 i.product_id.name or '',
                 # Produit
