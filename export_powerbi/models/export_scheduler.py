@@ -511,13 +511,13 @@ class ExportSFTPScheduler(models.Model):
             purchase_data = [(
                 j.id,
                 j.name or '',
-                j.partner.id or '',
-                j.partner.id.name or '',
+                j.partner_id.id or '',
+                j.partner_id.name or '',
                 getattr(j, 'x_studio_projet_du_so', '') or '',
                 getattr(j, 'x_studio_commentaire_interne_', '') or '',
                 getattr(j, 'x_studio_rfrence', '') or '',
-                j.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'create_date', False) else '',
-                j.date_planned.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'date_planned', False) else '',
+                j.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(j, 'create_date', False) else '',
+                j.date_planned.strftime('%Y-%m-%d %H:%M:%S') if getattr(j, 'date_planned', False) else '',
                 j.picking_type_id or '',
                 j.x_studio_remise_1 or '',
                     
