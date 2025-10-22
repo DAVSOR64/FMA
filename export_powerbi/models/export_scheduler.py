@@ -508,22 +508,22 @@ class ExportSFTPScheduler(models.Model):
             # Commande Appro (purchase.order)                            
             #==========================================
             purchases = self.env['purchase.order'].search([])
-                purchase_data = [(
-                    j.id,
-                    j.name or '',
-                    j.partner.id or '',
-                    j.partner.id.name or '',
-                    getattr(j, 'x_studio_projet_du_so', '') or '',
-                    getattr(j, 'x_studio_commentaire_interne_', '') or '',
-                    getattr(j, 'x_studio_rfrence', '') or '',
-                    j.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'create_date', False) else '',
-                    j.date_planned.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'date_planned', False) else '',
-                    j.picking_type_id or '',
-                    j.x_studio_remise_1 or '',
+            purchase_data = [(
+                j.id,
+                j.name or '',
+                j.partner.id or '',
+                j.partner.id.name or '',
+                getattr(j, 'x_studio_projet_du_so', '') or '',
+                getattr(j, 'x_studio_commentaire_interne_', '') or '',
+                getattr(j, 'x_studio_rfrence', '') or '',
+                j.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'create_date', False) else '',
+                j.date_planned.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'date_planned', False) else '',
+                j.picking_type_id or '',
+                j.x_studio_remise_1 or '',
                     
-                ) for j in purchases]
-                purchase_file = write_csv(
-                    f'OA.csv',
+            ) for j in purchases]
+            purchase_file = write_csv(
+                f'OA.csv',
                     [
                         'ID','Nom','ID_Fournisseur','Fournisseur',
                         'Affaire','Commentaire_Interne, 'Reference','Date_cree','Date_Liv_Prev',
@@ -531,7 +531,7 @@ class ExportSFTPScheduler(models.Model):
                     ],
                     purchase_data
                 )
-                create_attachment(purchase_file, os.path.basename(purchase_file))
+            create_attachment(purchase_file, os.path.basename(purchase_file))
         except Exception as e:
             _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
             _logger.info("[Export Power BI] Génération terminée. Fichiers dans : %s", temp_dir)
