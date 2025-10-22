@@ -231,8 +231,6 @@ class ExportSFTPScheduler(models.Model):
                     (o.partner_shipping_id.name if getattr(o, 'partner_shipping_id', False) else ''),
                     (o.user_id.id if getattr(o, 'user_id', False) else ''),
                     (o.user_id.name if getattr(o, 'user_id', False) else ''),
-                    (o.team_id.id if getattr(o, 'team_id', False) else ''),
-                    (o.team_id.name if getattr(o, 'team_id', False) else ''),
                     (o.company_id.id if getattr(o, 'company_id', False) else ''),
                     (o.company_id.name if getattr(o, 'company_id', False) else ''),
                     getattr(o, 'picking_policy', '') or '',
@@ -281,22 +279,22 @@ class ExportSFTPScheduler(models.Model):
                 order_file = write_csv(
                     f'commandes.csv',
                     [
-                        'ID','Référence','État','Date commande','Date validité','Origine','Réf client',
-                        'ID Client','Client','ID Facturation','Adresse Facturation',
-                        'ID Livraison','Adresse Livraison',
-                        'ID Commercial','Commercial','ID Équipe','Équipe',
-                        'ID Société','Société',
-                        'Politique picking','Date engagement','ID Entrepôt','Entrepôt',
-                        'ID Incoterm','Incoterm',
-                        'Devise','Liste de prix','Terme de paiement','Position fiscale',
-                        'Montant HT','TVA','Montant TTC','Statut facturation',
-                        'Tags','Note','Confirmée le','Créé le','Modifié le',
-                        'Commercial (x_studio)','Série','Gamme','Avancement','Bureau d\'étude','Projet',
-                        'Délai confirmé (semaines)','Commande client','Accès BL','Type camion BL',
-                        'Horaire ouverture BL','Horaire fermeture BL','Mode de règlement (x_studio)',
-                        'Date réception devis','Date du devis','Date modification devis','Date devis validé',
-                        'Date ARC','Date BPE','Date bon pour fab','Date fin de production (réel)',
-                        'Date de livraison','Date de livraison prévue'
+                        'ID','Reference','Etat','Date_commande','Date_validite','Origine','Ref_client',
+                        'ID_Client','Client','ID_Facturation','Adresse_Facturation',
+                        'ID_Livraison','Adresse_Livraison',
+                        'ID_Utilisateur','Utilisateur',
+                        'ID_Societe','Societe',
+                        'Politique picking','Date_engagement','ID_Entrepot','Entrepot',
+                        'ID_Incoterm','Incoterm',
+                        'Devise','Liste_de_prix','Terme_de_paiement','Position_fiscale',
+                        'Mtt_HT','TVA','Mtt_TTC','Statut_facturation',
+                        'Tags','Note','Date_Conf','Date_Cree','Date_Modif',
+                        'Commercial','Serie','Gamme','Avancement','Bureau_etude','Projet',
+                        'Delai_conf','Commande_client','Acces_BL','Type_camion_BL',
+                        'Horaire_ouverture_BL','Horaire_fermeture_BL','Mode_de_reglement',
+                        'Date_recep_devis','Date_devis','Date_modif_devis','Date_devis_ val',
+                        'Date_ARC','Date_BPE','Date_bon_pour_fab','Date_fin_de_production_reel',
+                        'Date_de_livraison','Date_de_livraison_prev'
                     ],
                     order_data
                 )
@@ -357,15 +355,15 @@ class ExportSFTPScheduler(models.Model):
             order_line_file = write_csv(
                 f'lignes_commandes.csv',
                 [
-                    'ID Ligne','Sequence',
-                    'ID Commande','N° Commande','Description','Type affichage','État commande','Date commande',
-                    'ID Client','Client',
-                    'ID Article','Code article','Nom article','Catégorie article',
-                    'Qté commandée','Qté livrée','Qté facturée','UoM','Délai client (j)',
-                    'PU HT','Remise %','Taxes','Sous-total HT','TVA','Total TTC',
-                    'Devise','Société','Commercial',
-                    'Compte Analytique','Tags analytiques',
-                    'Créé le','Modifié le'
+                    'ID_Ligne','Sequence',
+                    'ID_Commande','NumCommande','Description','Type_affichage','Etat_commande','Date_commande',
+                    'ID_Client','Client',
+                    'ID_Article','Code_article','Nom_article','Categorie_article',
+                    'Qte_Cde','Qte_Liv','Qte_Fact','UoM','Delai_client',
+                    'PU_HT','Pour_Rem','Taxes','Mtt_Sst_HT','TVA','Mtt_Tot_TTC',
+                    'Devise','Societe','Commercial',
+                    'Compte_Analytique','Tags_analytiques',
+                    'Date_Cree','Date_Modif'
                 ],
                 order_line_data
             )
@@ -411,6 +409,9 @@ class ExportSFTPScheduler(models.Model):
                 (getattr(i, 'invoice_incoterm_id', False) and i.invoice_incoterm_id.name or ''),
                 # Divers
                 getattr(i, 'narration', '') or '',
+                getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
+                getattr(i, 'x_studio_mode_de_reglement_1', 0.0) or 0.0,
+                getattr(i, 'inv_activite', 0.0) or 0.0,
                 ', '.join([t.name for t in getattr(i, 'invoice_line_ids', [])]) if False else len(getattr(i, 'invoice_line_ids', [])),
                 i.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'create_date', False) else '',
                 i.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'write_date', False) else '',
@@ -418,15 +419,15 @@ class ExportSFTPScheduler(models.Model):
             invoice_file = write_csv(
                 f'factures.csv',
                 [
-                    'ID','N° Facture','État','Type',
-                    'Date','Échéance','Origine','Référence','État Paiement',
-                    'ID Client','Client','Compte bancaire client',
-                    'ID Vendeur','Vendeur','ID Société','Société',
-                    'ID Journal','Journal','Devise','Terme de paiement','Position fiscale',
-                    'Montant HT','TVA','Montant TTC','Solde',
-                    'Montant HT signé','Montant TTC signé',
-                    'Référence paiement','Incoterm','Narration','Nb. lignes',
-                    'Créé le','Modifié le'
+                    'ID','NumFact','Etat','Type',
+                    'Date','Echeance','Origine','Reference','Etat_Paiement',
+                    'ID_Client','Client','Compte_bancaire_client',
+                    'ID_Vendeur','Vendeur','ID_Societe','Societe',
+                    'ID_Journal','Journal','Devise','Terme_de_paiement','Position_fiscale',
+                    'Mtt_HT','TVA','Mtt_TTC','Solde',
+                    'Mtt_HT_sign','Mtt_TTC_sign',
+                    'Reference_paiement','Incoterm','Narration','Affaire','Mode_Reglement','Activite','Nb_lignes',
+                    'Date_Cree','Date_Modif'
                 ],
                 invoice_data
             )
@@ -487,17 +488,17 @@ class ExportSFTPScheduler(models.Model):
             invoice_line_file = write_csv(
                 f'lignes_factures.csv',
                 [
-                    'ID Ligne','Sequence',
-                    'ID Facture','N° Facture','État facture','Date facture',
-                    'ID Client','Client','Journal',
-                    'Libellé','Type affichage',
-                    'ID Article','Code article','Nom article','Catégorie article',
-                    'Qté','UoM',
-                    'PU HT','Taxes','Sous-total HT','Total TTC','Devise',
-                    'Compte code','Compte libellé','Débit','Crédit','Balance','Montant devise',
-                    'Compte Analytique','Tags analytiques',
-                    'ID Ligne Commande',
-                    'Créé le','Modifié le'
+                    'ID_Ligne','Sequence',
+                    'ID_Facture','NumFac','Etat_facture','Date_facture',
+                    'ID_Client','Client','Journal',
+                    'Libelle','Type_affichage',
+                    'ID_Article','Code_article','Nom_article','Categorie_article',
+                    'Qte','UoM',
+                    'PU_HT','Taxes','Mtt_Sst_HT','Mtt_Tot_TTC','Devise',
+                    'Compte_code','Compte_libelle','Debit','Credit','Balance','Mtt_devise',
+                    'Compte_Analytique','Tags_analytiques',
+                    'ID_Ligne_Commande',
+                    'Date_Cree','Date_Modif'
                 ],
                 invoice_line_data
             )
