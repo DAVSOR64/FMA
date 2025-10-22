@@ -526,7 +526,7 @@ class ExportSFTPScheduler(models.Model):
                 f'OA.csv',
                     [
                         'ID','Nom','ID_Fournisseur','Fournisseur',
-                        'Affaire','Commentaire_Interne, 'Reference','Date_cree','Date_Liv_Prev',
+                        'Affaire','Commentaire_Interne', 'Reference','Date_cree','Date_Liv_Prev',
                         'Entrepot','Remise'
                     ],
                     purchase_data
