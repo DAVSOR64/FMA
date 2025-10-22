@@ -532,6 +532,48 @@ class ExportSFTPScheduler(models.Model):
                     purchase_data
                 )
             create_attachment(purchase_file, os.path.basename(purchase_file))
+
+            #========================================
+            # Commande Ligne Appro (purchase.order.line)                            
+            #==========================================
+            line_purchases = self.env['purchase.order.line'].search([])
+            line_purchase_data = [(
+                i.id,
+                i.name ir '',
+                i.product_id.id or '',
+                i.product_id.name or '',
+                # Produit
+                (i.product_id.id if getattr(i, 'product_id', False) else ''),
+                (i.product_id.default_code if getattr(i, 'product_id', False) else '') or '',
+                (i.product_id.name if getattr(i, 'product_id', False) else '') or '',
+                (i.product_id.categ_id.name if (getattr(i, 'product_id', False) and getattr(i.product_id, 'categ_id', False)) else '') or '',
+                # Quantité / UoM
+                getattr(i, 'product_qty', 0.0) or 0.0,
+                getattr(i, 'qty_received', 0.0) or 0.0,
+                getattr(i, 'qty_invoiced', 0.0) or 0.0,
+                (getattr(i, 'product_uom_id', False) and i.product_uom_id.name or ''),
+                # Prix / taxes / totaux (facture-line API)
+                getattr(i, 'price_unit', 0.0) or 0.0,
+                ', '.join([t.name for t in getattr(i, 'tax_ids', [])]) if getattr(li 'tax_ids', False) else '',
+                getattr(i, 'price_subtotal', 0.0) or 0.0,
+                getattr(i, 'price_total', 0.0) or 0.0,
+                (l.currency_id.name if getattr(i, 'currency_id', False) else ''),
+                # Comptabilité
+                #(l.account_id.code if getattr(l, 'account_id', False) else ''),
+                #(l.account_id.name if getattr(l, 'account_id', False) else ''),
+                    
+            ) for i in line_purchases]
+            line_purchase_file = write_csv(
+                f'ligne_OA.csv',
+                    [
+                        'ID','Nom','ID_Fournisseur','Fournisseur',
+                        'Affaire','Commentaire_Interne', 'Reference','Date_cree','Date_Liv_Prev',
+                        'Entrepot','Remise'
+                    ],
+                    line_purchase_data
+                )
+            create_attachment(line_purchase_file, os.path.basename(line_purchase_file))
+        
         except Exception as e:
             _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
             _logger.info("[Export Power BI] Génération terminée. Fichiers dans : %s", temp_dir)
