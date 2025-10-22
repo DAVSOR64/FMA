@@ -557,7 +557,7 @@ class ExportSFTPScheduler(models.Model):
                 ', '.join([t.name for t in getattr(i, 'tax_ids', [])]) if getattr(i, 'tax_ids', False) else '',
                 getattr(i, 'price_subtotal', 0.0) or 0.0,
                 getattr(i, 'price_total', 0.0) or 0.0,
-                (l.currency_id.name if getattr(i, 'currency_id', False) else ''),
+                (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
                 # Comptabilité
                 #(l.account_id.code if getattr(l, 'account_id', False) else ''),
                 #(l.account_id.name if getattr(l, 'account_id', False) else ''),
