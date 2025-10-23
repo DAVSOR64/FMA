@@ -11,7 +11,7 @@
                         <setting id="supplier_setting">
                             <span class="o_form_label">SFTP server credentials</span>
                                 <div class="text-muted">
-                                    Setup the SFTP server configurations for customers export.
+                                    Setup the SFTP server configurations for supplier export.
                                 </div>
                                 <div class="content-group" id="sftp_settings_group">
                                     <div class="mt16 row">
