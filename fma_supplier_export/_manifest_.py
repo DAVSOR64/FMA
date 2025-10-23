@@ -16,6 +16,7 @@
         'base_setup',
         'contacts'
     ],
+    
     'data': [
         'data/ir_cron.xml',
         'views/res_config_settings_views.xml',
