@@ -1,6 +1,6 @@
 <odoo>
     <data noupdate="1">
-        <record id="ir_cron_generate_customer_files" model="ir.cron">
+        <record id="ir_cron_generate_supplier_files" model="ir.cron">
             <field name="name">Export supplier Files</field>
             <field name="model_id" ref="model_res_partner"/>
             <field name="type">ir.actions.server</field>
@@ -11,8 +11,8 @@
             <field name="numbercall">-1</field>
         </record>
 
-        <record id="ir_cron_export_customer_files_to_sftp_server" model="ir.cron">
-            <field name="name">Send Customer Files to SFTP server</field>
+        <record id="ir_cron_export_supplier_files_to_sftp_server" model="ir.cron">
+            <field name="name">Send Supplier Files to SFTP server</field>
             <field name="model_id" ref="model_res_partner"/>
             <field name="type">ir.actions.server</field>
             <field name="state">code</field>
