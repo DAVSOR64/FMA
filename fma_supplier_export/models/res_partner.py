@@ -132,7 +132,7 @@ class ResPartner(models.Model):
         """Cron to generate supplier details .txt file."""
         partners = self.search([
             ('is_included_in_supplier_export_file', '=', False),
-            ('is_company', '=', True)
+            ('is_company', '=', True),
             ('supplier_rank', '>', 0)
         ])
 
