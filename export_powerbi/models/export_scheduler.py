@@ -540,8 +540,6 @@ class ExportSFTPScheduler(models.Model):
             line_purchase_data = [(
                 i.id,
                 i.name or '',
-                i.product_id.id or '',
-                i.product_id.name or '',
                 # Produit
                 (i.product_id.id if getattr(i, 'product_id', False) else ''),
                 (i.product_id.default_code if getattr(i, 'product_id', False) else '') or '',
@@ -566,9 +564,9 @@ class ExportSFTPScheduler(models.Model):
             line_purchase_file = write_csv(
                 f'ligne_OA.csv',
                     [
-                        'ID','Nom','ID_Fournisseur','Fournisseur',
-                        'Affaire','Commentaire_Interne', 'Reference','Date_cree','Date_Liv_Prev',
-                        'Entrepot','Remise'
+                        'ID','Nom','ID_Produit','Ref_Produit','Produit','Categorie',
+                        'Qte_Cde','Qte_Rec', 'Qte_Fac','Unit_Mes','Mtt_Unit','TVA','Mtt_Sst','Mtt_Tot',
+                        'Devise'
                     ],
                     line_purchase_data
                 )
