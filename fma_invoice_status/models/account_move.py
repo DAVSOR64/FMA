@@ -26,7 +26,13 @@ class AccountMove(models.Model):
                 _logger.error("Missing one or more FTP server credentials.")
                 return
 
-            filename = 'REGLEMENT_DATE.csv'
+            #filename = 'REGLEMENT_DATE.csv'
+            
+            # Récupère la date du jour au format ddmmyyyy
+            today = date.today().strftime("%d%m%Y")
+            
+            # Construit le nom du fichier
+            filename = f"REGLEMENT_{today}.csv"
             with ftplib.FTP(ftp_server_host, ftp_server_username, ftp_server_password) as session:
                 try:
                     session.cwd(ftp_server_file_path)
