@@ -133,6 +133,7 @@ class ResPartner(models.Model):
         partners = self.search([
             ('is_included_in_supplier_export_file', '=', False),
             ('is_company', '=', True)
+            ('supplier_rank', '>', 0)
         ])
 
         try:
