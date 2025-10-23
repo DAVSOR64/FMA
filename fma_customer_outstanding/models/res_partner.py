@@ -9,6 +9,7 @@ import os
 import tempfile
 import paramiko  # ADD
 from odoo import fields, models
+from datetime import date
 
 _logger = logging.getLogger(__name__)
 
@@ -30,7 +31,12 @@ class ResPartner(models.Model):
         ftp_server_username = 'csproginov'
         ftp_server_password = 'g%tumR/n49:1=5qES6CT'
         ftp_server_file_path = 'FMA/IN/'  # attention: dossier relatif vs absolu
-        filename = 'ENCOURS_DAte.csv'
+        #filename = 'ENCOURS_DAte.csv'
+        # Récupère la date du jour au format ddmmyyyy
+        today = date.today().strftime("%d%m%Y")
+        
+        # Construit le nom du fichier
+        filename = f"ENCOURS_{today}.csv"
 
         try:
             if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
