@@ -48,7 +48,7 @@ class AccountMove(models.Model):
         """Attach the journal items .csv file."""
         AccountMoveLine = self.env['account.move.line']
         IrAttachment = self.env['ir.attachment']
-        for move in self.filtered(lambda move: not move.is_txt_created and move.state == 'posted'):
+        for move in self.filtered(lambda move: not move.is_txt_created and move.state == 'posted' and m.move_type in ('in_invoice', 'in_refund')):
             try:
                 journal_items = AccountMoveLine.search([('move_id', '=', move.id)])
                 if not journal_items:
@@ -77,29 +77,37 @@ class AccountMove(models.Model):
     def _get_file_content(self, journal_items, move):
         """Get journal items grouped by account for the .csv file."""
         grouped_items = []
-        sale_order_name = ''
-        sale_order = None
+        po_name = ''
         section = ''
         journal = 'ACH'
-        if move.line_ids and move.line_ids[0].sale_line_ids:
-            sale_order = move.line_ids[0].sale_line_ids[0].order_id
-            sale_order_name = sale_order.name if sale_order else ''
-            if sale_order_name :
-               sale_order_name = sale_order_name[:12]
-            tag_names = {tag.name for tag in sale_order.tag_ids}
+        if line.purchase_line_id and line.purchase_line_id.order_id:
+            po = line.purchase_line_id.order_id
+            break
+
+        # Essai 2 (fallback) : via l'origine de facture si elle contient le numéro de PO
+        if not po and move.invoice_origin:
+            po = self.env['purchase.order'].search([('name', '=', move.invoice_origin)], limit=1)
+        
+        if po:
+            po_name = (po.name or '')[:12]
+        
+            # Si tu as des tags côté achats, adapte ici.
+            # (purchase.order n’a pas de tag_ids en standard ; si c’est un champ custom, garde ta logique)
+            tag_names = set()
+            if hasattr(po, 'tag_ids'):
+                tag_names = {t.name for t in po.tag_ids}
+        
             if 'FMA' in tag_names:
                 section = 'REG0701ALU'
             elif 'F2M' in tag_names:
                 section = 'REM0701ACI'
-        prefix = ''
-        year =''
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
                 name_invoice = move.name
-                if move.name.startswith(('FC', 'AVV')) and len(move.name) >= 6 :
-                    prefix = move.name[:2]
-                    year = move.name[2:6]
-                    name_invoice = move.name.replace(f"{prefix}{year}", f"{prefix}{year[2:]}", 1)
+                #if move.name.startswith(('BILL')) :
+                    #prefix = move.name[:2]
+                    #year = move.name[2:6]
+                    #name_invoice = move.name.replace(f"{prefix}{year}", f"{prefix}{year[2:]}", 1)
                 #if move.name.startswith('AV2024'):
                 #    name_invoice = move.name.replace('AV2024', 'AV24', 1)
             
@@ -120,10 +128,10 @@ class AccountMove(models.Model):
                     'invoice_date_1': invoice_date.replace('-',''),
                     'due_date': invoice_date_due.replace('-',''),
                     'account_code': account_code,
-                    'mode_de_regiment': move.inv_mode_de_reglement.replace('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATI') if move.inv_mode_de_reglement == 'L.C.R. A L ACCEPTATION' else move.inv_mode_de_reglement,
+                    #'mode_de_regiment': move.inv_mode_de_reglement.replace('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATI') if move.inv_mode_de_reglement == 'L.C.R. A L ACCEPTATION' else move.inv_mode_de_reglement,
                     'name_and_customer_name': f'{name_invoice} {move.partner_id.name}',
-                    'payment_reference': f'{sale_order_name} {move.x_studio_rfrence_affaire}',
-                    'section_axe2': sale_order_name.replace('-', '') if sale_order_name else '',
+                    #'payment_reference': f'{sale_order_name} {move.x_studio_rfrence_affaire}',
+                    #'section_axe2': sale_order_name.replace('-', '') if sale_order_name else '',
                     'section': section,
                     'section_axe3': str('999999999999'),
                     'debit': formatted_debit,
