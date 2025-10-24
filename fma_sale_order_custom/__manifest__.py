@@ -14,6 +14,7 @@
     'depends': [
         'sale_management',
         'custom',
+        
     ],
     'data': [
         'views/sale_order_views.xml'
