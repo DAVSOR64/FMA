@@ -14,8 +14,7 @@
     'depends': [
         'account_accountant',
         'sale_management',
-        'custom'
-        
+        'custom' 
     ],
     'data': [
         'data/ir_cron.xml',
