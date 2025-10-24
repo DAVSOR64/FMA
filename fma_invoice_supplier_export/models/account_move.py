@@ -48,7 +48,7 @@ class AccountMove(models.Model):
         """Attach the journal items .csv file."""
         AccountMoveLine = self.env['account.move.line']
         IrAttachment = self.env['ir.attachment']
-        for move in self.filtered(lambda move: not move.is_txt_created and move.state == 'posted' and m.move_type in ('in_invoice', 'in_refund')):
+        for move in self.filtered(lambda move: not move.is_txt_created and move.state == 'posted' and move.move_type in ('in_invoice', 'in_refund')):
             try:
                 journal_items = AccountMoveLine.search([('move_id', '=', move.id)])
                 if not journal_items:
