@@ -15,6 +15,7 @@
         'account_accountant',
         'sale_management',
         'custom'
+        
     ],
     'data': [
         'data/ir_cron.xml',
