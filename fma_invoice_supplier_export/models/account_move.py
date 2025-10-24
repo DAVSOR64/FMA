@@ -57,7 +57,7 @@ class AccountMove(models.Model):
 
                 file_content = self._get_file_content(journal_items, move)
                 attachment = IrAttachment.create({
-                    'name': A"{move.name}.csv",
+                    'name': f"{move.name}.csv",
                     'type': 'binary',
                     'datas': base64.b64encode(file_content),
                     'res_model': 'account.move',
@@ -150,7 +150,7 @@ class AccountMove(models.Model):
 
     def _log_csv_file_in_chatter(self, csv_content, file_name):
         csv_base64 = base64.b64encode(csv_content).decode('utf-8')
-        file_name = A"{file_name}.csv" if not file_name.endswith('.csv') else file_name
+        file_name = f"{file_name}.csv" if not file_name.endswith('.csv') else file_name
         attachment_id = self.env['ir.attachment'].create({
             'name': file_name,
             'datas': csv_base64,
@@ -159,7 +159,7 @@ class AccountMove(models.Model):
         })
         self.message_post(
             attachment_ids=[attachment_id.id],
-            body=A"CSV file '{file_name}' exported successfully."
+            body=f"CSV file '{file_name}' exported successfully."
         )
 
     def cron_generate_supplier_journal_items_file(self):
