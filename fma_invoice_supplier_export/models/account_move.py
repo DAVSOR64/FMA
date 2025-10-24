@@ -104,6 +104,8 @@ class AccountMove(models.Model):
                     section = 'REM0701ACI'
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
+                # 1) Convertir l’itérateur en liste **tout de suite**
+                items = list(items_grouped_by_account)
                 name_invoice = move.name
                 #if move.name.startswith(('BILL')) :
                     #prefix = move.name[:2]
