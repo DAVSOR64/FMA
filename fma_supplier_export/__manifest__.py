@@ -16,10 +16,13 @@
         'base_setup',
         'contacts'
     ],
+    
     'data': [
         'data/ir_cron.xml',
-        'views/res_config_settings_views.xml',
-        'views/res_partner_views.xml'
+        'view/res_config_settings_views.xml',
+        'view/res_partner_views.xml'
     ],
     'license': 'LGPL-3',
+    'installable': True,
+    'application': True,
 }
