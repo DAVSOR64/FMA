@@ -90,7 +90,7 @@ class AccountMove(models.Model):
                 po = self.env['purchase.order'].search([('name', '=', move.invoice_origin)], limit=1)
             
             if po:
-                po_name = (po.name or '')[:12]
+                po_name = (po.ref or '')[:12]
             
                 # Si tu as des tags côté achats, adapte ici.
                 # (purchase.order n’a pas de tag_ids en standard ; si c’est un champ custom, garde ta logique)
