@@ -131,7 +131,7 @@ class AccountMove(models.Model):
                     'account_code': account_code,
                     #'mode_de_regiment': move.inv_mode_de_reglement.replace('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATI') if move.inv_mode_de_reglement == 'L.C.R. A L ACCEPTATION' else move.inv_mode_de_reglement,
                     'name_and_customer_name': f'{name_invoice} {move.partner_id.name}',
-                    'payment_reference': move.analytic_distribution if move.analytic_distribution else '',
+                    'payment_reference': move.line.analytic_distribution if move.line.analytic_distribution else '',
                     'section_axe2':move.line.analytic_distribution.replace('-', '') if move.line.analytic_distribution else '',
                     'section': section,
                     'section_axe3': str('999999999999'),
