@@ -115,6 +115,20 @@ class AccountMove(models.Model):
                 # Calculer les sommes
                 debit_sum = round(sum(item.debit for item in items_grouped_by_account), 2)
                 credit_sum = round(sum(item.credit for item in items_grouped_by_account), 2)
+
+                # 3) Récup analytics sur une ligne "référence" du groupe (ex: la première)
+                analytic_code = ''
+                first_line = items[0] if items else False
+                if first_line:
+                    # a) Cas v15+ : analytic_distribution (dict {analytic_id: ratio})
+                    dist = first_line.analytic_distribution or {}
+                    if dist:
+                        analytic_id = int(next(iter(dist.keys())))
+                        aa = self.env['account.analytic.account'].browse(analytic_id)
+                        analytic_code = (aa.code or aa.name or '') or ''
+                    # b) Fallback si tu as encore analytic_account_id
+                    elif hasattr(first_line, 'analytic_account_id') and first_line.analytic_account_id:
+                        analytic_code = first_line.analytic_account_id.code or first_line.analytic_account_id.name or ''
                 
                 # Formater les nombres avec une virgule comme séparateur décimal
                 formatted_debit = f"{debit_sum:.2f}".replace('.', ',')
@@ -131,8 +145,8 @@ class AccountMove(models.Model):
                     'account_code': account_code,
                     #'mode_de_regiment': move.inv_mode_de_reglement.replace('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATI') if move.inv_mode_de_reglement == 'L.C.R. A L ACCEPTATION' else move.inv_mode_de_reglement,
                     'name_and_customer_name': f'{name_invoice} {move.partner_id.name}',
-                    'payment_reference': move.line.analytic_distribution if move.line.analytic_distribution else '',
-                    'section_axe2':move.line.analytic_distribution.replace('-', '') if move.line.analytic_distribution else '',
+                    'payment_reference': analytic_code or '',
+                    'section_axe2':analytic_code.replace('-', '') if analytic_code else '',
                     'section': section,
                     'section_axe3': str('999999999999'),
                     'debit': formatted_debit,
