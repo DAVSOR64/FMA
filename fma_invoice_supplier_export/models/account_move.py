@@ -80,27 +80,28 @@ class AccountMove(models.Model):
         po_name = ''
         section = ''
         journal = 'ACH'
-        if line.purchase_line_id and line.purchase_line_id.order_id:
-            po = line.purchase_line_id.order_id
-            break
+        for line in move.invoice_line_ids:
+            if line.purchase_line_id and line.purchase_line_id.order_id:
+                po = line.purchase_line_id.order_id
+                break
 
-        # Essai 2 (fallback) : via l'origine de facture si elle contient le numéro de PO
-        if not po and move.invoice_origin:
-            po = self.env['purchase.order'].search([('name', '=', move.invoice_origin)], limit=1)
-        
-        if po:
-            po_name = (po.name or '')[:12]
-        
-            # Si tu as des tags côté achats, adapte ici.
-            # (purchase.order n’a pas de tag_ids en standard ; si c’est un champ custom, garde ta logique)
-            tag_names = set()
-            if hasattr(po, 'tag_ids'):
-                tag_names = {t.name for t in po.tag_ids}
-        
-            if 'FMA' in tag_names:
-                section = 'REG0701ALU'
-            elif 'F2M' in tag_names:
-                section = 'REM0701ACI'
+            # Essai 2 (fallback) : via l'origine de facture si elle contient le numéro de PO
+            if not po and move.invoice_origin:
+                po = self.env['purchase.order'].search([('name', '=', move.invoice_origin)], limit=1)
+            
+            if po:
+                po_name = (po.name or '')[:12]
+            
+                # Si tu as des tags côté achats, adapte ici.
+                # (purchase.order n’a pas de tag_ids en standard ; si c’est un champ custom, garde ta logique)
+                tag_names = set()
+                if hasattr(po, 'tag_ids'):
+                    tag_names = {t.name for t in po.tag_ids}
+            
+                if 'FMA' in tag_names:
+                    section = 'REG0701ALU'
+                elif 'F2M' in tag_names:
+                    section = 'REM0701ACI'
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
                 name_invoice = move.name
