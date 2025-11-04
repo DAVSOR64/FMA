@@ -183,12 +183,6 @@ class ExportSFTPScheduler(models.Model):
                     getattr(p, 'x_studio_mtt_non_echu', '') or '',
                     p.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'create_date', False) else '',
                     p.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'write_date', False) else '',
-                    (p.user_id.id if getattr(p, 'user_id', False) else ''),
-                    (p.user_id.name if getattr(p, 'user_id', False) else ''),
-                    (p.company_id.id if getattr(p, 'company_id', False) else ''),
-                    (p.company_id.name if getattr(p, 'company_id', False) else ''),
-                    getattr(p, 'lang', '') or '',
-                    getattr(p, 'tz', '') or '',
                     ', '.join([c.name for c in getattr(p, 'category_id', [])]) if getattr(p, 'category_id', False) else '',
                     ', '.join([b.acc_number for b in getattr(p, 'bank_ids', [])]) if getattr(p, 'bank_ids', False) else '',
                     len(getattr(p, 'child_ids', [])) if getattr(p, 'child_ids', False) else 0,
@@ -202,8 +196,6 @@ class ExportSFTPScheduler(models.Model):
                         'Telephone','Mobile','Email',
                         'TVA','Commercial','Compte_Genere','Compte_Progi','Code_Diap','Mode_de_reglement','ACtif','Commentaire',
                         'Siret','Siren','Affacturage','Mtt_Couverture','Encours','Mtt_Echu','Mtt_Non_Echu','Date_creation','Date_Modification',
-                        'ID_utilisateur','Nom_utilisateur','Id_company','Nom_company', 
-                        'Langue','Fuseau horaire'
                     ],
                     client_data
                 )
