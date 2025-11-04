@@ -83,10 +83,15 @@ class AccountMove(models.Model):
         journal = 'ACH'
         _logger.warning("=== Avant les lignes ===")
         for line in move.invoice_line_ids:
+            _logger.warning(f"=== Parcours ligne {line.id} ===")
+            _logger.warning(f"Has purchase_line_id: {bool(line.purchase_line_id)}")
             if line.purchase_line_id and line.purchase_line_id.order_id:
+                _logger.warning(f"purchase_line_id trouvé: {line.purchase_line_id}")
+                _logger.warning(f"Has order_id: {bool(line.purchase_line_id.order_id)}")
                 po = line.purchase_line_id.order_id
-                break
-            _logger.warning("=== Parcours des lignes ===")
+                _logger.warning(f"PO trouvé: {po.name}")
+                #break
+            
             # Essai 2 (fallback) : via l'origine de facture si elle contient le numéro de PO
             if not po and move.invoice_origin:
                 po = self.env['purchase.order'].search([('name', '=', move.invoice_origin)], limit=1)
