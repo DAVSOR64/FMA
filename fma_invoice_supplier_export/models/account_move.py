@@ -92,16 +92,27 @@ class AccountMove(models.Model):
             if po:
                 po_name = (po.ref or '')[:12]
             
-                # Si tu as des tags côté achats, adapte ici.
-                # (purchase.order n’a pas de tag_ids en standard ; si c’est un champ custom, garde ta logique)
-                tag_names = set()
-                if hasattr(po, 'tag_ids'):
-                    tag_names = {t.name for t in po.tag_ids}
-            
-                if 'FMA' in tag_names:
-                    section = 'REG0701ALU'
-                elif 'F2M' in tag_names:
-                    section = 'REM0701ACI'
+                # Récupérer l'entrepôt depuis le bon de commande
+                warehouse = None
+                if hasattr(po, 'picking_type_id') and po.picking_type_id:
+                    warehouse = po.picking_type_id.warehouse_id
+                elif hasattr(po, 'warehouse_id') and po.warehouse_id:
+                    warehouse = po.warehouse_id
+                
+                # Déterminer la section selon l'entrepôt
+                if warehouse:
+                    warehouse_name = warehouse.name or ''
+                    warehouse_code = warehouse.code or ''
+                    
+                    # Option 1 : Basé sur le nom ou code de l'entrepôt
+                    if 'LA REGRIPIERRE' in warehouse_name or 'LA REGRIPIERRE' in warehouse_code:
+                        section = 'REG0701ALU'
+                    elif 'LA REMAUDIERE' in warehouse_name or 'LA REMAUDIERE' in warehouse_code:
+                        section = 'REM0701ACI'
+                    else:
+                        section = 'REG0701ALU'  # Valeur par défaut
+                else:
+                    section = 'REG0701ALU'  # Valeur par défaut si pas d'entrepôt
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
                 # 1) Convertir l’itérateur en liste **tout de suite**
