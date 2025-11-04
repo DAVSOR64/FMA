@@ -98,11 +98,15 @@ class AccountMove(models.Model):
                     warehouse = po.picking_type_id.warehouse_id
                 elif hasattr(po, 'warehouse_id') and po.warehouse_id:
                     warehouse = po.warehouse_id
+
+                _logger.exception("ID Entrepot ", str(warehouse))
                 
                 # Déterminer la section selon l'entrepôt
                 if warehouse:
                     warehouse_name = warehouse.name or ''
                     warehouse_code = warehouse.code or ''
+                    
+                    _logger.exception("Entrepot ", warehouse.name)
                     
                     # Option 1 : Basé sur le nom ou code de l'entrepôt
                     if 'LA REGRIPIERRE' in warehouse_name or 'LA REGRIPIERRE' in warehouse_code:
