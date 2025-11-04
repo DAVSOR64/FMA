@@ -142,6 +142,7 @@ class AccountMove(models.Model):
                 
                 _logger.info(f"Section finale: {section}")
                 _logger.info("=== FIN DEBUG WAREHOUSE ===")
+        section = 'REG0701ALU'        
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
                 # 1) Convertir l’itérateur en liste **tout de suite**
