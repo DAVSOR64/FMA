@@ -90,7 +90,7 @@ class AccountMove(models.Model):
                 _logger.warning(f"Has order_id: {bool(line.purchase_line_id.order_id)}")
                 po = line.purchase_line_id.order_id
                 _logger.warning(f"PO trouvé: {po.name}")
-                #break
+                break
             
             # Essai 2 (fallback) : via l'origine de facture si elle contient le numéro de PO
             if not po and move.invoice_origin:
@@ -149,7 +149,7 @@ class AccountMove(models.Model):
                 
                 _logger.warning(f"Section finale: {section}")
                 _logger.warning("=== FIN DEBUG WAREHOUSE ===")
-        #section = 'REG0701ALU'        
+                
         analytic_code = ''
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
