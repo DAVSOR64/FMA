@@ -143,6 +143,7 @@ class AccountMove(models.Model):
                 _logger.info(f"Section finale: {section}")
                 _logger.info("=== FIN DEBUG WAREHOUSE ===")
         section = 'REG0701ALU'        
+        analytic_code = ''
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
                 # 1) Convertir l’itérateur en liste **tout de suite**
@@ -160,7 +161,7 @@ class AccountMove(models.Model):
                 credit_sum = round(sum(item.credit for item in items_grouped_by_account), 2)
 
                 # 3) Récup analytics sur une ligne "référence" du groupe (ex: la première)
-                analytic_code = ''
+                
                 first_line = items[0] if items else False
                 if first_line:
                     # a) Cas v15+ : analytic_distribution (dict {analytic_id: ratio})
