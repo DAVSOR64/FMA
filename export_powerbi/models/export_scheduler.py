@@ -178,7 +178,7 @@ class ExportSFTPScheduler(models.Model):
                     getattr(p, 'part_siren', '') or '',
                     getattr(p, 'part_affacturage', '') or '',
                     getattr(p, 'part_montant_couverture', '') or '',
-                    getattr(p, 'outstanding', '') or '',
+                    getattr(p, 'outstandings', '') or '',
                     getattr(p, 'x_studio_mtt_echu', '') or '',
                     getattr(p, 'x_studio_mtt_non_echu', '') or '',
                     p.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'create_date', False) else '',
