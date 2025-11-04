@@ -175,7 +175,7 @@ class ExportSFTPScheduler(models.Model):
                     bool(getattr(p, 'active', True)),
                     getattr(p, 'comment', '') or '',
                     p.siret or '',
-                    getattr(p, 'part.siren', '') or '',
+                    getattr(p, 'part_siren', '') or '',
                     getattr(p, 'part_affacturage', '') or '',
                     getattr(p, 'part_montant_couverture', '') or '',
                     getattr(p, 'outstanding', '') or '',
