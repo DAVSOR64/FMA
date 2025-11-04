@@ -15,6 +15,7 @@ from odoo.addons.web.controllers.main import CSVExport
 _logger = logging.getLogger(__name__)
 
 
+
 class AccountMove(models.Model):
     _inherit = "account.move"
 
@@ -94,29 +95,53 @@ class AccountMove(models.Model):
             
                 # Récupérer l'entrepôt depuis le bon de commande
                 warehouse = None
-                if hasattr(po, 'picking_type_id') and po.picking_type_id:
-                    warehouse = po.picking_type_id.warehouse_id
-                elif hasattr(po, 'warehouse_id') and po.warehouse_id:
-                    warehouse = po.warehouse_id
-
-                _logger.exception("ID Entrepot ", str(warehouse))
+                
+                _logger.info("=== DEBUG WAREHOUSE ===")
+                _logger.info(f"PO: {po.name}")
+                
+                # Vérifier picking_type_id
+                if hasattr(po, 'picking_type_id'):
+                    _logger.info(f"picking_type_id existe: {po.picking_type_id}")
+                    if po.picking_type_id:
+                        _logger.info(f"picking_type_id.name: {po.picking_type_id.name}")
+                        if hasattr(po.picking_type_id, 'warehouse_id'):
+                            warehouse = po.picking_type_id.warehouse_id
+                            _logger.info(f"warehouse trouvé via picking_type_id: {warehouse}")
+                else:
+                    _logger.info("picking_type_id n'existe pas")
+                
+                # Vérifier warehouse_id direct
+                if hasattr(po, 'warehouse_id'):
+                    _logger.info(f"warehouse_id direct existe: {po.warehouse_id}")
+                    if po.warehouse_id and not warehouse:
+                        warehouse = po.warehouse_id
+                else:
+                    _logger.info("warehouse_id direct n'existe pas")
                 
                 # Déterminer la section selon l'entrepôt
                 if warehouse:
+                    _logger.info(f"Warehouse trouvé - ID: {warehouse.id}")
+                    _logger.info(f"Warehouse name: {warehouse.name}")
+                    _logger.info(f"Warehouse code: {warehouse.code if hasattr(warehouse, 'code') else 'pas de code'}")
+                    
                     warehouse_name = warehouse.name or ''
-                    warehouse_code = warehouse.code or ''
+                    warehouse_code = warehouse.code if hasattr(warehouse, 'code') else ''
                     
-                    _logger.exception("Entrepot ", warehouse.name)
-                    
-                    # Option 1 : Basé sur le nom ou code de l'entrepôt
                     if 'LA REGRIPIERRE' in warehouse_name or 'LA REGRIPIERRE' in warehouse_code:
                         section = 'REG0701ALU'
+                        _logger.info(f"Section FMA sélectionnée: {section}")
                     elif 'LA REMAUDIERE' in warehouse_name or 'LA REMAUDIERE' in warehouse_code:
                         section = 'REM0701ACI'
+                        _logger.info(f"Section F2M sélectionnée: {section}")
                     else:
-                        section = 'REG0701ALU'  # Valeur par défaut
+                        section = 'REG0701ALU'
+                        _logger.info(f"Section par défaut (aucune correspondance): {section}")
                 else:
-                    section = 'REG0701ALU'  # Valeur par défaut si pas d'entrepôt
+                    _logger.info("Aucun warehouse trouvé - utilisation valeur par défaut")
+                    section = 'REG0701ALU'
+                
+                _logger.info(f"Section finale: {section}")
+                _logger.info("=== FIN DEBUG WAREHOUSE ===")
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
                 # 1) Convertir l’itérateur en liste **tout de suite**
