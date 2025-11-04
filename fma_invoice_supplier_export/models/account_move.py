@@ -97,7 +97,7 @@ class AccountMove(models.Model):
                 po = self.env['purchase.order'].search([('name', '=', move.invoice_origin)], limit=1)
             
             if po:
-                po_name = (po.ref or '')[:12]
+                po_name = po.name
             
                 # Récupérer l'entrepôt depuis le bon de commande
                 warehouse = None
@@ -149,7 +149,7 @@ class AccountMove(models.Model):
                 
                 _logger.warning(f"Section finale: {section}")
                 _logger.warning("=== FIN DEBUG WAREHOUSE ===")
-        section = 'REG0701ALU'        
+        #section = 'REG0701ALU'        
         analytic_code = ''
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
             if account_code:
