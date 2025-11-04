@@ -95,9 +95,10 @@ class AccountMove(models.Model):
             
                 # Récupérer l'entrepôt depuis le bon de commande
                 warehouse = None
+
                 
-                _logger.info("=== DEBUG WAREHOUSE ===")
-                _logger.info(f"PO: {po.name}")
+                _logger.warning("=== DEBUG WAREHOUSE ===")
+                _logger.warning(f"PO: {po.name}")
                 
                 # Vérifier picking_type_id
                 if hasattr(po, 'picking_type_id'):
@@ -112,7 +113,7 @@ class AccountMove(models.Model):
                 
                 # Vérifier warehouse_id direct
                 if hasattr(po, 'warehouse_id'):
-                    _logger.info(f"warehouse_id direct existe: {po.warehouse_id}")
+                    _logger.warning(f"warehouse_id direct existe: {po.warehouse_id}")
                     if po.warehouse_id and not warehouse:
                         warehouse = po.warehouse_id
                 else:
@@ -120,9 +121,9 @@ class AccountMove(models.Model):
                 
                 # Déterminer la section selon l'entrepôt
                 if warehouse:
-                    _logger.info(f"Warehouse trouvé - ID: {warehouse.id}")
-                    _logger.info(f"Warehouse name: {warehouse.name}")
-                    _logger.info(f"Warehouse code: {warehouse.code if hasattr(warehouse, 'code') else 'pas de code'}")
+                    _logger.warning(f"Warehouse trouvé - ID: {warehouse.id}")
+                    _logger.warning(f"Warehouse name: {warehouse.name}")
+                    _logger.warning(f"Warehouse code: {warehouse.code if hasattr(warehouse, 'code') else 'pas de code'}")
                     
                     warehouse_name = warehouse.name or ''
                     warehouse_code = warehouse.code if hasattr(warehouse, 'code') else ''
@@ -140,8 +141,8 @@ class AccountMove(models.Model):
                     _logger.info("Aucun warehouse trouvé - utilisation valeur par défaut")
                     section = 'REG0701ALU'
                 
-                _logger.info(f"Section finale: {section}")
-                _logger.info("=== FIN DEBUG WAREHOUSE ===")
+                _logger.warning(f"Section finale: {section}")
+                _logger.warning("=== FIN DEBUG WAREHOUSE ===")
         section = 'REG0701ALU'        
         analytic_code = ''
         for account_code, items_grouped_by_account in groupby(journal_items, key=lambda r: r.account_id.code):
