@@ -223,27 +223,15 @@ class ExportSFTPScheduler(models.Model):
                     (o.partner_shipping_id.name if getattr(o, 'partner_shipping_id', False) else ''),
                     (o.user_id.id if getattr(o, 'user_id', False) else ''),
                     (o.user_id.name if getattr(o, 'user_id', False) else ''),
-                    (o.company_id.id if getattr(o, 'company_id', False) else ''),
-                    (o.company_id.name if getattr(o, 'company_id', False) else ''),
-                    getattr(o, 'picking_policy', '') or '',
                     getattr(o, 'commitment_date', False) and o.commitment_date.strftime('%Y-%m-%d %H:%M:%S') or '',
-                    (o.warehouse_id.id if getattr(o, 'warehouse_id', False) else ''),
-                    (o.warehouse_id.name if getattr(o, 'warehouse_id', False) else ''),
-                    (o.incoterm.id if getattr(o, 'incoterm', False) else ''),
-                    (o.incoterm.name if getattr(o, 'incoterm', False) else ''),
                     (o.currency_id.name if getattr(o, 'currency_id', False) else ''),
-                    (o.pricelist_id.name if getattr(o, 'pricelist_id', False) else ''),
                     (o.payment_term_id.name if getattr(o, 'payment_term_id', False) else ''),
-                    (o.fiscal_position_id.name if getattr(o, 'fiscal_position_id', False) else ''),
                     getattr(o, 'amount_untaxed', 0.0) or 0.0,
                     getattr(o, 'amount_tax', 0.0) or 0.0,
                     getattr(o, 'amount_total', 0.0) or 0.0,
                     o.invoice_status or '',
                     ', '.join([t.name for t in getattr(o, 'tag_ids', [])]) if getattr(o, 'tag_ids', False) else '',
-                    getattr(o, 'note', '') or '',
                     getattr(o, 'confirmation_date', False) and o.confirmation_date.strftime('%Y-%m-%d %H:%M:%S') or '',
-                    o.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(o, 'create_date', False) else '',
-                    o.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(o, 'write_date', False) else '',
                     _m2o_name(getattr(o, 'x_studio_commercial_1', None)) or (getattr(o, 'x_studio_commercial_1', '') or ''),
                     _m2o_name(getattr(o, 'x_studio_srie', None)) or (getattr(o, 'x_studio_srie', '') or ''),
                     _m2o_name(getattr(o, 'x_studio_gamme', None)) or (getattr(o, 'x_studio_gamme', '') or ''),
@@ -252,10 +240,6 @@ class ExportSFTPScheduler(models.Model):
                     _m2o_name(getattr(o, 'x_studio_projet', None)) or (getattr(o, 'x_studio_projet', '') or ''),
                     getattr(o, 'so_delai_confirme_en_semaine', '') or '',
                     getattr(o, 'so_commande_client', '') or '',
-                    getattr(o, 'so_acces_bl', '') or '',
-                    getattr(o, 'so_type_camion_bl', '') or '',
-                    _float_to_hhmm(getattr(o, 'so_horaire_ouverture_bl', '')),
-                    _float_to_hhmm(getattr(o, 'so_horaire_fermeture_bl', '')),
                     _m2o_name(getattr(o, 'x_studio_mode_de_rglement', None)) or (getattr(o, 'x_studio_mode_de_rglement', '') or ''),
                     o.so_date_de_reception_devis.strftime('%Y-%m-%d') if getattr(o, 'so_date_de_reception_devis', False) else '',
                     o.so_date_du_devis.strftime('%Y-%m-%d') if getattr(o, 'so_date_du_devis', False) else '',
@@ -271,22 +255,19 @@ class ExportSFTPScheduler(models.Model):
                 order_file = write_csv(
                     f'commandes.csv',
                     [
-                        'ID','Reference','Etat','Date_commande','Date_validite','Origine','Ref_client',
+                        'ID','N° Commande','Etat','Date_commande','Date_validite','Origine','Ref_client',
                         'ID_Client','Client','ID_Facturation','Adresse_Facturation',
                         'ID_Livraison','Adresse_Livraison',
                         'ID_Utilisateur','Utilisateur',
-                        'ID_Societe','Societe',
-                        'Politique picking','Date_engagement','ID_Entrepot','Entrepot',
-                        'ID_Incoterm','Incoterm',
-                        'Devise','Liste_de_prix','Terme_de_paiement','Position_fiscale',
+                        'Date_engagement',
+                        'Devise','Terme_de_paiement',
                         'Mtt_HT','TVA','Mtt_TTC','Statut_facturation',
-                        'Tags','Note','Date_Conf','Date_Cree','Date_Modif',
+                        'Tags','Date_Conf',
                         'Commercial','Serie','Gamme','Avancement','Bureau_etude','Projet',
-                        'Delai_conf','Commande_client','Acces_BL','Type_camion_BL',
-                        'Horaire_ouverture_BL','Horaire_fermeture_BL','Mode_de_reglement',
-                        'Date_recep_devis','Date_devis','Date_modif_devis','Date_devis_ val',
-                        'Date_ARC','Date_BPE','Date_bon_pour_fab','Date_fin_de_production_reel',
-                        'Date_de_livraison','Date_de_livraison_prev'
+                        'Delai_conf','Commande_client','Mode_de_reglement',
+                        'Date_recep_demande_devis','Date_creation_devis','Date_modif_devis','Date_validation_devis_client',
+                        'Date_ARC_signe','Date_BPE','Date_debut_de_fab','Date_fin_de_fab',
+                        'Date_de_livraison_prévue','Date_de_livraison_reelle'
                     ],
                     order_data
                 )
@@ -325,7 +306,6 @@ class ExportSFTPScheduler(models.Model):
                 getattr(l, 'qty_delivered', 0.0) or 0.0,
                 getattr(l, 'qty_invoiced', 0.0) or 0.0,
                 (l.product_uom.name if getattr(l, 'product_uom', False) else ''),
-                getattr(l, 'customer_lead', 0.0) or 0.0,
                 # Prix / taxes / totaux
                 getattr(l, 'price_unit', 0.0) or 0.0,
                 getattr(l, 'discount', 0.0) or 0.0,
@@ -337,12 +317,6 @@ class ExportSFTPScheduler(models.Model):
                 (l.currency_id.name if getattr(l, 'currency_id', False) else ''),
                 (l.company_id.name if getattr(l, 'company_id', False) else ''),
                 (l.order_id.user_id.name if (getattr(l, 'order_id', False) and getattr(l.order_id, 'user_id', False)) else ''),
-                # Analytique
-                (l.analytic_account_id.name if getattr(l, 'analytic_account_id', False) else ''),
-                ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
-                # Dates / meta
-                l.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'create_date', False) else '',
-                l.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'write_date', False) else '',
             ) for l in order_lines]
             order_line_file = write_csv(
                 f'lignes_commandes.csv',
@@ -351,11 +325,9 @@ class ExportSFTPScheduler(models.Model):
                     'ID_Commande','NumCommande','Description','Type_affichage','Etat_commande','Date_commande',
                     'ID_Client','Client',
                     'ID_Article','Code_article','Nom_article','Categorie_article',
-                    'Qte_Cde','Qte_Liv','Qte_Fact','UoM','Delai_client',
-                    'PU_HT','Pour_Rem','Taxes','Mtt_Sst_HT','TVA','Mtt_Tot_TTC',
-                    'Devise','Societe','Commercial',
-                    'Compte_Analytique','Tags_analytiques',
-                    'Date_Cree','Date_Modif'
+                    'Qte_Cde','Qte_Liv','Qte_Fact','UoM',
+                    'PU_HT','Pourcentage_Rem','Taxes','Mtt_Sst_HT','TVA','Mtt_Tot_TTC',
+                    'Devise','Societe','Commercial'
                 ],
                 order_line_data
             )
@@ -368,7 +340,6 @@ class ExportSFTPScheduler(models.Model):
             invoice_data = [(
                 i.id,
                 i.name or '',
-                getattr(i, 'state', '') or '',
                 getattr(i, 'move_type', '') or '',
                 i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
                 i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
@@ -378,48 +349,31 @@ class ExportSFTPScheduler(models.Model):
                 # Partenaire / bancaire
                 (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
                 (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
-                (i.partner_bank_id.acc_number if getattr(i, 'partner_bank_id', False) else ''),
                 # Organisation
-                (i.invoice_user_id.id if getattr(i, 'invoice_user_id', False) else ''),
-                (i.invoice_user_id.name if getattr(i, 'invoice_user_id', False) else ''),
-                (i.company_id.id if getattr(i, 'company_id', False) else ''),
-                (i.company_id.name if getattr(i, 'company_id', False) else ''),
-                (i.journal_id.id if getattr(i, 'journal_id', False) else ''),
-                (i.journal_id.name if getattr(i, 'journal_id', False) else ''),
                 (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
                 (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
                 (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
                 # Montants
-                getattr(i, 'amount_untaxed', 0.0) or 0.0,
-                getattr(i, 'amount_tax', 0.0) or 0.0,
-                getattr(i, 'amount_total', 0.0) or 0.0,
                 getattr(i, 'amount_residual', 0.0) or 0.0,
                 getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,
                 getattr(i, 'amount_total_signed', 0.0) or 0.0,
-                # Références / incoterm / paiement
-                getattr(i, 'payment_reference', '') or '',
-                (getattr(i, 'invoice_incoterm_id', False) and i.invoice_incoterm_id.name or ''),
                 # Divers
-                getattr(i, 'narration', '') or '',
                 getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
                 getattr(i, 'x_studio_mode_de_reglement_1', 0.0) or 0.0,
                 getattr(i, 'inv_activite', 0.0) or 0.0,
                 ', '.join([t.name for t in getattr(i, 'invoice_line_ids', [])]) if False else len(getattr(i, 'invoice_line_ids', [])),
-                i.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'create_date', False) else '',
-                i.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(i, 'write_date', False) else '',
             ) for i in invoices]
             invoice_file = write_csv(
                 f'factures.csv',
                 [
-                    'ID','NumFact','Etat','Type',
+                    'ID','NumFact','Type',
                     'Date','Echeance','Origine','Reference','Etat_Paiement',
-                    'ID_Client','Client','Compte_bancaire_client',
-                    'ID_Vendeur','Vendeur','ID_Societe','Societe',
-                    'ID_Journal','Journal','Devise','Terme_de_paiement','Position_fiscale',
-                    'Mtt_HT','TVA','Mtt_TTC','Solde',
-                    'Mtt_HT_sign','Mtt_TTC_sign',
-                    'Reference_paiement','Incoterm','Narration','Affaire','Mode_Reglement','Activite','Nb_lignes',
-                    'Date_Cree','Date_Modif'
+                    'ID_Client','Client',
+                    'ID_Vendeur','Devise','Terme_de_paiement','Position_fiscale',
+                    'Mtt_du',
+                    'Mtt_HT','Mtt_TTC',
+                    'Affaire','Mode_Reglement','Activite','Nb_lignes'
+                    
                 ],
                 invoice_data
             )
@@ -439,11 +393,9 @@ class ExportSFTPScheduler(models.Model):
                 # Move / facture
                 (l.move_id.id if getattr(l, 'move_id', False) else ''),
                 (l.move_id.name if getattr(l, 'move_id', False) else ''),
-                (l.move_id.state if getattr(l, 'move_id', False) else ''),
                 (l.move_id.invoice_date.strftime('%Y-%m-%d') if (getattr(l, 'move_id', False) and getattr(l.move_id, 'invoice_date', False)) else ''),
                 (l.move_id.partner_id.id if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
                 (l.move_id.partner_id.name if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
-                (l.move_id.journal_id.name if (getattr(l, 'move_id', False) and getattr(l.move_id, 'journal_id', False)) else ''),
                 # Ligne
                 getattr(l, 'name', '') or '',
                 (getattr(l, 'display_type', '') or ''),
@@ -473,24 +425,21 @@ class ExportSFTPScheduler(models.Model):
                 ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
                 # Lien vente
                 (l.sale_line_ids[0].id if getattr(l, 'sale_line_ids', False) and l.sale_line_ids else ''),
-                # Méta
-                l.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'create_date', False) else '',
-                l.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(l, 'write_date', False) else '',
+                
             ) for l in invoice_lines]
             invoice_line_file = write_csv(
                 f'lignes_factures.csv',
                 [
                     'ID_Ligne','Sequence',
-                    'ID_Facture','NumFac','Etat_facture','Date_facture',
-                    'ID_Client','Client','Journal',
+                    'ID_Facture','NumFac','Date_facture',
+                    'ID_Client','Client',
                     'Libelle','Type_affichage',
                     'ID_Article','Code_article','Nom_article','Categorie_article',
                     'Qte','UoM',
-                    'PU_HT','Taxes','Mtt_Sst_HT','Mtt_Tot_TTC','Devise',
+                    'PU_HT','Taxes','Mtt_HT','Mtt_TTC','Devise',
                     'Compte_code','Compte_libelle','Debit','Credit','Balance','Mtt_devise',
                     'Compte_Analytique','Tags_analytiques',
-                    'ID_Ligne_Commande',
-                    'Date_Cree','Date_Modif'
+                    'ID_Ligne_Commande'
                 ],
                 invoice_line_data
             )
