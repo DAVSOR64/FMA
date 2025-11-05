@@ -27,6 +27,7 @@ class AccountMove(models.Model):
                 return
 
             #filename = 'REGLEMENT_DATE.csv'
+            
             # Récupère la date du jour au format ddmmyyyy
             today = date.today().strftime("%d%m%Y")
             
