@@ -175,7 +175,7 @@ class ExportSFTPScheduler(models.Model):
                     getattr(p, 'x_studio_compte', '') or '',
                     getattr(p, 'x_studio_code_diap', '') or '',
                     getattr(p, 'x_studio_mode_de_rglement_dsa', '') or '',
-                    getattr(p, 'x_studio_mode_de_rglement_dsa.x_studio_libelle', '') or '',
+                    getattr(p, 'x_reglements.x_studio_libelle', '') or '',
                     #bool(getattr(p, 'active', True)),
                     getattr(p, 'html2plaintext(comment).strip()', '') or '',
                     p.siret or '',
