@@ -175,6 +175,7 @@ class ExportSFTPScheduler(models.Model):
                     getattr(p, 'x_studio_compte', '') or '',
                     getattr(p, 'x_studio_code_diap', '') or '',
                     getattr(p, 'x_studio_mode_de_rglement_dsa', '') or '',
+                    getattr(p, 'x_studio_mode_de_rglement_dsa.x_studio_libelle', '') or '',
                     #bool(getattr(p, 'active', True)),
                     getattr(p, 'html2plaintext(comment).strip()', '') or '',
                     p.siret or '',
@@ -198,7 +199,7 @@ class ExportSFTPScheduler(models.Model):
                         'ID','Type','Id Société rattachée','Societe rattachée','Nom',
                         'Civilite','Rue','Rue 2','Ville','Code Postal',
                         'Telephone','Mobile','Email',
-                        'TVA','Commercial','Compte_Progi','Code_Diap','Mode_de_reglement','Commentaire',
+                        'TVA','Commercial','Compte_Progi','Code_Diap','Mode_de_reglement','Libellé','Commentaire',
                         'Siret','Siren','Date demande ND COVER ','Garantie Spécifique','Encours Assuré','Encours autorisé',
                         'Encours','Mtt_Echu','Mtt_Non_Echu','Date_creation','Date_Modification',
                         'Catégorie'
