@@ -18,7 +18,8 @@ class MrpProduction(models.Model):
 
     def write(self, vals):
         res = super().write(vals)
-        self._compute_date_macro()
+        if not self.env.context.get('no_recompute'):
+            self._compute_date_macro()
         return res
 
     def _compute_date_macro(self):
@@ -59,7 +60,6 @@ class MrpProduction(models.Model):
                 last_date = workcenter_calendar.plan_hours(-work.duration_expected / 60, last_date)
                 last_date = workcenter_calendar.plan_days(-1, last_date)
 
-            # 🔹 Mise à jour des dates de production
             if production.workorder_ids:
                 all_dates = [w.date_macro for w in production.workorder_ids if w.date_macro]
                 if all_dates:
