@@ -151,33 +151,36 @@ class ExportSFTPScheduler(models.Model):
         try:
             # ==================== Clients ====================
             try:
-                clients = self.env['res.partner'].search([('customer_rank', '>', 0), ('is_company', '=', True)])
+                clients = self.env['res.partner'].search([('customer_rank', '>', 0)
                 client_data = [(
                     p.id,
-                    p.name or '',
                     getattr(p, 'company_type', '') or '',
-                    bool(getattr(p, 'is_company', False)),
+                    p.parent_name or '',
+                    p.name or '',
+                    #bool(getattr(p, 'is_company', False)),
                     getattr(p, 'x_studio_civilit_1', '') or '',
                     p.street or '',
                     getattr(p, 'street2', '') or '',
                     p.city or '',
                     p.zip or '',
-                    (p.country_id.name if getattr(p, 'country_id', False) else ''),
+                    #(p.country_id.name if getattr(p, 'country_id', False) else ''),
                     p.phone or '',
                     getattr(p, 'mobile', '') or '',
                     p.email or '',
                     p.vat or '',
                     _m2o_name(getattr(p, 'x_studio_commercial_1', None)) or (getattr(p, 'x_studio_commercial_1', '') or ''),
-                    getattr(p, 'x_studio_gneration_n_compte_1', '') or '',
+                    #getattr(p, 'x_studio_gneration_n_compte_1', '') or '',
                     getattr(p, 'x_studio_compte', '') or '',
                     getattr(p, 'x_studio_code_diap', '') or '',
                     getattr(p, 'x_studio_mode_de_rglement_dsa', '') or '',
-                    bool(getattr(p, 'active', True)),
+                    #bool(getattr(p, 'active', True)),
                     getattr(p, 'comment', '') or '',
                     p.siret or '',
                     getattr(p, 'part_siren', '') or '',
-                    getattr(p, 'part_affacturage', '') or '',
+                    getattr(p, 'part_date_couverture', '') or '',
                     getattr(p, 'part_montant_couverture', '') or '',
+                    getattr(p, 'part_decision', '') or '',
+                    getattr(p, 'part_encours_autoris', '') or '',
                     getattr(p, 'outstandings', '') or '',
                     getattr(p, 'x_studio_mtt_echu', '') or '',
                     getattr(p, 'x_studio_mtt_non_echu', '') or '',
@@ -191,11 +194,13 @@ class ExportSFTPScheduler(models.Model):
                 client_file = write_csv(
                     f'clients.csv',
                     [
-                        'ID','Nom','Type_societe','Societe',
-                        'Civilite','Rue','Rue 2','Ville','Code Postal','Pays',
+                        'ID','Type','Societe rattachée','Nom',
+                        'Civilite','Rue','Rue 2','Ville','Code Postal',
                         'Telephone','Mobile','Email',
-                        'TVA','Commercial','Compte_Genere','Compte_Progi','Code_Diap','Mode_de_reglement','ACtif','Commentaire',
-                        'Siret','Siren','Affacturage','Mtt_Couverture','Encours','Mtt_Echu','Mtt_Non_Echu','Date_creation','Date_Modification',
+                        'TVA','Commercial','Compte_Progi','Code_Diap','Mode_de_reglement','Commentaire',
+                        'Siret','Siren','Date demande ND COVER ','Garantie Spécifique','Encours Assuré','Encours autorisé',
+                        'Encours','Mtt_Echu','Mtt_Non_Echu','Date_creation','Date_Modification',
+                        'Catégorie','N° compte bancaire','Contacts',
                     ],
                     client_data
                 )
