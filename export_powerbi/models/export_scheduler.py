@@ -219,7 +219,7 @@ class ExportSFTPScheduler(models.Model):
                     o.name or '',
                     o.state or '',
                     o.date_order.strftime('%Y-%m-%d %H:%M:%S') if getattr(o, 'date_order', False) else '',
-                    getattr(o, 'validity_date', False) and o.validity_date.strftime('%Y-%m-%d') or '',
+                    #getattr(o, 'validity_date', False) and o.validity_date.strftime('%Y-%m-%d') or '',
                     o.origin or '',
                     #getattr(o, 'client_order_ref', '') or '',
                     (o.partner_id.id if getattr(o, 'partner_id', False) else ''),
@@ -238,7 +238,7 @@ class ExportSFTPScheduler(models.Model):
                     getattr(o, 'amount_total', 0.0) or 0.0,
                     o.invoice_status or '',
                     ', '.join([t.name for t in getattr(o, 'tag_ids', [])]) if getattr(o, 'tag_ids', False) else '',
-                    getattr(o, 'confirmation_date', False) and o.confirmation_date.strftime('%Y-%m-%d %H:%M:%S') or '',
+                    #getattr(o, 'confirmation_date', False) and o.confirmation_date.strftime('%Y-%m-%d %H:%M:%S') or '',
                     _m2o_name(getattr(o, 'x_studio_commercial_1', None)) or (getattr(o, 'x_studio_commercial_1', '') or ''),
                     _m2o_name(getattr(o, 'x_studio_srie', None)) or (getattr(o, 'x_studio_srie', '') or ''),
                     _m2o_name(getattr(o, 'x_studio_gamme', None)) or (getattr(o, 'x_studio_gamme', '') or ''),
@@ -262,18 +262,18 @@ class ExportSFTPScheduler(models.Model):
                 order_file = write_csv(
                     f'commandes.csv',
                     [
-                        'ID','N° Commande','Etat','Date Création Devis (ODOO)','Date_validite','Origine',
+                        'ID','N° Commande','Etat','Date Création Devis (ODOO)','Origine',
                         'ID Client','Client','ID Facturation','Adresse Facturation',
                         'ID Livraison','Adresse Livraison',
                         'ID BEC Ventes ','BEC Ventes',
                         'Devise','Conditions de paiement',
                         'Mtt_HT','TVA','Mtt_TTC','Statut_facturation',
-                        'Tags','Date_Conf',
+                        'Tags',
                         'Commercial','Serie','Gamme','Avancement','BET Méthodes','Projet',
-                        'Delai_conf','Commande_client','Mode_de_reglement',
-                        'Date_recep_demande_devis','Date_creation_devis','Date_modif_devis','Date_validation_devis_client',
-                        'Date_ARC_signe','Date_BPE','Date_debut_de_fab','Date_fin_de_fab',
-                        'Date_de_livraison_prévue','Date_de_livraison_reelle'
+                        'Delai confirmé en semaine','Commande client','Mode de reglement',
+                        'Date recep demande devis','Date creation devis','Derniere Date modif devis','Date validation devis par le client',
+                        'Date réception ARC signe','Date BPE','Date debut de fab','Date fin de fab',
+                        'Date de livraison prévue','Date de livraison reelle'
                     ],
                     order_data
                 )
