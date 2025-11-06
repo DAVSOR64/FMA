@@ -155,6 +155,7 @@ class ExportSFTPScheduler(models.Model):
                 client_data = [(
                     p.id,
                     getattr(p, 'company_type', '') or '',
+                    p.parent_id or '',
                     p.parent_name or '',
                     p.name or '',
                     #bool(getattr(p, 'is_company', False)),
@@ -187,20 +188,19 @@ class ExportSFTPScheduler(models.Model):
                     p.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'create_date', False) else '',
                     p.write_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(p, 'write_date', False) else '',
                     ', '.join([c.name for c in getattr(p, 'category_id', [])]) if getattr(p, 'category_id', False) else '',
-                    ', '.join([b.acc_number for b in getattr(p, 'bank_ids', [])]) if getattr(p, 'bank_ids', False) else '',
-                    len(getattr(p, 'child_ids', [])) if getattr(p, 'child_ids', False) else 0,
+                    
                     
                 ) for p in clients]
                 client_file = write_csv(
                     f'clients.csv',
                     [
-                        'ID','Type','Societe rattachée','Nom',
+                        'ID','Type','Id Société rattachée','Societe rattachée','Nom',
                         'Civilite','Rue','Rue 2','Ville','Code Postal',
                         'Telephone','Mobile','Email',
                         'TVA','Commercial','Compte_Progi','Code_Diap','Mode_de_reglement','Commentaire',
                         'Siret','Siren','Date demande ND COVER ','Garantie Spécifique','Encours Assuré','Encours autorisé',
                         'Encours','Mtt_Echu','Mtt_Non_Echu','Date_creation','Date_Modification',
-                        'Catégorie','N° compte bancaire','Contacts',
+                        'Catégorie'
                     ],
                     client_data
                 )
