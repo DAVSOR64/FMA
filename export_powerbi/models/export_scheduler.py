@@ -8,6 +8,7 @@ import posixpath
 from pathlib import Path
 from datetime import datetime, date
 from odoo import models, fields, api
+from odoo.tools import html2plaintext
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -155,7 +156,7 @@ class ExportSFTPScheduler(models.Model):
                 client_data = [(
                     p.id,
                     getattr(p, 'company_type', '') or '',
-                    p.parent_id or '',
+                    p.parent_id.id or '',
                     p.parent_name or '',
                     p.name or '',
                     #bool(getattr(p, 'is_company', False)),
@@ -175,7 +176,7 @@ class ExportSFTPScheduler(models.Model):
                     getattr(p, 'x_studio_code_diap', '') or '',
                     getattr(p, 'x_studio_mode_de_rglement_dsa', '') or '',
                     #bool(getattr(p, 'active', True)),
-                    getattr(p, 'comment', '') or '',
+                    getattr(p, 'html2plaintext(comment).strip()', '') or '',
                     p.siret or '',
                     getattr(p, 'part_siren', '') or '',
                     getattr(p, 'part_date_couverture', '') or '',
