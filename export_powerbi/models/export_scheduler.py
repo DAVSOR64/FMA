@@ -404,7 +404,7 @@ class ExportSFTPScheduler(models.Model):
                     # Montants
                     getattr(i, 'amount_residual', 0.0) or 0.0,
                     getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,   # HT signé "normal" (inclut acomptes)
-                    ht_sans_acompte_signed(i),                         # 🔥 HT signé sans acomptes
+                    ht_no_dp,                         # 🔥 HT signé sans acomptes
                     getattr(i, 'amount_total_signed', 0.0) or 0.0,
                     # Divers
                     getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
