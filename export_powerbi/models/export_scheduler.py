@@ -344,7 +344,19 @@ class ExportSFTPScheduler(models.Model):
             # =========================================================
             # Factures (account.move - ventes postées)
             # =========================================================
-            invoices = self.env['account.move'].search([('move_type', '=', 'out_invoice'), ('state', '=', 'posted')])
+            invoices = self.env['account.move'].search([('state', '=', 'posted'),
+                                                       ('move_type', 'in', ['out_invoice', 'out_refund']),
+                                                       ('invoice_line_ids.display_type', '=', False),
+                                                       ('invoice_line_ids.is_downpayment', '=', False)])
+            def ht_sans_acompte_signed(inv):
+                # Lignes utiles (hors sections/notes)
+                lines = inv.invoice_line_ids.filtered(lambda l: not l.display_type)
+                # HT des lignes non-acompte, en devise de la facture
+                ht = sum((l.price_subtotal or 0.0) for l in lines if not getattr(l, 'is_downpayment', False))
+                # Aligner le signe avec *_signed (facture +, avoir -)
+                sign = 1.0 if inv.move_type == 'out_invoice' else -1.0
+                return inv.currency_id.round(ht * sign) if inv.currency_id else (ht * sign)
+                
             invoice_data = [(
                 i.id,
                 i.name or '',
@@ -352,7 +364,7 @@ class ExportSFTPScheduler(models.Model):
                 i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
                 i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
                 getattr(i, 'invoice_origin', '') or '',
-                i.ref or '',
+                #i.ref or '',
                 i.payment_state or '',
                 # Partenaire / bancaire
                 (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
@@ -360,27 +372,28 @@ class ExportSFTPScheduler(models.Model):
                 # Organisation
                 (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
                 (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
+                i.x_studio_mode_reglement_1 or '',
+                i.x_studio_libelle_1 or '',
                 (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
                 # Montants
                 getattr(i, 'amount_residual', 0.0) or 0.0,
                 getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,
+                ht_sans_acompte_signed(i) or 0.0,
                 getattr(i, 'amount_total_signed', 0.0) or 0.0,
                 # Divers
                 getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
-                getattr(i, 'x_studio_mode_de_reglement_1', 0.0) or 0.0,
                 getattr(i, 'inv_activite', 0.0) or 0.0,
                 ', '.join([t.name for t in getattr(i, 'invoice_line_ids', [])]) if False else len(getattr(i, 'invoice_line_ids', [])),
             ) for i in invoices]
             invoice_file = write_csv(
                 f'factures.csv',
                 [
-                    'ID','NumFact','Type',
-                    'Date','Echeance','Origine','Reference','Etat_Paiement',
-                    'ID_Client','Client',
-                    'ID_Vendeur','Devise','Terme_de_paiement','Position_fiscale',
-                    'Mtt_du',
-                    'Mtt_HT','Mtt_TTC',
-                    'Affaire','Mode_Reglement','Activite','Nb_lignes'
+                    'ID','Numero de Facture','Type',
+                    'Date Facture','Echeance','Origine','Etat_Paiement',
+                    'ID Client','Client',
+                    'Devise','Condition de paiement','Mode de reglement','Libelle mode de reglement','Position_fiscale',
+                    'Mtt dû','Mtt HT Facture','Mtt HT sans acompte','Mtt TTC Facture',
+                    'Affaire','Activite','Nb_lignes'
                     
                 ],
                 invoice_data
