@@ -348,47 +348,23 @@ class ExportSFTPScheduler(models.Model):
             try:
                 invoices = self.env['account.move'].search([
                     ('state', '=', 'posted'),
-                    ('move_type', 'in', ['out_invoice', 'out_refund'])
+                    ('move_type', 'in', ['out_invoice', 'out_refund']),
+                    ('invoice_line_ids.product_id.default_code', 'not ilike', 'ACPT'),
                 ])
             
-                def _is_downpayment_line(l):
-                    """Détecte les lignes d'acompte via la référence article contenant 'ACPT'."""
-                    try:
-                        # Ignore les lignes de type "section" ou "note"
-                        if getattr(l, 'display_type', False):
-                            return False
-            
-                        # Vérifie si le produit existe et a une référence
-                        prod = getattr(l, 'product_id', False)
-                        if not prod or not getattr(prod, 'default_code', False):
-                            return False
-            
-                        # Test sur la référence produit
-                        code = prod.default_code or ''
-                        return 'ACPT' in code.upper()
-                    except Exception:
-                        return False
-            
-                def _ht_sans_acompte_signed(inv):
-                    """Retourne le HT signé hors lignes ACPT, ou None si la facture n'a que des lignes ACPT."""
+                def _ht_sans_acpt_signed(inv):
                     lines = inv.invoice_line_ids.filtered(lambda l: not l.display_type)
-            
-                    # Si toutes les lignes "normales" sont des acomptes -> on exclut la facture
-                    if lines and all(_is_downpayment_line(l) for l in lines):
-                        return None
-            
-                    # Somme des sous-totaux hors lignes d'acompte
-                    ht = sum((l.price_subtotal or 0.0) for l in lines if not _is_downpayment_line(l))
-            
+                    ht = 0.0
+                    for l in lines:
+                        code = (getattr(l.product_id, 'default_code', '') or '').upper() if getattr(l, 'product_id', False) else ''
+                        if 'ACPT' not in code:
+                            ht += (getattr(l, 'price_subtotal', 0.0) or 0.0)
                     sign = 1.0 if inv.move_type == 'out_invoice' else -1.0
                     return inv.currency_id.round(ht * sign) if inv.currency_id else (ht * sign)
 
+
                 invoice_data = []
                 for i in invoices:
-                    ht_no_dp = _ht_sans_acompte_signed(i)
-                    if ht_no_dp is None:
-                        continue  # on saute les factures 100 % ACPT
-                
                     invoice_data = [(
                         i.id,
                         i.name or '',
@@ -410,7 +386,7 @@ class ExportSFTPScheduler(models.Model):
                         # Montants
                         getattr(i, 'amount_residual', 0.0) or 0.0,
                         getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,   # HT signé "normal" (inclut acomptes)
-                        ht_no_dp,                         # 🔥 HT signé sans acomptes
+                        _ht_sans_acpt_signed(i),                         # 🔥 HT signé sans acomptes
                         getattr(i, 'amount_total_signed', 0.0) or 0.0,
                         # Divers
                         getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
