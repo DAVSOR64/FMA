@@ -344,180 +344,182 @@ class ExportSFTPScheduler(models.Model):
             # =========================================================
             # Factures (account.move - ventes postées)
             # =========================================================
-            self.env['account.move'].search([('state', '=', 'posted'), 
+            try :
+                self.env['account.move'].search([('state', '=', 'posted'), 
                                              ('move_type', 'in', ['out_invoice', 'out_refund']), 
                                              ('invoice_line_ids.display_type', '=', False), 
                                              ('invoice_line_ids.is_downpayment', '=', False)])
-            invoice_data = [( 
-                i.id, i.name or '', getattr(i, 'move_type', '') or '', 
-                i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '', 
-                i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '', 
-                getattr(i, 'invoice_origin', '') or '', 
-                #i.ref or '', 
-                i.payment_state or '', 
-                # Partenaire / bancaire (i.partner_id.id if getattr(i, 'partner_id', False) else ''), 
-                (i.partner_id.name if getattr(i, 'partner_id', False) else ''), 
-                # Organisation (i.currency_id.name if getattr(i, 'currency_id', False) else ''), 
-                (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''), 
-                i.x_studio_mode_reglement_1 or '', 
-                i.x_studio_libelle_1 or '', 
-                (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''), 
-                # Montants getattr(i, 'amount_residual', 0.0) or 0.0, 
-                getattr(i, 'amount_untaxed_signed', 0.0) or 0.0, 
-                getattr(i, 'amount_total_signed', 0.0) or 0.0, 
-                getattr(i, 'x_studio_projet_vente', 0.0) or 0.0, 
-                getattr(i, 'inv_activite', 0.0) or 0.0, 
-                ', '.join([t.name for t in getattr(i, 'invoice_line_ids', [])]) if False else len(getattr(i, 'invoice_line_ids', [])),
-            ) for i in invoices]
-            invoice_file = write_csv(
-                f'factures.csv', 
-                [ 
-                    'ID','Numero de Facture','Type', 
-                    'Date Facture','Echeance','Origine',
-                    'Etat_Paiement', 'ID Client','Client', 'Devise',
-                    'Condition de paiement','Mode de reglement',
-                    'Libelle mode de reglement','Position_fiscale', 
-                    'Mtt_du','Mtt_HT','Mtt_TTC', 'Affaire','Activite',
-                    'Nb_lignes' 
-                ], 
-                invoice_data 
-            ) 
-            create_attachment(invoice_file, os.path.basename(invoice_file))
-
-            # =========================================================
-            # Lignes de factures (account.move.line)
-            # =========================================================
-            invoice_lines = self.env['account.move.line'].search([
-                ('move_id.move_type', '=', 'out_invoice'),
-                ('move_id.state', '=', 'posted'),
-                ('product_id', '!=', False)
-            ])
-            invoice_line_data = [(
-                l.id,
-                getattr(l, 'sequence', 10),
-                # Move / facture
-                (l.move_id.id if getattr(l, 'move_id', False) else ''),
-                (l.move_id.name if getattr(l, 'move_id', False) else ''),
-                (l.move_id.invoice_date.strftime('%Y-%m-%d') if (getattr(l, 'move_id', False) and getattr(l.move_id, 'invoice_date', False)) else ''),
-                (l.move_id.partner_id.id if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
-                (l.move_id.partner_id.name if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
-                # Ligne
-                getattr(l, 'name', '') or '',
-                (getattr(l, 'display_type', '') or ''),
-                # Produit
-                (l.product_id.id if getattr(l, 'product_id', False) else ''),
-                (l.product_id.default_code if getattr(l, 'product_id', False) else '') or '',
-                (l.product_id.name if getattr(l, 'product_id', False) else '') or '',
-                (l.product_id.categ_id.name if (getattr(l, 'product_id', False) and getattr(l.product_id, 'categ_id', False)) else '') or '',
-                # Quantité / UoM
-                getattr(l, 'quantity', 0.0) or 0.0,
-                (getattr(l, 'product_uom_id', False) and l.product_uom_id.name or ''),
-                # Prix / taxes / totaux (facture-line API)
-                getattr(l, 'price_unit', 0.0) or 0.0,
-                ', '.join([t.name for t in getattr(l, 'tax_ids', [])]) if getattr(l, 'tax_ids', False) else '',
-                getattr(l, 'price_subtotal', 0.0) or 0.0,
-                getattr(l, 'price_total', 0.0) or 0.0,
-                (l.currency_id.name if getattr(l, 'currency_id', False) else ''),
-                # Comptabilité
-                (l.account_id.code if getattr(l, 'account_id', False) else ''),
-                (l.account_id.name if getattr(l, 'account_id', False) else ''),
-                getattr(l, 'debit', 0.0) or 0.0,
-                getattr(l, 'credit', 0.0) or 0.0,
-                getattr(l, 'balance', 0.0) or 0.0,
-                getattr(l, 'amount_currency', 0.0) or 0.0,
-                # Analytique
-                (l.analytic_account_id.name if getattr(l, 'analytic_account_id', False) else ''),
-                ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
-                # Lien vente
-                (l.sale_line_ids[0].id if getattr(l, 'sale_line_ids', False) and l.sale_line_ids else ''),
-                
-            ) for l in invoice_lines]
-            invoice_line_file = write_csv(
-                f'lignes_factures.csv',
-                [
-                    'ID_Ligne','Sequence',
-                    'ID_Facture','NumFac','Date_facture',
-                    'ID_Client','Client',
-                    'Libelle','Type_affichage',
-                    'ID_Article','Code_article','Nom_article','Categorie_article',
-                    'Qte','UoM',
-                    'PU_HT','Taxes','Mtt_HT','Mtt_TTC','Devise',
-                    'Compte_code','Compte_libelle','Debit','Credit','Balance','Mtt_devise',
-                    'Compte_Analytique','Tags_analytiques',
-                    'ID_Ligne_Commande'
-                ],
-                invoice_line_data
-            )
-            create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
+                invoice_data = [( 
+                    i.id, i.name or '', getattr(i, 'move_type', '') or '', 
+                    i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '', 
+                    i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '', 
+                    getattr(i, 'invoice_origin', '') or '', 
+                    #i.ref or '', 
+                    i.payment_state or '', 
+                    # Partenaire / bancaire (i.partner_id.id if getattr(i, 'partner_id', False) else ''), 
+                    (i.partner_id.name if getattr(i, 'partner_id', False) else ''), 
+                    # Organisation (i.currency_id.name if getattr(i, 'currency_id', False) else ''), 
+                    (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''), 
+                    i.x_studio_mode_reglement_1 or '', 
+                    i.x_studio_libelle_1 or '', 
+                    (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''), 
+                    # Montants getattr(i, 'amount_residual', 0.0) or 0.0, 
+                    getattr(i, 'amount_untaxed_signed', 0.0) or 0.0, 
+                    getattr(i, 'amount_total_signed', 0.0) or 0.0, 
+                    getattr(i, 'x_studio_projet_vente', 0.0) or 0.0, 
+                    getattr(i, 'inv_activite', 0.0) or 0.0, 
+                    ', '.join([t.name for t in getattr(i, 'invoice_line_ids', [])]) if False else len(getattr(i, 'invoice_line_ids', [])),
+                ) for i in invoices]
+                invoice_file = write_csv(
+                    f'factures.csv', 
+                    [ 
+                        'ID','Numero de Facture','Type', 
+                        'Date Facture','Echeance','Origine',
+                        'Etat_Paiement', 'ID Client','Client', 'Devise',
+                        'Condition de paiement','Mode de reglement',
+                        'Libelle mode de reglement','Position_fiscale', 
+                        'Mtt_du','Mtt_HT','Mtt_TTC', 'Affaire','Activite',
+                        'Nb_lignes' 
+                    ], 
+                    invoice_data 
+                ) 
+                create_attachment(invoice_file, os.path.basename(invoice_file))
+    
+                # =========================================================
+                # Lignes de factures (account.move.line)
+                # =========================================================
+                invoice_lines = self.env['account.move.line'].search([
+                    ('move_id.move_type', '=', 'out_invoice'),
+                    ('move_id.state', '=', 'posted'),
+                    ('product_id', '!=', False)
+                ])
+                invoice_line_data = [(
+                    l.id,
+                    getattr(l, 'sequence', 10),
+                    # Move / facture
+                    (l.move_id.id if getattr(l, 'move_id', False) else ''),
+                    (l.move_id.name if getattr(l, 'move_id', False) else ''),
+                    (l.move_id.invoice_date.strftime('%Y-%m-%d') if (getattr(l, 'move_id', False) and getattr(l.move_id, 'invoice_date', False)) else ''),
+                    (l.move_id.partner_id.id if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
+                    (l.move_id.partner_id.name if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
+                    # Ligne
+                    getattr(l, 'name', '') or '',
+                    (getattr(l, 'display_type', '') or ''),
+                    # Produit
+                    (l.product_id.id if getattr(l, 'product_id', False) else ''),
+                    (l.product_id.default_code if getattr(l, 'product_id', False) else '') or '',
+                    (l.product_id.name if getattr(l, 'product_id', False) else '') or '',
+                    (l.product_id.categ_id.name if (getattr(l, 'product_id', False) and getattr(l.product_id, 'categ_id', False)) else '') or '',
+                    # Quantité / UoM
+                    getattr(l, 'quantity', 0.0) or 0.0,
+                    (getattr(l, 'product_uom_id', False) and l.product_uom_id.name or ''),
+                    # Prix / taxes / totaux (facture-line API)
+                    getattr(l, 'price_unit', 0.0) or 0.0,
+                    ', '.join([t.name for t in getattr(l, 'tax_ids', [])]) if getattr(l, 'tax_ids', False) else '',
+                    getattr(l, 'price_subtotal', 0.0) or 0.0,
+                    getattr(l, 'price_total', 0.0) or 0.0,
+                    (l.currency_id.name if getattr(l, 'currency_id', False) else ''),
+                    # Comptabilité
+                    (l.account_id.code if getattr(l, 'account_id', False) else ''),
+                    (l.account_id.name if getattr(l, 'account_id', False) else ''),
+                    getattr(l, 'debit', 0.0) or 0.0,
+                    getattr(l, 'credit', 0.0) or 0.0,
+                    getattr(l, 'balance', 0.0) or 0.0,
+                    getattr(l, 'amount_currency', 0.0) or 0.0,
+                    # Analytique
+                    (l.analytic_account_id.name if getattr(l, 'analytic_account_id', False) else ''),
+                    ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
+                    # Lien vente
+                    (l.sale_line_ids[0].id if getattr(l, 'sale_line_ids', False) and l.sale_line_ids else ''),
+                    
+                ) for l in invoice_lines]
+                invoice_line_file = write_csv(
+                    f'lignes_factures.csv',
+                    [
+                        'ID_Ligne','Sequence',
+                        'ID_Facture','NumFac','Date_facture',
+                        'ID_Client','Client',
+                        'Libelle','Type_affichage',
+                        'ID_Article','Code_article','Nom_article','Categorie_article',
+                        'Qte','UoM',
+                        'PU_HT','Taxes','Mtt_HT','Mtt_TTC','Devise',
+                        'Compte_code','Compte_libelle','Debit','Credit','Balance','Mtt_devise',
+                        'Compte_Analytique','Tags_analytiques',
+                        'ID_Ligne_Commande'
+                    ],
+                    invoice_line_data
+                )
+                create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
             
             #========================================
             # Commande Appro (purchase.order)                            
             #==========================================
-            purchases = self.env['purchase.order'].search([])
-            purchase_data = [(
-                j.id,
-                j.name or '',
-                j.partner_id.id or '',
-                j.partner_id.name or '',
-                getattr(j, 'x_studio_projet_du_so', '') or '',
-                getattr(j, 'x_studio_commentaire_interne_', '') or '',
-                getattr(j, 'x_studio_rfrence', '') or '',
-                j.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(j, 'create_date', False) else '',
-                j.date_planned.strftime('%Y-%m-%d %H:%M:%S') if getattr(j, 'date_planned', False) else '',
-                j.picking_type_id or '',
-                j.x_studio_remise_1 or '',
-                    
-            ) for j in purchases]
-            purchase_file = write_csv(
-                f'OA.csv',
-                    [
-                        'ID','Nom','ID_Fournisseur','Fournisseur',
-                        'Affaire','Commentaire_Interne', 'Reference','Date_cree','Date_Liv_Prev',
-                        'Entrepot','Remise'
-                    ],
-                    purchase_data
-                )
-            create_attachment(purchase_file, os.path.basename(purchase_file))
-
-            #========================================
-            # Commande Ligne Appro (purchase.order.line)                            
-            #==========================================
-            line_purchases = self.env['purchase.order.line'].search([])
-            line_purchase_data = [(
-                i.id,
-                i.name or '',
-                # Produit
-                (i.product_id.id if getattr(i, 'product_id', False) else ''),
-                (i.product_id.default_code if getattr(i, 'product_id', False) else '') or '',
-                (i.product_id.name if getattr(i, 'product_id', False) else '') or '',
-                (i.product_id.categ_id.name if (getattr(i, 'product_id', False) and getattr(i.product_id, 'categ_id', False)) else '') or '',
-                # Quantité / UoM
-                getattr(i, 'product_qty', 0.0) or 0.0,
-                getattr(i, 'qty_received', 0.0) or 0.0,
-                getattr(i, 'qty_invoiced', 0.0) or 0.0,
-                (getattr(i, 'product_uom_id', False) and i.product_uom_id.name or ''),
-                # Prix / taxes / totaux (facture-line API)
-                getattr(i, 'price_unit', 0.0) or 0.0,
-                ', '.join([t.name for t in getattr(i, 'tax_ids', [])]) if getattr(i, 'tax_ids', False) else '',
-                getattr(i, 'price_subtotal', 0.0) or 0.0,
-                getattr(i, 'price_total', 0.0) or 0.0,
-                (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
-                # Comptabilité
-                #(l.account_id.code if getattr(l, 'account_id', False) else ''),
-                #(l.account_id.name if getattr(l, 'account_id', False) else ''),
-                    
-            ) for i in line_purchases]
-            line_purchase_file = write_csv(
-                f'ligne_OA.csv',
-                    [
-                        'ID','Nom','ID_Produit','Ref_Produit','Produit','Categorie',
-                        'Qte_Cde','Qte_Rec', 'Qte_Fac','Unit_Mes','Mtt_Unit','TVA','Mtt_Sst','Mtt_Tot',
-                        'Devise'
-                    ],
-                    line_purchase_data
-                )
-            create_attachment(line_purchase_file, os.path.basename(line_purchase_file))
-        
+            try :
+                purchases = self.env['purchase.order'].search([])
+                purchase_data = [(
+                    j.id,
+                    j.name or '',
+                    j.partner_id.id or '',
+                    j.partner_id.name or '',
+                    getattr(j, 'x_studio_projet_du_so', '') or '',
+                    getattr(j, 'x_studio_commentaire_interne_', '') or '',
+                    getattr(j, 'x_studio_rfrence', '') or '',
+                    j.create_date.strftime('%Y-%m-%d %H:%M:%S') if getattr(j, 'create_date', False) else '',
+                    j.date_planned.strftime('%Y-%m-%d %H:%M:%S') if getattr(j, 'date_planned', False) else '',
+                    j.picking_type_id or '',
+                    j.x_studio_remise_1 or '',
+                        
+                ) for j in purchases]
+                purchase_file = write_csv(
+                    f'OA.csv',
+                        [
+                            'ID','Nom','ID_Fournisseur','Fournisseur',
+                            'Affaire','Commentaire_Interne', 'Reference','Date_cree','Date_Liv_Prev',
+                            'Entrepot','Remise'
+                        ],
+                        purchase_data
+                    )
+                create_attachment(purchase_file, os.path.basename(purchase_file))
+    
+                #========================================
+                # Commande Ligne Appro (purchase.order.line)                            
+                #==========================================
+                line_purchases = self.env['purchase.order.line'].search([])
+                line_purchase_data = [(
+                    i.id,
+                    i.name or '',
+                    # Produit
+                    (i.product_id.id if getattr(i, 'product_id', False) else ''),
+                    (i.product_id.default_code if getattr(i, 'product_id', False) else '') or '',
+                    (i.product_id.name if getattr(i, 'product_id', False) else '') or '',
+                    (i.product_id.categ_id.name if (getattr(i, 'product_id', False) and getattr(i.product_id, 'categ_id', False)) else '') or '',
+                    # Quantité / UoM
+                    getattr(i, 'product_qty', 0.0) or 0.0,
+                    getattr(i, 'qty_received', 0.0) or 0.0,
+                    getattr(i, 'qty_invoiced', 0.0) or 0.0,
+                    (getattr(i, 'product_uom_id', False) and i.product_uom_id.name or ''),
+                    # Prix / taxes / totaux (facture-line API)
+                    getattr(i, 'price_unit', 0.0) or 0.0,
+                    ', '.join([t.name for t in getattr(i, 'tax_ids', [])]) if getattr(i, 'tax_ids', False) else '',
+                    getattr(i, 'price_subtotal', 0.0) or 0.0,
+                    getattr(i, 'price_total', 0.0) or 0.0,
+                    (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
+                    # Comptabilité
+                    #(l.account_id.code if getattr(l, 'account_id', False) else ''),
+                    #(l.account_id.name if getattr(l, 'account_id', False) else ''),
+                        
+                ) for i in line_purchases]
+                line_purchase_file = write_csv(
+                    f'ligne_OA.csv',
+                        [
+                            'ID','Nom','ID_Produit','Ref_Produit','Produit','Categorie',
+                            'Qte_Cde','Qte_Rec', 'Qte_Fac','Unit_Mes','Mtt_Unit','TVA','Mtt_Sst','Mtt_Tot',
+                            'Devise'
+                        ],
+                        line_purchase_data
+                    )
+                create_attachment(line_purchase_file, os.path.basename(line_purchase_file))
+            
         except Exception as e:
             _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
             _logger.info("[Export Power BI] Génération terminée. Fichiers dans : %s", temp_dir)
