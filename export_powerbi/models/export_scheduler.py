@@ -272,7 +272,7 @@ class ExportSFTPScheduler(models.Model):
                         'Commercial','Serie','Gamme','Avancement','BET Méthodes','Projet',
                         'Delai confirmé en semaine','Commande client','Mode de reglement',
                         'Date recep demande devis','Date creation devis','Derniere Date modif devis','Date validation devis par le client',
-                        'Date réception ARC signe','Date BPE','Date debut de fab','Date fin de fab',
+                        'Date envoi ARC','Date BPE','Date debut de fab','Date fin de fab',
                         'Date de livraison prévue','Date de livraison reelle'
                     ],
                     order_data
@@ -295,6 +295,7 @@ class ExportSFTPScheduler(models.Model):
                 # Lien commande
                 (l.order_id.id if getattr(l, 'order_id', False) else ''),
                 (l.order_id.name if getattr(l, 'order_id', False) else ''),
+                (l.order_id.x_studio_projet if getattr(l, 'order_id', False) else ''),
                 getattr(l, 'name', '') or '',
                 (getattr(l, 'display_type', '') or ''),
                 (l.order_id.state if getattr(l, 'order_id', False) else ''),
@@ -315,25 +316,26 @@ class ExportSFTPScheduler(models.Model):
                 # Prix / taxes / totaux
                 getattr(l, 'price_unit', 0.0) or 0.0,
                 getattr(l, 'discount', 0.0) or 0.0,
+                ((getattr(l, 'price_unit', 0.0) or 0.0) * (1 - (getattr(l, 'discount', 0.0) or 0.0) / 100.0)),
                 ', '.join([t.name for t in getattr(l, 'tax_id', [])]) if getattr(l, 'tax_id', False) else '',
                 getattr(l, 'price_subtotal', 0.0) or 0.0,
                 getattr(l, 'price_tax', 0.0) or 0.0,
                 getattr(l, 'price_total', 0.0) or 0.0,
                 # Devise / société / vendeur
                 (l.currency_id.name if getattr(l, 'currency_id', False) else ''),
-                (l.company_id.name if getattr(l, 'company_id', False) else ''),
-                (l.order_id.user_id.name if (getattr(l, 'order_id', False) and getattr(l.order_id, 'user_id', False)) else ''),
+                #(l.company_id.name if getattr(l, 'company_id', False) else ''),
+                #(l.order_id.user_id.name if (getattr(l, 'order_id', False) and getattr(l.order_id, 'user_id', False)) else ''),
             ) for l in order_lines]
             order_line_file = write_csv(
                 f'lignes_commandes.csv',
                 [
-                    'ID_Ligne','Sequence',
-                    'ID_Commande','NumCommande','Description','Type_affichage','Etat_commande','Date_commande',
-                    'ID_Client','Client',
-                    'ID_Article','Code_article','Nom_article','Categorie_article',
-                    'Qte_Cde','Qte_Liv','Qte_Fact','UoM',
-                    'PU_HT','Pourcentage_Rem','Taxes','Mtt_Sst_HT','TVA','Mtt_Tot_TTC',
-                    'Devise','Societe','Commercial'
+                    'ID Ligne','Ordre affichage',
+                    'ID Commande','Num Commande','Affaire','Description','Type de ligne','Etat_commande','Date_commande',
+                    'ID Client','Client',
+                    'ID Article','Code article','Nom article','Categorie_article',
+                    'Qte Cde','Qte Liv','Qte Fact','Unité de Mesure',
+                    'PU HT','Pourcentage Remise','Prix Unitaire Remise','Taxes','Mtt_Tot_HT','TVA','Mtt_Tot_TTC',
+                    'Devise'
                 ],
                 order_line_data
             )
