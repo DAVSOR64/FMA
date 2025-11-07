@@ -410,7 +410,7 @@ class ExportSFTPScheduler(models.Model):
             except Exception as e:
                 _logger.exception("[Export Power BI] ERREUR section Factures: %s", e)
 
-    
+            try:
                 # =========================================================
                 # Lignes de factures (account.move.line)
                 # =========================================================
@@ -476,6 +476,10 @@ class ExportSFTPScheduler(models.Model):
                 invoice_line_data
                 )
                 create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
+                _logger.info("[Export Power BI] Lignes de factures: %s lignes", len(invoice_line_data))
+
+            except Exception as e:
+                _logger.exception("[Export Power BI] ERREUR section Lignes de factures: %s", e)
             
             #========================================
             # Commande Appro (purchase.order)                            
@@ -506,7 +510,10 @@ class ExportSFTPScheduler(models.Model):
                         purchase_data
                 )
                 create_attachment(purchase_file, os.path.basename(purchase_file))
-    
+            except Exception as e:
+                _logger.exception("[Export Power BI] ERREUR section Commande Appro: %s", e)
+
+            try:
                 #========================================
                 # Commande Ligne Appro (purchase.order.line)                            
                 #==========================================
@@ -545,7 +552,8 @@ class ExportSFTPScheduler(models.Model):
                         line_purchase_data
                     )
                 create_attachment(line_purchase_file, os.path.basename(line_purchase_file))
-
+            except Exception as e:
+                _logger.exception("[Export Power BI] ERREUR section Ligne Appro: %s", e)
         except Exception as e:
             _logger.exception("Erreur globale lors de la génération des fichiers Power BI : %s", e)
 
