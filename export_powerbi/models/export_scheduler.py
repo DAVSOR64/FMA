@@ -406,7 +406,7 @@ class ExportSFTPScheduler(models.Model):
                 # Lignes de factures (account.move.line)
                 # =========================================================
                 invoice_lines = self.env['account.move.line'].search([
-                    ('move_id.move_type', '=', 'out_invoice'),
+                    ('move_id.move_type', 'in', ['out_invoice', 'out_refund']),
                     ('move_id.state', '=', 'posted'),
                     ('product_id', '!=', False)
                 ])
@@ -439,10 +439,10 @@ class ExportSFTPScheduler(models.Model):
                     # Comptabilité
                     (l.account_id.code if getattr(l, 'account_id', False) else ''),
                     (l.account_id.name if getattr(l, 'account_id', False) else ''),
-                    getattr(l, 'debit', 0.0) or 0.0,
-                    getattr(l, 'credit', 0.0) or 0.0,
-                    getattr(l, 'balance', 0.0) or 0.0,
-                    getattr(l, 'amount_currency', 0.0) or 0.0,
+                    #getattr(l, 'debit', 0.0) or 0.0,
+                    #getattr(l, 'credit', 0.0) or 0.0,
+                    #getattr(l, 'balance', 0.0) or 0.0,
+                    #getattr(l, 'amount_currency', 0.0) or 0.0,
                     # Analytique
                     (l.analytic_account_id.name if getattr(l, 'analytic_account_id', False) else ''),
                     ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
@@ -460,7 +460,7 @@ class ExportSFTPScheduler(models.Model):
                         'ID_Article','Code_article','Nom_article','Categorie_article',
                         'Qte','UoM',
                         'PU_HT','Taxes','Mtt_HT','Mtt_TTC','Devise',
-                        'Compte_code','Compte_libelle','Debit','Credit','Balance','Mtt_devise',
+                        'Compte_code','Compte_libelle',
                         'Compte_Analytique','Tags_analytiques',
                         'ID_Ligne_Commande'
                     ],
