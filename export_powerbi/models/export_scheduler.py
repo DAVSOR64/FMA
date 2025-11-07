@@ -351,15 +351,38 @@ class ExportSFTPScheduler(models.Model):
                     ('move_type', 'in', ['out_invoice', 'out_refund'])
                 ])
             
-                def ht_sans_acompte_signed(inv):
-                    # Lignes utiles (hors sections/notes)
+                def _is_downpayment_line(l):
+                    """Détecte les lignes d'acompte via la référence article contenant 'ACPT'."""
+                    try:
+                        # Ignore les lignes de type "section" ou "note"
+                        if getattr(l, 'display_type', False):
+                            return False
+            
+                        # Vérifie si le produit existe et a une référence
+                        prod = getattr(l, 'product_id', False)
+                        if not prod or not getattr(prod, 'default_code', False):
+                            return False
+            
+                        # Test sur la référence produit
+                        code = prod.default_code or ''
+                        return 'ACPT' in code.upper()
+                    except Exception:
+                        return False
+            
+                def _ht_sans_acompte_signed(inv):
+                    """Retourne le HT signé hors lignes ACPT, ou None si la facture n'a que des lignes ACPT."""
                     lines = inv.invoice_line_ids.filtered(lambda l: not l.display_type)
-                    # HT des lignes non-acompte (en devise de la facture)
-                    ht = sum((l.price_subtotal or 0.0) for l in lines if not getattr(l, 'is_downpayment', False))
-                    # Signe cohérent avec *_signed (facture + / avoir -)
+            
+                    # Si toutes les lignes "normales" sont des acomptes -> on exclut la facture
+                    if lines and all(_is_downpayment_line(l) for l in lines):
+                        return None
+            
+                    # Somme des sous-totaux hors lignes d'acompte
+                    ht = sum((l.price_subtotal or 0.0) for l in lines if not _is_downpayment_line(l))
+            
                     sign = 1.0 if inv.move_type == 'out_invoice' else -1.0
                     return inv.currency_id.round(ht * sign) if inv.currency_id else (ht * sign)
-            
+                        
                 invoice_data = [(
                     i.id,
                     i.name or '',
