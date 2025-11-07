@@ -545,10 +545,6 @@ class ExportSFTPScheduler(models.Model):
                         line_purchase_data
                     )
                 create_attachment(line_purchase_file, os.path.basename(line_purchase_file))
-            
-        except Exception as e:
-            _logger.exception("Erreur lors de la génération des fichiers Power BI : %s", e)
-            _logger.info("[Export Power BI] Génération terminée. Fichiers dans : %s", temp_dir)
 
         except Exception as e:
             _logger.exception("Erreur globale lors de la génération des fichiers Power BI : %s", e)
