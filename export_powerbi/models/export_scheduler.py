@@ -349,8 +349,6 @@ class ExportSFTPScheduler(models.Model):
                 invoices = self.env['account.move'].search([
                     ('state', '=', 'posted'),
                     ('move_type', 'in', ['out_invoice', 'out_refund'])
-                    #('invoice_line_ids.display_type', '=', False),
-                    #('invoice_line_ids.is_downpayment', '=', False),  # force au moins 1 ligne non-acompte
                 ])
             
                 def ht_sans_acompte_signed(inv):
