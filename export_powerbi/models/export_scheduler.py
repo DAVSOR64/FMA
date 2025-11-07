@@ -351,7 +351,7 @@ class ExportSFTPScheduler(models.Model):
                     ('move_type', 'in', ['out_invoice', 'out_refund'])
                 ])
             
-                #def ht_sans_acompte_signed(inv):
+                def ht_sans_acompte_signed(inv):
                     # Lignes utiles (hors sections/notes)
                     lines = inv.invoice_line_ids.filtered(lambda l: not l.display_type)
                     # HT des lignes non-acompte (en devise de la facture)
