@@ -382,35 +382,41 @@ class ExportSFTPScheduler(models.Model):
             
                     sign = 1.0 if inv.move_type == 'out_invoice' else -1.0
                     return inv.currency_id.round(ht * sign) if inv.currency_id else (ht * sign)
-                        
-                invoice_data = [(
-                    i.id,
-                    i.name or '',
-                    getattr(i, 'move_type', '') or '',
-                    i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
-                    i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
-                    getattr(i, 'invoice_origin', '') or '',
-                    # Etat paiement
-                    i.payment_state or '',
-                    # Partenaire
-                    (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
-                    (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
-                    # Organisation
-                    (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
-                    (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
-                    i.x_studio_mode_de_reglement_1 or '',
-                    i.x_studio_libelle_1 or '',
-                    (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
-                    # Montants
-                    getattr(i, 'amount_residual', 0.0) or 0.0,
-                    getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,   # HT signé "normal" (inclut acomptes)
-                    ht_no_dp,                         # 🔥 HT signé sans acomptes
-                    getattr(i, 'amount_total_signed', 0.0) or 0.0,
-                    # Divers
-                    getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
-                    getattr(i, 'inv_activite', 0.0) or 0.0,
-                    len(getattr(i, 'invoice_line_ids', [])),
-                ) for i in invoices]
+
+                invoice_data = []
+                for i in invoices:
+                    ht_no_dp = _ht_sans_acompte_signed(i)
+                    if ht_no_dp is None:
+                        continue  # on saute les factures 100 % ACPT
+                
+                    invoice_data = [(
+                        i.id,
+                        i.name or '',
+                        getattr(i, 'move_type', '') or '',
+                        i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
+                        i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
+                        getattr(i, 'invoice_origin', '') or '',
+                        # Etat paiement
+                        i.payment_state or '',
+                        # Partenaire
+                        (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
+                        (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
+                        # Organisation
+                        (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
+                        (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
+                        i.x_studio_mode_de_reglement_1 or '',
+                        i.x_studio_libelle_1 or '',
+                        (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
+                        # Montants
+                        getattr(i, 'amount_residual', 0.0) or 0.0,
+                        getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,   # HT signé "normal" (inclut acomptes)
+                        ht_no_dp,                         # 🔥 HT signé sans acomptes
+                        getattr(i, 'amount_total_signed', 0.0) or 0.0,
+                        # Divers
+                        getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
+                        getattr(i, 'inv_activite', 0.0) or 0.0,
+                        len(getattr(i, 'invoice_line_ids', [])),
+                    ) for i in invoices]
             
                 invoice_file = write_csv(
                     f'factures.csv',
