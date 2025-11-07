@@ -352,47 +352,35 @@ class ExportSFTPScheduler(models.Model):
                     ('invoice_line_ids.product_id.default_code', 'not ilike', 'ACPT'),
                 ])
             
-                def _ht_sans_acpt_signed(inv):
-                    lines = inv.invoice_line_ids.filtered(lambda l: not l.display_type)
-                    ht = 0.0
-                    for l in lines:
-                        code = (getattr(l.product_id, 'default_code', '') or '').upper() if getattr(l, 'product_id', False) else ''
-                        if 'ACPT' not in code:
-                            ht += (getattr(l, 'price_subtotal', 0.0) or 0.0)
-                    sign = 1.0 if inv.move_type == 'out_invoice' else -1.0
-                    return inv.currency_id.round(ht * sign) if inv.currency_id else (ht * sign)
 
-
-                invoice_data = []
-                for i in invoices:
-                    invoice_data = [(
-                        i.id,
-                        i.name or '',
-                        getattr(i, 'move_type', '') or '',
-                        i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
-                        i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
-                        getattr(i, 'invoice_origin', '') or '',
-                        # Etat paiement
-                        i.payment_state or '',
-                        # Partenaire
-                        (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
-                        (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
-                        # Organisation
-                        (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
-                        (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
-                        i.x_studio_mode_de_reglement_1 or '',
-                        i.x_studio_libelle_1 or '',
-                        (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
-                        # Montants
-                        getattr(i, 'amount_residual', 0.0) or 0.0,
-                        getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,   # HT signé "normal" (inclut acomptes)
-                        _ht_sans_acpt_signed(i),                         # 🔥 HT signé sans acomptes
-                        getattr(i, 'amount_total_signed', 0.0) or 0.0,
-                        # Divers
-                        getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
-                        getattr(i, 'inv_activite', 0.0) or 0.0,
-                        len(getattr(i, 'invoice_line_ids', [])),
-                    ) for i in invoices]
+                
+                invoice_data = [(
+                    i.id,
+                    i.name or '',
+                    getattr(i, 'move_type', '') or '',
+                    i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
+                    i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
+                    getattr(i, 'invoice_origin', '') or '',
+                    # Etat paiement
+                    i.payment_state or '',
+                    # Partenaire
+                    (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
+                    (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
+                    # Organisation
+                    (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
+                    (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
+                    i.x_studio_mode_de_reglement_1 or '',
+                    i.x_studio_libelle_1 or '',
+                    (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
+                    # Montants
+                    getattr(i, 'amount_residual', 0.0) or 0.0,
+                    getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,   # HT signé "normal" (inclut acomptes)
+                    getattr(i, 'amount_total_signed', 0.0) or 0.0,
+                    # Divers
+                    getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
+                    getattr(i, 'inv_activite', 0.0) or 0.0,
+                    len(getattr(i, 'invoice_line_ids', [])),
+                ) for i in invoices]
             
                 invoice_file = write_csv(
                     f'factures.csv',
@@ -402,7 +390,7 @@ class ExportSFTPScheduler(models.Model):
                         'ID Client','Client',
                         'Devise','Condition de paiement','Mode de reglement','Libelle mode de reglement','Position_fiscale',
                         'Mtt_du',
-                        'Mtt_HT','Mtt_HT_sans_acompte','Mtt_TTC',
+                        'Mtt_HT','Mtt_TTC',
                         'Affaire','Activite','Nb_lignes'
                     ],
                     invoice_data
