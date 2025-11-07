@@ -348,14 +348,14 @@ class ExportSFTPScheduler(models.Model):
                                                        ('move_type', 'in', ['out_invoice', 'out_refund']),
                                                        ('invoice_line_ids.display_type', '=', False),
                                                        ('invoice_line_ids.is_downpayment', '=', False)])
-            def ht_sans_acompte_signed(inv):
+            #def ht_sans_acompte_signed(inv):
                 # Lignes utiles (hors sections/notes)
-                lines = inv.invoice_line_ids.filtered(lambda l: not l.display_type)
+            #    lines = inv.invoice_line_ids.filtered(lambda l: not l.display_type)
                 # HT des lignes non-acompte, en devise de la facture
-                ht = sum((l.price_subtotal or 0.0) for l in lines if not getattr(l, 'is_downpayment', False))
+            #    ht = sum((l.price_subtotal or 0.0) for l in lines if not getattr(l, 'is_downpayment', False))
                 # Aligner le signe avec *_signed (facture +, avoir -)
-                sign = 1.0 if inv.move_type == 'out_invoice' else -1.0
-                return inv.currency_id.round(ht * sign) if inv.currency_id else (ht * sign)
+            #    sign = 1.0 if inv.move_type == 'out_invoice' else -1.0
+            #    return inv.currency_id.round(ht * sign) if inv.currency_id else (ht * sign)
                 
             invoice_data = [(
                 i.id,
@@ -378,7 +378,7 @@ class ExportSFTPScheduler(models.Model):
                 # Montants
                 getattr(i, 'amount_residual', 0.0) or 0.0,
                 getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,
-                ht_sans_acompte_signed(i) or 0.0,
+                #ht_sans_acompte_signed(i) or 0.0,
                 getattr(i, 'amount_total_signed', 0.0) or 0.0,
                 # Divers
                 getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
@@ -392,7 +392,7 @@ class ExportSFTPScheduler(models.Model):
                     'Date Facture','Echeance','Origine','Etat_Paiement',
                     'ID Client','Client',
                     'Devise','Condition de paiement','Mode de reglement','Libelle mode de reglement','Position_fiscale',
-                    'Mtt dû','Mtt HT Facture','Mtt HT sans acompte','Mtt TTC Facture',
+                    'Mtt dû','Mtt HT Facture','Mtt TTC Facture',
                     'Affaire','Activite','Nb_lignes'
                     
                 ],
