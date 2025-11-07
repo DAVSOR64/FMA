@@ -340,7 +340,8 @@ class ExportSFTPScheduler(models.Model):
                 order_line_data
             )
             create_attachment(order_line_file, os.path.basename(order_line_file))
-
+            except Exception as e:
+                    _logger.exception("[Export Power BI] ERREUR section Lignes Commandes: %s", e)
             # =========================================================
             # Factures (account.move - ventes postées)
             # =========================================================
@@ -447,9 +448,9 @@ class ExportSFTPScheduler(models.Model):
                         'Compte_Analytique','Tags_analytiques',
                         'ID_Ligne_Commande'
                     ],
-                    invoice_line_data
-            )
-            create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
+                invoice_line_data
+                )
+                create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
             
             #========================================
             # Commande Appro (purchase.order)                            
