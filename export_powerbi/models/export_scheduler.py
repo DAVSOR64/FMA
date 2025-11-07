@@ -344,50 +344,44 @@ class ExportSFTPScheduler(models.Model):
             # =========================================================
             # Factures (account.move - ventes postées)
             # =========================================================
-            invoices = self.env['account.move'].search([('state', '=', 'posted'),
-                                                       ('move_type', 'in', ['out_invoice', 'out_refund'])])
-                           
-            invoice_data = [(
-                i.id,
-                i.name or '',
-                getattr(i, 'move_type', '') or '',
-                i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
-                i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '',
-                getattr(i, 'invoice_origin', '') or '',
-                #i.ref or '',
-                i.payment_state or '',
-                # Partenaire / bancaire
-                (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
-                (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
-                # Organisation
-                (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
-                (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''),
-                i.x_studio_mode_reglement_1 or '',
-                i.x_studio_libelle_1 or '',
-                (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''),
-                # Montants
-                getattr(i, 'amount_residual', 0.0) or 0.0,
-                getattr(i, 'amount_untaxed_signed', 0.0) or 0.0,
-                #ht_sans_acompte_signed(i) or 0.0,
-                getattr(i, 'amount_total_signed', 0.0) or 0.0,
-                # Divers
-                getattr(i, 'x_studio_projet_vente', 0.0) or 0.0,
-                getattr(i, 'inv_activite', 0.0) or 0.0,
+            self.env['account.move'].search([('state', '=', 'posted'), 
+                                             ('move_type', 'in', ['out_invoice', 'out_refund']), 
+                                             ('invoice_line_ids.display_type', '=', False), 
+                                             ('invoice_line_ids.is_downpayment', '=', False)])
+            invoice_data = [( 
+                i.id, i.name or '', getattr(i, 'move_type', '') or '', 
+                i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '', 
+                i.invoice_date_due.strftime('%Y-%m-%d') if getattr(i, 'invoice_date_due', False) else '', 
+                getattr(i, 'invoice_origin', '') or '', 
+                #i.ref or '', 
+                i.payment_state or '', 
+                # Partenaire / bancaire (i.partner_id.id if getattr(i, 'partner_id', False) else ''), 
+                (i.partner_id.name if getattr(i, 'partner_id', False) else ''), 
+                # Organisation (i.currency_id.name if getattr(i, 'currency_id', False) else ''), 
+                (i.invoice_payment_term_id.name if getattr(i, 'invoice_payment_term_id', False) else ''), 
+                i.x_studio_mode_reglement_1 or '', 
+                i.x_studio_libelle_1 or '', 
+                (i.fiscal_position_id.name if getattr(i, 'fiscal_position_id', False) else ''), 
+                # Montants getattr(i, 'amount_residual', 0.0) or 0.0, 
+                getattr(i, 'amount_untaxed_signed', 0.0) or 0.0, 
+                getattr(i, 'amount_total_signed', 0.0) or 0.0, 
+                getattr(i, 'x_studio_projet_vente', 0.0) or 0.0, 
+                getattr(i, 'inv_activite', 0.0) or 0.0, 
                 ', '.join([t.name for t in getattr(i, 'invoice_line_ids', [])]) if False else len(getattr(i, 'invoice_line_ids', [])),
             ) for i in invoices]
             invoice_file = write_csv(
-                f'factures.csv',
-                [
-                    'ID','Numero de Facture','Type',
-                    'Date Facture','Echeance','Origine','Etat_Paiement',
-                    'ID Client','Client',
-                    'Devise','Condition de paiement','Mode de reglement','Libelle mode de reglement','Position_fiscale',
-                    'Mtt dû','Mtt HT Facture','Mtt TTC Facture',
-                    'Affaire','Activite','Nb_lignes'
-                    
-                ],
-                invoice_data
-            )
+                f'factures.csv', 
+                [ 
+                    'ID','Numero de Facture','Type', 
+                    'Date Facture','Echeance','Origine',
+                    'Etat_Paiement', 'ID Client','Client', 'Devise',
+                    'Condition de paiement','Mode de reglement',
+                    'Libelle mode de reglement','Position_fiscale', 
+                    'Mtt_du','Mtt_HT','Mtt_TTC', 'Affaire','Activite',
+                    'Nb_lignes' 
+                ], 
+                invoice_data 
+            ) 
             create_attachment(invoice_file, os.path.basename(invoice_file))
 
             # =========================================================
