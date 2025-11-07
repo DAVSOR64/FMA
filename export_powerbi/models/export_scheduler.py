@@ -448,8 +448,8 @@ class ExportSFTPScheduler(models.Model):
                         'ID_Ligne_Commande'
                     ],
                     invoice_line_data
-                )
-                create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
+            )
+            create_attachment(invoice_line_file, os.path.basename(invoice_line_file))
             
             #========================================
             # Commande Appro (purchase.order)                            
@@ -478,7 +478,7 @@ class ExportSFTPScheduler(models.Model):
                             'Entrepot','Remise'
                         ],
                         purchase_data
-                    )
+                )
                 create_attachment(purchase_file, os.path.basename(purchase_file))
     
                 #========================================
