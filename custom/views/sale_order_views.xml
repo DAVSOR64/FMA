@@ -5,13 +5,6 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <xpath expr="//sheet//group[@name='partner_details']//field[@name='user_id']" position="after">
-                <field name="main_contact_id"
-                       string="Contact principal"
-                       domain="[('parent_id', '=', partner_id)]"
-                       context="{'default_parent_id': partner_id}"/>
-            </xpath>
-
             <!-- Ajout après les détails du partenaire -->
             <xpath expr="//sheet//group[@name='partner_details']" position="after">
                 <group string="Chronologie">
@@ -52,7 +45,14 @@
                 <group string="Informations principales">
                     <field name="so_commande_client"/>
                     <field name="so_delai_confirme_en_semaine"/>
+
+                    <!-- >>> ICI : ton champ Contact principal <<< -->
+                    <field name="main_contact_id"
+                           string="Contact principal"
+                           domain="[('parent_id', '=', partner_id)]"
+                           context="{'default_parent_id': partner_id}"/>
                 </group>
+
                 <group string="Informations supplémentaires">
                     <field name="so_acces_bl"/>
                     <field name="so_type_camion_bl"/>
