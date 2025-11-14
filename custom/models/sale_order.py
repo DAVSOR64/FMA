@@ -2,12 +2,26 @@ import logging
 from odoo import models, fields, api
 from odoo.tools import float_round
 from datetime import timedelta
-_logger = logging.getLogger(__name__)
 
+_logger = logging.getLogger(__name__)
 
 
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
+
+    main_contact_id = fields.Many2one(
+        'res.partner',
+        string="Contact principal",
+        help="Contact principal chez le client."
+    )
+
+    @api.onchange('partner_id')
+    def _onchange_partner_id_clear_main_contact(self):
+        """Quand le client change, on réinitialise le Contact principal."""
+        res = super(SaleOrder, self)._onchange_partner_id()
+        self.main_contact_id = False
+        return res
+    # >>>>>> FIN NOUVEAU CHAMP <<<<<<
 
     x_studio_ref_affaire = fields.Char(string="Affaire")
     x_studio_imputation = fields.Char(string="Numéro Commande Client")
@@ -15,31 +29,30 @@ class SaleOrder(models.Model):
     x_studio_com_delegation = fields.Char(string="Commentaire Délégation:")
     x_studio_mode_de_rglement_1 = fields.Selection(
         [
-            ('ESPECES','ESPECES'),
-            ('CHEQUE BANCAIRE','CHEQUE BANCAIRE'),
-            ('VIREMENT BANCAIRE','VIREMENT BANCAIRE'),
-            ('L.C.R. DIRECTE','L.C.R. DIRECTE'),
-            ('L.C.R. A L ACCEPTATION','L.C.R. A L ACCEPTATION'),
-            ('PRELEVEMENT','PRELEVEMENT'),
-            ('L.C.R. MAGNETIQUE','L.C.R. MAGNETIQUE'),
-            ('BOR','BOR'),
-            ('CARTE BANCAIRE','CARTE BANCAIRE'), 
-            ('CREDIT DOCUMENTAIRE','CREDIT DOCUMENTAIRE'),
+            ('ESPECES', 'ESPECES'),
+            ('CHEQUE BANCAIRE', 'CHEQUE BANCAIRE'),
+            ('VIREMENT BANCAIRE', 'VIREMENT BANCAIRE'),
+            ('L.C.R. DIRECTE', 'L.C.R. DIRECTE'),
+            ('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATION'),
+            ('PRELEVEMENT', 'PRELEVEMENT'),
+            ('L.C.R. MAGNETIQUE', 'L.C.R. MAGNETIQUE'),
+            ('BOR', 'BOR'),
+            ('CARTE BANCAIRE', 'CARTE BANCAIRE'),
+            ('CREDIT DOCUMENTAIRE', 'CREDIT DOCUMENTAIRE'),
         ],
         string="Mode de Règlement",
     )
-        
 
     so_type_camion_bl = fields.Selection(
         [
-            ('Fourgon 20m3 (150€ + 0.50€/km)','Fourgon 20m3 (150€ + 0.50€/km)'),
-            ('GEODIS','GEODIS'),
-            ('Porteur avec hayon (base)','Porteur avec hayon (base)'),
-            ('Semi-remorque (base)','Semi-remorque (base)'),
-            ('Semi-remorque avec hayon (base)','Semi-remorque avec hayon (base)'),
-            ('Semi-remorque plateau (base)','Semi-remorque plateau (base)'),
-            ('Semi-remorque chariot embarqué (650€)','Semi-remorque chariot embarqué (650€)'),
-            ('Autre (sur devis)','Autre (sur devis)'),
+            ('Fourgon 20m3 (150€ + 0.50€/km)', 'Fourgon 20m3 (150€ + 0.50€/km)'),
+            ('GEODIS', 'GEODIS'),
+            ('Porteur avec hayon (base)', 'Porteur avec hayon (base)'),
+            ('Semi-remorque (base)', 'Semi-remorque (base)'),
+            ('Semi-remorque avec hayon (base)', 'Semi-remorque avec hayon (base)'),
+            ('Semi-remorque plateau (base)', 'Semi-remorque plateau (base)'),
+            ('Semi-remorque chariot embarqué (650€)', 'Semi-remorque chariot embarqué (650€)'),
+            ('Autre (sur devis)', 'Autre (sur devis)'),
         ],
         string="Type de camion (Hayon palette maxi 2400mm)",
     )
@@ -58,20 +71,6 @@ class SaleOrder(models.Model):
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
     so_commande_client = fields.Char(string="N° Commande Client")
 
-    #@api.constrains('partner_id', 'so_commande_client')
-    #def _check_commande_client_required(self):
-        #for order in self:
-            # Liste des mots-clés qui nécessitent un N° Commande Client obligatoire
-            #required_keywords = ['GCC', 'BOLLORE', 'BOUYGUES', 'LEGENDRE']
-            
-            # Si le nom du client contient un des mots-clés
-            #if any(keyword in order.partner_id.name.upper() for keyword in required_keywords):
-                # Et si le champ "N° Commande Client" est vide
-                #if not order.so_commande_client:
-                    # Lever une erreur de validation qui empêche l'enregistrement et affiche un message
-                    #raise ValidationError("Le champ 'N° Commande Client' est obligatoire pour ce client.")
-
-    
     so_delegation = fields.Boolean(string="Délégation?")
     so_commmentaire_delegation = fields.Char(string="Commentaire Délégation")
     so_date_de_reception = fields.Date(string="Date de réception")
@@ -91,8 +90,7 @@ class SaleOrder(models.Model):
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 
-
-    #Onglet Analyse Financière (Devis)
+    # Onglet Analyse Financière (Devis)
     so_achat_matiere_devis = fields.Monetary(string="Achat Matière (Devis)")
     so_achat_vitrage_devis = fields.Monetary(string="Achat Vitrage (Devis)")
     so_cout_mod_devis = fields.Monetary(string="Coût MOD (Devis)")
@@ -101,7 +99,7 @@ class SaleOrder(models.Model):
     so_prc_marge_brute_devis = fields.Float(string="Marge Brute en % (Devis)", compute='_compute_so_prc_marge_brute_devis', store=True)
     so_mcv_devis = fields.Monetary(string="M.C.V. en € (Devis)", compute='_compute_so_mcv_devis', store=True)
     so_prc_mcv_devis = fields.Float(string="M.C.V. en % (Devis)", compute='_compute_so_prc_mcv_devis', store=True)
-    
+
     # Champs formatés pour affichage arrondi avec "%" ajouté
     so_prc_marge_brute_devis_display = fields.Char(
         compute='_compute_so_prc_marge_brute_devis_display',
@@ -115,17 +113,14 @@ class SaleOrder(models.Model):
     @api.depends('so_prc_marge_brute_devis')
     def _compute_so_prc_marge_brute_devis_display(self):
         for record in self:
-            # Arrondir la marge brute à une décimale avant l'affichage avec format explicite
             marge_brute_arrondie = "{:.1f}".format(float_round(record.so_prc_marge_brute_devis, precision_digits=1))
             record.so_prc_marge_brute_devis_display = f"{marge_brute_arrondie} %"
 
     @api.depends('so_prc_mcv_devis')
     def _compute_so_prc_mcv_devis_display(self):
         for record in self:
-            # Arrondir le M.C.V. à une décimale avant l'affichage avec format explicite
             mcv_arrondi = "{:.1f}".format(float_round(record.so_prc_mcv_devis, precision_digits=1))
             record.so_prc_mcv_devis_display = f"{mcv_arrondi} %"
-
 
     # Onglet Analyse Financière (B.E.)
     so_achat_matiere_be = fields.Monetary(string="Achat Matière (B.E.)")
@@ -137,7 +132,6 @@ class SaleOrder(models.Model):
     so_mcv_be = fields.Monetary(string="M.C.V. en € (B.E.)", compute='_compute_so_mcv_be', store=True)
     so_prc_mcv_be = fields.Float(string="M.C.V. en % (B.E.)", compute='_compute_so_prc_mcv_be', store=True)
 
-    # Champs formatés pour affichage arrondi avec "%" ajouté
     so_prc_marge_brute_be_display = fields.Char(
         compute='_compute_so_prc_marge_brute_be_display',
         string="Marge Brute en % (B.E.)"
@@ -150,17 +144,14 @@ class SaleOrder(models.Model):
     @api.depends('so_prc_marge_brute_be')
     def _compute_so_prc_marge_brute_be_display(self):
         for record in self:
-            # Arrondir la marge brute à une décimale avant l'affichage avec format explicite
             marge_brute_arrondie_be = "{:.1f}".format(float_round(record.so_prc_marge_brute_be, precision_digits=1))
             record.so_prc_marge_brute_be_display = f"{marge_brute_arrondie_be} %"
 
     @api.depends('so_prc_mcv_be')
     def _compute_so_prc_mcv_be_display(self):
         for record in self:
-            # Arrondir le M.C.V. à une décimale avant l'affichage avec format explicite
             mcv_arrondi_be = "{:.1f}".format(float_round(record.so_prc_mcv_be, precision_digits=1))
             record.so_prc_mcv_be_display = f"{mcv_arrondi_be} %"
-
 
     # Onglet Analyse Financière (Réel)
     so_achat_matiere_reel = fields.Monetary(string="Achat Matière (Réel)")
@@ -172,7 +163,6 @@ class SaleOrder(models.Model):
     so_mcv_reel = fields.Monetary(string="M.C.V. en € (Réel)", compute='_compute_so_mcv_reel', store=True)
     so_prc_mcv_reel = fields.Float(string="M.C.V. en % (Réel)", compute='_compute_so_prc_mcv_reel', store=True)
 
-    # Champs formatés pour affichage arrondi avec "%" ajouté
     so_prc_marge_brute_reel_display = fields.Char(
         compute='_compute_so_prc_marge_brute_reel_display',
         string="Marge Brute en % (Réel)"
@@ -185,14 +175,12 @@ class SaleOrder(models.Model):
     @api.depends('so_prc_marge_brute_reel')
     def _compute_so_prc_marge_brute_reel_display(self):
         for record in self:
-            # Arrondir la marge brute à une décimale avant l'affichage avec format explicite
             marge_brute_arrondie_reel = "{:.1f}".format(float_round(record.so_prc_marge_brute_reel, precision_digits=1))
             record.so_prc_marge_brute_reel_display = f"{marge_brute_arrondie_reel} %"
 
     @api.depends('so_prc_mcv_reel')
     def _compute_so_prc_mcv_reel_display(self):
         for record in self:
-            # Arrondir le M.C.V. à une décimale avant l'affichage avec format explicite
             mcv_arrondi_reel = "{:.1f}".format(float_round(record.so_prc_mcv_reel, precision_digits=1))
             record.so_prc_mcv_reel_display = f"{mcv_arrondi_reel} %"
 
@@ -206,24 +194,17 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
         return invoice_vals
 
-    #Below methods are shifted from fma_sale_order_custom module
-
-    # Init date de livraison prévue et synchronisation avec commitment_date
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')
     def _compute_so_date_de_livraison(self):
         for order in self:
             if order.so_date_bpe and order.so_delai_confirme_en_semaine:
-                # Calculer la date de livraison prévue
                 order.so_date_de_livraison = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
                 order.so_date_de_livraison_prevu = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
-                # Synchroniser avec commitment_date
                 order.commitment_date = order.so_date_de_livraison
             else:
-                # Réinitialiser si les valeurs nécessaires sont manquantes
                 order.so_date_de_livraison = False
                 order.commitment_date = False
 
-    # Calcul des marges et coûts pour le devis
     @api.depends('so_mtt_facturer_devis', 'so_achat_vitrage_devis', 'so_achat_matiere_devis')
     def _compute_so_marge_brute_devis(self):
         for order in self:
@@ -234,7 +215,6 @@ class SaleOrder(models.Model):
         for order in self:
             order.so_mcv_devis = order.so_marge_brute_devis - order.so_cout_mod_devis
 
-    # Calcul des marges et coûts pour BE
     @api.depends('so_mtt_facturer_be', 'so_achat_vitrage_be', 'so_achat_matiere_be')
     def _compute_so_marge_brute_be(self):
         for order in self:
@@ -245,7 +225,6 @@ class SaleOrder(models.Model):
         for order in self:
             order.so_mcv_be = order.so_marge_brute_be - order.so_cout_mod_be
 
-    # Calcul des marges et coûts pour le réel
     @api.depends('so_mtt_facturer_reel', 'so_achat_vitrage_reel', 'so_achat_matiere_reel')
     def _compute_so_marge_brute_reel(self):
         for order in self:
