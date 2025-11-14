@@ -20,7 +20,7 @@ class PurchaseOrder(models.Model):
 
     is_xml_created = fields.Boolean(default=False, readonly=True)
     xml_creation_time = fields.Datetime(readonly=True)
-    sftp_synced_time = fields.Datetime("Send to SFTP", readonly=True)
+    sftp_synced_time = fields.Datetime("Send to SFTP", readonly=False)
     shipping_partner_id = fields.Many2one('res.partner')
     customer_delivery_address = fields.Char(compute='_get_default_customer_delivery_address', readonly=False)
     so_ral = fields.Char(string="RAL :")
