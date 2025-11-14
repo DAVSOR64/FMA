@@ -5,7 +5,7 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <xpath expr="//field[@name='x_studio_projet']" position="after">
+            <xpath expr="//sheet//group[@name='partner_details']//field[@name='user_id']" position="after">
                 <field name="main_contact_id"
                        string="Contact principal"
                        domain="[('parent_id', '=', partner_id)]"
