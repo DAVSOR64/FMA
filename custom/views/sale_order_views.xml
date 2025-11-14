@@ -4,6 +4,14 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='user_id']" position="after">
+                <field name="main_contact_id"
+                       string="Contact principal"
+                       domain="[('parent_id', '=', partner_id)]"
+                       context="{'default_parent_id': partner_id}"/>
+            </xpath>
+
             <!-- Ajout après les détails du partenaire -->
             <xpath expr="//sheet//group[@name='partner_details']" position="after">
                 <group string="Chronologie">
@@ -46,10 +54,10 @@
                     <field name="so_delai_confirme_en_semaine"/>
                 </group>
                 <group string="Informations supplémentaires">
-                        <field name="so_acces_bl"/>
-                        <field name="so_type_camion_bl"/>
-                        <field name="so_horaire_ouverture_bl"/>
-                        <field name="so_horaire_fermeture_bl"/>
+                    <field name="so_acces_bl"/>
+                    <field name="so_type_camion_bl"/>
+                    <field name="so_horaire_ouverture_bl"/>
+                    <field name="so_horaire_fermeture_bl"/>
                 </group>
             </xpath>
 
@@ -91,12 +99,6 @@
                 </page>
             </xpath>
 
-            <!-- Modification des champs demandés avec titres en bleu 
-
-             <xpath expr="//field[@name='tag_ids']" position="attributes">
-                <label for="tag_ids" string="Etiquette" style="color:blue;"/>
-                <field name="tag_ids" nolabel="1"/>
-            </xpath>-->
         </field>
     </record>
 </odoo>
