@@ -1,2 +1,2 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_custom_custom,custom.custom,model_custom_custom,base.group_user,1,1,1,1
+access_affair_chat_template_user,affair.chat.template user,model_affair_chat_template,base.group_user,1,1,1,0
