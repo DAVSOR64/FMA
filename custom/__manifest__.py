@@ -6,9 +6,13 @@
     'author': 'Your Name',
     'depends': ['base','sale', 'account','contacts', 'sale_stock','mrp'],
     'data': [
+        'security/ir.model.access.csv',
         'views/res_partner_views.xml',
         'views/sale_order_views.xml',
         'views/account_move_views.xml',
+        'views/affair_chat_template_views.xml',
+        'data/message_templates.xml',
+        
     ],
     'assets': {
         'web.assets_backend': [
