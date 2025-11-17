@@ -9,6 +9,21 @@ _logger = logging.getLogger(__name__)
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
+    chat_template_id = fields.Many2one(
+        'affair.chat.template',
+        string="Modèle de message"
+    )
+
+    def action_post_chat_template(self):
+        for order in self:
+            if not order.chat_template_id:
+                continue
+
+            order.message_post(
+                body=order.chat_template_id.body,
+                subtype_xmlid="mail.mt_comment",
+            )
+
     main_contact_id = fields.Many2one(
         'res.partner',
         string="Contact principal",
