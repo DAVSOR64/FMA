@@ -451,7 +451,7 @@ class ExportSFTPScheduler(models.Model):
                     # Flag acompte
                     'Oui' if (getattr(l, 'product_id', False) and 
                               getattr(l.product_id, 'default_code', False) and 
-                              'cpt' in str(l.product_id.defaut_code).lower()) else 'Non',
+                              'cpt' in str(l.product_id.default_code).lower()) else 'Non',
                                 
                 ) for l in invoice_lines]
                 invoice_line_file = write_csv(
