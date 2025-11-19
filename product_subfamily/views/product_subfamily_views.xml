@@ -48,7 +48,8 @@
          Adapte le parent si besoin selon vos menus existants -->
     <menuitem id="menu_product_subfamily"
               name="Sous-familles"
-              parent="product.menu_product_config"
+              parent="stock.menu_stock_root"
               action="action_product_subfamily"
               sequence="50"/>
+
 </odoo>
