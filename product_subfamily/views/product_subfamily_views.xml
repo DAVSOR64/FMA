@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- Vue liste des sous-familles -->
+    <record id="view_product_subfamily_tree" model="ir.ui.view">
+        <field name="name">product.subfamily.tree</field>
+        <field name="model">product.subfamily</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="product_categ_id"/>
+                <field name="code"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vue formulaire des sous-familles -->
+    <record id="view_product_subfamily_form" model="ir.ui.view">
+        <field name="name">product.subfamily.form</field>
+        <field name="model">product.subfamily</field>
+        <field name="arch" type="xml">
+            <form string="Sous-famille de produit">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="product_categ_id"/>
+                        <field name="code"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action d'ouverture des sous-familles -->
+    <record id="action_product_subfamily" model="ir.actions.act_window">
+        <field name="name">Sous-familles</field>
+        <field name="res_model">product.subfamily</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p>Configurez ici les sous-familles de produits, liées à une catégorie de produit.</p>
+        </field>
+    </record>
+
+    <!-- Menu de configuration -->
+    <!-- Ici je le mets sous : Inventaire / Configuration / Produits / Sous-familles
+         Adapte le parent si besoin selon vos menus existants -->
+    <menuitem id="menu_product_subfamily"
+              name="Sous-familles"
+              parent="product.menu_product_config"
+              action="action_product_subfamily"
+              sequence="50"/>
+</odoo>
