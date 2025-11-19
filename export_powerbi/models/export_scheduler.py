@@ -448,7 +448,11 @@ class ExportSFTPScheduler(models.Model):
                     ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
                     # Lien vente
                     (l.sale_line_ids[0].id if getattr(l, 'sale_line_ids', False) and l.sale_line_ids else ''),
-                    
+                    # Flag acompte
+                    'Oui' if (getattr(l, 'product_id', False) and 
+                              getattr(l.product_id, 'default_code', False) and 
+                              str(l.product_id.default_code).lower().startswith('cpt')) else 'Non',
+                                
                 ) for l in invoice_lines]
                 invoice_line_file = write_csv(
                     f'lignes_factures.csv',
@@ -462,7 +466,7 @@ class ExportSFTPScheduler(models.Model):
                         'PU_HT','Taxes','Mtt_HT','Mtt_TTC','Devise',
                         'Compte_code','Compte_libelle',
                         'Compte_Analytique','Tags_analytiques',
-                        'ID_Ligne_Commande'
+                        'ID_Ligne_Commande','Ligne acompte'
                     ],
                 invoice_line_data
                 )
