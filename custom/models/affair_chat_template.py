@@ -8,3 +8,4 @@ class AffairChatTemplate(models.Model):
     code = fields.Char(string="Code interne")
     body = fields.Html(string="Message", required=True)
     active = fields.Boolean(default=True)
+ 
