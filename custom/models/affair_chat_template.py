@@ -9,7 +9,3 @@ class AffairChatTemplate(models.Model):
     body = fields.Html(string="Message", required=True)
     active = fields.Boolean(default=True)
 
-    name = fields.Char(string="Nom du modèle", required=True)
-    code = fields.Char(string="Code interne")
-    body = fields.Html(string="Message", required=True)
-    active = fields.Boolean(default=True)
