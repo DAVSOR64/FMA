@@ -6,7 +6,7 @@ class ProductTemplate(models.Model):
 
     subfamily_id = fields.Many2one(
         'product.subfamily',
-        string="Sous-famille",
+        string="Sous catégorie",
         domain="[('product_categ_id', '=', categ_id)]",
-        help="Sous-famille dépendante de la catégorie de produit.",
+        help="Sous catégorie dépendante de la catégorie de produit.",
     )
