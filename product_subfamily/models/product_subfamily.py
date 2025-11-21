@@ -3,7 +3,7 @@ from odoo import models, fields
 
 class ProductSubFamily(models.Model):
     _name = 'product.subfamily'
-    _description = 'Sous-famille de produit'
+    _description = 'Sous catégorie de produit'
     _order = 'product_categ_id, name'
 
     name = fields.Char(string="Nom", required=True)
