@@ -47,7 +47,7 @@
     <!-- Ici je le mets sous : Inventaire / Configuration / Produits / Sous-familles
          Adapte le parent si besoin selon vos menus existants -->
     <menuitem id="menu_product_subfamily"
-              name="Sous-familles"
+              name="Sous catégorie"
               parent="stock.menu_stock_root"
               action="action_product_subfamily"
               sequence="50"/>
