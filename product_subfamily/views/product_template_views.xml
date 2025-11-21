@@ -9,7 +9,7 @@
         <field name="arch" type="xml">
             <!-- Insérer après le champ de catégorie interne -->
             <field name="categ_id" position="after">
-                <field name="subfamily_id"/>
+                <field name="subfamily_id" string="Sous catégorie"/>
             </field>
         </field>
     </record>
