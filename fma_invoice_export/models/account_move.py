@@ -81,9 +81,11 @@ class AccountMove(models.Model):
         sale_order = None
         section = ''
         journal = 'VTE'
+        _logger.warning("**********dans la fonction pour l export facture vente********* "  )
         if move.line_ids and move.line_ids[0].sale_line_ids:
             sale_order = move.line_ids[0].sale_line_ids[0].order_id
             sale_order_name = sale_order.name if sale_order else ''
+            _logger.warning("**********Devis********* %s " % sale_order_name )
             if sale_order_name :
                sale_order_name = sale_order_name[:12]
             tag_names = {tag.name for tag in sale_order.tag_ids}
