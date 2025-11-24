@@ -160,6 +160,16 @@ class ResPartner(models.Model):
 
             customer = customer_map.get(code)
             if customer:
+                _logger.info(
+                    "Mise à jour encours client %s (id=%s, compte=%s) -> "
+                    "débit=%.2f, crédit=%.2f, encours=%.2f",
+                    customer.name,
+                    customer.id,
+                    code,
+                    debit,
+                    credit,
+                    outstandings,
+                )
                 customer.outstandings = outstandings
                 # Adapter ces champs si nécessaires/existent
                 if hasattr(customer, 'x_studio_mtt_echu'):
