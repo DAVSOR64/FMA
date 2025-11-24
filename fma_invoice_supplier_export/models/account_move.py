@@ -81,6 +81,7 @@ class AccountMove(models.Model):
         po_name = ''
         section = ''
         journal = 'ACH'
+        po = ''
         _logger.warning("=== Avant les lignes ===")
         for line in move.invoice_line_ids:
             _logger.warning(f"=== Parcours ligne {line.id} ===")
