@@ -154,7 +154,7 @@ class ExportSFTPScheduler(models.Model):
             try:
                 clients = self.env['res.partner'].search([('customer_rank', '>', 0)])
                 client_data = [(
-                    p.id,
+                    str(p.id),
                     getattr(p, 'company_type', '') or '',
                     p.parent_id.id or '',
                     p.parent_name or '',
@@ -196,11 +196,11 @@ class ExportSFTPScheduler(models.Model):
                 client_file = write_csv(
                     f'clients.csv',
                     [
-                        'ID','Type','Id Société rattachée','Societe rattachée','Nom',
+                        'ID Client','Type','Id Société rattachee','Societe rattachee','Nom',
                         'Civilite','Rue','Rue 2','Ville','Code Postal',
                         'Telephone','Mobile','Email',
-                        'TVA','Commercial','Compte_Progi','Code_Diap','Mode_de_reglement','Libellé','Commentaire',
-                        'Siret','Siren','Date demande ND COVER ','Garantie Spécifique','Encours Assuré','Encours autorisé',
+                        'TVA','Commercial','Compte_Progi','Code_Diap','Mode_de_reglement','Libelle','Commentaire',
+                        'Siret','Siren','Date demande ND COVER ','Garantie Specifique','Encours Assure','Encours autorise',
                         'Encours','Mtt_Echu','Mtt_Non_Echu','Date_creation','Date_Modification',
                         'Catégorie'
                     ],
@@ -215,20 +215,20 @@ class ExportSFTPScheduler(models.Model):
             try:
                 orders = self.env['sale.order'].search([])
                 order_data = [(
-                    o.id,
+                    str(o.id),
                     o.name or '',
                     o.state or '',
                     o.date_order.strftime('%Y-%m-%d %H:%M:%S') if getattr(o, 'date_order', False) else '',
                     #getattr(o, 'validity_date', False) and o.validity_date.strftime('%Y-%m-%d') or '',
                     o.origin or '',
                     #getattr(o, 'client_order_ref', '') or '',
-                    (o.partner_id.id if getattr(o, 'partner_id', False) else ''),
+                    (str(o.partner_id.id) if getattr(o, 'partner_id', False) else ''),
                     (o.partner_id.name if getattr(o, 'partner_id', False) else ''),
-                    (o.partner_invoice_id.id if getattr(o, 'partner_invoice_id', False) else ''),
+                    (str(o.partner_invoice_id.id) if getattr(o, 'partner_invoice_id', False) else ''),
                     (o.partner_invoice_id.name if getattr(o, 'partner_invoice_id', False) else ''),
-                    (o.partner_shipping_id.id if getattr(o, 'partner_shipping_id', False) else ''),
+                    (str(o.partner_shipping_id.id) if getattr(o, 'partner_shipping_id', False) else ''),
                     (o.partner_shipping_id.name if getattr(o, 'partner_shipping_id', False) else ''),
-                    (o.user_id.id if getattr(o, 'user_id', False) else ''),
+                    (str(o.user_id.id) if getattr(o, 'user_id', False) else ''),
                     (o.user_id.name if getattr(o, 'user_id', False) else ''),
                     #getattr(o, 'commitment_date', False) and o.commitment_date.strftime('%Y-%m-%d %H:%M:%S') or '',
                     (o.currency_id.name if getattr(o, 'currency_id', False) else ''),
@@ -262,7 +262,7 @@ class ExportSFTPScheduler(models.Model):
                 order_file = write_csv(
                     f'commandes.csv',
                     [
-                        'ID','N° Commande','Etat','Date Création Devis (ODOO)','Origine',
+                        'ID Commande','Num Commande','Etat','Date Creation Devis (ODOO)','Origine',
                         'ID Client','Client','ID Facturation','Adresse Facturation',
                         'ID Livraison','Adresse Livraison',
                         'ID BEC Ventes ','BEC Ventes',
@@ -290,10 +290,10 @@ class ExportSFTPScheduler(models.Model):
             # =========================================================
             order_lines = self.env['sale.order.line'].search([('product_id', '!=', False)])
             order_line_data = [(
-                l.id,
+                str(l.id),
                 getattr(l, 'sequence', 10),
                 # Lien commande
-                (l.order_id.id if getattr(l, 'order_id', False) else ''),
+                (str(l.order_id.id) if getattr(l, 'order_id', False) else ''),
                 (l.order_id.name if getattr(l, 'order_id', False) else ''),
                 (l.order_id.x_studio_projet if getattr(l, 'order_id', False) else ''),
                 getattr(l, 'name', '') or '',
@@ -301,10 +301,10 @@ class ExportSFTPScheduler(models.Model):
                 (l.order_id.state if getattr(l, 'order_id', False) else ''),
                 (l.order_id.date_order.strftime('%Y-%m-%d %H:%M:%S') if (getattr(l, 'order_id', False) and getattr(l.order_id, 'date_order', False)) else ''),
                 # Client
-                (l.order_id.partner_id.id if (getattr(l, 'order_id', False) and getattr(l.order_id, 'partner_id', False)) else ''),
+                (str(l.order_id.partner_id.id) if (getattr(l, 'order_id', False) and getattr(l.order_id, 'partner_id', False)) else ''),
                 (l.order_id.partner_id.name if (getattr(l, 'order_id', False) and getattr(l.order_id, 'partner_id', False)) else ''),
                 # Produit
-                (l.product_id.id if getattr(l, 'product_id', False) else ''),
+                (str(l.product_id.id) if getattr(l, 'product_id', False) else ''),
                 (l.product_id.default_code if getattr(l, 'product_id', False) else '') or '',
                 (l.product_id.name if getattr(l, 'product_id', False) else '') or '',
                 (l.product_id.categ_id.name if (getattr(l, 'product_id', False) and getattr(l.product_id, 'categ_id', False)) else '') or '',
@@ -355,7 +355,7 @@ class ExportSFTPScheduler(models.Model):
 
                 
                 invoice_data = [(
-                    i.id,
+                    str(i.id),
                     i.name or '',
                     getattr(i, 'move_type', '') or '',
                     i.invoice_date.strftime('%Y-%m-%d') if getattr(i, 'invoice_date', False) else '',
@@ -364,7 +364,7 @@ class ExportSFTPScheduler(models.Model):
                     # Etat paiement
                     i.payment_state or '',
                     # Partenaire
-                    (i.partner_id.id if getattr(i, 'partner_id', False) else ''),
+                    (str(i.partner_id.id) if getattr(i, 'partner_id', False) else ''),
                     (i.partner_id.name if getattr(i, 'partner_id', False) else ''),
                     # Organisation
                     (i.currency_id.name if getattr(i, 'currency_id', False) else ''),
@@ -385,7 +385,7 @@ class ExportSFTPScheduler(models.Model):
                 invoice_file = write_csv(
                     f'factures.csv',
                     [
-                        'ID','Numero de Facture','Type',
+                        'ID Facture','Numero de Facture','Type',
                         'Date Facture','Echeance','Origine','Etat_Paiement',
                         'ID Client','Client',
                         'Devise','Condition de paiement','Mode de reglement','Libelle mode de reglement','Position_fiscale',
@@ -411,19 +411,19 @@ class ExportSFTPScheduler(models.Model):
                     ('product_id', '!=', False)
                 ])
                 invoice_line_data = [(
-                    l.id,
+                    str(l.id),
                     getattr(l, 'sequence', 10),
                     # Move / facture
-                    (l.move_id.id if getattr(l, 'move_id', False) else ''),
+                    (str(l.move_id.id) if getattr(l, 'move_id', False) else ''),
                     (l.move_id.name if getattr(l, 'move_id', False) else ''),
                     (l.move_id.invoice_date.strftime('%Y-%m-%d') if (getattr(l, 'move_id', False) and getattr(l.move_id, 'invoice_date', False)) else ''),
-                    (l.move_id.partner_id.id if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
+                    (str(l.move_id.partner_id.id) if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
                     (l.move_id.partner_id.name if (getattr(l, 'move_id', False) and getattr(l.move_id, 'partner_id', False)) else ''),
                     # Ligne
                     getattr(l, 'name', '') or '',
                     (getattr(l, 'display_type', '') or ''),
                     # Produit
-                    (l.product_id.id if getattr(l, 'product_id', False) else ''),
+                    (str(l.product_id.id) if getattr(l, 'product_id', False) else ''),
                     (l.product_id.default_code if getattr(l, 'product_id', False) else '') or '',
                     (l.product_id.name if getattr(l, 'product_id', False) else '') or '',
                     (l.product_id.categ_id.name if (getattr(l, 'product_id', False) and getattr(l.product_id, 'categ_id', False)) else '') or '',
@@ -447,7 +447,7 @@ class ExportSFTPScheduler(models.Model):
                     (l.analytic_account_id.name if getattr(l, 'analytic_account_id', False) else ''),
                     ', '.join([t.name for t in getattr(l, 'analytic_tag_ids', [])]) if getattr(l, 'analytic_tag_ids', False) else '',
                     # Lien vente
-                    (l.sale_line_ids[0].id if getattr(l, 'sale_line_ids', False) and l.sale_line_ids else ''),
+                    (str(l.sale_line_ids[0].id) if getattr(l, 'sale_line_ids', False) and l.sale_line_ids else ''),
                     # Flag acompte
                     'Oui' if (getattr(l, 'product_id', False) and 
                               getattr(l.product_id, 'default_code', False) and 
@@ -457,16 +457,16 @@ class ExportSFTPScheduler(models.Model):
                 invoice_line_file = write_csv(
                     f'lignes_factures.csv',
                     [
-                        'ID_Ligne','Sequence',
-                        'ID_Facture','NumFac','Date_facture',
-                        'ID_Client','Client',
+                        'ID Ligne','Sequence',
+                        'ID Facture','NumFac','Date_facture',
+                        'ID Client','Client',
                         'Libelle','Type_affichage',
-                        'ID_Article','Code_article','Nom_article','Categorie_article',
+                        'ID Article','Code_article','Nom_article','Categorie_article',
                         'Qte','UoM',
                         'PU_HT','Taxes','Mtt_HT','Mtt_TTC','Devise',
                         'Compte_code','Compte_libelle',
                         'Compte_Analytique','Tags_analytiques',
-                        'ID_Ligne_Commande','Ligne acompte'
+                        'ID Ligne_Commande','Ligne acompte'
                     ],
                 invoice_line_data
                 )
