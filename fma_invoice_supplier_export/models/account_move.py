@@ -73,7 +73,7 @@ class AccountMove(models.Model):
             except Exception as e:
                 _logger.exception("Failed to create journal items file for %s: %s", move.name, e)
 
-    def _get_file_content(self, journal_items, move):
+    def _get_file_supplier_content(self, journal_items, move):
         """Get journal items grouped by account for the .csv file."""
         grouped_items = []
         po_name = ''
