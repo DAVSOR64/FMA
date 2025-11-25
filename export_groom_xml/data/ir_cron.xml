@@ -1,0 +1,31 @@
+<odoo>
+    <data noupdate="1">
+
+        <!-- Cron génération fichiers XML -->
+        <record id="ir_cron_export_Groom_xml_generate" model="ir.cron">
+            <field name="name">Export Groom XML - Génération</field>
+            <field name="model_id" ref="model_export_sftp_scheduler"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_generate_files()</field>
+            <!-- tous les jours à 2h -->
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Cron envoi SFTP -->
+        <record id="ir_cron_export_Groom_xml_sftp" model="ir.cron">
+            <field name="name">Export Groom XML - Envoi SFTP</field>
+            <field name="model_id" ref="model_export_sftp_scheduler"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_send_files_to_sftp()</field>
+            <!-- tous les jours à 3h -->
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="numbercall">-1</field>
+            <field name="active">True</field>
+        </record>
+
+    </data>
+</odoo>
