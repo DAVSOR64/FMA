@@ -1,0 +1,46 @@
+<odoo>
+
+    <!-- Vues de la table des modèles de messages -->
+    <record id="view_affair_chat_template_tree" model="ir.ui.view">
+        <field name="name">affair.chat.template.tree</field>
+        <field name="model">affair.chat.template</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record> 
+
+    <record id="view_affair_chat_template_form" model="ir.ui.view">
+        <field name="name">affair.chat.template.form</field>
+        <field name="model">affair.chat.template</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="code"/>
+                        <field name="active"/>
+                        <field name="body"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ⚠ D'ABORD l'action -->
+    <record id="action_affair_chat_template" model="ir.actions.act_window">
+        <field name="name">Modèles de messages d'affaire</field>
+        <field name="res_model">affair.chat.template</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- ENSUITE le menu qui référence l'action -->
+    <menuitem id="menu_affair_chat_template_root"
+          name="Modèles de messages d'affaire"
+          parent="sale.menu_sale_config"
+          action="action_affair_chat_template"/>
+
+</odoo>
