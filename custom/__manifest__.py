@@ -12,6 +12,7 @@
         'views/account_move_views.xml',
         'views/affair_chat_template_views.xml',
         'data/message_templates.xml',
+        'data/mail_template_retard.xml',
         
     ],
     'assets': {
