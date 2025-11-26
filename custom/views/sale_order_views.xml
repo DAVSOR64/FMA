@@ -5,8 +5,10 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- Ajout après les détails du partenaire -->
+            <!-- On ajoute nos blocs après le group partner_details -->
             <xpath expr="//sheet//group[@name='partner_details']" position="after">
+
+                <!-- Chronologie -->
                 <group string="Chronologie">
 
                     <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
@@ -41,28 +43,31 @@
 
                 </group>
 
-                <!-- Autres groupes -->
+                <!-- Informations principales -->
                 <group string="Informations principales">
                     <field name="so_commande_client"/>
                     <field name="so_delai_confirme_en_semaine"/>
-
-                    <!-- >>> ICI : ton champ Contact principal <<< -->
                     <field name="main_contact_id"
                            string="Contact principal"
                            domain="[('parent_id', '=', partner_id)]"
                            context="{'default_parent_id': partner_id}"/>
                 </group>
 
+                <!-- Informations supplémentaires -->
                 <group string="Informations supplémentaires">
                     <field name="so_acces_bl"/>
                     <field name="so_type_camion_bl"/>
                     <field name="so_horaire_ouverture_bl"/>
                     <field name="so_horaire_fermeture_bl"/>
                 </group>
+
+                <!-- ⚠️ on ne met PLUS Communication affaire ici -->
             </xpath>
 
-            <!-- Exemple pour ajouter les pages existantes -->
+            <!-- Onglets en bas de la vue -->
             <xpath expr="//sheet/notebook" position="inside">
+
+                <!-- Onglet Analyse Financière (déjà existant) -->
                 <page string="Analyse Financière">
                     <group>
                         <group string="Chiffres Devis">
@@ -97,6 +102,21 @@
                         </group>
                     </group>
                 </page>
+
+                <!-- 🔵 Nouvel onglet : Suivi / Communication affaire -->
+                <page string="Suivi / Communication affaire">
+                    <group string="Communication affaire">
+                        <field name="chat_template_id" string="Modèle de message"/>
+                        <field name="so_arc_ref"/>
+                        <field name="so_retard_nouvelle_date"/>
+                        <field name="so_retard_motif"/>
+                        <button name="action_post_chat_template"
+                                type="object"
+                                string="Publier dans le chat"
+                                class="btn-secondary"/>
+                    </group>
+                </page>
+
             </xpath>
 
         </field>
