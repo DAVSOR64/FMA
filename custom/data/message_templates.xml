@@ -1,0 +1,12 @@
+<odoo>
+    <record id="template_retard_production" model="affair.chat.template">
+        <field name="name">Retard de production</field>
+        <field name="code">retard_prod</field>
+        <field name="body">
+            <![CDATA[
+                <p><b>⚠ Retard de production</b></p>
+                <p>Un retard de production a été signalé. Nous reviendrons vers vous avec une nouvelle estimation.</p>
+            ]]>
+        </field>
+    </record>
+</odoo>
