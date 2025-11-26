@@ -5,4 +5,4 @@ from . import account_move
 from . import res_partner
 from . import mrp_production
 from . import sale_advance_payment_inv
-    
+from . import affair_chat_template
