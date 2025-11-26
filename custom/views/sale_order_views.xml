@@ -107,6 +107,9 @@
                 <page string="Suivi / Communication affaire">
                     <group string="Communication affaire">
                         <field name="chat_template_id" string="Modèle de message"/>
+                        <field name="so_arc_ref"/>
+                        <field name="so_retard_nouvelle_date"/>
+                        <field name="so_retard_motif"/>
                         <button name="action_post_chat_template"
                                 type="object"
                                 string="Publier dans le chat"
