@@ -9,10 +9,30 @@ _logger = logging.getLogger(__name__)
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
+    # ===================== Communication affaire =====================
+
+    chat_template_id = fields.Many2one(
+        'affair.chat.template',
+        string="Modèle de message"
+    )
+
     main_contact_id = fields.Many2one(
         'res.partner',
         string="Contact principal",
         help="Contact principal chez le client."
+    )
+
+    # Champs pour le retard de livraison
+    so_retard_nouvelle_date = fields.Date(
+        string="Nouvelle date de livraison (retard)"
+    )
+    so_retard_motif = fields.Char(
+        string="Motif du retard"
+    )
+    
+     # Nouveau champ ARC pour les mails / communication
+    so_arc_ref = fields.Char(
+        string="Référence ARC"
     )
 
     @api.onchange('partner_id')
@@ -21,7 +41,118 @@ class SaleOrder(models.Model):
         res = super(SaleOrder, self)._onchange_partner_id()
         self.main_contact_id = False
         return res
-    # >>>>>> FIN NOUVEAU CHAMP <<<<<<
+
+    def action_post_chat_template(self):
+        """
+        Publie le modèle dans le chat + envoie un mail aux partenaires liés.
+
+        Si le nom du modèle contient 'retard', on génère un message spécial
+        de retard de livraison avec les dates / motif.
+        """
+        for order in self:
+            template = order.chat_template_id
+            if not template:
+                continue
+
+            # Détection du modèle "Retard de livraison" par le nom
+            if template.name and 'retard' in template.name.lower():
+                body = order._build_retard_livraison_body()
+            else:
+                body = template.body or ''
+
+            # Destinataire : contact principal s'il existe, sinon le client
+            partner_ids = []
+            if order.main_contact_id:
+                partner_ids.append(order.main_contact_id.id)
+            elif order.partner_id:
+                partner_ids.append(order.partner_id.id)
+
+            order.message_post(
+                body=body,                  # TEXTE SIMPLE
+                subtype_xmlid="mail.mt_comment",
+                message_type="comment",
+                partner_ids=partner_ids,
+                email_layout_xmlid="mail.mail_notification_light",
+            )
+            
+            email_values = {
+                'email_to': order.partner_id.email,
+                'body_html': body,
+                'subject': f"Retard de livraison – {order.name}",
+            }
+
+            template_mail = self.env.ref("mail.email_notification_light", False)
+            if template_mail:
+                template_mail.send_mail(order.id, email_values=email_values, force_send=True)
+
+
+    def _build_retard_livraison_body(self):
+        """
+        Construit le message TEXTE pour le retard de livraison.
+
+        - Semaine initiale : semaine de la scheduled_date du premier BL sortant.
+        - Semaine de report : semaine de so_retard_nouvelle_date.
+        - Nom de contact : toujours 'Mr VOLEAU'.
+        """
+        self.ensure_one()
+
+        # ================= DATE / SEMAINE INITIALE =================
+        old_week = ''
+        # On va chercher le 1er BL sortant lié au devis (origin = nom du devis)
+        picking = self.env['stock.picking'].search([
+            ('origin', '=', self.name),
+            ('picking_type_code', '=', 'outgoing'),
+        ], order='scheduled_date asc', limit=1)
+
+        if picking and picking.scheduled_date:
+            old_date = picking.scheduled_date.date()
+            old_week = str(old_date.isocalendar()[1])
+
+        # ================= NOUVELLE DATE / SEMAINE =================
+        new_week = ''
+        if self.so_retard_nouvelle_date:
+            new_week = str(self.so_retard_nouvelle_date.isocalendar()[1])
+
+        motif = self.so_retard_motif or 'Non précisé'
+        ref_client = self.client_order_ref or self.so_commande_client or self.name
+        arc = self.so_arc_ref or self.name
+
+        # Nom affiché dans le texte : toujours Mr VOLEAU
+        contact_name = "Mr VOLEAU"
+
+        # Construction du texte brut (sans balises HTML)
+        lines = []
+        lines.append("RETARD DE LIVRAISON")
+        lines.append("")
+        lines.append("Madame, Monsieur,")
+        lines.append("")
+        lines.append(f"Votre commande référence : {ref_client}")
+        lines.append(f"Correspondant à notre ARC : {arc}")
+        lines.append("")
+        lines.append(
+            f"Qui devait être livrée semaine {old_week or 'XX'} "
+            f"doit être reportée à la semaine {new_week or 'XX'}."
+        )
+        lines.append("")
+        lines.append(f"Motif : {motif}")
+        lines.append("")
+        lines.append(
+            f"{contact_name} prendra ultérieurement contact avec vous afin de "
+            "définir les modalités de livraison."
+        )
+        lines.append(
+            "Nous restons à votre écoute aux coordonnées en signature de ce mail."
+        )
+        lines.append("")
+        lines.append(
+            "Nous sommes désolés de ne pouvoir honorer notre engagement et "
+            "restons à votre disposition pour de plus amples explications."
+        )
+
+        return "\n".join(lines)
+
+
+    # ===================== Champs existants =====================
 
     x_studio_ref_affaire = fields.Char(string="Affaire")
     x_studio_imputation = fields.Char(string="Numéro Commande Client")
@@ -90,7 +221,7 @@ class SaleOrder(models.Model):
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 
-    # Onglet Analyse Financière (Devis)
+    # -------- Analyse Financière (Devis) --------
     so_achat_matiere_devis = fields.Monetary(string="Achat Matière (Devis)")
     so_achat_vitrage_devis = fields.Monetary(string="Achat Vitrage (Devis)")
     so_cout_mod_devis = fields.Monetary(string="Coût MOD (Devis)")
@@ -100,7 +231,6 @@ class SaleOrder(models.Model):
     so_mcv_devis = fields.Monetary(string="M.C.V. en € (Devis)", compute='_compute_so_mcv_devis', store=True)
     so_prc_mcv_devis = fields.Float(string="M.C.V. en % (Devis)", compute='_compute_so_prc_mcv_devis', store=True)
 
-    # Champs formatés pour affichage arrondi avec "%" ajouté
     so_prc_marge_brute_devis_display = fields.Char(
         compute='_compute_so_prc_marge_brute_devis_display',
         string="Marge Brute en % (Devis)"
@@ -122,7 +252,7 @@ class SaleOrder(models.Model):
             mcv_arrondi = "{:.1f}".format(float_round(record.so_prc_mcv_devis, precision_digits=1))
             record.so_prc_mcv_devis_display = f"{mcv_arrondi} %"
 
-    # Onglet Analyse Financière (B.E.)
+    # -------- Analyse Financière (B.E.) --------
     so_achat_matiere_be = fields.Monetary(string="Achat Matière (B.E.)")
     so_achat_vitrage_be = fields.Monetary(string="Achat Vitrage (B.E.)")
     so_cout_mod_be = fields.Monetary(string="Coût MOD (B.E.)")
@@ -153,7 +283,7 @@ class SaleOrder(models.Model):
             mcv_arrondi_be = "{:.1f}".format(float_round(record.so_prc_mcv_be, precision_digits=1))
             record.so_prc_mcv_be_display = f"{mcv_arrondi_be} %"
 
-    # Onglet Analyse Financière (Réel)
+    # -------- Analyse Financière (Réel) --------
     so_achat_matiere_reel = fields.Monetary(string="Achat Matière (Réel)")
     so_achat_vitrage_reel = fields.Monetary(string="Achat Vitrage (Réel)")
     so_cout_mod_reel = fields.Monetary(string="Coût MOD (Réel)")
@@ -183,6 +313,8 @@ class SaleOrder(models.Model):
         for record in self:
             mcv_arrondi_reel = "{:.1f}".format(float_round(record.so_prc_mcv_reel, precision_digits=1))
             record.so_prc_mcv_reel_display = f"{mcv_arrondi_reel} %"
+
+    # ===================== Méthodes existantes =====================
 
     def _prepare_invoice(self):
         invoice_vals = super(SaleOrder, self)._prepare_invoice()
