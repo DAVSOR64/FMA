@@ -331,7 +331,7 @@ class ExportSFTPScheduler(models.Model):
                 f'lignes_commandes.csv',
                 [
                     'ID Ligne','Ordre affichage',
-                    'ID Commande','Num Commande','Affaire','Description','Type de ligne','Etat_commande','Date_commande',
+                    'ID Commande','Num Commande','Affaire','Tag','Description','Type de ligne','Etat_commande','Date_commande',
                     'ID Client','Client',
                     'ID Article','Code article','Nom article','Categorie_article',
                     'Qte Cde','Qte Liv','Qte Fact','Unité de Mesure',
