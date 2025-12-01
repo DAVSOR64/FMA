@@ -36,7 +36,7 @@ class ResPartner(models.Model):
         today = date.today().strftime("%d%m%Y")
         
         # Construit le nom du fichier
-        filename = f"ENCOURS_{today}.txt"
+        filename = f"ENCOURS_{today}.csv"
 
         try:
             if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
