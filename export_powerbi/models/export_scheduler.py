@@ -296,6 +296,7 @@ class ExportSFTPScheduler(models.Model):
                 (str(l.order_id.id) if getattr(l, 'order_id', False) else ''),
                 (l.order_id.name if getattr(l, 'order_id', False) else ''),
                 (l.order_id.x_studio_projet if getattr(l, 'order_id', False) else ''),
+                (l.order_id.tag_ids if getattr(l, 'order_id', False) else ''),
                 getattr(l, 'name', '') or '',
                 (getattr(l, 'display_type', '') or ''),
                 (l.order_id.state if getattr(l, 'order_id', False) else ''),
