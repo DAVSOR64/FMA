@@ -4,25 +4,30 @@ from odoo.http import request
 import xlsxwriter
 import io
 
-class DeliveryReportExcel(http.Controller):
 
-    @http.route(['/report/delivery/excel/<int:delivery_id>'], type='http', auth="user", csrf=False)
+class DeliveryReportExcel(http.Controller):
+    @http.route(
+        ["/report/delivery/excel/<int:delivery_id>"],
+        type="http",
+        auth="user",
+        csrf=False,
+    )
     def generate_excel_report(self, delivery_id, **kwargs):
-        picking = request.env['stock.picking'].browse(delivery_id)
+        picking = request.env["stock.picking"].browse(delivery_id)
 
         output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-        worksheet = workbook.add_worksheet('Bon de Livraison')
+        workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+        worksheet = workbook.add_worksheet("Bon de Livraison")
 
-        bold = workbook.add_format({'bold': True})
+        bold = workbook.add_format({"bold": True})
 
         # En-têtes de colonnes
-        worksheet.write(0, 0, 'Référence du bon de livraison', bold)
-        worksheet.write(0, 1, 'Client', bold)
-        worksheet.write(0, 2, 'Date prévue de livraison', bold)
-        worksheet.write(0, 3, 'Article', bold)
-        worksheet.write(0, 4, 'Quantité commandée', bold)
-        worksheet.write(0, 5, 'Quantité livrée', bold)
+        worksheet.write(0, 0, "Référence du bon de livraison", bold)
+        worksheet.write(0, 1, "Client", bold)
+        worksheet.write(0, 2, "Date prévue de livraison", bold)
+        worksheet.write(0, 3, "Article", bold)
+        worksheet.write(0, 4, "Quantité commandée", bold)
+        worksheet.write(0, 5, "Quantité livrée", bold)
 
         # Remplir les données du bon de livraison
         row = 1
@@ -40,8 +45,11 @@ class DeliveryReportExcel(http.Controller):
         response = request.make_response(
             output.getvalue(),
             headers=[
-                ('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
-                ('Content-Disposition', 'attachment; filename=bon_de_livraison.xlsx;')
-            ]
+                (
+                    "Content-Type",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ),
+                ("Content-Disposition", "attachment; filename=bon_de_livraison.xlsx;"),
+            ],
         )
         return response

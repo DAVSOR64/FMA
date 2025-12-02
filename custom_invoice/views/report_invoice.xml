@@ -338,7 +338,7 @@
                     float: right;
                     }
                     .rib-block {
-                    height:130px;    
+                    height:130px;
                     width: 45%;
                     border: 1px solid #ddd;
                     padding: 10px;
@@ -396,18 +396,18 @@
                                         <t t-if="l.tax_line_id">
                                             <!-- Nom d'affichage : groupe de taxe si dispo, sinon nom de la taxe -->
                                             <t t-set="tax_name" t-value="(l.tax_group_id and l.tax_group_id.name) or l.tax_line_id.name"/>
-                                    
+
                                             <!-- Montant positif de la ligne de taxe dans la devise de la facture si possible,
                                                  sinon en devise société (balance). Sur facture client, balance est négatif pour une taxe -> on met -balance -->
                                             <t t-set="line_amount"
                                                 t-value="-( (l.currency_id and o.currency_id and l.currency_id.id == o.currency_id.id and l.amount_currency) or l.balance )"/>
-                                    
+
                                             <!-- Cumuler -->
                                             <t t-set="prev" t-value="tax_details.get(tax_name, 0)"/>
                                             <t t-set="tax_details" t-value="dict(tax_details, **{tax_name: (prev + (line_amount or 0))})"/>
                                     </t>
                                 </t>
-                                
+
                                 <!-- Afficher les totaux par taux/groupe de TVA -->
                                 <t t-foreach="tax_details.items()" t-as="item">
                                     <tr>

@@ -2,27 +2,28 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
+
 class StockPicking(models.Model):
-    _inherit = 'stock.picking'
+    _inherit = "stock.picking"
 
     # ---- Lien vers la commande/devis source ----
     sale_id = fields.Many2one(
-        'sale.order',
-        string='Commande de vente',
-        compute='_compute_sale_id',
+        "sale.order",
+        string="Commande de vente",
+        compute="_compute_sale_id",
         store=True,
         readonly=True,
     )
 
     # True si livré avant OU dans la même semaine ISO que la date prévue (SO)
     delivered_on_time = fields.Boolean(
-        string='Livré à temps',
-        compute='_compute_delivered_on_time',
+        string="Livré à temps",
+        compute="_compute_delivered_on_time",
         store=True,
     )
 
     # AAAA-MM basé sur la date effective (en TZ utilisateur)
-    delivery_month = fields.Char( 
+    delivery_month = fields.Char(
         string="Mois de livraison",
         compute="_compute_delivery_month",
         store=True,
@@ -38,9 +39,9 @@ class StockPicking(models.Model):
     # --- Motif + indicateurs (gestion modif date planifiée) ---
     planned_date_reason = fields.Selection(
         selection=[
-            ('supplier', 'Fournisseur'),
-            ('internal', 'Cause interne'),
-            ('customer', 'Client'),
+            ("supplier", "Fournisseur"),
+            ("internal", "Cause interne"),
+            ("customer", "Client"),
         ],
         string="Motif changement",
         help="Obligatoire si la Date planifiée est modifiée (sur livraison client).",
@@ -64,35 +65,39 @@ class StockPicking(models.Model):
 
     # Helper UI (non stocké) : indique qu'on modifie la date en ce moment
     require_planned_date_reason = fields.Boolean(
-        compute='_compute_require_planned_date_reason',
+        compute="_compute_require_planned_date_reason",
         store=False,
     )
 
     # ----- Computes -----
 
-    @api.depends('move_ids', 'origin')
+    @api.depends("move_ids", "origin")
     def _compute_sale_id(self):
-        SaleOrder = self.env['sale.order']
+        SaleOrder = self.env["sale.order"]
         for picking in self:
             sale = False
             if picking.origin:
-                sale = SaleOrder.search([('name', '=', picking.origin)], limit=1)
+                sale = SaleOrder.search([("name", "=", picking.origin)], limit=1)
             if not sale and picking.move_ids:
                 try:
-                    sale_lines = picking.move_ids.mapped('sale_line_id')  # si sale_stock absent -> except
+                    sale_lines = picking.move_ids.mapped(
+                        "sale_line_id"
+                    )  # si sale_stock absent -> except
                     if sale_lines:
-                        sale = sale_lines.mapped('order_id')[:1]
+                        sale = sale_lines.mapped("order_id")[:1]
                 except Exception:
                     pass
             picking.sale_id = sale.id if sale else False
 
-    @api.depends('date_done', 'state', 'sale_id')
+    @api.depends("date_done", "state", "sale_id")
     def _compute_delivered_on_time(self):
-        CANDIDATE_FIELDS = ('so_date_de_livraison', 'commitment_date')
+        CANDIDATE_FIELDS = ("so_date_de_livraison", "commitment_date")
         for picking in self:
             on_time = False
-            if picking.state == 'done' and picking.date_done and picking.sale_id:
-                dd = fields.Datetime.context_timestamp(picking, picking.date_done).date()
+            if picking.state == "done" and picking.date_done and picking.sale_id:
+                dd = fields.Datetime.context_timestamp(
+                    picking, picking.date_done
+                ).date()
                 sd = None
                 so = picking.sale_id
                 for fname in CANDIDATE_FIELDS:
@@ -104,7 +109,7 @@ class StockPicking(models.Model):
                 if sd:
                     if isinstance(sd, str):
                         sd = fields.Date.to_date(sd)
-                    elif hasattr(sd, 'date'):
+                    elif hasattr(sd, "date"):
                         try:
                             sd = sd.date()
                         except Exception:
@@ -114,67 +119,80 @@ class StockPicking(models.Model):
                     on_time = (dy, dw) <= (sy, sw)
             picking.delivered_on_time = on_time
 
-    @api.depends('date_done')
+    @api.depends("date_done")
     def _compute_delivery_month(self):
         for picking in self:
             if picking.date_done:
                 dt_local = fields.Datetime.context_timestamp(picking, picking.date_done)
-                picking.delivery_month = dt_local.strftime('%Y-%m')
+                picking.delivery_month = dt_local.strftime("%Y-%m")
             else:
-                picking.delivery_month = ''
+                picking.delivery_month = ""
 
-    @api.depends('delivery_month', 'delivered_on_time', 'state')
+    @api.depends("delivery_month", "delivered_on_time", "state")
     def _compute_service_rate_percent(self):
-        months = set(self.mapped('delivery_month')) - {''}
-        domain = [('state', '=', 'done')]
+        months = set(self.mapped("delivery_month")) - {""}
+        domain = [("state", "=", "done")]
         if months:
-            domain.append(('delivery_month', 'in', list(months)))
-        group_data = self.env['stock.picking'].read_group(
+            domain.append(("delivery_month", "in", list(months)))
+        group_data = self.env["stock.picking"].read_group(
             domain=domain,
-            fields=['delivered_on_time'],
-            groupby=['delivery_month', 'delivered_on_time'],
+            fields=["delivered_on_time"],
+            groupby=["delivery_month", "delivered_on_time"],
         )
         stats = {}
         for entry in group_data:
-            month = entry['delivery_month']
-            count = entry['__count']
-            on_time = entry.get('delivered_on_time')
-            stats.setdefault(month, {'total': 0, 'on_time': 0})
-            stats[month]['total'] += count
+            month = entry["delivery_month"]
+            count = entry["__count"]
+            on_time = entry.get("delivered_on_time")
+            stats.setdefault(month, {"total": 0, "on_time": 0})
+            stats[month]["total"] += count
             if on_time:
-                stats[month]['on_time'] += count
+                stats[month]["on_time"] += count
         for picking in self:
             month = picking.delivery_month
-            if month and month in stats and stats[month]['total'] > 0:
-                picking.service_rate_percent = stats[month]['on_time'] / stats[month]['total'] * 100.0
+            if month and month in stats and stats[month]["total"] > 0:
+                picking.service_rate_percent = (
+                    stats[month]["on_time"] / stats[month]["total"] * 100.0
+                )
             else:
                 picking.service_rate_percent = 0.0
 
-    @api.depends('scheduled_date')
+    @api.depends("scheduled_date")
     def _compute_require_planned_date_reason(self):
         for rec in self:
             orig = rec._origin if rec._origin and rec._origin.id else rec
             rec.require_planned_date_reason = bool(
-                orig and orig.id and rec.scheduled_date and rec.scheduled_date != orig.scheduled_date
+                orig
+                and orig.id
+                and rec.scheduled_date
+                and rec.scheduled_date != orig.scheduled_date
             )
 
-    @api.depends('picking_type_id.code', 'location_dest_id.usage')
+    @api.depends("picking_type_id.code", "location_dest_id.usage")
     def _compute_is_customer_delivery(self):
         for rec in self:
             code = rec.picking_type_id.code if rec.picking_type_id else False
             usage = rec.location_dest_id.usage if rec.location_dest_id else False
-            rec.is_customer_delivery = (code == 'outgoing') or (usage == 'customer')
+            rec.is_customer_delivery = (code == "outgoing") or (usage == "customer")
 
     # ---- Garde-fou serveur : exiger un motif sur livraison client quand la date CHANGE (pas à la création / 1er write)
     def write(self, vals):
         planned_date_changed_now = False
         old_dates_by_id = {}
 
-        if 'scheduled_date' in vals:
-            new_dt = fields.Datetime.to_datetime(vals.get('scheduled_date')) if vals.get('scheduled_date') else False
+        if "scheduled_date" in vals:
+            new_dt = (
+                fields.Datetime.to_datetime(vals.get("scheduled_date"))
+                if vals.get("scheduled_date")
+                else False
+            )
             for rec in self:
                 # 1) Si c'est le tout premier write après create, on n'impose pas
-                is_first_write = not bool(rec.write_date) or (rec.create_date and rec.write_date and rec.write_date <= rec.create_date)
+                is_first_write = not bool(rec.write_date) or (
+                    rec.create_date
+                    and rec.write_date
+                    and rec.write_date <= rec.create_date
+                )
                 old_dates_by_id[rec.id] = rec.scheduled_date
 
                 if is_first_write:
@@ -185,9 +203,15 @@ class StockPicking(models.Model):
                 if new_dt and rec.scheduled_date and new_dt != rec.scheduled_date:
                     planned_date_changed_now = True
                     if rec.is_customer_delivery:
-                        reason = vals.get('planned_date_reason') or rec.planned_date_reason
+                        reason = (
+                            vals.get("planned_date_reason") or rec.planned_date_reason
+                        )
                         if not reason:
-                            raise UserError(_("Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client) pour une livraison client."))
+                            raise UserError(
+                                _(
+                                    "Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client) pour une livraison client."
+                                )
+                            )
 
         res = super().write(vals)
 
@@ -196,14 +220,23 @@ class StockPicking(models.Model):
                 old_dt = old_dates_by_id.get(rec.id)
                 if old_dt:
                     if rec.is_customer_delivery:
-                        rec.sudo().write({'planned_date_changed': True})
+                        rec.sudo().write({"planned_date_changed": True})
                     rec.message_post(
-                        body=_("Date planifiée modifiée : %s → %s%s") % (
+                        body=_("Date planifiée modifiée : %s → %s%s")
+                        % (
                             fields.Datetime.to_string(old_dt),
                             fields.Datetime.to_string(rec.scheduled_date),
-                            ("<br/>Motif : %s" % (
-                                dict(rec._fields['planned_date_reason'].selection).get(rec.planned_date_reason, '') or '-'
-                            )) if rec.is_customer_delivery else ""
+                            (
+                                "<br/>Motif : %s"
+                                % (
+                                    dict(
+                                        rec._fields["planned_date_reason"].selection
+                                    ).get(rec.planned_date_reason, "")
+                                    or "-"
+                                )
+                            )
+                            if rec.is_customer_delivery
+                            else "",
                         )
                     )
         return res

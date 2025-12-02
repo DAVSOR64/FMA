@@ -5,6 +5,6 @@ from odoo import fields, models
 
 
 class IrAttachment(models.Model):
-    _inherit = 'ir.attachment'
+    _inherit = "ir.attachment"
 
     is_po_xml = fields.Boolean()

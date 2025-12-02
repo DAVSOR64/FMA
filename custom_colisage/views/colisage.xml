@@ -121,7 +121,7 @@
             </table>
 
             <!-- Section poids total -->
-            <div class="total_weight_section" 
+            <div class="total_weight_section"
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center; page-break-inside: avoid;">
                 ⚖️ Poids total : <span t-field="doc.so_poids_total"/> kg
             </div>

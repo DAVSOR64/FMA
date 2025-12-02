@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    
+
         <record id="view_tree_fournisseur" model="ir.ui.view">
             <field name="name">Liste des commandes tree</field>
             <field name="model">fournisseur</field>
@@ -13,8 +13,8 @@
                     <field name="date_exportation"/>
                 </tree>
             </field>
-        </record> 
-    
+        </record>
+
         <record id="view_fournisseur_order_form" model="ir.ui.view">
             <field name="name">fournisseur.order.form</field>
             <field name="model">fournisseur</field>
@@ -38,7 +38,7 @@
             </field>
         </record>
 
-        
+
         <menuitem id="menu_fournisseur" name="Export" sequence="10"/>
          <record id="action_fournisseur_list" model="ir.actions.act_window">
                 <field name="name">Liste des commandes</field>
@@ -51,7 +51,7 @@
             parent="menu_fournisseur"
             action="action_fournisseur_list"
             sequence ="2"/>
-            
+
        <menuitem id="menu_fournisseur_orders" name="Fournisseur Orders" parent="base.menu_custom" sequence="1"/>
        <menuitem id="menu_fournisseur_order" name="Orders" parent="menu_fournisseur_orders" action="action_fournisseur_list"/>
 </odoo>

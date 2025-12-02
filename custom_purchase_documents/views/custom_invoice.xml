@@ -130,7 +130,7 @@
                 <strong>Montant Total HT :</strong>
                 <span t-field="doc.amount_untaxed" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
             </div>
-    
+
             <!-- Montant Total TVA -->
             <div t-if="doc.amount_tax != 0" class="col-12 mb-2 text-end">
                 <strong>Montant Total TVA :</strong>

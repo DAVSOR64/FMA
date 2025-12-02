@@ -10,7 +10,7 @@ class MrpWorkOrder(models.Model):
 
 
 class MrpProduction(models.Model):
-    _inherit = 'mrp.production'
+    _inherit = "mrp.production"
 
     def action_confirm(self):
         self._compute_date_macro()
@@ -18,7 +18,7 @@ class MrpProduction(models.Model):
 
     def write(self, vals):
         res = super().write(vals)
-        if not self.env.context.get('no_recompute'):
+        if not self.env.context.get("no_recompute"):
             self._compute_date_macro()
         return res
 
@@ -30,9 +30,8 @@ class MrpProduction(models.Model):
             )
 
             manufacturing_lead = production.company_id.manufacturing_lead
-            calendar = (
-                production.company_id.resource_calendar_id
-                or self.env.ref('resource.resource_calendar_std')
+            calendar = production.company_id.resource_calendar_id or self.env.ref(
+                "resource.resource_calendar_std"
             )
 
             # Calcul de la deadline en jours ouvrés
@@ -40,30 +39,40 @@ class MrpProduction(models.Model):
             last_date = calendar.plan_days(-1, deadline_production)
 
             for work in production.workorder_ids.sorted("id", reverse=True):
-                workcenter_calendar = work.workcenter_id.resource_calendar_id or calendar
+                workcenter_calendar = (
+                    work.workcenter_id.resource_calendar_id or calendar
+                )
                 work.date_macro = last_date
 
                 last_date2 = workcenter_calendar._attendance_intervals_batch(
                     datetime.combine(last_date, time.min).replace(tzinfo=pytz.UTC),
                     datetime.combine(last_date, time.max).replace(tzinfo=pytz.UTC),
-                    resources=work.workcenter_id.resource_id
+                    resources=work.workcenter_id.resource_id,
                 )
 
                 if last_date2 and work.workcenter_id.resource_id.id in last_date2:
-                    first_interval = last_date2[work.workcenter_id.resource_id.id]._items
+                    first_interval = last_date2[
+                        work.workcenter_id.resource_id.id
+                    ]._items
                     if first_interval:
                         last_date2 = first_interval[0][0]
                         last_date = last_date.replace(
                             hour=last_date2.hour, minute=0, second=0, microsecond=0
                         )
 
-                last_date = workcenter_calendar.plan_hours(-work.duration_expected / 60, last_date)
+                last_date = workcenter_calendar.plan_hours(
+                    -work.duration_expected / 60, last_date
+                )
                 last_date = workcenter_calendar.plan_days(-1, last_date)
 
             if production.workorder_ids:
-                all_dates = [w.date_macro for w in production.workorder_ids if w.date_macro]
+                all_dates = [
+                    w.date_macro for w in production.workorder_ids if w.date_macro
+                ]
                 if all_dates:
-                    production.sudo().with_context(no_recompute=True).update({
-                        'date_start': min(all_dates),
-                        'date_finished': max(all_dates),
-                    })
+                    production.sudo().with_context(no_recompute=True).update(
+                        {
+                            "date_start": min(all_dates),
+                            "date_finished": max(all_dates),
+                        }
+                    )

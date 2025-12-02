@@ -3,7 +3,7 @@
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <!-- Structure en deux colonnes avec du flexbox -->
             <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif;">
-                
+
                 <!-- Bloc de la société FMA-F2M avec émoticônes -->
                 <div class="company_info" style="flex: 1;">
                     <strong t-field="o.company_id.name" /><br />
@@ -12,14 +12,14 @@
                     <span t-field="o.company_id.zip" /> <span t-field="o.company_id.city" /><br />
                     <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="o.company_id.phone" /><br />
                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> Email: <span t-field="o.company_id.email" /><br />
-                    <br /><br /> 
+                    <br /><br />
                     <strong class="bold_text">BON DE LIVRAISON</strong><br />
-                    N°: 
+                    N°:
                     <t t-if="'OUT' in o.name">
                         <t t-esc="o.name.replace('OUT', 'BL')"/>
-                    </t> 
+                    </t>
                     <t t-else="">
-                        <t t-esc="o.name"/> 
+                        <t t-esc="o.name"/>
                     </t>
                     <br />
                     <br />
@@ -63,7 +63,7 @@
 
             <!-- Bloc pour les quatre champs personnalisés, organisés en deux colonnes -->
             <div class="custom_info" style="display: flex; justify-content: space-between; margin-top: 20px;">
-                <!-- Colonne de gauche --> 
+                <!-- Colonne de gauche -->
                 <div style="flex: 1; padding-right: 20px;">
                     <p><strong> Accès : </strong><span t-field="o.sale_id.so_acces_bl" /></p>
                     <p><strong> Type de camion : </strong><span t-field="o.sale_id.so_type_camion_bl" /></p>
@@ -89,7 +89,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Boucle à travers les lignes de mouvement de stock -->   
+                    <!-- Boucle à travers les lignes de mouvement de stock -->
                     <tr t-foreach="o.move_ids_without_package" t-as="line" t-if="line.product_id.default_code and not line.product_id.default_code.startswith('ECO') and not any(route.sequence == 2 for route in line.product_id.route_ids)">
                         <td>
                             <!-- Référence du produit -->
@@ -118,13 +118,13 @@
                             <!-- Différence (Quantité commandée - Quantité livrée) -->
                             <t t-set="difference" t-value="line.sale_line_id.product_uom_qty - line.sale_line_id.qty_delivered" />
                             <span t-esc="difference" />
-                        </td>    
+                        </td>
                     </tr>
                 </tbody>
             </table>
 
             <!-- Affichage du poids -->
-            <div class="total_weight_section" 
+            <div class="total_weight_section"
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
                 <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in o.move_ids_without_package)" />
                 ⚖️ Poids total : <span t-field="o.so_poids_total"/> kg

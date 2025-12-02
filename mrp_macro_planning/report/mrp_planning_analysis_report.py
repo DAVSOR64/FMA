@@ -9,8 +9,12 @@ class MRPPlanningAnalysisReport(models.Model):
     _auto = False
 
     resource_id = fields.Many2one("resource.resource", string="Resource", readonly=True)
-    workcenter_id = fields.Many2one("mrp.workcenter", string="Poste de travail", readonly=True)
-    x_studio_projet_so = fields.Many2one("project.project", string="Projet SO", readonly=True)
+    workcenter_id = fields.Many2one(
+        "mrp.workcenter", string="Poste de travail", readonly=True
+    )
+    x_studio_projet_so = fields.Many2one(
+        "project.project", string="Projet SO", readonly=True
+    )
     day = fields.Date("Jour", readonly=True)
     availability = fields.Float("Disponibilité (h)", readonly=True)
     needed = fields.Float("Besoin (h)", readonly=True)
@@ -75,7 +79,8 @@ class MRPPlanningAnalysisReport(models.Model):
 
     def init(self):
         # Création de la vue planning_slot_day
-        self.env.cr.execute('''
+        self.env.cr.execute(
+            """
             CREATE OR REPLACE VIEW planning_slot_day AS (
                 SELECT
                     ps.resource_id,
@@ -91,7 +96,8 @@ class MRPPlanningAnalysisReport(models.Model):
                 ) AS gs(day) ON TRUE
                 WHERE ps.workcenter_id IS NOT NULL
             )
-        ''')
+        """
+        )
 
         # Création de la vue principale
         tools.drop_view_if_exists(self.env.cr, self._table)

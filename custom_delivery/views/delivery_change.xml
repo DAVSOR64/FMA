@@ -3,7 +3,7 @@
         <xpath expr="//div[contains(@class, 'page')]" position="replace">
             <!-- Conteneur principal avec flexbox pour aligner FMA et le client côte à côte -->
             <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif;">
-                
+
                 <!-- Bloc de la société FMA-F2M -->
                 <div class="company_info" style="flex: 1;">
                     <strong t-field="doc.company_id.name" /><br />
@@ -13,7 +13,7 @@
                     <img src="/custom_delivery/static/src/img/appel-telephonique.png" style="height: 16px; width: 16px;" alt="appel-telephonique" /> Tél: <span t-field="doc.company_id.phone" /><br />
                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="enveloppe" /> Email: <span t-field="doc.company_id.email" />
                 </div>
-                
+
                 <!-- Bloc des informations du client, aligné à droite -->
                 <div class="customer_info" style="flex: 1; text-align: right;">
                     <strong t-field="doc.partner_id.commercial_partner_id.name" /><br />
@@ -31,12 +31,12 @@
                 <p><strong>Livraison le : </strong>
                 <span t-field="doc.scheduled_date" t-options="{'widget': 'date'}" /></p>
                 <p><strong class="bold_text">BON DE LIVRAISON</strong><br />
-                N°: 
+                N°:
                 <t t-if="'OUT' in doc.name">
                     <t t-esc="doc.name.replace('OUT', 'BL')"/>
                 </t>
                 <t t-else="">
-                    <t t-esc="doc.name"/> 
+                    <t t-esc="doc.name"/>
                 </t></p>
             </div>
 
@@ -52,7 +52,7 @@
 
             <!-- Bloc des informations personnalisées -->
             <div class="custom_info" style="display: flex; justify-content: space-between; margin-top: 20px;">
-                <!-- Colonne de gauche --> 
+                <!-- Colonne de gauche -->
                 <div style="flex: 1; padding-right: 20px;">
                     <p><strong>Accès : </strong><span t-field="doc.sale_id.so_acces_bl" /></p>
                     <p><strong>Type de camion : </strong><span t-field="doc.sale_id.so_type_camion_bl" /></p>
@@ -99,13 +99,13 @@
                         </td>
                         <td>
                             <span t-esc="line.sale_line_id.product_uom_qty - line.sale_line_id.qty_delivered" />
-                        </td>    
+                        </td>
                     </tr>
                 </tbody>
             </table>
 
             <!-- Poids total -->
-            <div class="total_weight_section" 
+            <div class="total_weight_section"
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
                 ⚖️ Poids total : <span t-esc="sum(line.product_id.weight * line.product_uom_qty for line in doc.move_ids_without_package)"/> kg
             </div>
