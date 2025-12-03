@@ -18,6 +18,7 @@
         'data/ir_cron.xml',
         'data/purchase_order_export.xml',
         'data/purchase_order_export_template_v2.xml',
+        'data/purchase_order_janneau_template.xml',
         'views/product_views.xml',
         'views/purchase_order_views.xml',
         'views/res_config_settings.xml',
