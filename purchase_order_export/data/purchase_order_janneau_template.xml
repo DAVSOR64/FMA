@@ -1,0 +1,144 @@
+<odoo>
+    <data>
+
+        <template id="purchase_order_janneau_template">
+            <t t-name="purchase_order_export.purchase_order_janneau_template">
+                <order
+                    formatVersion="1.7"
+                    softwareVersion="J1"
+                    t-att-creationDate="creation_date"
+                    t-att-creationTime="creation_time">
+
+                    <header>
+                        <orderNumber>
+                            <t t-esc="po.name"/>
+                        </orderNumber>
+
+                        <documentTitle>
+                            <t t-esc="'PO %s - %s' % (po.partner_id.name or '', po.name)"/>
+                        </documentTitle>
+
+                        <firstSending>1</firstSending>
+
+                        <CdeTypVal>Direct</CdeTypVal>
+                        <CdeTypCde>C</CdeTypCde>
+                        <CdeTypCdeMov>01</CdeTypCdeMov>
+                        <CdeDepMov>COM</CdeDepMov>
+                        <CdeOriDem>supplier</CdeOriDem>
+
+                        <CdeOriDemEma>
+                            <t t-esc="po.user_id.email or po.company_id.email or ''"/>
+                        </CdeOriDemEma>
+
+                        <CdeDateRecep>
+                            <t t-esc="po.date_order and po.date_order.date().isoformat() or ''"/>
+                        </CdeDateRecep>
+                    </header>
+
+                    <sender>
+                        <company>
+                            <customerCode>
+                                <t t-esc="po.partner_id.ref or 'janneau'"/>
+                            </customerCode>
+                        </company>
+                        <contact>
+                            <email>
+                                <t t-esc="po.user_id.email or po.company_id.email or ''"/>
+                            </email>
+                        </contact>
+                    </sender>
+
+                    <delivery/>
+
+                    <purchaseDiscounts>
+                        <purchaseDiscount>
+                            <value>0</value>
+                        </purchaseDiscount>
+                    </purchaseDiscounts>
+
+                    <t t-foreach="po.order_line" t-as="line">
+                        <items>
+                            <item>
+                                <products>
+                                    <product>
+                                        <productNumber>
+                                            <t t-esc="line.id"/>
+                                        </productNumber>
+
+                                        <id/>
+
+                                        <label/>
+
+                                        <location/>
+
+                                        <productName>
+                                            <t t-esc="line.product_id.default_code or line.product_id.name or ''"/>
+                                        </productName>
+
+                                        <dimensions>
+                                            <dimension>
+                                                <type>0</type>
+                                                <text/>
+                                                <unit/>
+                                                <value>0</value>
+                                            </dimension>
+                                        </dimensions>
+
+                                        <quantity>
+                                            <unit>item</unit>
+                                            <value>
+                                                <t t-esc="line.product_qty"/>
+                                            </value>
+                                        </quantity>
+
+                                        <unitGrossPrice>0</unitGrossPrice>
+                                        <unitGrossPriceNonDiscountable>0</unitGrossPriceNonDiscountable>
+
+                                        <purchaseDiscount>
+                                            <t t-esc="line.discount or 0"/>
+                                        </purchaseDiscount>
+
+                                        <unitPurchasePrice>
+                                            <t t-esc="line.price_unit"/>
+                                        </unitPurchasePrice>
+
+                                        <currency>
+                                            <t t-esc="po.currency_id.name or 'EUR'"/>
+                                        </currency>
+
+                                        <productOptions/>
+
+                                        <priceList>
+                                            <name/>
+                                            <version>2019-01</version>
+                                        </priceList>
+
+                                        <productDetails>
+                                            <common>
+                                                <detail title="s_Form">REC</detail>
+                                                <detail title="xxxx">
+                                                    <t t-esc="line.product_id.default_code or line.product_id.name or ''"/>
+                                                </detail>
+                                            </common>
+                                            <zone id="1"/>
+                                            <zone id="2"/>
+                                            <zone id="3"/>
+                                            <zone id="4"/>
+                                            <zone id="5"/>
+                                        </productDetails>
+
+                                        <comments>
+                                            <comment_remise/>
+                                            <comment_autre> </comment_autre>
+                                        </comments>
+                                    </product>
+                                </products>
+                            </item>
+                        </items>
+                    </t>
+                </order>
+            </t>
+        </template>
+
+    </data>
+</odoo>
