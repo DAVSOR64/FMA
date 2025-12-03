@@ -1,6 +1,10 @@
-import pytz
+import logging
 from datetime import datetime, time
-from odoo import api, models, fields
+import pytz
+from odoo import api, models, fields, _
+
+
+_logger = logging.getLogger(__name__)
 
 
 class MrpWorkOrder(models.Model):
@@ -11,16 +15,6 @@ class MrpWorkOrder(models.Model):
 
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
-
-    def action_confirm(self):
-        self._compute_date_macro()
-        return super().action_confirm()
-
-    def write(self, vals):
-        res = super().write(vals)
-        if not self.env.context.get("no_recompute"):
-            self._compute_date_macro()
-        return res
 
     def _compute_date_macro(self):
         for production in self:
@@ -65,14 +59,27 @@ class MrpProduction(models.Model):
                 )
                 last_date = workcenter_calendar.plan_days(-1, last_date)
 
+            # Mise à jour sécurisée des dates de production
             if production.workorder_ids:
                 all_dates = [
                     w.date_macro for w in production.workorder_ids if w.date_macro
                 ]
                 if all_dates:
-                    production.sudo().with_context(no_recompute=True).update(
-                        {
-                            "date_start": min(all_dates),
-                            "date_finished": max(all_dates),
-                        }
-                    )
+                    new_start, new_end = min(all_dates), max(all_dates)
+                    try:
+                        if (
+                            production.date_start != new_start
+                            or production.date_finished != new_end
+                        ):
+                            production.sudo().with_context(no_recompute=True).update(
+                                {
+                                    "date_start": new_start,
+                                    "date_finished": new_end,
+                                }
+                            )
+                    except Exception as e:
+                        _logger.warning(
+                            "Impossible de mettre à jour les dates de production %s : %s",
+                            production.id,
+                            e,
+                        )
