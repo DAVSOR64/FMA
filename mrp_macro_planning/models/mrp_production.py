@@ -12,18 +12,61 @@ class MrpWorkOrder(models.Model):
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
+    # -----------------------------
+    # Confirmation ordre de fabrication
+    # -----------------------------
     def action_confirm(self):
+        res = super().action_confirm()
+        # Recalcul APRES la création des mouvements -> évite le bug
         self._compute_date_macro()
-        return super().action_confirm()
-
-    def write(self, vals):
-        res = super().write(vals)
-        if not self.env.context.get("no_recompute"):
-            self._compute_date_macro()
         return res
 
+    # -----------------------------
+    # Write sécurisé
+    # -----------------------------
+    def write(self, vals):
+        # Exécution normale
+        res = super().write(vals)
+
+        # Éviter les boucles internes
+        if self.env.context.get("no_recompute"):
+            return res
+
+        # Ignorer si Odoo modifie des moves (évite "Opération invalide")
+        forbidden_fields = [
+            "move_raw_ids",
+            "move_finished_ids",
+            "move_byproduct_ids",
+            "move_dest_ids",
+            "move_line_ids",
+        ]
+
+        if any(key in vals for key in forbidden_fields):
+            return res
+
+        # Recalcul seulement quand on modifie des données pertinentes
+        compute_fields = [
+            "workorder_ids",
+            "date_start",
+            "date_finished",
+            "routing_id",
+            "bom_id",
+        ]
+
+        if any(key in vals for key in compute_fields):
+            self._compute_date_macro()
+
+        return res
+
+    # -----------------------------
+    # Fonction de calcul Macro Date
+    # -----------------------------
     def _compute_date_macro(self):
         for production in self:
+
+            # -----------------------------
+            # 1) Récupération date livraison
+            # -----------------------------
             date_delivery = (
                 production.procurement_group_id.mrp_production_ids.move_dest_ids.group_id.sale_id.commitment_date
                 or production.date_finished
@@ -34,16 +77,22 @@ class MrpProduction(models.Model):
                 "resource.resource_calendar_std"
             )
 
-            # Calcul de la deadline en jours ouvrés
+            # -----------------------------
+            # 2) Calcul deadline
+            # -----------------------------
             deadline_production = calendar.plan_days(-manufacturing_lead, date_delivery)
             last_date = calendar.plan_days(-1, deadline_production)
 
+            # -----------------------------
+            # 3) Calcul par ordre de travail
+            # -----------------------------
             for work in production.workorder_ids.sorted("id", reverse=True):
                 workcenter_calendar = (
                     work.workcenter_id.resource_calendar_id or calendar
                 )
                 work.date_macro = last_date
 
+                # Récupération de la première plage horaire
                 last_date2 = workcenter_calendar._attendance_intervals_batch(
                     datetime.combine(last_date, time.min).replace(tzinfo=pytz.UTC),
                     datetime.combine(last_date, time.max).replace(tzinfo=pytz.UTC),
@@ -55,22 +104,26 @@ class MrpProduction(models.Model):
                         work.workcenter_id.resource_id.id
                     ]._items
                     if first_interval:
-                        last_date2 = first_interval[0][0]
+                        first_date = first_interval[0][0]
                         last_date = last_date.replace(
-                            hour=last_date2.hour, minute=0, second=0, microsecond=0
+                            hour=first_date.hour, minute=0, second=0, microsecond=0
                         )
 
+                # Calcul backward
                 last_date = workcenter_calendar.plan_hours(
                     -work.duration_expected / 60, last_date
                 )
                 last_date = workcenter_calendar.plan_days(-1, last_date)
 
+            # -----------------------------
+            # 4) Mise à jour sécurisée OF
+            # -----------------------------
             if production.workorder_ids:
                 all_dates = [
                     w.date_macro for w in production.workorder_ids if w.date_macro
                 ]
                 if all_dates:
-                    production.sudo().with_context(no_recompute=True).update(
+                    production.sudo().with_context(no_recompute=True).write(
                         {
                             "date_start": min(all_dates),
                             "date_finished": max(all_dates),
