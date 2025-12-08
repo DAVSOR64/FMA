@@ -15,7 +15,7 @@
                     <field name="part_montant_couverture" string="ALLIANZ COUVERTURE EULEUR"/>
                     <field name="part_decision" string="ASSURANCE-CREDIT"/>
                 </group>
-            </xpath>      
+            </xpath>
         </field>
     </record>
 </odoo>

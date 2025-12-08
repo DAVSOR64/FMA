@@ -9,9 +9,7 @@
     "summary": "Custom delete button",
     "author": "Odoo PS",
     "version": "17.0.1.0.1",
-    "depends": [
-        "custom"
-    ],
+    "depends": ["custom"],
     "data": [
         "views/mail_templates.xml",
     ],

@@ -19,4 +19,3 @@
 #         return http.request.render('expfrs.object', {
 #             'object': obj
 #         })
-

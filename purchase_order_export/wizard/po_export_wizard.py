@@ -1,5 +1,6 @@
 from odoo import models, fields
 
+
 class PoExportWizard(models.TransientModel):
     _name = "po.export.wizard"
     _description = "Export Order Wizard"

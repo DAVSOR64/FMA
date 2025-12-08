@@ -11,13 +11,13 @@
 
             <!-- Bouton "Valider" inséré après le bouton "Envoyer la facture PRO FORMA" -->
             <xpath expr="//header/button[@name='action_quotation_send'][2]" position="after">
-                <button name="action_validation" string="Validé" type="object" 
+                <button name="action_validation" string="Validé" type="object"
                     invisible="state in ['cancel', 'validated', 'sale', 'done']"/>
             </xpath>
 
             <!-- Bouton "Confirmer" inséré dans la bonne position -->
             <xpath expr="//header/button[@name='action_quotation_send'][1]" position="after">
-                <button name="action_confirm" string="Confirmer" type="object" class="btn-primary" 
+                <button name="action_confirm" string="Confirmer" type="object" class="btn-primary"
                     invisible="state not in ('send', 'draft', 'validated')"/>
             </xpath>
 

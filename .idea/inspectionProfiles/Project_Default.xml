@@ -1,0 +1,81 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="asn1crypto" />
+          <option value="attrs" />
+          <option value="Babel" />
+          <option value="beautifulsoup4" />
+          <option value="cbor2" />
+          <option value="certifi" />
+          <option value="cffi" />
+          <option value="chardet" />
+          <option value="charset-normalizer" />
+          <option value="cryptography" />
+          <option value="docopt" />
+          <option value="docutils" />
+          <option value="et_xmlfile" />
+          <option value="freetype-py" />
+          <option value="freezegun" />
+          <option value="geoip2" />
+          <option value="gevent" />
+          <option value="greenlet" />
+          <option value="idna" />
+          <option value="isodate" />
+          <option value="Jinja2" />
+          <option value="libsass" />
+          <option value="lxml" />
+          <option value="lxml_html_clean" />
+          <option value="MarkupSafe" />
+          <option value="maxminddb" />
+          <option value="num2words" />
+          <option value="ofxparse" />
+          <option value="openpyxl" />
+          <option value="passlib" />
+          <option value="phonenumbers" />
+          <option value="pillow" />
+          <option value="platformdirs" />
+          <option value="polib" />
+          <option value="psutil" />
+          <option value="psycopg2" />
+          <option value="pyasn1" />
+          <option value="pyasn1_modules" />
+          <option value="pycairo" />
+          <option value="pycparser" />
+          <option value="pyOpenSSL" />
+          <option value="PyPDF2" />
+          <option value="pypng" />
+          <option value="pyserial" />
+          <option value="python-dateutil" />
+          <option value="python-ldap" />
+          <option value="python-magic" />
+          <option value="python-stdnum" />
+          <option value="pytz" />
+          <option value="pyusb" />
+          <option value="qrcode" />
+          <option value="reportlab" />
+          <option value="requests" />
+          <option value="requests-file" />
+          <option value="requests-toolbelt" />
+          <option value="rjsmin" />
+          <option value="rlPyCairo" />
+          <option value="setuptools" />
+          <option value="six" />
+          <option value="soupsieve" />
+          <option value="typing_extensions" />
+          <option value="urllib3" />
+          <option value="vobject" />
+          <option value="Werkzeug" />
+          <option value="xlrd" />
+          <option value="XlsxWriter" />
+          <option value="xlwt" />
+          <option value="zeep" />
+          <option value="zope.event" />
+          <option value="zope.interface" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

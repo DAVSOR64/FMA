@@ -12,20 +12,20 @@
                     <!-- Nom de la société -->
                     <span t-esc="doc.picking_type_id.warehouse_id.partner_id.name" t-if="doc.picking_type_id.warehouse_id.partner_id"/>
                     <br t-if="doc.picking_type_id.warehouse_id.partner_id.name"/>
-                    
+
                     <!-- Adresse (Rue) -->
                     <span t-esc="doc.picking_type_id.warehouse_id.partner_id.street" t-if="doc.picking_type_id.warehouse_id.partner_id.street"/>
                     <br t-if="doc.picking_type_id.warehouse_id.partner_id.street"/>
-                    
+
                     <!-- Code postal et ville -->
                     <span t-esc="doc.picking_type_id.warehouse_id.partner_id.zip" t-if="doc.picking_type_id.warehouse_id.partner_id.zip"/>
                     <span t-esc="doc.picking_type_id.warehouse_id.partner_id.city" t-if="doc.picking_type_id.warehouse_id.partner_id.city"/>
                     <br t-if="doc.picking_type_id.warehouse_id.partner_id.city or doc.picking_type_id.warehouse_id.partner_id.zip"/>
-                    
+
                     <!-- Pays -->
                     <span t-esc="doc.picking_type_id.warehouse_id.partner_id.country_id.name" t-if="doc.picking_type_id.warehouse_id.partner_id.country_id.name"/>
                     <br t-if="doc.picking_type_id.warehouse_id.partner_id.country_id.name"/>
-                    
+
                     <!-- Numéro de téléphone -->
                     <span t-esc="doc.picking_type_id.warehouse_id.partner_id.phone" t-if="doc.picking_type_id.warehouse_id.partner_id.phone"/>
                 </div>

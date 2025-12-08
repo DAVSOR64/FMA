@@ -1,11 +1,12 @@
 from odoo import models
 
+
 class StockPicking(models.Model):
     _inherit = "stock.picking"
 
     def _report_locations_for_product(self, product):
         """Retourne la liste des emplacements internes où le produit a du stock,
-           en EXCLUANT toute ligne dont le nom contient 'Pré-fabrication'."""
+        en EXCLUANT toute ligne dont le nom contient 'Pré-fabrication'."""
         Quant = self.env["stock.quant"]
         quants = Quant.read_group(
             domain=[

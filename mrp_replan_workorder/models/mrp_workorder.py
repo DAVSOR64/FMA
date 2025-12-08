@@ -6,7 +6,7 @@ class MrpWorkorder(models.Model):
 
     def write(self, values):
         res = super().write(values)
-        trigger_fields = {'date_start', 'date_finished'}
+        trigger_fields = {"date_start", "date_finished"}
         if trigger_fields.intersection(values.keys()):
             self._replan_workorder()
         return res
@@ -20,4 +20,3 @@ class MrpWorkorder(models.Model):
             for needed in wo.needed_by_workorder_ids:
                 needed._plan_workorder(replan=True)
                 needed._replan_workorder()
-
