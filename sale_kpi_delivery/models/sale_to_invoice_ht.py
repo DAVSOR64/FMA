@@ -48,7 +48,9 @@ class SaleOrder(models.Model):
                 if fpos and taxes:
                     # Compatibilité : certaines versions n'acceptent pas product/partner
                     try:
-                        taxes = fpos.map_tax(taxes, product=line.product_id, partner=order.partner_id)
+                        taxes = fpos.map_tax(
+                            taxes, product=line.product_id, partner=order.partner_id
+                        )
                     except TypeError:
                         taxes = fpos.map_tax(taxes)
 
@@ -60,11 +62,15 @@ class SaleOrder(models.Model):
                     partner=order.partner_id,
                     is_refund=False,
                 )
-                taxes_total += (res.get("total_included", 0.0) - res.get("total_excluded", 0.0))
+                taxes_total += res.get("total_included", 0.0) - res.get(
+                    "total_excluded", 0.0
+                )
 
             order.amount_to_invoice_tax = taxes_total
 
     @api.depends("amount_to_invoice", "amount_to_invoice_tax")
     def _compute_amount_to_invoice_ht(self):
         for order in self:
-            order.amount_to_invoice_ht = (order.amount_to_invoice or 0.0) - (order.amount_to_invoice_tax or 0.0)
+            order.amount_to_invoice_ht = (order.amount_to_invoice or 0.0) - (
+                order.amount_to_invoice_tax or 0.0
+            )

@@ -7,7 +7,6 @@ from odoo import fields, models
 class ProductTemplate(models.Model):
     _inherit = "product.template"
 
-
     clc1 = fields.Char(string="Clc1")
     clc2 = fields.Char(string="Clc2")
     cls1 = fields.Char(string="Cls1")

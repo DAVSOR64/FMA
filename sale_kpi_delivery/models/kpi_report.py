@@ -1,5 +1,6 @@
 from odoo import api, fields, models, tools
 
+
 class KpiDeliveryBilling(models.Model):
     _name = "kpi.delivery.billing"
     _description = "KPI Facturé / RAF par affaire et livraison planifiée"
@@ -7,22 +8,28 @@ class KpiDeliveryBilling(models.Model):
     _rec_name = "sale_order_name"
 
     # Dimensions
-    sale_order_id   = fields.Many2one("sale.order", string="Affaire", readonly=True)
+    sale_order_id = fields.Many2one("sale.order", string="Affaire", readonly=True)
     sale_order_name = fields.Char(string="Affaire (nom)", readonly=True)
-    company_id      = fields.Many2one("res.company", string="Société", readonly=True)
-    currency_id     = fields.Many2one("res.currency", string="Devise", readonly=True)
-    invoice_status  = fields.Char("Statut facturation", readonly=True)
+    company_id = fields.Many2one("res.company", string="Société", readonly=True)
+    currency_id = fields.Many2one("res.currency", string="Devise", readonly=True)
+    invoice_status = fields.Char("Statut facturation", readonly=True)
 
     # Temps (date liv/engagement/commande)
-    scheduled_datetime = fields.Datetime("Livraison planifiée / Engagement / Date commande", readonly=True)
-    month_date   = fields.Date("Mois (1er jour)", readonly=True)
-    iso_year     = fields.Char("Année ISO", readonly=True)
-    iso_week     = fields.Char("Semaine ISO", readonly=True)
+    scheduled_datetime = fields.Datetime(
+        "Livraison planifiée / Engagement / Date commande", readonly=True
+    )
+    month_date = fields.Date("Mois (1er jour)", readonly=True)
+    iso_year = fields.Char("Année ISO", readonly=True)
+    iso_week = fields.Char("Semaine ISO", readonly=True)
 
     # Mesures
-    amount_invoiced   = fields.Monetary("Facturé HT", currency_field="currency_id", readonly=True)
-    amount_to_invoice = fields.Monetary("RAF HT",     currency_field="currency_id", readonly=True)
-    order_count       = fields.Integer("Nb devis", readonly=True)
+    amount_invoiced = fields.Monetary(
+        "Facturé HT", currency_field="currency_id", readonly=True
+    )
+    amount_to_invoice = fields.Monetary(
+        "RAF HT", currency_field="currency_id", readonly=True
+    )
+    order_count = fields.Integer("Nb devis", readonly=True)
 
     # --- SQL helpers --------------------------------------------------------
 
@@ -34,7 +41,9 @@ class KpiDeliveryBilling(models.Model):
         Le montant est POSITIF pour les factures, NÉGATIF pour les avoirs.
         """
         # Détecter la table M2M moderne (Odoo 14+ / 17)
-        self._cr.execute("SELECT to_regclass('public.account_move_line__sale_line_ids')")
+        self._cr.execute(
+            "SELECT to_regclass('public.account_move_line__sale_line_ids')"
+        )
         has_new_rel = bool(self._cr.fetchone()[0])
 
         if has_new_rel:

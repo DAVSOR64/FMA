@@ -101,7 +101,7 @@
         <!-- Nouvelle ligne ajoutée pour la source et la référence -->
         <xpath expr="//div[@id='informations']" position="after">
             <div class="source-reference" style="color:red; font-size : 20px">
-                <p><strong>Référence :</strong><!--<span t-field="o.invoice_origin"/> --> 
+                <p><strong>Référence :</strong><!--<span t-field="o.invoice_origin"/> -->
                     <t t-if="o.x_studio_rfrence_affaire">
                         <span t-field="o.x_studio_rfrence_affaire"/>
                       </t>
