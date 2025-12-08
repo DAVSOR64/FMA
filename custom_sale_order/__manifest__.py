@@ -17,7 +17,7 @@
         #'views/views.xml',
         "views/sales_order.xml",
     ],
-    "installable": False,
+    "installable": True,
     "application": True,
     "license": "LGPL-3",
 }
