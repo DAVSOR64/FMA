@@ -63,6 +63,10 @@ class MrpProduction(models.Model):
     # -----------------------------
     def _compute_date_macro(self):
         for production in self:
+            # *** AJOUT: Vérifier l'état de l'OF ***
+            # Ne pas recalculer si l'OF est terminé ou annulé
+            if production.state in ("done", "cancel"):
+                continue
 
             # -----------------------------
             # 1) Récupération date livraison
@@ -123,9 +127,11 @@ class MrpProduction(models.Model):
                     w.date_macro for w in production.workorder_ids if w.date_macro
                 ]
                 if all_dates:
-                    production.sudo().with_context(no_recompute=True).write(
-                        {
-                            "date_start": min(all_dates),
-                            "date_finished": max(all_dates),
-                        }
-                    )
+                    # *** MODIFICATION: Vérifier à nouveau l'état avant la mise à jour ***
+                    if production.state not in ("done", "cancel"):
+                        production.sudo().with_context(no_recompute=True).write(
+                            {
+                                "date_start": min(all_dates),
+                                "date_finished": max(all_dates),
+                            }
+                        )
