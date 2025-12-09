@@ -783,8 +783,7 @@ class SqliteConnector(models.Model):
                     "route_ids": [
                         Command.link(self.env.ref("stock.route_warehouse0_mto").id),
                         Command.link(
-                            self.env.ref("__export__.stock_route_54_b165c5dc
-").id
+                            self.env.ref("__export__.stock_route_54_b165c5dc").id
                         ),
                     ],
                     "x_studio_hauteur_mm": 0,
