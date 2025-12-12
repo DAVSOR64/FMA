@@ -120,11 +120,6 @@
                                                     <t t-esc="line.product_id.default_code or line.product_id.name or ''"/>
                                                 </detail>
                                             </common>
-                                            <zone id="1"/>
-                                            <zone id="2"/>
-                                            <zone id="3"/>
-                                            <zone id="4"/>
-                                            <zone id="5"/>
                                         </productDetails>
 
                                         <comments>
