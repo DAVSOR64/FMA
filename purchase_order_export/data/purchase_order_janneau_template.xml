@@ -38,7 +38,7 @@
                     <sender>
                         <company>
                             <customerCode>
-                                <t t-esc="po.partner_id.ref or 'janneau'"/>
+                                C0001113
                             </customerCode>
                         </company>
                         <contact>
