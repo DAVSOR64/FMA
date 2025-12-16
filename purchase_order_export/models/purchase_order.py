@@ -122,33 +122,22 @@ class PurchaseOrder(models.Model):
 
     # -------------------------------------------------------------
     # NEW: XML JANNEAU GENERATION
-def _generate_xml_janneau_content(self, po):
-    now = fields.Datetime.now()
-    creation_date = fields.Date.to_string(now.date())
-    creation_time = now.strftime("%H:%M:%S")
+    # -------------------------------------------------------------
+    def _generate_xml_janneau_content(self, po):
+        """Génère un XML au format Janneau / Diapason."""
+        now = fields.Datetime.now()
+        creation_date = fields.Date.to_string(now.date())
+        creation_time = now.strftime("%H:%M:%S")
 
-    body = self.env["ir.qweb"]._render(
-        "purchase_order_export.purchase_order_janneau_template",
-        {
-            "po": po,
-            "creation_date": creation_date,
-            "creation_time": creation_time,
-        }
-    )
-
-    # Sécurité : QWeb peut renvoyer bytes ou str
-    if isinstance(body, bytes):
-        body = body.decode("utf-8")
-
-    # IMPORTANT pour Diapason
-    xml_str = (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<!DOCTYPE xml>\n'
-        + body
-    )
-
-    return xml_str.encode("utf-8"), "text/xml", "xml"
-
+        xml_content = self.env["ir.qweb"]._render(
+            "purchase_order_export.purchase_order_janneau_template",
+            {
+                "po": po,
+                "creation_date": creation_date,
+                "creation_time": creation_time,
+            },
+        )
+        return xml_content.encode("utf-8"), "text/xml", "xml"
 
     # -------------------------------------------------------------
     # ACTION EXPORT
