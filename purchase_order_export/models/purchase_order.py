@@ -48,17 +48,20 @@ class PurchaseOrder(models.Model):
     # -------------------------------------------------------------
     # EXISTING XML GENERATION METHODS
     # -------------------------------------------------------------
-
     def _generate_xml_content(self, po):
         xml_content = self.env["ir.qweb"]._render(
             "purchase_order_export.purchase_order_sftp_export_template", {"po": po}
         )
+        if isinstance(xml_content, bytes):
+            xml_content = xml_content.decode("utf-8")
         return xml_content.encode("utf-8"), "text/xml", "xml"
 
     def _generate_xml_v2_content(self, po):
         xml_content = self.env["ir.qweb"]._render(
             "purchase_order_export.purchase_order_sftp_export_template_v2", {"po": po}
         )
+        if isinstance(xml_content, bytes):
+            xml_content = xml_content.decode("utf-8")
         return xml_content.encode("utf-8"), "text/xml", "xml"
 
     def _generate_xlsx_content(self, po):
@@ -121,7 +124,7 @@ class PurchaseOrder(models.Model):
         )
 
     # -------------------------------------------------------------
-    # NEW: XML JANNEAU GENERATION
+    # NEW: XML JANNEAU GENERATION (Diapason)
     # -------------------------------------------------------------
     def _generate_xml_janneau_content(self, po):
         """Génère un XML au format Janneau / Diapason."""
@@ -129,7 +132,7 @@ class PurchaseOrder(models.Model):
         creation_date = fields.Date.to_string(now.date())
         creation_time = now.strftime("%H:%M:%S")
 
-        xml_content = self.env["ir.qweb"]._render(
+        body = self.env["ir.qweb"]._render(
             "purchase_order_export.purchase_order_janneau_template",
             {
                 "po": po,
@@ -137,7 +140,19 @@ class PurchaseOrder(models.Model):
                 "creation_time": creation_time,
             },
         )
-        return xml_content.encode("utf-8"), "text/xml", "xml"
+
+        # Sécurité : selon Odoo, QWeb peut renvoyer bytes/str
+        if isinstance(body, bytes):
+            body = body.decode("utf-8")
+
+        # IMPORTANT pour Diapason : comme le fichier qui s’intègre
+        xml_str = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<!DOCTYPE xml>\n'
+            + body
+        )
+
+        return xml_str.encode("utf-8"), "text/xml", "xml"
 
     # -------------------------------------------------------------
     # ACTION EXPORT
@@ -161,7 +176,6 @@ class PurchaseOrder(models.Model):
                     "Purchase order state should not be in 'Cancelled' or 'Done' state."
                 )
 
-            # 🔥 Added xml_janneau here
             if export_format not in ["xlsx", "xml", "xml_v2", "xml_janneau"]:
                 raise ValidationError("Unsupported export format.")
 
@@ -179,9 +193,7 @@ class PurchaseOrder(models.Model):
                     )
 
                 elif export_format == "xml_v2":
-                    content, mimetype, file_extension = self._generate_xml_v2_content(
-                        po
-                    )
+                    content, mimetype, file_extension = self._generate_xml_v2_content(po)
                     po.write(
                         {
                             "xml_creation_time": fields.Datetime.now(),
@@ -190,11 +202,7 @@ class PurchaseOrder(models.Model):
                     )
 
                 elif export_format == "xml_janneau":
-                    (
-                        content,
-                        mimetype,
-                        file_extension,
-                    ) = self._generate_xml_janneau_content(po)
+                    content, mimetype, file_extension = self._generate_xml_janneau_content(po)
                     po.write(
                         {
                             "xml_creation_time": fields.Datetime.now(),
@@ -236,7 +244,6 @@ class PurchaseOrder(models.Model):
     # -------------------------------------------------------------
     def _sync_file(self, sftp_obj, attachment, order, sftp_server_file_path):
         attachment_content = base64.b64decode(attachment.datas)
-        transport = None
         try:
             partner_path = getattr(order.partner_id, "po_xml_export_sftp_path", "")
             if not partner_path:
@@ -245,9 +252,11 @@ class PurchaseOrder(models.Model):
                     f"Missing File Path at the Vendor {order.partner_id.name} of {order.name}."
                 )
                 return
+
             partner_path = partner_path.strip("/")
-            full_path = f"/{sftp_server_file_path.strip('/')}/{partner_path}" + "/"
+            full_path = f"/{sftp_server_file_path.strip('/')}/{partner_path}/"
             sftp_obj.chdir(full_path)
+
             with io.BytesIO(attachment_content) as file_obj:
                 sftp_obj.putfo(file_obj, attachment.name)
                 order.write({"sftp_synced_time": fields.Datetime.now()})
@@ -287,33 +296,19 @@ class PurchaseOrder(models.Model):
 
         get_param = self.env["ir.config_parameter"].sudo().get_param
         sftp_server_host = get_param("purchase_order_export.sftp_host_po_xml_export")
-        sftp_server_username = get_param(
-            "purchase_order_export.sftp_username_po_xml_export"
-        )
-        sftp_server_password = get_param(
-            "purchase_order_export.sftp_password_po_xml_export"
-        )
-        sftp_server_file_path = get_param(
-            "purchase_order_export.sftp_file_path_po_xml_export"
-        )
+        sftp_server_username = get_param("purchase_order_export.sftp_username_po_xml_export")
+        sftp_server_password = get_param("purchase_order_export.sftp_password_po_xml_export")
+        sftp_server_file_path = get_param("purchase_order_export.sftp_file_path_po_xml_export")
 
-        if not all(
-            [
-                sftp_server_host,
-                sftp_server_username,
-                sftp_server_password,
-                sftp_server_file_path,
-            ]
-        ):
+        if not all([sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path]):
             _logger.error("Missing one or more SFTP server credentials.")
             return
 
         transport = None
         try:
             transport = paramiko.Transport((sftp_server_host, 22))
-            transport.connect(
-                username=sftp_server_username, password=sftp_server_password
-            )
+            transport.connect(username=sftp_server_username, password=sftp_server_password)
+
             with paramiko.SFTPClient.from_transport(transport) as sftp:
                 for order in purchase_orders:
                     try:
@@ -327,18 +322,13 @@ class PurchaseOrder(models.Model):
                                 limit=1,
                             )
                             if attachment:
-                                self._sync_file(
-                                    sftp, attachment, order, sftp_server_file_path
-                                )
+                                self._sync_file(sftp, attachment, order, sftp_server_file_path)
                             else:
-                                _logger.warning(
-                                    f"No attachment found for Purchase Order {order.name}."
-                                )
+                                _logger.warning(f"No attachment found for Purchase Order {order.name}.")
                     except Exception as e:
                         order.write({"sftp_synced_time": False})
-                        _logger.error(
-                            f"Failed to sync Purchase Order {order.name} to SFTP server: {e}"
-                        )
+                        _logger.error(f"Failed to sync Purchase Order {order.name} to SFTP server: {e}")
+
         except Exception as transport_error:
             _logger.critical(
                 f"Failed to connect or setup SFTP transport: {transport_error}",
