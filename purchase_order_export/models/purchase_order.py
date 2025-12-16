@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 import base64
 import io
 import logging
 import paramiko
 import psycopg2
 import xlsxwriter
+import html
 from io import BytesIO
 
 from odoo import SUPERUSER_ID, api, fields, models, registry, _
@@ -32,6 +34,9 @@ class PurchaseOrder(models.Model):
         required=True,
     )
 
+    # -------------------------------------------------------------
+    # COMPUTE
+    # -------------------------------------------------------------
     @api.depends("shipping_partner_id")
     def _get_default_customer_delivery_address(self):
         shipping_number_to_address = {
@@ -46,23 +51,23 @@ class PurchaseOrder(models.Model):
                 )
 
     # -------------------------------------------------------------
-    # EXISTING XML GENERATION METHODS
+    # EXISTING EXPORTS
     # -------------------------------------------------------------
     def _generate_xml_content(self, po):
-        xml_content = self.env["ir.qweb"]._render(
+        body = self.env["ir.qweb"]._render(
             "purchase_order_export.purchase_order_sftp_export_template", {"po": po}
         )
-        if isinstance(xml_content, bytes):
-            xml_content = xml_content.decode("utf-8")
-        return xml_content.encode("utf-8"), "text/xml", "xml"
+        if isinstance(body, bytes):
+            body = body.decode("utf-8")
+        return body.encode("utf-8"), "text/xml", "xml"
 
     def _generate_xml_v2_content(self, po):
-        xml_content = self.env["ir.qweb"]._render(
+        body = self.env["ir.qweb"]._render(
             "purchase_order_export.purchase_order_sftp_export_template_v2", {"po": po}
         )
-        if isinstance(xml_content, bytes):
-            xml_content = xml_content.decode("utf-8")
-        return xml_content.encode("utf-8"), "text/xml", "xml"
+        if isinstance(body, bytes):
+            body = body.decode("utf-8")
+        return body.encode("utf-8"), "text/xml", "xml"
 
     def _generate_xlsx_content(self, po):
         output = BytesIO()
@@ -70,25 +75,10 @@ class PurchaseOrder(models.Model):
         worksheet = workbook.add_worksheet("Purchase Order")
 
         headers = [
-            "Clientnr",
-            "Article",
-            "Clc1",
-            "Cls1",
-            "Clc2",
-            "Cls2",
-            "Leng",
-            "Quantity",
-            "L-prof",
-            "Reference",
-            "Ordernumber",
-            "Line",
-            "Expdeldate",
-            "Textinfo",
-            "PD",
-            "UnitPrice",
-            "TotalPrice",
-            "Discount",
-            "Required",
+            "Clientnr", "Article", "Clc1", "Cls1", "Clc2", "Cls2",
+            "Leng", "Quantity", "L-prof", "Reference", "Ordernumber",
+            "Line", "Expdeldate", "Textinfo", "PD",
+            "UnitPrice", "TotalPrice", "Discount", "Required",
         ]
 
         for col, header in enumerate(headers):
@@ -124,10 +114,9 @@ class PurchaseOrder(models.Model):
         )
 
     # -------------------------------------------------------------
-    # NEW: XML JANNEAU GENERATION (Diapason)
+    # XML JANNEAU / DIAPASON (CORRIGÉ)
     # -------------------------------------------------------------
     def _generate_xml_janneau_content(self, po):
-        """Génère un XML au format Janneau / Diapason."""
         now = fields.Datetime.now()
         creation_date = fields.Date.to_string(now.date())
         creation_time = now.strftime("%H:%M:%S")
@@ -141,11 +130,16 @@ class PurchaseOrder(models.Model):
             },
         )
 
-        # Sécurité : selon Odoo, QWeb peut renvoyer bytes/str
+        # QWeb peut renvoyer bytes ou str
         if isinstance(body, bytes):
-            body = body.decode("utf-8")
+            body = body.decode("utf-8", errors="replace")
 
-        # IMPORTANT pour Diapason : comme le fichier qui s’intègre
+        # 🔥 CORRECTION CRITIQUE : déséchapper le HTML
+        body = html.unescape(body)
+
+        # Nettoyage BOM / retours avant le XML
+        body = body.lstrip("\ufeff\r\n\t ")
+
         xml_str = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<!DOCTYPE xml>\n'
@@ -169,7 +163,6 @@ class PurchaseOrder(models.Model):
         return action
 
     def action_export_order(self, export_format):
-        """Export the purchase order in the selected format."""
         for po in self:
             if po.state in ["done", "cancel"]:
                 raise ValidationError(
@@ -182,47 +175,26 @@ class PurchaseOrder(models.Model):
             try:
                 if export_format == "xlsx":
                     content, mimetype, file_extension = self._generate_xlsx_content(po)
-
                 elif export_format == "xml":
                     content, mimetype, file_extension = self._generate_xml_content(po)
-                    po.write(
-                        {
-                            "xml_creation_time": fields.Datetime.now(),
-                            "is_xml_created": True,
-                        }
-                    )
-
                 elif export_format == "xml_v2":
                     content, mimetype, file_extension = self._generate_xml_v2_content(po)
-                    po.write(
-                        {
-                            "xml_creation_time": fields.Datetime.now(),
-                            "is_xml_created": True,
-                        }
-                    )
-
                 elif export_format == "xml_janneau":
                     content, mimetype, file_extension = self._generate_xml_janneau_content(po)
-                    po.write(
-                        {
-                            "xml_creation_time": fields.Datetime.now(),
-                            "is_xml_created": True,
-                        }
-                    )
 
-                # -------------- FILE NAME ------------------
-                if export_format == "xml":
-                    filename = f"ZOR-{po.name}.{file_extension}"
-                elif export_format == "xml_v2":
-                    filename = f"TIV-{po.name}.{file_extension}"
-                elif export_format == "xml_janneau":
-                    filename = f"JAN-{po.name}.{file_extension}"
-                elif export_format == "xlsx":
-                    filename = f"Reynaers-{po.name}.{file_extension}"
-                else:
-                    filename = f"PO-{po.name}.{file_extension}"
+                po.write(
+                    {
+                        "xml_creation_time": fields.Datetime.now(),
+                        "is_xml_created": True,
+                    }
+                )
 
-                # -------------- ATTACHMENT -------------------
+                filename = (
+                    f"JAN-{po.name}.xml"
+                    if export_format == "xml_janneau"
+                    else f"{export_format.upper()}-{po.name}.{file_extension}"
+                )
+
                 self.env["ir.attachment"].create(
                     {
                         "name": filename,
@@ -238,127 +210,6 @@ class PurchaseOrder(models.Model):
             except Exception as e:
                 po.write({"is_xml_created": False})
                 _logger.exception("Failed to export purchase order %s: %s", po.name, e)
-
-    # -------------------------------------------------------------
-    # SFTP + LOGS
-    # -------------------------------------------------------------
-    def _sync_file(self, sftp_obj, attachment, order, sftp_server_file_path):
-        attachment_content = base64.b64decode(attachment.datas)
-        try:
-            partner_path = getattr(order.partner_id, "po_xml_export_sftp_path", "")
-            if not partner_path:
-                order.write({"sftp_synced_time": False})
-                _logger.error(
-                    f"Missing File Path at the Vendor {order.partner_id.name} of {order.name}."
-                )
-                return
-
-            partner_path = partner_path.strip("/")
-            full_path = f"/{sftp_server_file_path.strip('/')}/{partner_path}/"
-            sftp_obj.chdir(full_path)
-
-            with io.BytesIO(attachment_content) as file_obj:
-                sftp_obj.putfo(file_obj, attachment.name)
-                order.write({"sftp_synced_time": fields.Datetime.now()})
-
-            self.log_request(
-                "SFTP Sync Success",
-                f"File {attachment.name} uploaded successfully to {sftp_server_file_path}",
-                f"Sync File {attachment.name}",
-            )
-
-        except FileNotFoundError as e:
-            _logger.error(
-                f"SFTP Sync Error: Error locating the directory {full_path}. Exception: {e}"
-            )
-        except paramiko.SSHException as ssh_error:
-            _logger.error(
-                f"SSH error while uploading file {attachment.name}: {ssh_error}"
-            )
-        except IOError as io_error:
-            _logger.error(
-                f"I/O error during file upload for {attachment.name}: {io_error}"
-            )
-        except Exception as e:
-            order.write({"sftp_synced_time": False})
-            _logger.error(
-                f"Unexpected error while uploading file {attachment.name}: {e}"
-            )
-
-    def cron_send_po_xml_to_sftp(self):
-        purchase_orders = self.env["purchase.order"].search(
-            [
-                ("is_xml_created", "=", True),
-                ("sftp_synced_time", "=", False),
-            ]
-        )
-        attachment_model = self.env["ir.attachment"]
-
-        get_param = self.env["ir.config_parameter"].sudo().get_param
-        sftp_server_host = get_param("purchase_order_export.sftp_host_po_xml_export")
-        sftp_server_username = get_param("purchase_order_export.sftp_username_po_xml_export")
-        sftp_server_password = get_param("purchase_order_export.sftp_password_po_xml_export")
-        sftp_server_file_path = get_param("purchase_order_export.sftp_file_path_po_xml_export")
-
-        if not all([sftp_server_host, sftp_server_username, sftp_server_password, sftp_server_file_path]):
-            _logger.error("Missing one or more SFTP server credentials.")
-            return
-
-        transport = None
-        try:
-            transport = paramiko.Transport((sftp_server_host, 22))
-            transport.connect(username=sftp_server_username, password=sftp_server_password)
-
-            with paramiko.SFTPClient.from_transport(transport) as sftp:
-                for order in purchase_orders:
-                    try:
-                        with self.env.cr.savepoint():
-                            attachment = attachment_model.search(
-                                [
-                                    ("res_model", "=", "purchase.order"),
-                                    ("res_id", "=", order.id),
-                                    ("is_po_xml", "=", True),
-                                ],
-                                limit=1,
-                            )
-                            if attachment:
-                                self._sync_file(sftp, attachment, order, sftp_server_file_path)
-                            else:
-                                _logger.warning(f"No attachment found for Purchase Order {order.name}.")
-                    except Exception as e:
-                        order.write({"sftp_synced_time": False})
-                        _logger.error(f"Failed to sync Purchase Order {order.name} to SFTP server: {e}")
-
-        except Exception as transport_error:
-            _logger.critical(
-                f"Failed to connect or setup SFTP transport: {transport_error}",
-                exc_info=True,
-            )
-        finally:
-            if transport:
-                transport.close()
-
-    def log_request(self, operation, ref, path, level=None):
-        db_name = self.env.cr.dbname
-        try:
-            db_registry = registry(db_name)
-            with db_registry.cursor() as cr:
-                env = api.Environment(cr, SUPERUSER_ID, {})
-                IrLogging = env["ir.logging"]
-                IrLogging.sudo().create(
-                    {
-                        "name": operation,
-                        "type": "server",
-                        "dbname": db_name,
-                        "level": level,
-                        "message": ref,
-                        "path": path,
-                        "func": operation,
-                        "line": 1,
-                    }
-                )
-        except psycopg2.Error:
-            pass
 
     # -------------------------------------------------------------
     # LAQUAGE
@@ -381,27 +232,12 @@ class PurchaseOrderLaquageLine(models.Model):
     _name = "purchase.order.laquage.line"
     _description = "Ligne de Laquage"
     _inherit = ["mail.thread"]
-    _log_access = True
 
     order_id = fields.Many2one(
         "purchase.order", string="Commande d'Achat", ondelete="cascade"
     )
 
     so_repere = fields.Char(string="Réf./Repère")
-    so_designation = fields.Char(string="Désignation")
-    so_largeur = fields.Float(string="Largeur")
-    so_hauteur = fields.Float(string="Hauteur")
-    so_qte_commandee = fields.Integer(string="Quantité")
-    so_qte_livree = fields.Integer(string="Qté Livrée")
-    so_reliquat = fields.Integer(string="Reliquat")
-    so_poids_total = fields.Float(string="Poids Total")
-    so_carton_qty = fields.Integer(string="Quantité de Cartons")
-    so_botte_qty = fields.Integer(string="Nombre de Bottes")
-    so_botte_length = fields.Float(string="Longueur de Botte")
-    so_palette_qty = fields.Integer(string="Nombre de Palettes")
-    so_palette_length = fields.Float(string="Longueur Palette")
-    so_palette_depth = fields.Float(string="Profondeur Palette")
-    so_palette_height = fields.Float(string="Hauteur Palette")
 
     _sql_constraints = [
         (
@@ -410,19 +246,3 @@ class PurchaseOrderLaquageLine(models.Model):
             "La référence doit être unique pour une ligne de laquage !",
         ),
     ]
-
-    @api.model
-    def create(self, vals):
-        res = super(PurchaseOrderLaquageLine, self).create(vals)
-        message = _("Ligne de laquage créée : %s") % res.so_repere
-        res.order_id.message_post(body=message)
-        return res
-
-    def write(self, vals):
-        _logger.warning(
-            "********** Fonction write appelée dans PurchaseOrderLaquageLine *********"
-        )
-        res = super(PurchaseOrderLaquageLine, self).write(vals)
-        message = _("Ligne de laquage mise à jour.")
-        self.order_id.message_post(body=message)
-        return res
