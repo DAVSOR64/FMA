@@ -138,7 +138,8 @@ class PurchaseOrder(models.Model):
         creation_date = fields.Date.to_string(now.date())
         creation_time = now.strftime("%H:%M:%S")
 
-        body = self.env["ir.qweb"]._render(
+        # 🔥 Rendu QWeb
+        raw = self.env["ir.qweb"]._render(
             "purchase_order_export.purchase_order_janneau_template",
             {
                 "po": po,
@@ -147,21 +148,28 @@ class PurchaseOrder(models.Model):
             },
         )
 
-        if isinstance(body, bytes):
-            body = body.decode("utf-8", errors="replace")
+        # 🔥 Forcer conversion STRING
+        raw = str(raw)
 
-        # ✅ Correction critique : QWeb peut renvoyer du texte HTML échappé (&lt; &gt; &#34;)
-        body = html.unescape(body)
+        # 🔥 Déséchapper HTML (OBLIGATOIRE)
+        raw = raw.replace("&lt;", "<")
+        raw = raw.replace("&gt;", ">")
+        raw = raw.replace("&quot;", '"')
+        raw = raw.replace("&#34;", '"')
+        raw = raw.replace("&amp;", "&")
 
-        # ✅ retire BOM / blancs au début
-        body = body.lstrip("\ufeff\r\n\t ")
+        # 🔥 Nettoyage début de fichier (CRITIQUE)
+        raw = raw.strip()
+        while not raw.startswith("<"):
+            raw = raw[1:]
 
-        xml_str = (
+        xml = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<!DOCTYPE xml>\n'
-            + body
+            + raw
         )
-        return xml_str.encode("utf-8"), "text/xml", "xml"
+
+        return xml.encode("utf-8"), "text/xml", "xml"
 
     # -------------------------------------------------------------
     # ACTION EXPORT
