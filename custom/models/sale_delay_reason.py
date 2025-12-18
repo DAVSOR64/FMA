@@ -1,22 +1,18 @@
-# -*- coding: utf-8 -*-
-from odoo import models, fields
+from odoo import models, fields, api
 
 
 class SaleDelayReason(models.Model):
-    _name = 'sale.delay.reason'
-    _description = 'Motif de retard de livraison'
-    _order = 'level, parent_id, name'
+    _name = "sale.delay.reason"
+    _description = "Motif de retard (N1/N2)"
+    _order = "level1, level2"
 
-    name = fields.Char(string="Libellé", required=True)
-    level = fields.Selection(
-        [('1', 'Niveau 1'), ('2', 'Niveau 2')],
-        string="Niveau",
-        required=True,
-        default='1'
-    )
-    parent_id = fields.Many2one(
-        'sale.delay.reason',
-        string="Motif Niv 1",
-        domain=[('level', '=', '1')]
-    )
+    level1 = fields.Char(string="Motif niveau 1", required=True)
+    level2 = fields.Char(string="Motif niveau 2")
     active = fields.Boolean(default=True)
+
+    name = fields.Char(string="Nom", compute="_compute_name", store=True)
+
+    @api.depends("level1", "level2")
+    def _compute_name(self):
+        for rec in self:
+            rec.name = f"{rec.level1} / {rec.level2}" if rec.level2 else (rec.level1 or "")
