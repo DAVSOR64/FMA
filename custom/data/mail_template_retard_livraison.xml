@@ -1,0 +1,77 @@
+<odoo>
+    <data noupdate="0">
+
+        <record id="mail_template_retard_livraison" model="mail.template">
+            <field name="name">Retard de livraison</field>
+            <field name="model_id" ref="sale.model_sale_order"/>
+
+            <!-- IMPORTANT : le sujet doit être en JINJA {{ }} -->
+            <field name="subject"><![CDATA[
+Retard de livraison – Affaire {{ object.x_studio_ref_affaire or '' }} – Commande {{ object.name or '' }}
+            ]]></field>
+
+            <field name="email_from"><![CDATA[
+{{ object.company_id.email or 'noreply@yourcompany.com' }}
+            ]]></field>
+
+            <field name="email_to"><![CDATA[
+{{ object.partner_id.email or '' }}
+            ]]></field>
+
+            <field name="body_html"><![CDATA[
+<t t-set="arc" t-value="object.name"/>
+
+<!-- Référence = suffixe du projet (A25-12-04272 STARSSJO -> STARSSJO) -->
+<t t-set="ref_client"
+   t-value="(object.x_studio_projet and object.x_studio_projet.name and object.x_studio_projet.name.split(' ', 1)[-1]) or ''"/>
+
+<!-- 1er picking (pour scheduled_date) -->
+<t t-set="picking"
+   t-value="object.picking_ids and object.picking_ids.sorted('scheduled_date')[0] or False"/>
+
+<!-- Date initiale = scheduled_date (1er picking) sinon fallback so_date_de_livraison -->
+<t t-set="old_date"
+   t-value="(picking and picking.scheduled_date and picking.scheduled_date.date()) or object.so_date_de_livraison or False"/>
+<t t-set="old_week"
+   t-value="old_date and old_date.isocalendar()[1] or 'XX'"/>
+
+<!-- Nouvelle date (retard) -->
+<t t-set="new_date" t-value="object.so_retard_nouvelle_date or False"/>
+<t t-set="new_week"
+   t-value="new_date and new_date.isocalendar()[1] or 'XX'"/>
+
+<t t-set="motif" t-value="object.so_retard_motif or '—'"/>
+
+<p>Madame, Monsieur,</p>
+
+<p>
+    Votre commande r&eacute;f&eacute;rence :
+    <b><t t-esc="ref_client"/></b><br/>
+    Correspondant &agrave; notre ARC :
+    <b><t t-esc="arc"/></b><br/>
+</p>
+
+<p>
+    Qui devait &ecirc;tre livr&eacute;e
+    <b>semaine <t t-esc="old_week"/></b>
+    doit &ecirc;tre report&eacute;e &agrave; la
+    <b>semaine <t t-esc="new_week"/></b>.
+</p>
+
+<p><b>Motif :</b> <t t-esc="motif"/></p>
+
+<p>
+    Mr VOLEAU prendra ult&eacute;rieurement contact avec vous afin de d&eacute;finir
+    les modalit&eacute;s de livraison.<br/>
+    Nous restons &agrave; votre &eacute;coute aux coordonn&eacute;es en signature de ce mail.
+</p>
+
+<p>
+    Nous sommes d&eacute;sol&eacute;s de ne pouvoir honorer notre engagement et restons &agrave;
+    votre disposition pour de plus amples explications.
+</p>
+            ]]></field>
+        </record>
+
+    </data>
+</odoo>
