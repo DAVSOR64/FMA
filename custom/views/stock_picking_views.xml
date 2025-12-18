@@ -1,0 +1,20 @@
+<odoo>
+  <data>
+
+    <record id="view_picking_form_custom_retard" model="ir.ui.view">
+      <field name="name">stock.picking.form.custom.retard</field>
+      <field name="model">stock.picking</field>
+      <field name="inherit_id" ref="stock.view_picking_form"/>
+      <field name="arch" type="xml">
+
+        <!-- On les met juste après "N° BL" (ton emplacement entouré) -->
+        <xpath expr="//field[@name='x_studio_n_bl']" position="after">
+          <field name="so_retard_motif_level1_id"/>
+          <field name="so_retard_motif_level2_id"/>
+        </xpath>
+
+      </field>
+    </record>
+
+  </data>
+</odoo>
