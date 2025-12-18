@@ -129,6 +129,16 @@ class AccountMove(models.Model):
                 invoice_date = str(move.invoice_date)
                 invoice_date_due = str(move.invoice_date_due)
                 items_grouped_by_account = list(items_grouped_by_account)
+
+                # === MODIF: lecture du mode de règlement depuis le nouveau champ libellé ===
+                mode_reg = (move.x_studio_libelle_1 or "")
+                mode_reg = (
+                    mode_reg.replace("L.C.R. A L ACCEPTATION", "L.C.R. A L ACCEPTATI")
+                    if mode_reg == "L.C.R. A L ACCEPTATION"
+                    else mode_reg
+                )
+                # === FIN MODIF ===
+
                 grouped_items.append(
                     {
                         "journal": journal,
@@ -137,11 +147,7 @@ class AccountMove(models.Model):
                         "invoice_date_1": invoice_date.replace("-", ""),
                         "due_date": invoice_date_due.replace("-", ""),
                         "account_code": account_code,
-                        "mode_de_regiment": move.inv_mode_de_reglement.replace(
-                            "L.C.R. A L ACCEPTATION", "L.C.R. A L ACCEPTATI"
-                        )
-                        if move.inv_mode_de_reglement == "L.C.R. A L ACCEPTATION"
-                        else move.inv_mode_de_reglement,
+                        "mode_de_regiment": mode_reg,
                         "name_and_customer_name": f"{name_invoice} {move.partner_id.name}",
                         "payment_reference": f"{sale_order_name} {move.x_studio_rfrence_affaire}",
                         "section_axe2": sale_order_name.replace("-", "")
