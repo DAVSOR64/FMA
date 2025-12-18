@@ -1,32 +1,35 @@
 from odoo import models, fields, api
 
 
+class SaleDelayCategory(models.Model):
+    _name = "sale.delay.category"
+    _description = "Motif de retard (Catégorie)"
+    _order = "name"
+
+    name = fields.Char(string="Motif", required=True)
+    active = fields.Boolean(default=True)
+
+
 class SaleDelayReason(models.Model):
     _name = "sale.delay.reason"
-    _description = "Motif de retard (N1/N2)"
-    _order = "level, name"
+    _description = "Motif de retard (Désignation)"
+    _order = "category_id, name"
 
-    name = fields.Char(string="Nom", required=True)
-    level = fields.Selection(
-        [("1", "Niveau 1"), ("2", "Niveau 2")],
-        string="Niveau",
+    name = fields.Char(string="Désignation", required=True)
+    category_id = fields.Many2one(
+        "sale.delay.category",
+        string="Motif",
         required=True,
-        default="1",
-    )
-    parent_id = fields.Many2one(
-        "sale.delay.reason",
-        string="Parent (Niveau 1)",
-        domain=[("level", "=", "1")],
         ondelete="restrict",
     )
     active = fields.Boolean(default=True)
 
-    @api.constrains("level", "parent_id")
-    def _check_parent_level(self):
+    display_name = fields.Char(compute="_compute_display_name", store=False)
+
+    @api.depends("category_id.name", "name")
+    def _compute_display_name(self):
         for rec in self:
-            if rec.level == "2" and not rec.parent_id:
-                # niveau 2 doit avoir un parent
-                raise ValueError("Un motif de niveau 2 doit avoir un parent (niveau 1).")
-            if rec.level == "1" and rec.parent_id:
-                # niveau 1 ne doit pas avoir de parent
-                rec.parent_id = False
+            if rec.category_id and rec.name:
+                rec.display_name = f"{rec.category_id.name} / {rec.name}"
+            else:
+                rec.display_name = rec.name or ""
