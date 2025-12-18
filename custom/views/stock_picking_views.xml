@@ -1,20 +1,23 @@
 <odoo>
   <data>
 
-    <record id="view_picking_form_custom_retard" model="ir.ui.view">
-      <field name="name">stock.picking.form.custom.retard</field>
+    <record id="view_picking_form_custom_retard_tab" model="ir.ui.view">
+      <field name="name">stock.picking.form.custom.retard.tab</field>
       <field name="model">stock.picking</field>
       <field name="inherit_id" ref="stock.view_picking_form"/>
       <field name="arch" type="xml">
 
-        <!-- Ancre sur un champ standard qui existe dans la vue -->
-        <xpath expr="//field[@name='scheduled_date']" position="after">
-          <!-- Si tu veux voir le N° BL ici aussi -->
-          <field name="x_studio_n_bl"/>
-
-          <!-- Tes 2 champs de motifs (sur stock.picking) -->
-          <field name="so_retard_motif_level1_id"/>
-          <field name="so_retard_motif_level2_id"/>
+        <!-- On ajoute un onglet dans le notebook -->
+        <xpath expr="//notebook" position="inside">
+          <page string="Motif de retard">
+            <group>
+              <group>
+                <field name="so_retard_motif_level1_id"/>
+                <field name="so_retard_motif_level2_id"
+                       domain="[('level','=','2'), ('active','=',True), ('parent_id','=',so_retard_motif_level1_id)]"/>
+              </group>
+            </group>
+          </page>
         </xpath>
 
       </field>
