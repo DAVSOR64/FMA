@@ -7,3 +7,4 @@ from . import mrp_production
 from . import sale_advance_payment_inv
 from . import affair_chat_template
 from . import sale_delay_reason
+from . import stock_picking
