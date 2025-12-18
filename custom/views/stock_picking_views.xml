@@ -7,8 +7,12 @@
       <field name="inherit_id" ref="stock.view_picking_form"/>
       <field name="arch" type="xml">
 
-        <!-- On les met juste après "N° BL" (ton emplacement entouré) -->
-        <xpath expr="//field[@name='x_studio_n_bl']" position="after">
+        <!-- Ancre sur un champ standard qui existe dans la vue -->
+        <xpath expr="//field[@name='scheduled_date']" position="after">
+          <!-- Si tu veux voir le N° BL ici aussi -->
+          <field name="x_studio_n_bl"/>
+
+          <!-- Tes 2 champs de motifs (sur stock.picking) -->
           <field name="so_retard_motif_level1_id"/>
           <field name="so_retard_motif_level2_id"/>
         </xpath>
