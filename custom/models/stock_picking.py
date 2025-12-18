@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from odoo import models, fields, api
 
 
@@ -6,17 +7,18 @@ class StockPicking(models.Model):
 
     so_retard_motif_level1_id = fields.Many2one(
         "sale.delay.reason",
-        string="Motif retard (N1)",
-        domain="[('level2', '=', False), ('active', '=', True)]",
+        string="Motif retard - Niveau 1",
+        domain="[('level','=','1'), ('active','=',True)]",
     )
 
     so_retard_motif_level2_id = fields.Many2one(
         "sale.delay.reason",
-        string="Motif retard (N2)",
-        domain="[('level2', '!=', False), ('active', '=', True)]",
+        string="Motif retard - Niveau 2",
+        domain="[('level','=','2'), ('active','=',True), ('parent_id','=',so_retard_motif_level1_id)]",
     )
 
     @api.onchange("so_retard_motif_level1_id")
     def _onchange_so_retard_motif_level1_id(self):
-        # si on change N1, on vide N2
-        self.so_retard_motif_level2_id = False
+        """Quand on change le N1, on vide le N2 pour éviter incohérence."""
+        for rec in self:
+            rec.so_retard_motif_level2_id = False
