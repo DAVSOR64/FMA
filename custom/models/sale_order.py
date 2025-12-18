@@ -16,6 +16,8 @@ class SaleOrder(models.Model):
         string="Modèle de message"
     )
 
+    so_arc_ref = fields.Char(string="ARC")
+
     main_contact_id = fields.Many2one(
         'res.partner',
         string="Contact principal",
