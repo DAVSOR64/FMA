@@ -29,16 +29,17 @@ class SaleOrder(models.Model):
         string="Nouvelle date de livraison (retard)"
     )
 
-    # Motifs (Niv 1 / Niv 2) configurables dans Ventes / Configuration
-    delay_reason_lvl1_id = fields.Many2one(
-        'sale.delay.reason',
-        string="Motif retard Niv 1",
-        domain=[('level', '=', '1')]
+    # ===================== Motifs de retard (NOUVEAU) =====================
+    # Paramétrage : Ventes / Configuration / Motifs (catégories) + Désignations
+    delay_category_id = fields.Many2one(
+        'sale.delay.category',
+        string="Motif",
     )
-    delay_reason_lvl2_id = fields.Many2one(
+
+    delay_reason_id = fields.Many2one(
         'sale.delay.reason',
-        string="Motif retard Niv 2",
-        domain=[('level', '=', '2')]
+        string="Désignation",
+        domain="[('category_id', '=', delay_category_id)]",
     )
 
     so_retard_motif = fields.Char(
@@ -47,15 +48,22 @@ class SaleOrder(models.Model):
         store=True
     )
 
-    @api.depends('delay_reason_lvl1_id', 'delay_reason_lvl2_id')
+    @api.depends('delay_category_id', 'delay_reason_id')
     def _compute_so_retard_motif(self):
         for order in self:
             parts = []
-            if order.delay_reason_lvl1_id:
-                parts.append(order.delay_reason_lvl1_id.name)
-            if order.delay_reason_lvl2_id:
-                parts.append(order.delay_reason_lvl2_id.name)
+            if order.delay_category_id:
+                parts.append(order.delay_category_id.name)
+            if order.delay_reason_id:
+                parts.append(order.delay_reason_id.name)
             order.so_retard_motif = " / ".join(parts)
+
+    @api.onchange('delay_category_id')
+    def _onchange_delay_category_id(self):
+        # Si on change le motif (catégorie), on reset la désignation
+        self.delay_reason_id = False
+
+    # ====================================================================
 
     @api.onchange('partner_id')
     def _onchange_partner_id_clear_main_contact(self):
@@ -106,7 +114,7 @@ class SaleOrder(models.Model):
 
         # Référence = suffixe du projet mtn (ex: "A25-12-04272 STARSSJO" => "STARSSJO")
         ref_client = ""
-        if self.x_studio_projet and self.x_studio_projet.name:
+        if getattr(self, "x_studio_projet", False) and self.x_studio_projet.name:
             proj_name = self.x_studio_projet.name
             if " " in proj_name:
                 ref_client = proj_name.split(" ", 1)[1]
@@ -119,7 +127,8 @@ class SaleOrder(models.Model):
         # Date initiale : priorité scheduled_date (1er picking), sinon so_date_de_livraison
         picking = False
         if self.picking_ids:
-            picking = self.picking_ids.sorted('scheduled_date')[0] if self.picking_ids.sorted('scheduled_date') else False
+            sorted_pickings = self.picking_ids.sorted('scheduled_date')
+            picking = sorted_pickings[0] if sorted_pickings else False
 
         old_date = False
         if picking and picking.scheduled_date:
