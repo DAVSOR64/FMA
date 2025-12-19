@@ -7,16 +7,6 @@ _logger = logging.getLogger(__name__)
 class StockPicking(models.Model):
     _inherit = "stock.picking"
 
-    so_retard_motif_level1_id = fields.Many2one(
-        comodel_name="ir.model",
-        string="Motif retard (N1)",
-    )
-
-    so_retard_motif_level2_id = fields.Many2one(
-        comodel_name="ir.model",
-        string="Motif retard (N2)",
-    )
-
     def __init__(self, env, ids, prefetch_ids):
         super(StockPicking, self).__init__(env, ids, prefetch_ids)
 
