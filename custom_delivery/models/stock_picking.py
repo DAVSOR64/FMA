@@ -8,12 +8,12 @@ class StockPicking(models.Model):
     _inherit = "stock.picking"
 
     so_retard_motif_level1_id = fields.Many2one(
-        comodel_name="so.retard.motif.level1",  # ⚠️ adapte au vrai modèle
+        comodel_name="ir.model",
         string="Motif retard (N1)",
     )
 
     so_retard_motif_level2_id = fields.Many2one(
-        "so.retard.motif.level2",
+        comodel_name="ir.model",
         string="Motif retard (N2)",
     )
 
