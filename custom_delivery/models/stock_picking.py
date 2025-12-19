@@ -12,6 +12,11 @@ class StockPicking(models.Model):
         string="Motif retard (N1)",
     )
 
+    so_retard_motif_level2_id = fields.Many2one(
+        "so.retard.motif.level2",
+        string="Motif retard (N2)",
+    )
+
     def __init__(self, env, ids, prefetch_ids):
         super(StockPicking, self).__init__(env, ids, prefetch_ids)
 
