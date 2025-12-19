@@ -5,7 +5,7 @@ _logger = logging.getLogger(__name__)
 
 
 class StockPicking(models.Model):
-    _inherit = "stock.picking
+    _inherit = "stock.picking"
 
     so_retard_motif_level1_id = fields.Many2one(
         comodel_name="so.retard.motif.level1",  # ⚠️ adapte au vrai modèle
