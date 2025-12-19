@@ -436,10 +436,8 @@ class ExportSFTPScheduler(models.Model):
                         if getattr(l, "order_id", False)
                         else ""
                     ),
-                    (l.order_id.tag_ids if getattr(l, "order_id", False) else ""),
-                    ", ".join([t.name for t in getattr(o, "tag_ids", [])])
-                    if getattr(o, "tag_ids", False)
-                    else "",
+                    # Tags (sur la commande)
+                    ", ".join([t.name for t in (l.order_id.tag_ids or [])]) if l.order_id else "",
                     (getattr(l, "display_type", "") or ""),
                     (l.order_id.state if getattr(l, "order_id", False) else ""),
                     (
