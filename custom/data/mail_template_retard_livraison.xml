@@ -40,7 +40,12 @@ Retard de livraison – Affaire {{ object.x_studio_ref_affaire or '' }} – Comm
 <t t-set="new_week"
    t-value="new_date and new_date.isocalendar()[1] or 'XX'"/>
 
-<t t-set="motif" t-value="object.so_retard_motif or '—'"/>
+<t t-set="motif"
+   t-value="object.so_retard_motif_level1_id and object.so_retard_motif_level1_id.name or '—'"/>
+
+<t t-set="designation"
+   t-value="object.so_retard_motif_level2_id and object.so_retard_motif_level2_id.name or '—'"/>
+
 
 <p>Madame, Monsieur,</p>
 
@@ -58,7 +63,14 @@ Retard de livraison – Affaire {{ object.x_studio_ref_affaire or '' }} – Comm
     <b>semaine <t t-esc="new_week"/></b>.
 </p>
 
-<p><b>Motif :</b> <t t-esc="motif"/></p>
+<p>
+    <b>Motif :</b>
+    <t t-esc="motif"/>
+    <t t-if="designation and designation != '—'">
+        – <t t-esc="designation"/>
+    </t>
+</p>
+
 
 <p>
     Mr VOLEAU prendra ult&eacute;rieurement contact avec vous afin de d&eacute;finir
