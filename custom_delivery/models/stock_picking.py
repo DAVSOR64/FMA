@@ -17,6 +17,17 @@ class StockPicking(models.Model):
         help="Référence à la commande de vente associée",
     )
 
+    so_retard_motif_level1_id = fields.Many2one(
+        "sale.delay.category",
+        string="Motif",
+    )
+
+    so_retard_motif_level2_id = fields.Many2one(
+        "sale.delay.reason",
+        string="Désignation",
+        domain="[('category_id', '=', so_retard_motif_level1_id)]",
+    )    
+
     # Forcer le recalcul après la modification des mouvements
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
