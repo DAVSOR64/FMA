@@ -5,7 +5,7 @@ _logger = logging.getLogger(__name__)
 
 
 class StockPicking(models.Model):
-    _inherit = "stock.picking"
+    _inherit = "stock.picking" 
 
     def __init__(self, env, ids, prefetch_ids):
         super(StockPicking, self).__init__(env, ids, prefetch_ids)
