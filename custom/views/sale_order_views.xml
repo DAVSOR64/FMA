@@ -9,7 +9,7 @@
             <xpath expr="//sheet//group[@name='partner_details']" position="after">
 
                 <!-- Chronologie -->
-                <group string="Chronologie">
+                <group string="Chronologie"> 
 
                     <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
                     <field name="so_date_de_reception_devis" nolabel="1"/>
