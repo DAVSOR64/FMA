@@ -6,16 +6,16 @@
     "author": "Your Name",
     "depends": ["base", "sale", "account", "contacts", "sale_stock", "mrp"],
     "data": [
-        #"security/ir.model.access.csv",
+        "security/ir.model.access.csv",
         "views/res_partner_views.xml",
         "views/sale_order_views.xml",
         "views/account_move_views.xml",
         "views/affair_chat_template_views.xml",
-        #"views/sale_delay_reason_views.xml",
-        #"views/stock_picking_views.xml",
-        #"data/message_templates.xml",
-        #"data/mail_template_retard.xml",
-        #"data/mail_template_retard_livraison.xml",
+        "views/sale_delay_reason_views.xml",
+        "views/stock_picking_views.xml",
+        "data/message_templates.xml",
+        "data/mail_template_retard.xml",
+        "data/mail_template_retard_livraison.xml",
     ],
     "assets": {
         "web.assets_backend": [
