@@ -164,7 +164,7 @@ class ExportSFTPScheduler(models.Model):
             # ==================== Clients ====================
             try:
                 # clients = self.env["res.partner"].search([("customer_rank", ">", 0)])
-                clients = self.env["res.partner"].search([("sale_order_ids.state", "in", ["sale", "done"])])
+                clients = self.env["res.partner"].search([("sale_order_ids.state", "in", ["sale", "done","validated"])])
                 client_data = [
                     (
                         str(p.id),
