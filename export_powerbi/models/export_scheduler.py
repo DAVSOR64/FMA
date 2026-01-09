@@ -438,7 +438,6 @@ class ExportSFTPScheduler(models.Model):
                     ),
                     # Tags (sur la commande)
                     ", ".join([t.name for t in (l.order_id.tag_ids or [])]) if l.order_id else "",
-                    (getattr(l, "display_type", "") or ""),
                     (l.order_id.state if getattr(l, "order_id", False) else ""),
                     (
                         l.order_id.date_order.strftime("%Y-%m-%d %H:%M:%S")
@@ -518,8 +517,6 @@ class ExportSFTPScheduler(models.Model):
                     "Num Commande",
                     "Affaire",
                     "Tag",
-                    "Description",
-                    "Type de ligne",
                     "Etat_commande",
                     "Date_commande",
                     "ID Client",
