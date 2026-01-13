@@ -719,12 +719,13 @@ class ExportSFTPScheduler(models.Model):
                             or ""
                         ),
                         # Prix / taxes / totaux (facture-line API)
-                        getattr(l, "price_unit", 0.0) or 0.0,
+                        # Négatif si avoir (out_refund)
+                        (getattr(l, "price_unit", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1),
                         ", ".join([t.name for t in getattr(l, "tax_ids", [])])
                         if getattr(l, "tax_ids", False)
                         else "",
-                        getattr(l, "price_subtotal", 0.0) or 0.0,
-                        getattr(l, "price_total", 0.0) or 0.0,
+                        (getattr(l, "price_subtotal", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1),
+                        (getattr(l, "price_total", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1),
                         (
                             l.currency_id.name
                             if getattr(l, "currency_id", False)
