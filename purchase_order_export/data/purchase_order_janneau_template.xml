@@ -9,7 +9,9 @@
 
                     <header>
                         <orderNumber><t t-esc="po.name"/></orderNumber>
-                        <documentTitle><t t-esc="'PO %s - %s' % (po.partner_id.name or '', po.name)"/></documentTitle>
+                        <documentTitle>
+                            <t t-esc="'PO %s - %s' % (po.partner_id.name or '', po.name)"/>
+                        </documentTitle>
                         <firstSending>1</firstSending>
 
                         <CdeTypVal>Direct</CdeTypVal>
@@ -17,45 +19,61 @@
                         <CdeTypCdeMov>01</CdeTypCdeMov>
                         <CdeDepMov>COM</CdeDepMov>
                         <CdeOriDem>supplier</CdeOriDem>
-                        <CdeOriDemEma><t t-esc="po.user_id.email or po.company_id.email or ''"/></CdeOriDemEma>
-                        <CdeDateRecep><t t-esc="po.date_order and po.date_order.date().isoformat() or ''"/></CdeDateRecep>
+                        <CdeOriDemEma>
+                            <t t-esc="po.user_id.email or po.company_id.email or ''"/>
+                        </CdeOriDemEma>
+                        <CdeDateRecep>
+                            <t t-esc="po.date_order and po.date_order.date().isoformat() or ''"/>
+                        </CdeDateRecep>
                     </header>
 
                     <sender>
                         <company>
-                            <!-- Tu peux remettre un champ dynamique ici si besoin -->
                             <customerCode>C0001113</customerCode>
                         </company>
                         <contact>
-                            <email><t t-esc="po.user_id.email or po.company_id.email or ''"/></email>
+                            <email>
+                                <t t-esc="po.user_id.email or po.company_id.email or ''"/>
+                            </email>
                         </contact>
                     </sender>
 
                     <delivery/>
 
                     <purchaseDiscounts>
-                        <purchaseDiscount><value>0</value></purchaseDiscount>
+                        <purchaseDiscount>
+                            <value>0</value>
+                        </purchaseDiscount>
                     </purchaseDiscounts>
 
-                    <!-- Compteur robuste pour productNumber : 1,2,3... -->
+                    <!-- Compteur sécurisé -->
                     <t t-set="i" t-value="0"/>
 
-                    <t t-foreach="po.order_line" t-as="line">
+                    <!-- 🔥 TRI EXPLICITE DES LIGNES -->
+                    <t t-foreach="sorted(po.order_line, key=lambda l: l.id)" t-as="line">
                         <t t-set="i" t-value="i + 1"/>
 
                         <items>
                             <item>
                                 <products>
                                     <product>
-                                        <productNumber><t t-esc="line.id"/></productNumber>
-                                        
+                                        <productNumber>
+                                            <t t-esc="i"/>
+                                        </productNumber>
+
                                         <id></id>
-                                        
-                                        <label><t t-esc="line.name or (line.product_id.name or '')"/></label>
 
-                                        <location><t t-esc="line.product_id.default_code or ''"/></location>
+                                        <label>
+                                            <t t-esc="line.name or (line.product_id.name or '')"/>
+                                        </label>
 
-                                        <productName><t t-esc="line.product_id.default_code or line.product_id.name or ''"/></productName>
+                                        <location>
+                                            <t t-esc="line.product_id.default_code or ''"/>
+                                        </location>
+
+                                        <productName>
+                                            <t t-esc="line.product_id.default_code or line.product_id.name or ''"/>
+                                        </productName>
 
                                         <dimensions>
                                             <dimension>
@@ -68,17 +86,25 @@
 
                                         <quantity>
                                             <unit>item</unit>
-                                            <value><t t-esc="line.product_qty"/></value>
+                                            <value>
+                                                <t t-esc="line.product_qty"/>
+                                            </value>
                                         </quantity>
 
                                         <unitGrossPrice>0</unitGrossPrice>
                                         <unitGrossPriceNonDiscountable>0</unitGrossPriceNonDiscountable>
 
-                                        <purchaseDiscount><t t-esc="line.discount or 0"/></purchaseDiscount>
+                                        <purchaseDiscount>
+                                            <t t-esc="line.discount or 0"/>
+                                        </purchaseDiscount>
 
-                                        <unitPurchasePrice><t t-esc="line.price_unit"/></unitPurchasePrice>
+                                        <unitPurchasePrice>
+                                            <t t-esc="line.price_unit"/>
+                                        </unitPurchasePrice>
 
-                                        <currency><t t-esc="po.currency_id.name or 'EUR'"/></currency>
+                                        <currency>
+                                            <t t-esc="po.currency_id.name or 'EUR'"/>
+                                        </currency>
 
                                         <productOptions></productOptions>
 
@@ -90,12 +116,14 @@
                                         <productDetails>
                                             <common>
                                                 <detail title="s_Form">REC</detail>
-                                                <detail title="xxxx"><t t-esc="line.product_id.default_code or line.product_id.name or ''"/></detail>
+                                                <detail title="xxxx">
+                                                    <t t-esc="line.product_id.default_code or line.product_id.name or ''"/>
+                                                </detail>
                                             </common>
                                         </productDetails>
+
                                         <comments>
                                             <comment_remise></comment_remise>
-                                            <!-- Éviter vide/auto-fermant : mettre un espace si nécessaire -->
                                             <comment_autre> </comment_autre>
                                         </comments>
                                     </product>
