@@ -57,7 +57,7 @@ class AccountMove(models.Model):
                     _logger.exception("No Journal Items found for invoice ", move.name)
                     continue
 
-                file_content = self._get_file_content(journal_items, move)
+                file_content = self._get_file_supplier_content(journal_items, move)
                 attachment = IrAttachment.create(
                     {
                         "name": f"{move.name}.csv",
