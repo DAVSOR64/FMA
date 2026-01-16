@@ -98,80 +98,80 @@ class AccountMove(models.Model):
                 _logger.warning(f"PO trouvé: {po.name}")
                 break
 
-            # Essai 2 (fallback) : via l'origine de facture si elle contient le numéro de PO
-            if not po and move.invoice_origin:
-                po = self.env["purchase.order"].search(
-                    [("name", "=", move.invoice_origin)], limit=1
+        # Essai 2 (fallback) : via l'origine de facture si elle contient le numéro de PO
+        if not po and move.invoice_origin:
+            po = self.env["purchase.order"].search(
+                [("name", "=", move.invoice_origin)], limit=1
+            )
+
+        if po:
+            po_name = po.name
+
+            # Récupérer l'entrepôt depuis le bon de commande
+            warehouse = None
+
+            _logger.warning("=== DEBUG WAREHOUSE ===")
+            _logger.warning(f"PO: {po.name}")
+
+            # Vérifier picking_type_id
+            if hasattr(po, "picking_type_id"):
+                _logger.info(f"picking_type_id existe: {po.picking_type_id}")
+                if po.picking_type_id:
+                    _logger.info(f"picking_type_id.name: {po.picking_type_id.name}")
+                    if hasattr(po.picking_type_id, "warehouse_id"):
+                        warehouse = po.picking_type_id.warehouse_id
+                        _logger.info(
+                            f"warehouse trouvé via picking_type_id: {warehouse}"
+                        )
+            else:
+                _logger.info("picking_type_id n'existe pas")
+
+            # Vérifier warehouse_id direct
+            if hasattr(po, "warehouse_id"):
+                _logger.warning(f"warehouse_id direct existe: {po.warehouse_id}")
+                if po.warehouse_id and not warehouse:
+                    warehouse = po.warehouse_id
+            else:
+                _logger.info("warehouse_id direct n'existe pas")
+
+            # Déterminer la section selon l'entrepôt
+            if warehouse:
+                _logger.warning(f"Warehouse trouvé - ID: {warehouse.id}")
+                _logger.warning(f"Warehouse name: {warehouse.name}")
+                _logger.warning(
+                    f"Warehouse code: {warehouse.code if hasattr(warehouse, 'code') else 'pas de code'}"
                 )
 
-            if po:
-                po_name = po.name
+                warehouse_name = warehouse.name or ""
+                warehouse_code = (
+                    warehouse.code if hasattr(warehouse, "code") else ""
+                )
 
-                # Récupérer l'entrepôt depuis le bon de commande
-                warehouse = None
-
-                _logger.warning("=== DEBUG WAREHOUSE ===")
-                _logger.warning(f"PO: {po.name}")
-
-                # Vérifier picking_type_id
-                if hasattr(po, "picking_type_id"):
-                    _logger.info(f"picking_type_id existe: {po.picking_type_id}")
-                    if po.picking_type_id:
-                        _logger.info(f"picking_type_id.name: {po.picking_type_id.name}")
-                        if hasattr(po.picking_type_id, "warehouse_id"):
-                            warehouse = po.picking_type_id.warehouse_id
-                            _logger.info(
-                                f"warehouse trouvé via picking_type_id: {warehouse}"
-                            )
-                else:
-                    _logger.info("picking_type_id n'existe pas")
-
-                # Vérifier warehouse_id direct
-                if hasattr(po, "warehouse_id"):
-                    _logger.warning(f"warehouse_id direct existe: {po.warehouse_id}")
-                    if po.warehouse_id and not warehouse:
-                        warehouse = po.warehouse_id
-                else:
-                    _logger.info("warehouse_id direct n'existe pas")
-
-                # Déterminer la section selon l'entrepôt
-                if warehouse:
-                    _logger.warning(f"Warehouse trouvé - ID: {warehouse.id}")
-                    _logger.warning(f"Warehouse name: {warehouse.name}")
-                    _logger.warning(
-                        f"Warehouse code: {warehouse.code if hasattr(warehouse, 'code') else 'pas de code'}"
-                    )
-
-                    warehouse_name = warehouse.name or ""
-                    warehouse_code = (
-                        warehouse.code if hasattr(warehouse, "code") else ""
-                    )
-
-                    if (
-                        "LA REGRIPIERRE" in warehouse_name
-                        or "LA REGRIPIERRE" in warehouse_code
-                    ):
-                        section = "REG0701ALU"
-                        _logger.info(f"Section FMA sélectionnée: {section}")
-                    elif (
-                        "LA REMAUDIERE" in warehouse_name
-                        or "LA REMAUDIERE" in warehouse_code
-                    ):
-                        section = "REM0701ACI"
-                        _logger.info(f"Section F2M sélectionnée: {section}")
-                    else:
-                        section = "REG0701ALU"
-                        _logger.info(
-                            f"Section par défaut (aucune correspondance): {section}"
-                        )
-                else:
-                    _logger.info(
-                        "Aucun warehouse trouvé - utilisation valeur par défaut"
-                    )
+                if (
+                    "LA REGRIPIERRE" in warehouse_name
+                    or "LA REGRIPIERRE" in warehouse_code
+                ):
                     section = "REG0701ALU"
+                    _logger.info(f"Section FMA sélectionnée: {section}")
+                elif (
+                    "LA REMAUDIERE" in warehouse_name
+                    or "LA REMAUDIERE" in warehouse_code
+                ):
+                    section = "REM0701ACI"
+                    _logger.info(f"Section F2M sélectionnée: {section}")
+                else:
+                    section = "REG0701ALU"
+                    _logger.info(
+                        f"Section par défaut (aucune correspondance): {section}"
+                    )
+            else:
+                _logger.info(
+                    "Aucun warehouse trouvé - utilisation valeur par défaut"
+                )
+                section = "REG0701ALU"
 
-                _logger.warning(f"Section finale: {section}")
-                _logger.warning("=== FIN DEBUG WAREHOUSE ===")
+            _logger.warning(f"Section finale: {section}")
+            _logger.warning("=== FIN DEBUG WAREHOUSE ===")
 
         analytic_code = ""
         for account_code, items_grouped_by_account in groupby(
