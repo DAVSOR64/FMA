@@ -2,11 +2,12 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import csv
-import ftplib
+#import ftplib
 import io
 import logging
 from datetime import datetime, date
 from odoo import fields, models, Command
+from ftplib import FTP_TLS, all_errors
 
 _logger = logging.getLogger(__name__)
 
@@ -55,29 +56,40 @@ class AccountMove(models.Model):
 
             # Construit le nom du fichier
             filename = f"REGLEMENT_{today}.csv"
-            with ftplib.FTP(
-                ftp_host, ftp_user, ftp_password
-            ) as session:
-                try:
-                    session.cwd(ftp_path)
-                    file_content = io.BytesIO()
-                    session.retrbinary(f"RETR {filename}", file_content.write)
-                    file_content.seek(0)
+            
+            #with ftplib.FTP(
+            #    ftp_host, ftp_user, ftp_password
+            #) as session:
+            #    try:
+            #        session.cwd(ftp_path)
+            #        file_content = io.BytesIO()
+            #        session.retrbinary(f"RETR {filename}", file_content.write)
+            #        file_content.seek(0)
 
-                    self._update_invoices(file_content)
-                except ftplib.all_errors as ftp_error:
-                    _logger.error(
-                        "FTP error while downloading file %s: %s", filename, ftp_error
-                    )
-                except Exception as upload_error:
-                    _logger.error(
-                        "Unexpected error while dealing with invoices %s: %s",
-                        filename,
-                        upload_error,
-                    )
+            #        self._update_invoices(file_content)
+            #    except ftplib.all_errors as ftp_error:
+            #        _logger.error(
+            #            "FTP error while downloading file %s: %s", filename, ftp_error
+            #        )
+            #    except Exception as upload_error:
+            #        _logger.error(
+            #            "Unexpected error while dealing with invoices %s: %s",
+            #            filename,
+            #            upload_error,
+            #        )
+            with FTP_TLS(ftp_host) as session:
+            session.login(ftp_user, ftp_password)
+            session.prot_p()
+            session.cwd(ftp_path)
+    
+            file_content = io.BytesIO()
+            session.retrbinary(f"RETR {filename}", file_content.write)
+            file_content.seek(0)
+    
+            self._update_invoices(file_content)
         except Exception as e:
             _logger.error(
-                f"Failed to download customer file {filename}.txt to FTP server: {e}"
+                f"Failed to download customer file {filename} to FTP server: {e}"
             )
 
     def _update_invoices(self, file_content):
