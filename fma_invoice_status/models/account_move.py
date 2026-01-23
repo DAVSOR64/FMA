@@ -78,15 +78,15 @@ class AccountMove(models.Model):
             #            upload_error,
             #        )
             with FTP_TLS(ftp_host) as session:
-            session.login(ftp_user, ftp_password)
-            session.prot_p()
-            session.cwd(ftp_path)
-    
-            file_content = io.BytesIO()
-            session.retrbinary(f"RETR {filename}", file_content.write)
-            file_content.seek(0)
-    
-            self._update_invoices(file_content)
+                session.login(ftp_user, ftp_password)
+                session.prot_p()
+                session.cwd(ftp_path)
+        
+                file_content = io.BytesIO()
+                session.retrbinary(f"RETR {filename}", file_content.write)
+                file_content.seek(0)
+        
+                self._update_invoices(file_content)
         except Exception as e:
             _logger.error(
                 f"Failed to download customer file {filename} to FTP server: {e}"
