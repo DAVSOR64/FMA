@@ -97,9 +97,20 @@ class AccountMove(models.Model):
         invoice_codes = []
         rows = []
         for row in csv_reader:
-            if row[0] != "":
-                invoice_codes.append(row[0])
-                rows.append(row)
+            code_csv = row[0]  # ex: FC250123
+            
+            # On insère "20" après "FC"
+            if code_csv.startswith("FC") and len(code_csv) > 2:
+                code_odoo = code_csv[:2] + "20" + code_csv[2:]
+            else:
+                code_odoo = code_csv  # sécurité
+    
+            invoice_codes.append(code_odoo)
+            rows.append(row)
+            
+            #if row[0] != "":
+            #    invoice_codes.append(row[0])
+            #    rows.append(row)
 
         # Fetch all invoices in one query
         invoices = self.search([("name", "in", invoice_codes)])
@@ -108,6 +119,13 @@ class AccountMove(models.Model):
         # Update invoices
         for row in rows:
             name = row[0]
+
+            # On insère "20" après "FC"
+            if name.startswith("FC") and len(name) > 2:
+                name_odoo = name[:2] + "20" + name[2:]
+            else:
+                name_odoo = name  # sécurité
+                
             _logger.warning("Facture %s", row[0])
             _logger.warning(" prix %s ", row[3])
             try:
@@ -133,7 +151,7 @@ class AccountMove(models.Model):
                 )
                 continue
 
-            invoice = invoices_map.get(name)
+            invoice = invoices_map.get(name_odoo)
             _logger.warning("Facture %s", invoice)
             _logger.warning("Signe %s", sign)
             if invoice and sign == "+":
@@ -182,13 +200,13 @@ class AccountMove(models.Model):
                     wizard._create_payments()
                     _logger.info(
                         "✅ Paiement enregistré pour la facture %s : %.2f €",
-                        invoice.name,
+                        invoice.name_odoo,
                         amount,
                     )
 
                 except Exception as e:
                     _logger.error(
                         "❌ Échec de création du paiement pour la facture %s : %s",
-                        invoice.name,
+                        invoice.name_odoo,
                         e,
                     )
