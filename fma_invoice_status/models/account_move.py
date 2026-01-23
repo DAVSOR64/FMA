@@ -2,12 +2,12 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import csv
-#import ftplib
+import ftplib
 import io
 import logging
 from datetime import datetime, date
 from odoo import fields, models, Command
-from ftplib import FTP_TLS, all_errors
+#from ftplib import FTP_TLS, all_errors
 
 _logger = logging.getLogger(__name__)
 
