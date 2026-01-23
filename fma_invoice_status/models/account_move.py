@@ -41,7 +41,7 @@ class AccountMove(models.Model):
                 [
                     ftp_host,
                     ftp_user,
-                    ftp__password,
+                    ftp_password,
                     ftp_path,
                 ]
             ):
