@@ -5,7 +5,7 @@ import csv
 import ftplib
 import io
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from odoo import fields, models, Command
 
 _logger = logging.getLogger(__name__)
