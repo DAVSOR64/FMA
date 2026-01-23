@@ -17,81 +17,41 @@ class AccountMove(models.Model):
 
     def cron_update_invoice_status(self):
         """Update status and related fields for invoices from REGLEMENT_DATE.csv on the FTP server."""
+       filename = "unknown"
         try:
             get_param = self.env["ir.config_parameter"].sudo().get_param
-            # ftp_server_host = get_param('fma_invoice_status.ftp_server_host')
-            # ftp_server_username = get_param('fma_invoice_status.ftp_server_username')
-            # ftp_server_password = get_param('fma_invoice_status.ftp_server_password')
-            # ftp_server_file_path = get_param('fma_invoice_status.ftp_server_file_path')
-            # ftp_host = self.env['ir.config_parameter'].sudo().get_param('fma_invoice_status.ftp_server_host')
-            # ftp_user = self.env['ir.config_parameter'].sudo().get_param('fma_invoice_status.ftp_server_username')
-            # ftp_password = self.env['ir.config_parameter'].sudo().get_param('fma_invoice_status.ftp_server_password')
-            # ftp_path = self.env['ir.config_parameter'].sudo().get_param('fma_invoice_status.ftp_server_file_path')
-
-            ftp_host = "194.206.49.72"
-            ftp_user = "csproginov"
-            ftp_password = "g%tumR/n49:1=5qES6CT"
-            ftp_path = "IN/"
-
-            _logger.warning("**********host********* %s " % ftp_host)
-            _logger.warning("**********username********* %s " % ftp_user)
-            _logger.warning("**********password********* %s " % ftp_password)
-            _logger.warning("**********path********* %s " % ftp_path)
-
-            if not all(
-                [
-                    ftp_host,
-                    ftp_user,
-                    ftp_password,
-                    ftp_path,
-                ]
-            ):
+            ftp_server_host = get_param("fma_invoice_status.ftp_server_host")
+            ftp_server_username = get_param("fma_invoice_status.ftp_server_username")
+            ftp_server_password = get_param("fma_invoice_status.ftp_server_password")
+            ftp_server_file_path = get_param("fma_invoice_status.ftp_server_file_path")
+    
+            if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
                 _logger.error("Missing one or more FTP server credentials.")
                 return
-            filename = ''
-            # filename = 'REGLEMENT_DATE.csv'
-
-            # Récupère la date du jour au format ddmmyyyy
+    
             today = date.today().strftime("%d%m%Y")
-
-            # Construit le nom du fichier
             filename = f"REGLEMENT_{today}.csv"
-            
-            #with ftplib.FTP(
-            #    ftp_host, ftp_user, ftp_password
-            #) as session:
-            #    try:
-            #        session.cwd(ftp_path)
-            #        file_content = io.BytesIO()
-            #        session.retrbinary(f"RETR {filename}", file_content.write)
-            #        file_content.seek(0)
-
-            #        self._update_invoices(file_content)
-            #    except ftplib.all_errors as ftp_error:
-            #        _logger.error(
-            #            "FTP error while downloading file %s: %s", filename, ftp_error
-            #        )
-            #    except Exception as upload_error:
-            #        _logger.error(
-            #            "Unexpected error while dealing with invoices %s: %s",
-            #            filename,
-            #            upload_error,
-            #        )
-            with FTP_TLS(ftp_host) as session:
-                session.login(ftp_user, ftp_password)
-                session.prot_p()
-                session.cwd(ftp_path)
-        
-                file_content = io.BytesIO()
-                session.retrbinary(f"RETR {filename}", file_content.write)
-                file_content.seek(0)
-        
-                self._update_invoices(file_content)
+    
+            session = ftplib.FTP()
+            session.connect(ftp_server_host, 21, timeout=30)
+            session.set_pasv(True)
+            session.login(ftp_server_username, ftp_server_password)
+    
+            session.cwd(ftp_server_file_path)
+    
+            file_content = io.BytesIO()
+            session.retrbinary(f"RETR {filename}", file_content.write)
+            file_content.seek(0)
+    
+            self._update_invoices(file_content)
+    
+            session.quit()
+    
+        except ftplib.all_errors as ftp_error:
+            _logger.exception("FTP error while downloading file %s: %s", filename, ftp_error)
         except Exception as e:
-            _logger.error(
-                f"Failed to download customer file {filename} to FTP server: {e}"
-            )
-
+            _logger.exception("Unexpected error while downloading file %s: %s", filename, e)
+        
     def _update_invoices(self, file_content):
         """Parse CSV file and update the invoices."""
         file_content.seek(0)
