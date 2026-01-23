@@ -17,7 +17,7 @@ class AccountMove(models.Model):
 
     def cron_update_invoice_status(self):
         """Update status and related fields for invoices from REGLEMENT_DATE.csv on the FTP server."""
-       filename = "unknown"
+        filename = "unknown"
         try:
             get_param = self.env["ir.config_parameter"].sudo().get_param
             ftp_server_host = get_param("fma_invoice_status.ftp_server_host")
