@@ -19,11 +19,16 @@ class AccountMove(models.Model):
         """Update status and related fields for invoices from REGLEMENT_DATE.csv on the FTP server."""
         filename = "unknown"
         try:
-            get_param = self.env["ir.config_parameter"].sudo().get_param
-            ftp_server_host = get_param("fma_invoice_status.ftp_server_host")
-            ftp_server_username = get_param("fma_invoice_status.ftp_server_username")
-            ftp_server_password = get_param("fma_invoice_status.ftp_server_password")
-            ftp_server_file_path = get_param("fma_invoice_status.ftp_server_file_path")
+            #get_param = self.env["ir.config_parameter"].sudo().get_param
+            #ftp_server_host = get_param("fma_invoice_status.ftp_server_host")
+            #ftp_server_username = get_param("fma_invoice_status.ftp_server_username")
+            #ftp_server_password = get_param("fma_invoice_status.ftp_server_password")
+            #ftp_server_file_path = get_param("fma_invoice_status.ftp_server_file_path")
+            
+            ftp_server_host = '194.206.49.72'
+            ftp_server_username = 'csproginov'
+            ftp_server_password = 'g%tumR/n49:1=5qES6CT'
+            ftp_server_file_path = 'FMA/IN/'
 
             _logger.warning("FTP host ok? %s", bool(ftp_server_host))
             _logger.warning("FTP user ok? %s", bool(ftp_server_username))
