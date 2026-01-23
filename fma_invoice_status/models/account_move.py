@@ -47,7 +47,7 @@ class AccountMove(models.Model):
             ):
                 _logger.error("Missing one or more FTP server credentials.")
                 return
-
+            filename = ''
             # filename = 'REGLEMENT_DATE.csv'
 
             # Récupère la date du jour au format ddmmyyyy
