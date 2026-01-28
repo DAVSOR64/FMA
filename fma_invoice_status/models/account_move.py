@@ -5,6 +5,8 @@ import csv
 import ftplib
 import io
 import logging
+import base64
+from odoo.exceptions import UserError
 from datetime import datetime, date
 from odoo import fields, models, Command
 #from ftplib import FTP_TLS, all_errors
@@ -19,54 +21,86 @@ class AccountMove(models.Model):
         """Update status and related fields for invoices from REGLEMENT_DATE.csv on the FTP server."""
         filename = "unknown"
         try:
+            today = date.today().strftime("%d%m%Y")
+            filename = f"REGLEMENT_{today}.csv"
+    
+            # Optionnel mais conseillé : dossier Documents dédié
+            folder = self.env["documents.folder"].search([("name", "=", "Imports Factures")], limit=1)
+    
+            domain = [
+                ("attachment_id", "!=", False),
+                ("attachment_id.name", "=", filename),
+            ]
+            if folder:
+                domain.append(("folder_id", "=", folder.id))
+    
+            doc = self.env["documents.document"].search(domain, order="create_date desc", limit=1)
+    
+            if not doc:
+                _logger.warning("Aucun document trouvé dans Documents pour %s (dossier: %s)", filename, folder.name if folder else "N/A")
+                return
+    
+            att = doc.attachment_id
+            if not att or not att.datas:
+                _logger.warning("Le document %s n'a pas de contenu (attachment vide).", filename)
+                return
+    
+            file_bytes = base64.b64decode(att.datas)
+            file_content = io.BytesIO(file_bytes)
+    
+            self._update_invoices(file_content)
+    
+        except Exception as e:
+            _logger.exception("Unexpected error while reading file %s from Documents: %s", filename, e)
             #get_param = self.env["ir.config_parameter"].sudo().get_param
             #ftp_server_host = get_param("fma_invoice_status.ftp_server_host")
             #ftp_server_username = get_param("fma_invoice_status.ftp_server_username")
             #ftp_server_password = get_param("fma_invoice_status.ftp_server_password")
             #ftp_server_file_path = get_param("fma_invoice_status.ftp_server_file_path")
             
-            ftp_server_host = '194.206.49.72'
-            ftp_server_username = 'csproginov'
-            ftp_server_password = 'g%tumR/n49:1=5qES6CT'
-            ftp_server_file_path = 'FMA/IN/'
+            #ftp_server_host = '194.206.49.72'
+            #ftp_server_username = 'csproginov'
+            #ftp_server_password = 'g%tumR/n49:1=5qES6CT'
+            #ftp_server_file_path = 'FMA/IN/'
 
-            _logger.warning("FTP host ok? %s", bool(ftp_server_host))
-            _logger.warning("FTP user ok? %s", bool(ftp_server_username))
-            _logger.warning("FTP password ok? %s", bool(ftp_server_password))
-            _logger.warning("FTP path ok? %s", bool(ftp_server_file_path))
+            #_logger.warning("FTP host ok? %s", bool(ftp_server_host))
+            #_logger.warning("FTP user ok? %s", bool(ftp_server_username))
+            #_logger.warning("FTP password ok? %s", bool(ftp_server_password))
+            #_logger.warning("FTP path ok? %s", bool(ftp_server_file_path))
     
-            if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
-                _logger.error("Missing one or more FTP server credentials.")
-                return
+            #if not all([ftp_server_host, ftp_server_username, ftp_server_password, ftp_server_file_path]):
+            #    _logger.error("Missing one or more FTP server credentials.")
+            #    return
     
-            today = date.today().strftime("%d%m%Y")
-            filename = f"REGLEMENT_{today}.csv"
+            #today = date.today().strftime("%d%m%Y")
+            #filename = f"REGLEMENT_{today}.csv"
     
-            session = ftplib.FTP()
-            session.connect(ftp_server_host, 21, timeout=30)
-            session.set_pasv(True)
-            session.login(ftp_server_username, ftp_server_password)
+            #session = ftplib.FTP()
+            #session.connect(ftp_server_host, 21, timeout=30)
+            #session.set_pasv(True)
+            #session.login(ftp_server_username, ftp_server_password)
     
-            session.cwd(ftp_server_file_path)
+            #session.cwd(ftp_server_file_path)
     
-            file_content = io.BytesIO()
-            session.retrbinary(f"RETR {filename}", file_content.write)
-            file_content.seek(0)
+            #file_content = io.BytesIO()
+            #session.retrbinary(f"RETR {filename}", file_content.write)
+            #file_content.seek(0)
     
-            self._update_invoices(file_content)
+            #self._update_invoices(file_content)
     
-            session.quit()
+            #session.quit()
     
-        except ftplib.all_errors as ftp_error:
-            _logger.exception("FTP error while downloading file %s: %s", filename, ftp_error)
-        except Exception as e:
-            _logger.exception("Unexpected error while downloading file %s: %s", filename, e)
+        #except ftplib.all_errors as ftp_error:
+            #_logger.exception("FTP error while downloading file %s: %s", filename, ftp_error)
+        #except Exception as e:
+            #_logger.exception("Unexpected error while downloading file %s: %s", filename, e)
         
     def _update_invoices(self, file_content):
         """Parse CSV file and update the invoices."""
         file_content.seek(0)
         csv_reader = csv.reader(
-            io.StringIO(file_content.getvalue().decode("utf-8")), delimiter=";"
+            #io.StringIO(file_content.getvalue().decode("utf-8")), delimiter=";"
+            io.StringIO(file_content.getvalue().decode("utf-8-sig", errors="replace")), delimiter=";"
         )
         _logger.warning(
             ">> Taille du buffer : %s octets", file_content.getbuffer().nbytes
@@ -180,15 +214,7 @@ class AccountMove(models.Model):
                     )
 
                     wizard._create_payments()
-                    _logger.info(
-                        "✅ Paiement enregistré pour la facture %s : %.2f €",
-                        invoice.name_odoo,
-                        amount,
-                    )
+                    _logger.info("✅ Paiement enregistré pour la facture %s : %.2f €", name_odoo, amount)
 
                 except Exception as e:
-                    _logger.error(
-                        "❌ Échec de création du paiement pour la facture %s : %s",
-                        invoice.name_odoo,
-                        e,
-                    )
+                    _logger.error("❌ Échec de création du paiement pour la facture %s : %s", name_odoo, e)
