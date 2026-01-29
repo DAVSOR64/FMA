@@ -175,6 +175,31 @@ class AccountMove(models.Model):
                     _logger.info(
                         f"Section par défaut (aucune correspondance): {section}"
                     )
+                po_line_affaire = False
+                analytic_code_po = ''
+                for pol in po.order_line:
+                    if (
+                        pol.product_id
+                        and (pol.product_id.default_code or "").strip().lower() == "affaire"
+                    ):
+                        po_line_affaire = pol
+                        break
+    
+                if po_line_affaire:
+                    dist = getattr(po_line_affaire, "analytic_distribution", None) or {}
+                    if dist:
+                        analytic_id = int(next(iter(dist.keys())))
+                        aa = self.env["account.analytic.account"].browse(analytic_id)
+                        analytic_code = (aa.code or aa.name or "") or ""
+                    elif (
+                        hasattr(po_line_affaire, "analytic_account_id")
+                        and po_line_affaire.analytic_account_id
+                    ):
+                        analytic_code_po = (
+                            po_line_affaire.analytic_account_id.code
+                            or po_line_affaire.analytic_account_id.name
+                            or ""
+                        )
             else:
                 _logger.info(
                     "Aucun warehouse trouvé - utilisation valeur par défaut"
@@ -229,7 +254,7 @@ class AccountMove(models.Model):
                             or first_line.analytic_account_id.name
                             or ""
                         )
-
+                    
                 # Formater les nombres avec une virgule comme séparateur décimal
                 formatted_debit = f"{debit_sum:.2f}".replace(".", ",")
                 formatted_credit = f"{credit_sum:.2f}".replace(".", ",")
@@ -248,10 +273,10 @@ class AccountMove(models.Model):
                         "account_code": account_code,
                         'mode_de_reglement': move.x_studio_mode_de_reglement_1,
                         "name_and_customer_name": f"{name_invoice} {move.partner_id.name}",
-                        "payment_reference": analytic_code or "",
+                        "payment_reference": analytic_code or analytic_code_po,
                         "section_axe2": analytic_code.replace("-", "")[:10]
                         if analytic_code
-                        else "",
+                        else analytic_code_po.replace("-", "")[:10],
                         "section": ana,
                         "section_axe3": str("999999999999"),
                         "debit": formatted_debit,
