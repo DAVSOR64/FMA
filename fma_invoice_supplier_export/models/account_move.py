@@ -273,7 +273,7 @@ class AccountMove(models.Model):
                         "due_date": invoice_date_due.replace("-", ""),
                         "account_code": account_code,
                         'mode_de_reglement': move.x_studio_mode_de_reglement_1,
-                        "name_and_customer_name": f"{name_invoice} {move.partner_id.name} {move.number}",
+                        "name_and_customer_name": f"{name_invoice} {move.partner_id.name} {move.name}",
                         "payment_reference": analytic_code or analytic_code_po,
                         "section_axe2": analytic_code.replace("-", "")[:10]
                         if analytic_code
