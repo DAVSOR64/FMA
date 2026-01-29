@@ -53,7 +53,7 @@ class AccountMove(models.Model):
         IrAttachment = self.env["ir.attachment"]
         for move in self.filtered(
             lambda move: not move.is_txt_created
-            and move.state == "posted"
+            #and move.state == "posted"
             and move.move_type in ("in_invoice", "in_refund")
         ):
             try:
