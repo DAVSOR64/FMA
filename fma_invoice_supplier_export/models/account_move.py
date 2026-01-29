@@ -184,13 +184,13 @@ class AccountMove(models.Model):
                     ):
                         po_line_affaire = pol
                         break
-    
+                _logger.info(f"Ligne de PO avec affaire : {po_line_affaire}")
                 if po_line_affaire:
                     dist = getattr(po_line_affaire, "analytic_distribution", None) or {}
                     if dist:
                         analytic_id = int(next(iter(dist.keys())))
                         aa = self.env["account.analytic.account"].browse(analytic_id)
-                        analytic_code = (aa.code or aa.name or "") or ""
+                        analytic_code_po = (aa.code or aa.name or "") or ""
                     elif (
                         hasattr(po_line_affaire, "analytic_account_id")
                         and po_line_affaire.analytic_account_id
@@ -200,6 +200,7 @@ class AccountMove(models.Model):
                             or po_line_affaire.analytic_account_id.name
                             or ""
                         )
+                    _logger.info(f"Analytic code PO : {analytic_code_po}")
             else:
                 _logger.info(
                     "Aucun warehouse trouvé - utilisation valeur par défaut"
@@ -272,7 +273,7 @@ class AccountMove(models.Model):
                         "due_date": invoice_date_due.replace("-", ""),
                         "account_code": account_code,
                         'mode_de_reglement': move.x_studio_mode_de_reglement_1,
-                        "name_and_customer_name": f"{name_invoice} {move.partner_id.name}",
+                        "name_and_customer_name": f"{name_invoice} {move.partner_id.name} {move.number}",
                         "payment_reference": analytic_code or analytic_code_po,
                         "section_axe2": analytic_code.replace("-", "")[:10]
                         if analytic_code
