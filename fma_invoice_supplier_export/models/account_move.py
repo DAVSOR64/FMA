@@ -106,7 +106,7 @@ class AccountMove(models.Model):
 
         if po:
             po_name = po.name
-
+            mode_de_reglement = po.x_studio_mode_de_reglement_1
             # Récupérer l'entrepôt depuis le bon de commande
             warehouse = None
 
@@ -174,6 +174,7 @@ class AccountMove(models.Model):
             _logger.warning("=== FIN DEBUG WAREHOUSE ===")
 
         analytic_code = ""
+        
         for account_code, items_grouped_by_account in groupby(
             journal_items, key=lambda r: r.account_id.code
         ):
@@ -231,7 +232,7 @@ class AccountMove(models.Model):
                         "invoice_date_1": invoice_date.replace("-", ""),
                         "due_date": invoice_date_due.replace("-", ""),
                         "account_code": account_code,
-                        #'mode_de_regiment': move.inv_mode_de_reglement.replace('L.C.R. A L ACCEPTATION', 'L.C.R. A L ACCEPTATI') if move.inv_mode_de_reglement == 'L.C.R. A L ACCEPTATION' else move.inv_mode_de_reglement,
+                        'mode_de_reglement': mode_de_reglement,
                         "name_and_customer_name": f"{name_invoice} {move.partner_id.name}",
                         "payment_reference": analytic_code or "",
                         "section_axe2": analytic_code.replace("-", "")[:10]
@@ -252,7 +253,7 @@ class AccountMove(models.Model):
             "invoice_date",
             "due_date",
             "account_code",
-            "mode_de_regiment",
+            "mode_de_reglement",
             "name_and_customer_name",
             "payment_reference",
             "section_axe2",
