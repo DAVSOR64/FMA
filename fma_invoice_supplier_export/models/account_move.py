@@ -44,6 +44,11 @@ class AccountMove(models.Model):
 
     def action_create_supplier_journal_items_file(self):
         """Attach the journal items .csv file."""
+        _logger.warning(">>> ACTION action_create_supplier_journal_items_file appelée ! ids=%s", self.ids)
+        _logger.warning(">>> move(s) state=%s move_type=%s is_file_txt_created=%s is_txt_created=%s",
+                    self.mapped("state"), self.mapped("move_type"),
+                    self.mapped("is_file_txt_created"),
+                    self.mapped("is_txt_created") if hasattr(self, "is_txt_created") else "NO_FIELD")
         AccountMoveLine = self.env["account.move.line"]
         IrAttachment = self.env["ir.attachment"]
         for move in self.filtered(
