@@ -87,6 +87,10 @@ class AccountMove(models.Model):
         section = ""
         journal = "ACH"
         po = ""
+        activite = ""
+        centre_de_frais = ""
+        mode_de_reglement = ""
+        ana = ""
         _logger.warning("=== Avant les lignes ===")
         for line in move.invoice_line_ids:
             _logger.warning(f"=== Parcours ligne {line.id} ===")
@@ -151,16 +155,19 @@ class AccountMove(models.Model):
                     "LA REGRIPIERRE" in warehouse_name
                     or "LA REGRIPIERRE" in warehouse_code
                 ):
-                    section = "REG0701ALU"
+                    section = "REG"
+                    activite = "ALU"
                     _logger.info(f"Section FMA sélectionnée: {section}")
                 elif (
                     "LA REMAUDIERE" in warehouse_name
                     or "LA REMAUDIERE" in warehouse_code
                 ):
-                    section = "REM0701ACI"
+                    section = "REM"
+                    activite = "ACI"
                     _logger.info(f"Section F2M sélectionnée: {section}")
                 else:
-                    section = "REG0701ALU"
+                    section = "REG"
+                    activite = "ALU"
                     _logger.info(
                         f"Section par défaut (aucune correspondance): {section}"
                     )
@@ -168,11 +175,14 @@ class AccountMove(models.Model):
                 _logger.info(
                     "Aucun warehouse trouvé - utilisation valeur par défaut"
                 )
-                section = "REG0701ALU"
+                section = "REG"
+                activite = "ALU"
 
             _logger.warning(f"Section finale: {section}")
             _logger.warning("=== FIN DEBUG WAREHOUSE ===")
 
+        centre_de_frais = po.x_studio_centre_de_frais or ""
+        ana = f"{section}{centre_de_frais}{activite}"
         analytic_code = ""
         
         for account_code, items_grouped_by_account in groupby(
@@ -181,7 +191,7 @@ class AccountMove(models.Model):
             if account_code:
                 # 1) Convertir l’itérateur en liste **tout de suite**
                 items = list(items_grouped_by_account)
-                name_invoice = move.name
+                name_invoice = move.ref
                 # if move.name.startswith(('BILL')) :
                 # prefix = move.name[:2]
                 # year = move.name[2:6]
@@ -238,7 +248,7 @@ class AccountMove(models.Model):
                         "section_axe2": analytic_code.replace("-", "")[:10]
                         if analytic_code
                         else "",
-                        "section": section,
+                        "section": ana,
                         "section_axe3": str("999999999999"),
                         "debit": formatted_debit,
                         "credit": formatted_credit,
