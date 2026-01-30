@@ -282,7 +282,7 @@ class AccountMove(models.Model):
                         "section_axe3": str("999999999999"),
                         "debit": formatted_debit,
                         "credit": formatted_credit,
-                        "name_odoo" :{move.name}",
+                        "name_odoo" : move.name,
                     }
                 )
 
