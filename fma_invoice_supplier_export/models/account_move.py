@@ -273,7 +273,7 @@ class AccountMove(models.Model):
                         "due_date": invoice_date_due.replace("-", ""),
                         "account_code": account_code,
                         'mode_de_reglement': move.x_studio_mode_de_reglement_1,
-                        "name_and_customer_name": f"{name_invoice} {move.partner_id.name} {move.name}",
+                        "name_and_customer_name": f" {move.partner_id.name} {name_invoice}",
                         "payment_reference": analytic_code or analytic_code_po,
                         "section_axe2": analytic_code.replace("-", "")[:10]
                         if analytic_code
@@ -282,6 +282,7 @@ class AccountMove(models.Model):
                         "section_axe3": str("999999999999"),
                         "debit": formatted_debit,
                         "credit": formatted_credit,
+                        "name_odoo" :{move.name}",
                     }
                 )
 
@@ -301,6 +302,7 @@ class AccountMove(models.Model):
             "section_axe3",
             "debit",
             "credit",
+            "name_odoo",
         ]
         output = io.StringIO()
         csv_writer = csv.writer(output, delimiter=";")
