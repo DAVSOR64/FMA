@@ -644,7 +644,7 @@ class ExportSFTPScheduler(models.Model):
                         getattr(i, "amount_total_signed", 0.0) or 0.0,
                         # Divers
                         getattr(i, "x_studio_projet_vente", 0.0) or 0.0,
-                        getattr(i, "inv_activite", 0.0) or 0.0,
+                        getattr(i, "inv_activite", None) or 'COMMUN',
                         len(getattr(i, "invoice_line_ids", [])),
                     )
                     for i in invoices
