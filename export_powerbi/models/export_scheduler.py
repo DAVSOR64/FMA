@@ -219,7 +219,7 @@ class ExportSFTPScheduler(models.Model):
                     [
                         "ID Client",
                         "Type",
-                        "Id Société rattachee",
+                        "Id Societe rattachee",
                         "Societe rattachee",
                         "Nom",
                         "Civilite",
