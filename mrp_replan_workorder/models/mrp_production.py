@@ -181,19 +181,35 @@ class MrpProduction(models.Model):
 
     def _previous_or_same_working_day(self, day, workcenter):
         """
-        Retourne day si ouvré selon le calendrier du poste (ou société), sinon jour ouvré précédent.
+        Retourne day si c'est un jour ouvré (selon calendrier),
+        sinon renvoie le jour ouvré précédent.
         """
-        if workcenter is None:
-            # fallback simple
-            while day.weekday() >= 5:
-                day -= timedelta(days=1)
+        if not day:
             return day
-
+    
+        # fallback si pas de poste
+        if not workcenter:
+            d = day
+            while d.weekday() >= 5:
+                d -= timedelta(days=1)
+            return d
+    
         cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
         if not cal:
-            while day.weekday() >= 5:
-                day -= timedelta(days=1)
-            return day
-
-        start_dt = datetime.combine(day, time.min)
-        end_dt = d_
+            d = day
+            while d.weekday() >= 5:
+                d -= timedelta(days=1)
+            return d
+    
+        d = day
+        for _ in range(365):
+            start_dt = datetime.combine(d, time.min)
+            end_dt = datetime.combine(d, time.max)
+    
+            intervals = cal._work_intervals_batch(start_dt, end_dt)
+            if intervals.get(False):
+                return d
+    
+            d -= timedelta(days=1)
+    
+        return day
