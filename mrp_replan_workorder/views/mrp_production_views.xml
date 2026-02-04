@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Ajout champ date de livraison -->
+    <record id="view_mrp_production_form_commitment" model="ir.ui.view">
+        <field name="name">mrp.production.form.commitment</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <field name="date_planned_start" position="after">
+                <field name="commitment_date" 
+                       attrs="{'readonly': [('state', 'in', ['done', 'cancel'])]}"/>
+                <field name="planning_mode" readonly="1"/>
+            </field>
+        </field>
+    </record>
+</odoo>
