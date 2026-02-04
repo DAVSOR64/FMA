@@ -23,7 +23,8 @@ class MrpProduction(models.Model):
         - MAJ transfert composants (deadline = début fab, durée 1 jour)
         """
         self.ensure_one()
-
+        # 👇 DEBUG VISUEL DANS LE CHATTER
+        self.message_post(body="🧪 DEBUG : planification jour entier exécutée")
         delivery_dt = sale_order.commitment_date
         if not delivery_dt:
             _logger.info("SO %s sans commitment_date : planification ignorée pour MO %s", sale_order.name, self.name)
