@@ -4,7 +4,6 @@ import math
 from datetime import datetime, timedelta, time
 
 import pytz
-
 from odoo import models, fields
 
 _logger = logging.getLogger(__name__)
@@ -14,83 +13,52 @@ class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
     # ============================================================
-    # PUBLIC ENTRY POINT
+    # ENTRY POINT FROM SALE ORDER (SO -> MO)
     # ============================================================
-    def plan_day_based_from_sale(self, sale_order, security_days=None):
+    def compute_macro_schedule_from_sale(self, sale_order, security_days=6):
         """
-        Planifie l'OF en JOUR ENTIER à partir du Sale Order :
-        - fin fab = delivery_date (SO.commitment_date) - security_days (jours ouvrés)
-        - backward sans chevauchement (l'op précédente finit la veille ouvrée)
-        - écrit dates WO (planned+real si dispo)
-        - MAJ dates OF (planned+real si dispo)
-        - MAJ picking composants (deadline = début fab, scheduled = veille ouvrée)
+        Phase 1 (à la confirmation du devis) :
+        - calcule et écrit workorder.date_macro (début planifié)
+        - met à jour mrp.production.date_start / date_finished (planifié)
+        - met à jour le picking composants (deadline = début fab, scheduled = veille ouvrée)
+        - NE TOUCHE PAS aux dates WO (date_start/date_finished)
         """
         self.ensure_one()
 
-        delivery_dt = sale_order.commitment_date
+        delivery_dt = fields.Datetime.to_datetime(sale_order.commitment_date)
         if not delivery_dt:
-            _logger.info("SO %s sans commitment_date : planif ignorée pour MO %s", sale_order.name, self.name)
+            _logger.info("SO %s : pas de commitment_date -> pas de macro planning", sale_order.name)
             return False
 
-        if security_days is None:
-            security_days = self._get_security_days_default()
+        self.message_post(body="🧪 DEBUG : macro planning (SO confirm) exécuté")
 
-        self._plan_day_based(delivery_dt=delivery_dt, security_days=int(security_days))
-        return True
-
-    # ============================================================
-    # CORE SCHEDULING (DAY-BASED, BACKWARD)
-    # ============================================================
-    def _plan_day_based(self, delivery_dt, security_days=6):
-        """
-        Planification jour entier, à rebours :
-        - end_fab_day = delivery_dt - security_days (jours ouvrés)
-        - dernière opération se termine end_fab_day (fin de journée)
-        - chaque opération occupe N jours ouvrés (ceil(durée_h / hours_per_day))
-        - opération précédente se termine la veille ouvrée du début du bloc suivant
-        """
-        self.ensure_one()
-
-        # Preuve visuelle que le code passe
-        try:
-            self.message_post(body="🧪 DEBUG : planification jour entier exécutée")
-        except Exception:
-            # si chatter non dispo (rare), on ne casse pas
-            pass
-
-        # 1) Workorders à planifier (tri robuste)
         workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
         if not workorders:
-            _logger.info("MO %s : aucun workorder à planifier", self.name)
-            return
+            _logger.info("MO %s : aucun WO", self.name)
+            return False
 
-        # Tri : opération.sequence puis id
+        # Tri robuste : séquence opération puis id
         workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
 
-        delivery_dt = fields.Datetime.to_datetime(delivery_dt)
-
-        # 2) Fin de fabrication = livraison - délai sécurité en jours ouvrés (calendrier société)
+        # Fin fabrication = livraison - délai sécurité en jours ouvrés (calendrier société)
         end_fab_dt = self._add_working_days_company(delivery_dt, -float(security_days))
         end_fab_day = end_fab_dt.date()
 
-        _logger.info(
-            "MO %s : delivery=%s | security_days=%s | end_fab_day=%s",
-            self.name, delivery_dt, security_days, end_fab_day
-        )
+        _logger.info("MO %s : delivery=%s security_days=%s end_fab_day=%s",
+                     self.name, delivery_dt, security_days, end_fab_day)
 
-        # 3) Backward planning
+        # Planif backward en jours ouvrés => on remplit UNIQUEMENT date_macro
         last_wc = workorders[-1].workcenter_id
         current_end_day = self._previous_or_same_working_day(end_fab_day, last_wc)
 
+        # Backward : dernière -> première
         for wo in workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True):
             wc = wo.workcenter_id
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-
-            hours_per_day = cal.hours_per_day or 7.8  # fallback si pas renseigné
+            hours_per_day = cal.hours_per_day or 7.8
 
             duration_minutes = wo.duration_expected or 0.0
             duration_hours = duration_minutes / 60.0
-
             required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
 
             # Bloc de required_days se terminant à current_end_day
@@ -99,148 +67,229 @@ class MrpProduction(models.Model):
             for _ in range(required_days - 1):
                 first_day = self._previous_working_day(first_day, wc)
 
-            start_dt = self._morning_dt(first_day, wc)
-            end_dt = self._evening_dt(last_day, wc)
+            # date_macro = début du bloc (matin)
+            macro_dt = self._morning_dt(first_day, wc)
 
-            self._write_workorder_dates(wo, start_dt, end_dt)
+            # Écriture date_macro seulement
+            if "date_macro" in wo._fields:
+                wo.with_context(mail_notrack=True).write({"date_macro": macro_dt})
 
-            _logger.info(
-                "  WO %s (%s): %s -> %s | %s min (~%s h) => %s j",
-                wo.name, wc.display_name, first_day, last_day,
-                int(duration_minutes), round(duration_hours, 2), required_days
-            )
+            _logger.info("WO %s (%s): %s -> %s | %s min (~%s h) => %s j | date_macro=%s",
+                         wo.name, wc.display_name, first_day, last_day,
+                         int(duration_minutes), round(duration_hours, 2), required_days, macro_dt)
 
-            # L'opération précédente doit finir la veille ouvrée du début de ce bloc
+            # Décalage “veille ouvrée” entre opérations
             current_end_day = self._previous_working_day(first_day, wc)
 
-        # 4) MAJ dates OF depuis les WO (planned + real)
-        self._update_mo_dates_from_workorders()
+        # Mettre à jour les dates de l'OF depuis date_macro + durées (jours ouvrés)
+        self._update_mo_dates_from_date_macro()
 
-        # 5) MAJ picking composants
+        # Mettre à jour le picking composants depuis le début fab (date_start MO)
         self._update_components_picking_dates()
 
+        return True
+
     # ============================================================
-    # WRITE DATES (WO / MO)
+    # BUTTON "PLANIFIER" (MO) -> push macro to WO dates for gantt
     # ============================================================
-    def _write_workorder_dates(self, wo, start_dt, end_dt):
-        """Écrit planned+real si les champs existent sur mrp.workorder."""
+    def button_plan(self):
+        """
+        Phase 2 (clic sur Planifier) :
+        - exécute la planif standard
+        - puis FORCE wo.date_start/date_finished à partir de wo.date_macro
+          (pour avoir un Gantt exploitable et des dates cohérentes)
+        """
+        res = super().button_plan()
+        for mo in self:
+            mo.message_post(body="🧪 DEBUG : bouton Planifier -> application date_macro vers dates WO")
+            mo.apply_macro_to_workorders_dates()
+            mo._update_mo_dates_from_workorders_dates_only()
+        return res
+
+    def apply_macro_to_workorders_dates(self):
+        """
+        Écrit date_start/date_finished des WO à partir de date_macro + durée (jours ouvrés)
+        pour toutes les WO non done/cancel.
+        """
+        self.ensure_one()
+
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        if not workorders:
+            return
+
+        # Tri ordre de fabrication
+        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+
+        for wo in workorders:
+            if not getattr(wo, "date_macro", False):
+                continue  # pas de macro => on ne force pas
+
+            wc = wo.workcenter_id
+            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
+            hours_per_day = cal.hours_per_day or 7.8
+
+            duration_minutes = wo.duration_expected or 0.0
+            duration_hours = duration_minutes / 60.0
+            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
+
+            start_day = fields.Datetime.to_datetime(wo.date_macro).date()
+            last_day = start_day
+            for _ in range(required_days - 1):
+                last_day = self._next_working_day(last_day, wc)
+
+            start_dt = self._morning_dt(start_day, wc)
+            end_dt = self._evening_dt(last_day, wc)
+
+            vals = {}
+            if "date_start" in wo._fields:
+                vals["date_start"] = start_dt
+            if "date_finished" in wo._fields:
+                vals["date_finished"] = end_dt
+
+            if vals:
+                wo.with_context(mail_notrack=True).write(vals)
+
+    # ============================================================
+    # MO DATES UPDATE
+    # ============================================================
+    def _update_mo_dates_from_date_macro(self):
+        """
+        Met à jour date_start/date_finished du MO depuis :
+        - start = min(date_macro)
+        - end = max(date_macro + durée en jours ouvrés) (fin de journée)
+        """
+        self.ensure_one()
+
+        wos = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel") and getattr(w, "date_macro", False))
+        if not wos:
+            return
+
+        start_dt = min(wos.mapped("date_macro"))
+
+        end_candidates = []
+        for wo in wos:
+            wc = wo.workcenter_id
+            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
+            hours_per_day = cal.hours_per_day or 7.8
+
+            duration_minutes = wo.duration_expected or 0.0
+            duration_hours = duration_minutes / 60.0
+            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
+
+            start_day = fields.Datetime.to_datetime(wo.date_macro).date()
+            last_day = start_day
+            for _ in range(required_days - 1):
+                last_day = self._next_working_day(last_day, wc)
+
+            end_candidates.append(self._evening_dt(last_day, wc))
+
+        end_dt = max(end_candidates)
+
         vals = {}
-        if "date_planned_start" in wo._fields:
-            vals["date_planned_start"] = start_dt
-        if "date_planned_finished" in wo._fields:
-            vals["date_planned_finished"] = end_dt
-        if "date_start" in wo._fields:
+        if "date_start" in self._fields:
             vals["date_start"] = start_dt
-        if "date_finished" in wo._fields:
+        if "date_finished" in self._fields:
             vals["date_finished"] = end_dt
+        if "date_deadline" in self._fields:
+            vals["date_deadline"] = end_dt
 
         if vals:
-            wo.write(vals)
-    def _update_mo_dates_from_workorders(self):
+            self.with_context(mail_notrack=True).write(vals)
+
+    def _update_mo_dates_from_workorders_dates_only(self):
+        """
+        Après button_plan (où on écrit date_start/date_finished des WO),
+        on recale les dates de l'OF sur les WO.
+        """
         self.ensure_one()
-    
+
         wos = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel") and w.date_start and w.date_finished)
         if not wos:
             return
-    
+
         first_wo = wos.sorted("date_start")[0]
         last_wo = wos.sorted("date_finished")[-1]
-    
-        self.write({
-            "date_start": first_wo.date_start,
-            "date_finished": last_wo.date_finished,
-            **({"date_deadline": last_wo.date_finished} if "date_deadline" in self._fields else {}),
-        })
+
+        vals = {}
+        if "date_start" in self._fields:
+            vals["date_start"] = first_wo.date_start
+        if "date_finished" in self._fields:
+            vals["date_finished"] = last_wo.date_finished
+        if "date_deadline" in self._fields:
+            vals["date_deadline"] = last_wo.date_finished
+
+        if vals:
+            self.with_context(mail_notrack=True).write(vals)
 
     # ============================================================
-    # PICKING COMPONENTS
+    # PICKING COMPONENTS UPDATE (via procurement group)
     # ============================================================
     def _update_components_picking_dates(self):
+        """
+        - date_deadline = début fab (MO.date_start, matin)
+        - scheduled_date = veille ouvrée (matin)
+        Recherche pickings via group_id (procurement group) => robuste.
+        """
         self.ensure_one()
-    
+
         if not self.procurement_group_id:
             _logger.info("MO %s : pas de procurement_group_id, MAJ picking ignorée", self.name)
             return
-    
+
         if not self.date_start:
             _logger.info("MO %s : pas de date_start, MAJ picking ignorée", self.name)
             return
-    
-        start_fab_day = fields.Datetime.to_datetime(self.date_start).date()
-    
+
+        start_day = fields.Datetime.to_datetime(self.date_start).date()
+
         pickings = self.env["stock.picking"].search([
             ("group_id", "=", self.procurement_group_id.id),
             ("state", "not in", ("done", "cancel")),
         ])
-    
         if not pickings:
-            _logger.info("MO %s : aucun picking trouvé via group_id=%s", self.name, self.procurement_group_id.id)
+            _logger.info("MO %s : aucun picking via group_id=%s", self.name, self.procurement_group_id.id)
             return
-    
-        # On cible le picking "collecte composants" si possible
+
         comp_pickings = pickings.filtered(
             lambda p: "collect" in (p.picking_type_id.name or "").lower()
             or "compos" in (p.picking_type_id.name or "").lower()
             or "component" in (p.picking_type_id.name or "").lower()
         ) or pickings
-    
-        # veille ouvrée (on prend le WC de la 1ère WO si dispo, sinon juste veille)
+
         first_wc = self.workorder_ids[:1].workcenter_id if self.workorder_ids else None
-        prev_day = self._previous_working_day(start_fab_day, first_wc) if first_wc else (start_fab_day - timedelta(days=1))
-    
+        prev_day = self._previous_working_day(start_day, first_wc) if first_wc else (start_day - timedelta(days=1))
+
         scheduled_dt = datetime.combine(prev_day, time(7, 30))
-        deadline_dt = datetime.combine(start_fab_day, time(7, 30))
-    
+        deadline_dt = datetime.combine(start_day, time(7, 30))
+
         vals = {}
         if "scheduled_date" in comp_pickings._fields:
             vals["scheduled_date"] = scheduled_dt
         if "date_deadline" in comp_pickings._fields:
             vals["date_deadline"] = deadline_dt
-    
+
         if vals:
-            comp_pickings.write(vals)
-    
-        self.message_post(body=f"🧪 DEBUG picking MAJ: {comp_pickings.mapped('name')} scheduled={scheduled_dt} deadline={deadline_dt}")
+            comp_pickings.with_context(mail_notrack=True).write(vals)
 
-
-    # ============================================================
-    # SECURITY DAYS
-    # ============================================================
-    def _get_security_days_default(self):
-        """
-        Délai de sécurité par défaut (jours ouvrés).
-        Param système (optionnel) : mrp_replan_workorder.security_days
-        """
-        val = self.env["ir.config_parameter"].sudo().get_param("mrp_replan_workorder.security_days", default="6")
-        try:
-            return int(val)
-        except Exception:
-            return 6
+        self.message_post(body=f"🧪 DEBUG : pickings MAJ ({len(comp_pickings)}) scheduled={scheduled_dt} deadline={deadline_dt}")
 
     # ============================================================
-    # CALENDAR HELPERS (WORKING DAYS) - TZ AWARE
+    # WORKING DAYS / CALENDAR HELPERS (TZ aware for _work_intervals_batch)
     # ============================================================
     def _user_tz(self):
         return pytz.timezone(self.env.user.tz or "UTC")
 
     def _to_aware(self, dt_naive):
-        """Convertit un datetime naïf en datetime timezone-aware (tz user)."""
         tz = self._user_tz()
         return dt_naive if dt_naive.tzinfo else tz.localize(dt_naive)
 
     def _add_working_days_company(self, dt, days):
-        """
-        Ajoute/soustrait des jours ouvrés via le calendrier société.
-        """
         cal = self.env.company.resource_calendar_id
         if not cal:
             return dt + timedelta(days=days)
         return cal.plan_days(float(days), dt, compute_leaves=True)
 
     def _previous_or_same_working_day(self, day, workcenter):
-        """
-        Retourne day si ouvré (calendrier poste + leaves), sinon jour ouvré précédent.
-        """
         if not day:
             return day
 
@@ -267,10 +316,8 @@ class MrpProduction(models.Model):
         return day
 
     def _previous_working_day(self, day, workcenter):
-        """
-        Jour ouvré précédent (calendrier poste + leaves).
-        """
         d = day - timedelta(days=1)
+
         if not workcenter:
             while d.weekday() >= 5:
                 d -= timedelta(days=1)
@@ -292,11 +339,32 @@ class MrpProduction(models.Model):
 
         return day - timedelta(days=1)
 
+    def _next_working_day(self, day, workcenter):
+        d = day + timedelta(days=1)
+
+        if not workcenter:
+            while d.weekday() >= 5:
+                d += timedelta(days=1)
+            return d
+
+        cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
+        if not cal:
+            while d.weekday() >= 5:
+                d += timedelta(days=1)
+            return d
+
+        for _ in range(365):
+            start_dt = self._to_aware(datetime.combine(d, time.min))
+            end_dt = self._to_aware(datetime.combine(d, time.max))
+            intervals = cal._work_intervals_batch(start_dt, end_dt)
+            if intervals.get(False):
+                return d
+            d += timedelta(days=1)
+
+        return day + timedelta(days=1)
+
     def _morning_dt(self, day, workcenter):
-        """
-        Début de journée selon le calendrier (fallback 07:30).
-        """
-        start_hour = 7.5
+        start_hour = 7.5  # fallback 07:30
         cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
         if cal and cal.attendance_ids:
             weekday = day.weekday()
@@ -309,10 +377,7 @@ class MrpProduction(models.Model):
         return datetime.combine(day, time(h, m))
 
     def _evening_dt(self, day, workcenter):
-        """
-        Fin de journée selon le calendrier (fallback 17:00).
-        """
-        end_hour = 17.0
+        end_hour = 17.0  # fallback 17:00
         cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
         if cal and cal.attendance_ids:
             weekday = day.weekday()
