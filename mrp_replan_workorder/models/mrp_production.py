@@ -18,7 +18,7 @@ class MrpProduction(models.Model):
         ('backward', 'Planification arrière (depuis date livraison)'),
     ], string='Mode de planification', compute='_compute_planning_mode', store=True)
     
-    @api.depends('commitment_date', 'date_planned_start')
+    @api.depends('commitment_date', 'date_start')
     def _compute_planning_mode(self):
         for production in self:
             if production.commitment_date:
@@ -58,7 +58,7 @@ class MrpProduction(models.Model):
                 production._schedule_backward_from_commitment()
             else:
                 _logger.info("  📅 Mode : Planification AVANT (date début: %s)", 
-                           (production.date_planned_start or fields.Datetime.now()).strftime('%Y-%m-%d'))
+                           (production.date_start or fields.Datetime.now()).strftime('%Y-%m-%d'))
                 production._schedule_forward_from_start()
         
         _logger.info("=" * 80)
@@ -74,7 +74,7 @@ class MrpProduction(models.Model):
         """
         self.ensure_one()
         
-        start_date = self.date_planned_start
+        start_date = self.date_start
         if not start_date:
             _logger.warning("  ⚠️  Pas de date de début, utilisation de aujourd'hui")
             start_date = fields.Datetime.now()
@@ -110,8 +110,8 @@ class MrpProduction(models.Model):
             
             # Mise à jour avec les champs STANDARD
             workorder.write({
-                'date_planned_start': start_datetime,
-                'date_planned_finished': end_datetime,
+                'date_start': start_datetime,
+                'date_finished': end_datetime,
             })
             
             _logger.info(
@@ -172,7 +172,7 @@ class MrpProduction(models.Model):
             else:
                 # Opérations précédentes : LA VEILLE de l'opération suivante
                 next_wo = workorders[idx - 1]
-                next_start_date = next_wo.date_planned_start.date()
+                next_start_date = next_wo.date_start.date()
                 
                 # Jour AVANT
                 planning_date = next_start_date - timedelta(days=1)
@@ -187,8 +187,8 @@ class MrpProduction(models.Model):
             
             # Mise à jour
             workorder.write({
-                'date_planned_start': start_datetime,
-                'date_planned_finished': end_datetime,
+                'date_start': start_datetime,
+                'date_finished': end_datetime,
             })
             
             _logger.info(
@@ -350,17 +350,17 @@ class MrpProduction(models.Model):
         if not workorders:
             return
         
-        first_wo = workorders.sorted('date_planned_start')[0]
-        last_wo = workorders.sorted('date_planned_finished')[-1]
+        first_wo = workorders.sorted('date_start')[0]
+        last_wo = workorders.sorted('date_finished')[-1]
         
         self.write({
-            'date_planned_start': first_wo.date_planned_start,
-            'date_planned_finished': last_wo.date_planned_finished,
+            'date_start': first_wo.date_start,
+            'date_finished': last_wo.date_finished,
         })
         
         _logger.info(
             "  📆 OF mis à jour : %s → %s (durée totale: %d jours)",
-            first_wo.date_planned_start.strftime('%Y-%m-%d'),
-            last_wo.date_planned_finished.strftime('%Y-%m-%d'),
-            (last_wo.date_planned_finished.date() - first_wo.date_planned_start.date()).days + 1
+            first_wo.date_start.strftime('%Y-%m-%d'),
+            last_wo.date_finished.strftime('%Y-%m-%d'),
+            (last_wo.date_finished.date() - first_wo.date_start.date()).days + 1
         )
