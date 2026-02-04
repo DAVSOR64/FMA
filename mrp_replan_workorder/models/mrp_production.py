@@ -136,115 +136,72 @@ class MrpProduction(models.Model):
 
         if vals:
             wo.write(vals)
-
     def _update_mo_dates_from_workorders(self):
-        """
-        Date planifiée OF = début 1ère op
-        Fin OF = fin dernière op
-        On renseigne planned + real si présents, et date_deadline si dispo.
-        """
         self.ensure_one()
-
-        wos = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        wos = wos.filtered(lambda w: (w.date_planned_start or w.date_start) and (w.date_planned_finished or w.date_finished))
+    
+        wos = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel") and w.date_start and w.date_finished)
         if not wos:
             return
-
-        # Début = plus petit start, Fin = plus grand finished
-        def wo_start(w):
-            return w.date_planned_start or w.date_start
-
-        def wo_end(w):
-            return w.date_planned_finished or w.date_finished
-
-        first_wo = wos.sorted(wo_start)[0]
-        last_wo = wos.sorted(wo_end)[-1]
-
-        start_dt = wo_start(first_wo)
-        end_dt = wo_end(last_wo)
-
-        vals = {}
-        if "date_planned_start" in self._fields:
-            vals["date_planned_start"] = start_dt
-        if "date_planned_finished" in self._fields:
-            vals["date_planned_finished"] = end_dt
-
-        if "date_start" in self._fields:
-            vals["date_start"] = start_dt
-        if "date_finished" in self._fields:
-            vals["date_finished"] = end_dt
-
-        # Souvent affiché comme "Date limite" / "Fin" selon vues
-        if "date_deadline" in self._fields:
-            vals["date_deadline"] = end_dt
-
-        if vals:
-            self.write(vals)
+    
+        first_wo = wos.sorted("date_start")[0]
+        last_wo = wos.sorted("date_finished")[-1]
+    
+        self.write({
+            "date_start": first_wo.date_start,
+            "date_finished": last_wo.date_finished,
+            **({"date_deadline": last_wo.date_finished} if "date_deadline" in self._fields else {}),
+        })
 
     # ============================================================
     # PICKING COMPONENTS
     # ============================================================
     def _update_components_picking_dates(self):
-        """
-        Le transfert 'Collecter les composants' doit être fini pour le début de fab.
-        Règle :
-          - date_deadline = début fab (matin)
-          - scheduled_date = veille ouvrée (matin)
-        """
         self.ensure_one()
-
-        # Début fab = début 1ère WO -> on prend date_planned_start/date_start du MO
-        mo_start = None
-        if "date_planned_start" in self._fields and self.date_planned_start:
-            mo_start = self.date_planned_start
-        elif self.date_start:
-            mo_start = self.date_start
-
-        if not mo_start:
-            _logger.info("MO %s : pas de date_start pour MAJ pickings composants", self.name)
+    
+        if not self.procurement_group_id:
+            _logger.info("MO %s : pas de procurement_group_id, MAJ picking ignorée", self.name)
             return
-
-        start_fab_day = fields.Datetime.to_datetime(mo_start).date()
-
-        # Récupération pickings liés (chez toi origin = nom de l'OF)
+    
+        if not self.date_start:
+            _logger.info("MO %s : pas de date_start, MAJ picking ignorée", self.name)
+            return
+    
+        start_fab_day = fields.Datetime.to_datetime(self.date_start).date()
+    
         pickings = self.env["stock.picking"].search([
-            ("origin", "=", self.name),
+            ("group_id", "=", self.procurement_group_id.id),
             ("state", "not in", ("done", "cancel")),
         ])
-
+    
         if not pickings:
-            _logger.info("MO %s : aucun picking trouvé (origin=%s)", self.name, self.name)
+            _logger.info("MO %s : aucun picking trouvé via group_id=%s", self.name, self.procurement_group_id.id)
             return
-
-        # Filtre optionnel (si le type de picking contient "Collect" ou "Compos")
-        component_pickings = pickings.filtered(
+    
+        # On cible le picking "collecte composants" si possible
+        comp_pickings = pickings.filtered(
             lambda p: "collect" in (p.picking_type_id.name or "").lower()
             or "compos" in (p.picking_type_id.name or "").lower()
+            or "component" in (p.picking_type_id.name or "").lower()
         ) or pickings
-
-        # veille ouvrée (on prend le workcenter de la 1ère WO si possible)
+    
+        # veille ouvrée (on prend le WC de la 1ère WO si dispo, sinon juste veille)
         first_wc = self.workorder_ids[:1].workcenter_id if self.workorder_ids else None
         prev_day = self._previous_working_day(start_fab_day, first_wc) if first_wc else (start_fab_day - timedelta(days=1))
-
+    
         scheduled_dt = datetime.combine(prev_day, time(7, 30))
         deadline_dt = datetime.combine(start_fab_day, time(7, 30))
-
-        # Écriture robuste des champs
+    
         vals = {}
-        for p in component_pickings[:1]:
-            # On teste les champs sur un picking pour construire vals
-            if "scheduled_date" in p._fields:
-                vals["scheduled_date"] = scheduled_dt
-            if "date_deadline" in p._fields:
-                vals["date_deadline"] = deadline_dt
-
+        if "scheduled_date" in comp_pickings._fields:
+            vals["scheduled_date"] = scheduled_dt
+        if "date_deadline" in comp_pickings._fields:
+            vals["date_deadline"] = deadline_dt
+    
         if vals:
-            component_pickings.write(vals)
+            comp_pickings.write(vals)
+    
+        self.message_post(body=f"🧪 DEBUG picking MAJ: {comp_pickings.mapped('name')} scheduled={scheduled_dt} deadline={deadline_dt}")
 
-        try:
-            self.message_post(body=f"🧪 DEBUG : pickings MAJ ({len(component_pickings)}) scheduled={scheduled_dt} deadline={deadline_dt}")
-        except Exception:
-            pass
 
     # ============================================================
     # SECURITY DAYS
