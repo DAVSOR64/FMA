@@ -48,8 +48,9 @@ class MrpProduction(models.Model):
         - opération précédente se termine le jour ouvré précédent le début du bloc suivant
         """
         self.ensure_one()
+        
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")).sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
 
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")).sorted("sequence")
         if not workorders:
             _logger.info("MO %s : aucune opération (workorder) à planifier", self.name)
             # On met quand même des dates sur l'OF via fin_fab si tu veux, mais ici on ne fait rien.
@@ -67,7 +68,7 @@ class MrpProduction(models.Model):
         # 2) Backward : on part de la dernière opération
         current_end_day = self._previous_or_same_working_day(end_fab_day, workorders[-1].workcenter_id)
 
-        for wo in workorders.sorted("sequence", reverse=True):
+        for wo in workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True):
             wc = wo.workcenter_id
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
             hours_per_day = cal.hours_per_day or 7.8
