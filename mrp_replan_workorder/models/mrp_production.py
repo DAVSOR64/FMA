@@ -1,232 +1,197 @@
 # -*- coding: utf-8 -*-
 import logging
+import math
 from datetime import datetime, timedelta, time
+
 from odoo import models, fields
 
 _logger = logging.getLogger(__name__)
 
+
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
-    # -----------------------------
-    # ENTRY POINT (appelé depuis SO)
-    # -----------------------------
-    def _plan_mo_from_sale_order(self, sale_order):
+    # ------------------------------------------------------------
+    # PUBLIC ENTRY POINT
+    # ------------------------------------------------------------
+    def plan_day_based_from_sale(self, sale_order, security_days=None):
         """
-        Planifie l'OF selon la règle :
-        - 1 opération par jour OUVRÉ pour cet OF
-        - empilement sur chaque poste : 1 WO max / poste / jour
-        - planification à rebours depuis la date promise du SO
-        - date_start OF = date_start première opération
+        Planifie l'OF en jour entier à partir d'un Sale Order :
+        - fin_fab = delivery_date - security_days (jours ouvrés)
+        - planification backward sans chevauchement
+        - MAJ dates OF (date_start/date_finished)
+        - MAJ transfert composants (deadline = début fab, durée 1 jour)
         """
         self.ensure_one()
 
-        commitment_dt = sale_order.commitment_date
-        if not commitment_dt:
-            # fallback: tu peux décider une règle si pas de date promise
-            # ex: date_order + 7 jours, ou rien -> forward
-            _logger.info("SO %s sans commitment_date, fallback: forward via date_start ou now", sale_order.name)
-            self._schedule_forward_stack()
-            return
+        delivery_dt = sale_order.commitment_date
+        if not delivery_dt:
+            _logger.info("SO %s sans commitment_date : planification ignorée pour MO %s", sale_order.name, self.name)
+            return False
 
-        _logger.info("Planif backward OF %s depuis SO %s (%s)",
-                     self.name, sale_order.name, commitment_dt)
+        if security_days is None:
+            security_days = self._get_security_days_default()
 
-        self._schedule_backward_stack(commitment_dt)
+        self._plan_day_based(delivery_dt=delivery_dt, security_days=security_days)
+        return True
 
-    # ------------------------------------
-    # BACKWARD: 1 OP / JOUR + EMPILAGE
-    # ------------------------------------
-    def _schedule_backward_stack(self, commitment_dt):
+    # ------------------------------------------------------------
+    # CORE SCHEDULING (DAY-BASED)
+    # ------------------------------------------------------------
+    def _plan_day_based(self, delivery_dt, security_days=6):
+        """
+        Planification jour entier :
+        - end_fab_day = delivery_dt - security_days (jours ouvrés)
+        - dernière opération "se termine" end_fab_day (fin de journée)
+        - chaque opération occupe N jours ouvrés (N = ceil(durée_h / hours_per_day))
+        - opération précédente se termine le jour ouvré précédent le début du bloc suivant
+        """
         self.ensure_one()
 
-        workorders = self.workorder_ids.filtered(
-            lambda w: w.state not in ['done', 'cancel']
-        ).sorted('sequence', reverse=True)
-
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")).sorted("sequence")
         if not workorders:
+            _logger.info("MO %s : aucune opération (workorder) à planifier", self.name)
+            # On met quand même des dates sur l'OF via fin_fab si tu veux, mais ici on ne fait rien.
             return
 
-        # date cible (jour) = date promise
-        current_day = fields.Datetime.to_datetime(commitment_dt).date()
+        delivery_dt = fields.Datetime.to_datetime(delivery_dt)
 
-        for idx, wo in enumerate(workorders):
+        # 1) Calcul fin de fabrication (jour ouvré)
+        end_fab_dt = self._add_working_days(delivery_dt, -float(security_days))
+        end_fab_day = end_fab_dt.date()
+
+        _logger.info("MO %s : delivery=%s | security_days=%s | end_fab_day=%s",
+                     self.name, delivery_dt, security_days, end_fab_day)
+
+        # 2) Backward : on part de la dernière opération
+        current_end_day = self._previous_or_same_working_day(end_fab_day, workorders[-1].workcenter_id)
+
+        for wo in workorders.sorted("sequence", reverse=True):
             wc = wo.workcenter_id
+            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
+            hours_per_day = cal.hours_per_day or 7.8
 
-            # on veut un "jour" pour cette opération
-            # 1) trouver le dernier jour ouvré <= current_day (calendrier)
-            day = self._get_previous_working_day(current_day + timedelta(days=1), wc)  # +1 pour inclure current_day
+            duration_minutes = wo.duration_expected or 0.0
+            duration_hours = duration_minutes / 60.0
 
-            # 2) empilement : si déjà occupé sur ce poste, reculer jusqu'à un jour libre
-            day = self._find_previous_free_day_for_workcenter(day, wc)
+            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
 
-            # 3) poser l'opération dans la journée (heure début = matin, fin = début + durée)
-            start_dt = self._get_morning_datetime(day, wc)
-            duration_min = wo.duration_expected or 0.0
-            end_dt = start_dt + timedelta(minutes=duration_min)
+            last_day = self._previous_or_same_working_day(current_end_day, wc)
+            first_day = last_day
+            for _ in range(required_days - 1):
+                first_day = self._previous_working_day(first_day, wc)
 
-            # Option sécurité: si la durée dépasse la journée, tu peux soit:
-            # - tronquer à la fin de journée, soit
-            # - pousser au lendemain (mais ça casse "1 op/jour")
-            # Ici je garde simple : si dépasse, je cale à la fin de journée.
-            evening = self._get_evening_datetime(day, wc)
-            if end_dt > evening:
-                end_dt = evening
+            start_dt = self._morning_dt(first_day, wc)
+            end_dt = self._evening_dt(last_day, wc)
 
-            wo.write({'date_start': start_dt, 'date_finished': end_dt})
+            wo.write({
+                "date_start": start_dt,
+                "date_finished": end_dt,
+            })
 
-            _logger.info("✅ WO %s (%s) -> %s %s-%s",
-                         wo.name, wc.name,
-                         day.strftime('%Y-%m-%d'),
-                         start_dt.strftime('%H:%M'),
-                         end_dt.strftime('%H:%M'))
+            _logger.info("  WO %s (%s): %s -> %s | %s min (~%s h) => %s j",
+                         wo.name, wc.display_name, first_day, last_day,
+                         int(duration_minutes), round(duration_hours, 2), required_days)
 
-            # prochain WO (précédent dans la séquence) = la veille (en jours ouvrés)
-            current_day = day - timedelta(days=1)
+            # L'opération précédente doit finir le jour ouvré précédent le début de ce bloc
+            current_end_day = self._previous_working_day(first_day, wc)
 
-        self._update_production_dates_from_workorders()
+        # 3) MAJ dates OF = début 1ère op / fin dernière op
+        self._update_mo_dates_from_workorders()
 
-    # ------------------------------------
-    # FORWARD (fallback si pas de date)
-    # ------------------------------------
-    def _schedule_forward_stack(self):
+        # 4) MAJ picking "Collecter les composants"
+        self._update_components_picking_dates()
+
+    # ------------------------------------------------------------
+    # PICKING (COLLECT COMPONENTS) DATES
+    # ------------------------------------------------------------
+    def _update_components_picking_dates(self):
+        """
+        Le transfert "Collecter les composants" doit être terminé pour le début fab.
+        Règle :
+        - date_deadline = date_start MO (matin)
+        - scheduled_date = jour ouvré précédent (matin) -> durée "1 jour" conceptuellement
+        """
         self.ensure_one()
-        workorders = self.workorder_ids.filtered(
-            lambda w: w.state not in ['done', 'cancel']
-        ).sorted('sequence')
-
-        if not workorders:
+        if not self.date_start:
             return
 
-        current_day = (self.date_start or fields.Datetime.now()).date()
+        start_fab_day = fields.Datetime.to_datetime(self.date_start).date()
 
-        for idx, wo in enumerate(workorders):
-            wc = wo.workcenter_id
-            day = self._get_next_working_day(current_day, wc)
-            day = self._find_next_free_day_for_workcenter(day, wc)
-
-            start_dt = self._get_morning_datetime(day, wc)
-            duration_min = wo.duration_expected or 0.0
-            end_dt = start_dt + timedelta(minutes=duration_min)
-
-            evening = self._get_evening_datetime(day, wc)
-            if end_dt > evening:
-                end_dt = evening
-
-            wo.write({'date_start': start_dt, 'date_finished': end_dt})
-
-            current_day = day + timedelta(days=1)
-
-        self._update_production_dates_from_workorders()
-
-    # -----------------------------
-    # EMPILAGE: 1 WO / poste / jour
-    # -----------------------------
-    def _find_previous_free_day_for_workcenter(self, day, workcenter):
-        """Recule tant qu'il y a déjà une WO sur ce workcenter ce jour-là."""
-        max_iter = 90
-        for _ in range(max_iter):
-            if self._is_workcenter_free_on_day(workcenter, day):
-                return day
-            day = self._get_previous_working_day(day, workcenter)
-        return day
-
-    def _find_next_free_day_for_workcenter(self, day, workcenter):
-        """Avance tant qu'il y a déjà une WO sur ce workcenter ce jour-là."""
-        max_iter = 90
-        for _ in range(max_iter):
-            if self._is_workcenter_free_on_day(workcenter, day):
-                return day
-            day = self._get_next_working_day(day + timedelta(days=1), workcenter)
-        return day
-
-    def _is_workcenter_free_on_day(self, workcenter, day):
-        """True si aucune WO (non done/cancel) n'est déjà planifiée sur ce poste ce jour."""
-        start = datetime.combine(day, time.min)
-        end = datetime.combine(day, time.max)
-
-        existing = self.env['mrp.workorder'].search_count([
-            ('workcenter_id', '=', workcenter.id),
-            ('state', 'not in', ('done', 'cancel')),
-            ('date_start', '<=', end),
-            ('date_finished', '>=', start),
+        # On cible les pickings liés au MO (souvent origin = nom MO)
+        pickings = self.env["stock.picking"].search([
+            ("origin", "=", self.name),
+            ("state", "not in", ("done", "cancel")),
         ])
-        return existing == 0
 
-    # -----------------------------
-    # CALENDRIER: jours ouvrés
-    # -----------------------------
-    def _get_next_working_day(self, from_date, workcenter):
-        calendar = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        if not calendar:
-            d = from_date
-            while d.weekday() >= 5:
-                d += timedelta(days=1)
-            return d
-
-        start_dt = datetime.combine(from_date, time.min)
-        # plan_days(1) = prochain jour de travail (incluant congés/jours fériés)
-        next_dt = calendar.plan_days(1.0, start_dt, compute_leaves=True)
-        return (next_dt.date() if next_dt else from_date)
-
-    def _get_previous_working_day(self, from_date, workcenter):
-        calendar = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        if not calendar:
-            d = from_date - timedelta(days=1)
-            while d.weekday() >= 5:
-                d -= timedelta(days=1)
-            return d
-
-        # on recule jour par jour jusqu’à trouver un jour avec des heures travaillées
-        d = from_date - timedelta(days=1)
-        for _ in range(90):
-            start_dt = datetime.combine(d, time.min)
-            end_dt = datetime.combine(d, time.max)
-            intervals = calendar._work_intervals_batch(start_dt, end_dt)
-            if intervals.get(False):
-                return d
-            d -= timedelta(days=1)
-        return from_date - timedelta(days=1)
-
-    def _get_morning_datetime(self, date, workcenter):
-        calendar = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        start_hour = 8.0
-        if calendar and calendar.attendance_ids:
-            weekday = date.weekday()
-            day_att = calendar.attendance_ids.filtered(lambda a: int(a.dayofweek) == weekday)
-            if day_att:
-                start_hour = day_att.sorted('hour_from')[0].hour_from
-
-        h = int(start_hour)
-        m = int((start_hour - h) * 60)
-        return datetime.combine(date, time(h, m))
-
-    def _get_evening_datetime(self, date, workcenter):
-        calendar = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        end_hour = 17.0
-        if calendar and calendar.attendance_ids:
-            weekday = date.weekday()
-            day_att = calendar.attendance_ids.filtered(lambda a: int(a.dayofweek) == weekday)
-            if day_att:
-                end_hour = day_att.sorted('hour_to')[-1].hour_to
-
-        h = int(end_hour)
-        m = int((end_hour - h) * 60)
-        return datetime.combine(date, time(h, m))
-
-    # -----------------------------
-    # Update dates OF depuis WOs
-    # -----------------------------
-    def _update_production_dates_from_workorders(self):
-        self.ensure_one()
-        wos = self.workorder_ids.filtered(lambda w: w.state not in ['done', 'cancel'] and w.date_start and w.date_finished)
-        if not wos:
+        if not pickings:
+            _logger.info("MO %s : aucun picking lié (origin=%s) pour MAJ dates composants", self.name, self.name)
             return
 
-        first_wo = wos.sorted('date_start')[0]
-        last_wo = wos.sorted('date_finished')[-1]
+        # Si plusieurs pickings, on essaye de filtrer ceux "collecte composants"
+        # (à adapter si tu as un picking_type_id spécifique)
+        component_pickings = pickings.filtered(
+            lambda p: "collect" in (p.picking_type_id.name or "").lower()
+            or "compos" in (p.picking_type_id.name or "").lower()
+        ) or pickings
 
-        self.write({
-            'date_start': first_wo.date_start,
-            'date_finished': last_wo.date_finished,
+        prev_day = self._previous_working_day(start_fab_day, self.workorder_ids[:1].workcenter_id if self.workorder_ids else None)
+
+        scheduled_dt = datetime.combine(prev_day, time(7, 30))
+        deadline_dt = datetime.combine(start_fab_day, time(7, 30))
+
+        component_pickings.write({
+            "scheduled_date": scheduled_dt,
+            "date_deadline": deadline_dt,
         })
+
+        _logger.info("MO %s : pickings(%s) scheduled=%s | deadline=%s",
+                     self.name, len(component_pickings), scheduled_dt, deadline_dt)
+
+    # ------------------------------------------------------------
+    # HELPERS: company/security days
+    # ------------------------------------------------------------
+    def _get_security_days_default(self):
+        """
+        Délai de sécurité par défaut.
+        - tu peux changer ce paramètre dans Odoo : Paramètres techniques > Paramètres système
+          clé : mrp_replan_workorder.security_days
+        """
+        val = self.env["ir.config_parameter"].sudo().get_param("mrp_replan_workorder.security_days", default="6")
+        try:
+            return int(val)
+        except Exception:
+            return 6
+
+    # ------------------------------------------------------------
+    # HELPERS: work calendar (weekend + holidays)
+    # ------------------------------------------------------------
+    def _add_working_days(self, dt, days):
+        """
+        Ajoute (ou soustrait) des jours ouvrés via le calendrier société.
+        compute_leaves=True -> tient compte des jours fériés/congés.
+        """
+        cal = self.env.company.resource_calendar_id
+        if not cal:
+            return dt + timedelta(days=days)
+
+        return cal.plan_days(float(days), dt, compute_leaves=True)
+
+    def _previous_or_same_working_day(self, day, workcenter):
+        """
+        Retourne day si ouvré selon le calendrier du poste (ou société), sinon jour ouvré précédent.
+        """
+        if workcenter is None:
+            # fallback simple
+            while day.weekday() >= 5:
+                day -= timedelta(days=1)
+            return day
+
+        cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
+        if not cal:
+            while day.weekday() >= 5:
+                day -= timedelta(days=1)
+            return day
+
+        start_dt = datetime.combine(day, time.min)
+        end_dt = d_
