@@ -56,7 +56,7 @@ class SaleOrder(models.Model):
 
             for mo in productions:
                 try:
-                    mo.plan_day_based_from_sale(order)   # ✅ jour entier + MAJ picking
+                    mo.compute_macro_schedule_from_sale(order, security_days=6)
                     _logger.info("OF %s planifié avec succès", mo.name)
                 except Exception as e:
                     _logger.exception("Erreur planification OF %s : %s", mo.name, str(e))
