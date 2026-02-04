@@ -71,8 +71,9 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(first_day, wc)
 
             # Écriture date_macro seulement
-            if "date_macro" in wo._fields:
-                wo.with_context(mail_notrack=True).write({"date_macro": macro_dt})
+            if "macro_planned_start" in wo._fields:
+                wo.with_context(mail_notrack=True).write({"macro_planned_start": macro_dt})
+
 
             _logger.info("WO %s (%s): %s -> %s | %s min (~%s h) => %s j | date_macro=%s",
                          wo.name, wc.display_name, first_day, last_day,
@@ -152,39 +153,36 @@ class MrpProduction(models.Model):
     # ============================================================
     # MO DATES UPDATE
     # ============================================================
-    def _update_mo_dates_from_date_macro(self):
-        """
-        Met à jour date_start/date_finished du MO depuis :
-        - start = min(date_macro)
-        - end = max(date_macro + durée en jours ouvrés) (fin de journée)
-        """
+    def _update_mo_dates_from_macro(self):
         self.ensure_one()
-
-        wos = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel") and getattr(w, "date_macro", False))
+    
+        wos = self.workorder_ids.filtered(
+            lambda w: w.state not in ("done", "cancel") and w.macro_planned_start
+        )
         if not wos:
             return
-
-        start_dt = min(wos.mapped("date_macro"))
-
+    
+        start_dt = min(wos.mapped("macro_planned_start"))
+    
         end_candidates = []
         for wo in wos:
             wc = wo.workcenter_id
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
             hours_per_day = cal.hours_per_day or 7.8
-
+    
             duration_minutes = wo.duration_expected or 0.0
             duration_hours = duration_minutes / 60.0
             required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-
-            start_day = fields.Datetime.to_datetime(wo.date_macro).date()
+    
+            start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
             last_day = start_day
             for _ in range(required_days - 1):
                 last_day = self._next_working_day(last_day, wc)
-
+    
             end_candidates.append(self._evening_dt(last_day, wc))
-
+    
         end_dt = max(end_candidates)
-
+    
         vals = {}
         if "date_start" in self._fields:
             vals["date_start"] = start_dt
@@ -192,34 +190,35 @@ class MrpProduction(models.Model):
             vals["date_finished"] = end_dt
         if "date_deadline" in self._fields:
             vals["date_deadline"] = end_dt
-
+    
         if vals:
             self.with_context(mail_notrack=True).write(vals)
-
-    def _update_mo_dates_from_workorders_dates_only(self):
-        """
-        Après button_plan (où on écrit date_start/date_finished des WO),
-        on recale les dates de l'OF sur les WO.
-        """
-        self.ensure_one()
-
-        wos = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel") and w.date_start and w.date_finished)
-        if not wos:
-            return
-
-        first_wo = wos.sorted("date_start")[0]
-        last_wo = wos.sorted("date_finished")[-1]
-
-        vals = {}
-        if "date_start" in self._fields:
-            vals["date_start"] = first_wo.date_start
-        if "date_finished" in self._fields:
-            vals["date_finished"] = last_wo.date_finished
-        if "date_deadline" in self._fields:
-            vals["date_deadline"] = last_wo.date_finished
-
-        if vals:
-            self.with_context(mail_notrack=True).write(vals)
+    
+    
+        def _update_mo_dates_from_workorders_dates_only(self):
+            """
+            Après button_plan (où on écrit date_start/date_finished des WO),
+            on recale les dates de l'OF sur les WO.
+            """
+            self.ensure_one()
+    
+            wos = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel") and w.date_start and w.date_finished)
+            if not wos:
+                return
+    
+            first_wo = wos.sorted("date_start")[0]
+            last_wo = wos.sorted("date_finished")[-1]
+    
+            vals = {}
+            if "date_start" in self._fields:
+                vals["date_start"] = first_wo.date_start
+            if "date_finished" in self._fields:
+                vals["date_finished"] = last_wo.date_finished
+            if "date_deadline" in self._fields:
+                vals["date_deadline"] = last_wo.date_finished
+    
+            if vals:
+                self.with_context(mail_notrack=True).write(vals)
 
     # ============================================================
     # PICKING COMPONENTS UPDATE (via procurement group)
@@ -388,3 +387,38 @@ class MrpProduction(models.Model):
         h = int(end_hour)
         m = int((end_hour - h) * 60)
         return datetime.combine(day, time(h, m))
+    def apply_macro_to_workorders_dates(self):
+        self.ensure_one()
+    
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+    
+        for wo in workorders:
+            if not wo.macro_planned_start:
+                continue
+    
+            wc = wo.workcenter_id
+            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
+            hours_per_day = cal.hours_per_day or 7.8
+    
+            duration_minutes = wo.duration_expected or 0.0
+            duration_hours = duration_minutes / 60.0
+            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
+    
+            start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
+            last_day = start_day
+            for _ in range(required_days - 1):
+                last_day = self._next_working_day(last_day, wc)
+    
+            start_dt = self._morning_dt(start_day, wc)
+            end_dt = self._evening_dt(last_day, wc)
+    
+            vals = {}
+            if "date_start" in wo._fields:
+                vals["date_start"] = start_dt
+            if "date_finished" in wo._fields:
+                vals["date_finished"] = end_dt
+    
+            if vals:
+                wo.with_context(mail_notrack=True).write(vals)
+
