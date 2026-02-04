@@ -19,7 +19,6 @@
         'resource',
     ],
     'data': [
-        'views/mrp_production_views.xml',
         'views/sale_order_views.xml',
     ],
     'installable': True,
