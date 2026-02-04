@@ -56,8 +56,7 @@ class SaleOrder(models.Model):
 
             for mo in productions:
                 try:
-                    # Appelle ta nouvelle méthode (voir ci-dessous côté mrp.production)
-                    mo._schedule_backward_stack(commitment_dt)
+                    mo.plan_day_based_from_sale(order)   # ✅ jour entier + MAJ picking
                     _logger.info("OF %s planifié avec succès", mo.name)
                 except Exception as e:
                     _logger.exception("Erreur planification OF %s : %s", mo.name, str(e))
