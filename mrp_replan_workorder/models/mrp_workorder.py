@@ -16,8 +16,8 @@ class MrpWorkorder(models.Model):
         # Sauvegarder les anciennes dates
         old_dates = {
             wo.id: {
-                'start': wo.date_planned_start,
-                'finished': wo.date_planned_finished
+                'start': wo.date_start,
+                'finished': wo.date_finished
             }
             for wo in self
         }
@@ -26,14 +26,14 @@ class MrpWorkorder(models.Model):
         res = super().write(values)
         
         # Détecter si modification de date
-        trigger_fields = {'date_planned_start', 'date_planned_finished'}
+        trigger_fields = {'date_start', 'date_finished'}
         if trigger_fields.intersection(values.keys()):
             for workorder in self:
                 old = old_dates.get(workorder.id, {})
                 
                 # Vérifier si vraiment changé
-                if (old.get('start') != workorder.date_planned_start or
-                    old.get('finished') != workorder.date_planned_finished):
+                if (old.get('start') != workorder.date_start or
+                    old.get('finished') != workorder.date_finished):
                     
                     _logger.info(
                         "🔄 Modification détectée sur %s (OF %s), replanification des opérations suivantes",
@@ -69,7 +69,7 @@ class MrpWorkorder(models.Model):
         )
         
         # Point de départ = date de l'opération courante
-        current_date = (self.date_planned_finished or self.date_planned_start).date()
+        current_date = (self.date_finished or self.date_start).date()
         
         for operation in next_operations:
             # LENDEMAIN
@@ -93,8 +93,8 @@ class MrpWorkorder(models.Model):
             
             # Mise à jour SANS déclencher récursion
             super(MrpWorkorder, operation).write({
-                'date_planned_start': start_datetime,
-                'date_planned_finished': end_datetime,
+                'date_start': start_datetime,
+                'date_finished': end_datetime,
             })
             
             _logger.info(
