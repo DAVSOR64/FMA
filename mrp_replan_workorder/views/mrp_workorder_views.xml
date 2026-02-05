@@ -3,7 +3,7 @@
     <record id="mrp_workorder_tree_inherit_macro" model="ir.ui.view">
         <field name="name">mrp.workorder.tree.inherit.macro_planned_start</field>
         <field name="model">mrp.workorder</field>
-        <field name="inherit_id" ref="mrp.mrp_production_workorder_tree_view"/> <!-- selon version, peut varier -->
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/> <!-- selon version, peut varier -->
         <field name="arch" type="xml">
             <!-- On remplace l’affichage de date_macro si elle existe dans ta vue -->
             <xpath expr="//field[@name='date_macro']" position="replace">
