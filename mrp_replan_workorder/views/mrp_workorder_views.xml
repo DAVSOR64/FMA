@@ -13,13 +13,14 @@
 
         </field>
     </record>
-    <record id="mrp_production_workorder_tree_editable_view_inherit_mrp_macro_planning" model="ir.ui.view">
-        <field name="name">mrp.production.work.order.tree.editable.inherit</field>
+    <?xml version="1.0" encoding="utf-8"?>
+    <record id="mrp_production_workorder_tree_editable_view_inherit_macro_planned_start" model="ir.ui.view">
+        <field name="name">mrp.production.work.order.tree.editable.inherit.macro_planned_start</field>
         <field name="model">mrp.workorder</field>
         <field name="inherit_id" ref="mrp.mrp_production_workorder_tree_editable_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='product_id']" position="after">
-                <field name="macro_planned_star" optional="show"/>
+                <field name="macro_planned_start" optional="show" string="Macro (début planifié)"/>
             </xpath>
         </field>
     </record>
