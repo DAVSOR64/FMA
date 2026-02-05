@@ -83,7 +83,8 @@ class MrpProduction(models.Model):
             current_end_day = self._previous_working_day(first_day, wc)
 
         # Mettre à jour les dates de l'OF depuis date_macro + durées (jours ouvrés)
-        self._update_mo_dates_from_date_macro()
+        #self._update_mo_dates_from_date_macro()
+        self._update_mo_dates_from_macro()
 
         # Mettre à jour le picking composants depuis le début fab (date_start MO)
         self._update_components_picking_dates()
