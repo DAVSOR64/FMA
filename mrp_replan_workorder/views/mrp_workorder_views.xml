@@ -14,13 +14,13 @@
         </field>
     </record>
     <record id="mrp_workorder_tree_inherit_macro_global" model="ir.ui.view">
-    <field name="name">mrp.workorder.tree.inherit.macro_planned_start.global</field>
-    <field name="model">mrp.workorder</field>
-    <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
-    <field name="arch" type="xml">
-        <xpath expr="//tree//field[@name='name']" position="after">
-            <field name="macro_planned_start"/>
-        </xpath>
-    </field>
-</record>
+        <field name="name">mrp.workorder.tree.inherit.macro.global</field>
+        <field name="model">mrp.workorder</field>
+        <field name="inherit_id" mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree//field[@name='name']" position="after">
+                <field name="macro_planned_start"/>
+            </xpath>
+        </field>
+    </record>
 </odoo>
