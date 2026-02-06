@@ -8,7 +8,7 @@
 
             <!-- Ajoute la colonne dans l'onglet "Ordres de travail" de l'OF -->
             <xpath expr="//tree//field[@name='name']" position="after">
-                <field name="macro_planned_start"/>
+                <field name="date_macro"/>
             </xpath>
 
         </field>
