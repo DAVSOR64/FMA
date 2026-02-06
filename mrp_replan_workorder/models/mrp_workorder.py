@@ -11,7 +11,7 @@ class MrpWorkorder(models.Model):
         index=True,
         tracking=False,
     )
-    dtae_macro = fields.Datetime(
+    date_macro = fields.Datetime(
         string="Date Macro",
         help="Début planifié",
         copy=False,
