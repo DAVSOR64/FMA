@@ -5,7 +5,7 @@
         <field name="inherit_id" ref="mrp.mrp_production_workorder_tree_editable_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='product_id']" position="after">
-                <field name="macro_planned_start" optional="show"/>
+                <field name="macro_start" optional="show"/>
             </xpath>
         </field>
     </record>
