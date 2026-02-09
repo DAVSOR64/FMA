@@ -127,24 +127,20 @@ class MrpProduction(models.Model):
         res = super().button_plan()
 
         for mo in self:
-            mo.message_post(body="🧪 DEBUG : post-plan -> application macro_planned_start vers dates WO")
-    
-            # 1) Forcer les dates des WO depuis macro_planned_start
             mo.apply_macro_to_workorders_dates()
     
-            # 2) Mettre à jour les réservations planning (Enterprise) SANS replanifier
-            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+            # Re-synchroniser le planning (EE) si leave_id existe
+            for wo in mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")):
+                leave = getattr(wo, "leave_id", False)
+                if leave and wo.date_start and wo.date_finished:
+                    vals = {}
+                    if "date_from" in leave._fields:
+                        vals["date_from"] = wo.date_start
+                    if "date_to" in leave._fields:
+                        vals["date_to"] = wo.date_finished
+                    if vals:
+                        leave.with_context(mail_notrack=True).write(vals)
     
-            # selon versions / modules EE, le nom peut varier :
-            for wo in wos:
-                if hasattr(wo, "_create_or_update_leave"):
-                    wo._create_or_update_leave()
-                elif hasattr(wo, "_update_resource_leave"):
-                    wo._update_resource_leave()
-                elif hasattr(wo, "_create_leave"):
-                    wo._create_leave()
-    
-            # 3) (optionnel) recaler uniquement le début OF sur la 1ère WO
             mo._update_mo_dates_from_workorders_dates_only()
     
         return res
