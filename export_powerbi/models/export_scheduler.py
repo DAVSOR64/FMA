@@ -756,7 +756,7 @@ class ExportSFTPScheduler(models.Model):
                         )
                         or "",
                         # Quantité / UoM
-                        to_float(getattr(l, "quantity", 0.0) or 0.0,
+                        to_float(getattr(l, "quantity", 0.0) or 0.0),
                         (
                             getattr(l, "product_uom_id", False)
                             and l.product_uom_id.name
