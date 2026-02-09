@@ -51,6 +51,7 @@ class MrpProduction(models.Model):
         end_fab_day = end_fab_dt.date()
 
         self.with_context(mail_notrack=True).write({"macro_forced_end": end_fab_dt,})
+        self.with_context(mail_notrack=True).write({"x_studio_date_de_fin": end_fab_day})
 
         _logger.info("MO %s : delivery=%s security_days=%s end_fab_day=%s",
                      self.name, delivery_dt, security_days, end_fab_day)
