@@ -83,7 +83,7 @@ class MrpProduction(models.Model):
             current_end_day = self._previous_working_day(first_day, wc)
 
         # ✅ Recaler l'OF depuis les macros WO
-        self._update_mo_dates_from_macro()
+        self._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
 
         # ✅ Recaler les pickings composants depuis le début fab (MO.date_start)
         self._update_components_picking_dates()
@@ -154,42 +154,46 @@ class MrpProduction(models.Model):
     # ============================================================
     # MO DATES UPDATE (FROM MACRO)
     # ============================================================
-    def _update_mo_dates_from_macro(self):
+    def _update_mo_dates_from_macro(self, forced_end_dt=None):
         """
         Recale l'OF sur :
         - début = min(WO.macro_planned_start)
-        - fin = max( fin_calculée_par_WO )
-        fin_calculée_par_WO = evening_dt(dernier_jour_du_bloc) selon durée et jours ouvrés
+        - fin = forced_end_dt si fourni, sinon fin calculée depuis les WO
         """
         self.ensure_one()
-
+    
         wos = self.workorder_ids.filtered(
             lambda w: w.state not in ("done", "cancel") and w.macro_planned_start
         )
         if not wos:
             return
-
+    
         start_dt = min(wos.mapped("macro_planned_start"))
-
-        end_candidates = []
-        for wo in wos:
-            wc = wo.workcenter_id
-            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-            hours_per_day = cal.hours_per_day or 7.8
-
-            duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
-            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-
-            start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
-            last_day = start_day
-            for _ in range(required_days - 1):
-                last_day = self._next_working_day(last_day, wc)
-
-            end_candidates.append(self._evening_dt(last_day, wc))
-
-        end_dt = max(end_candidates) if end_candidates else start_dt
-
+    
+        # 1) Fin forcée = livraison - délai sécurité (jours ouvrés société)
+        if forced_end_dt:
+            end_dt = fields.Datetime.to_datetime(forced_end_dt)
+        else:
+            # 2) Sinon : fin = max fin WO calculée
+            end_candidates = []
+            for wo in wos:
+                wc = wo.workcenter_id
+                cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
+                hours_per_day = cal.hours_per_day or 7.8
+    
+                duration_minutes = wo.duration_expected or 0.0
+                duration_hours = duration_minutes / 60.0
+                required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
+    
+                start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
+                last_day = start_day
+                for _ in range(required_days - 1):
+                    last_day = self._next_working_day(last_day, wc)
+    
+                end_candidates.append(self._evening_dt(last_day, wc))
+    
+            end_dt = max(end_candidates) if end_candidates else start_dt
+    
         vals = {}
         if "date_start" in self._fields:
             vals["date_start"] = start_dt
@@ -197,9 +201,10 @@ class MrpProduction(models.Model):
             vals["date_finished"] = end_dt
         if "date_deadline" in self._fields:
             vals["date_deadline"] = end_dt
-
+    
         if vals:
             self.with_context(mail_notrack=True).write(vals)
+
 
     # ============================================================
     # MO DATES UPDATE (FROM WO DATES)
