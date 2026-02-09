@@ -132,13 +132,19 @@ class MrpProduction(models.Model):
             # 1) Forcer les dates des WO depuis macro_planned_start
             mo.apply_macro_to_workorders_dates()
     
-            # 2) Important : recalcul planning interne (souvent nécessaire en EE)
-            try:
-                mo._plan_workorders()
-            except Exception:
-                _logger.exception("MO %s : erreur _plan_workorders post-macro (non bloquante)", mo.name)
+            # 2) Mettre à jour les réservations planning (Enterprise) SANS replanifier
+            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
     
-            # 3) Recaler date_start OF sur la 1ère WO (sans toucher la fin si tu forces ailleurs)
+            # selon versions / modules EE, le nom peut varier :
+            for wo in wos:
+                if hasattr(wo, "_create_or_update_leave"):
+                    wo._create_or_update_leave()
+                elif hasattr(wo, "_update_resource_leave"):
+                    wo._update_resource_leave()
+                elif hasattr(wo, "_create_leave"):
+                    wo._create_leave()
+    
+            # 3) (optionnel) recaler uniquement le début OF sur la 1ère WO
             mo._update_mo_dates_from_workorders_dates_only()
     
         return res
