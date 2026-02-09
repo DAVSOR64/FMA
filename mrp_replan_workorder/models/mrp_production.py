@@ -17,6 +17,20 @@ class MrpProduction(models.Model):
         copy=False,
         help="Date de fin de fabrication imposée (livraison - délai de sécurité)."
     )
+    
+    def _log_wo_dates(self, label, workorders):
+        _logger.info("=== %s | MO %s | WO count=%s ===", label, self.name, len(workorders))
+        for wo in workorders:
+            _logger.info(
+                "WO %s | state=%s | wc=%s | macro=%s | date_start=%s | date_finished=%s | duration=%s",
+                wo.name,
+                wo.state,
+                wo.workcenter_id.display_name if wo.workcenter_id else None,
+                getattr(wo, "macro_planned_start", None),
+                wo.date_start,
+                wo.date_finished,
+                wo.duration_expected,
+            )
 
     # ============================================================
     # ENTRY POINT FROM SALE ORDER (SO -> MO)
@@ -110,12 +124,18 @@ class MrpProduction(models.Model):
           (pour avoir un Gantt exploitable)
         - puis recale date_start/date_finished de l'OF sur les dates WO
         """
-        res = super().button_plan()
         for mo in self:
-            mo.message_post(body="🧪 DEBUG : bouton Planifier -> application macro_planned_start vers dates WO")
-            mo.apply_macro_to_workorders_dates()
-            mo._plan_workorders()  # <-- important pour le planning
-            mo._update_mo_dates_from_workorders_dates_only()
+            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+            mo._log_wo_dates("AVANT super().button_plan()", wos)
+            _logger.info("MO %s | date_start=%s | date_finished=%s", mo.name, mo.date_start, mo.date_finished)
+    
+        res = super().button_plan()
+
+        for mo in self:
+            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+            mo._log_wo_dates("APRES super().button_plan()", wos)
+            _logger.info("MO %s | date_start=%s | date_finished=%s", mo.name, mo.date_start, mo.date_finished)
+    
         return res
 
     def apply_macro_to_workorders_dates(self):
