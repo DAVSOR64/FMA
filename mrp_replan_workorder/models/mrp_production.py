@@ -12,6 +12,12 @@ _logger = logging.getLogger(__name__)
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
+    macro_forced_end = fields.Datetime(
+        string="Fin macro forcée",
+        copy=False,
+        help="Date de fin de fabrication imposée (livraison - délai de sécurité)."
+    )
+
     # ============================================================
     # ENTRY POINT FROM SALE ORDER (SO -> MO)
     # ============================================================
@@ -43,6 +49,8 @@ class MrpProduction(models.Model):
         # Fin fabrication = livraison - délai sécurité en jours ouvrés (calendrier société)
         end_fab_dt = self._add_working_days_company(delivery_dt, -float(security_days))
         end_fab_day = end_fab_dt.date()
+
+        self.with_context(mail_notrack=True).write({"macro_forced_end": end_fab_dt,})
 
         _logger.info("MO %s : delivery=%s security_days=%s end_fab_day=%s",
                      self.name, delivery_dt, security_days, end_fab_day)
