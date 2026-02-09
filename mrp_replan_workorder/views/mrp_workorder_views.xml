@@ -13,6 +13,18 @@
 
         </field>
     </record>
+    <record id="mrp_production_form_inherit_macro_forced_end" model="ir.ui.view">
+        <field name="name">mrp.production.form.inherit.macro_forced_end</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='date_finished']" position="after">
+                <field name="macro_forced_end" readonly="1"/>
+            </xpath>
+
+        </field>
+    </record>
     <record id="mrp_production_workorder_tree_inherit_macro" model="ir.ui.view">
         <field name="name">mrp.production.workorder.tree.inherit.macro_planned_start</field>
         <field name="model">mrp.workorder</field>
