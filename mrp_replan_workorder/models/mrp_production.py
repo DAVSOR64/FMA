@@ -124,20 +124,24 @@ class MrpProduction(models.Model):
           (pour avoir un Gantt exploitable)
         - puis recale date_start/date_finished de l'OF sur les dates WO
         """
-        for mo in self:
-            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-            mo._log_wo_dates("AVANT super().button_plan()", wos)
-            _logger.info("MO %s | date_start=%s | date_finished=%s", mo.name, mo.date_start, mo.date_finished)
-    
         res = super().button_plan()
 
         for mo in self:
-            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-            mo._log_wo_dates("APRES super().button_plan()", wos)
-            _logger.info("MO %s | date_start=%s | date_finished=%s", mo.name, mo.date_start, mo.date_finished)
+            mo.message_post(body="🧪 DEBUG : post-plan -> application macro_planned_start vers dates WO")
+    
+            # 1) Forcer les dates des WO depuis macro_planned_start
+            mo.apply_macro_to_workorders_dates()
+    
+            # 2) Important : recalcul planning interne (souvent nécessaire en EE)
+            try:
+                mo._plan_workorders()
+            except Exception:
+                _logger.exception("MO %s : erreur _plan_workorders post-macro (non bloquante)", mo.name)
+    
+            # 3) Recaler date_start OF sur la 1ère WO (sans toucher la fin si tu forces ailleurs)
+            mo._update_mo_dates_from_workorders_dates_only()
     
         return res
-
     def apply_macro_to_workorders_dates(self):
         """
         Écrit date_start/date_finished des WO à partir de macro_planned_start + durée (jours ouvrés)
