@@ -570,7 +570,7 @@ class ExportSFTPScheduler(models.Model):
                     "Qte Cde",
                     "Qte Liv",
                     "Qte Fact",
-                    "Unité de Mesure",
+                    "Unite de Mesure",
                     "PU HT",
                     "Pourcentage Remise",
                     "Prix Unitaire Remise",
@@ -761,7 +761,7 @@ class ExportSFTPScheduler(models.Model):
                             getattr(l, "product_uom_id", False)
                             and l.product_uom_id.name
                             or ""
-                        )),
+                        ),
                         # Prix / taxes / totaux (facture-line API)
                         # Négatif si avoir (out_refund)
                         to_float((getattr(l, "price_unit", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1)),
