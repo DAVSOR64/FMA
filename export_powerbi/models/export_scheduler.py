@@ -200,12 +200,12 @@ class ExportSFTPScheduler(models.Model):
                         p.siret or "",
                         getattr(p, "part_siren", "") or "",
                         getattr(p, "part_date_couverture", "") or "",
-                        getattr(p, "part_montant_couverture", "") or "",
-                        getattr(p, "part_decision", "") or "",
-                        getattr(p, "part_encours_autoris", "") or "",
-                        getattr(p, "outstandings", "") or "",
-                        getattr(p, "x_studio_mtt_echu", "") or "",
-                        getattr(p, "x_studio_mtt_non_echu", "") or "",
+                        to_float(getattr(p, "part_montant_couverture", "") or ""),
+                        to_float(getattr(p, "part_decision", "") or ""),
+                        to_float(to_float(getattr(p, "part_encours_autoris", "") or "")),
+                        to_float(getattr(p, "outstandings", "") or ""),
+                        to_float(getattr(p, "x_studio_mtt_echu", "") or ""),
+                        to_float(getattr(p, "x_studio_mtt_non_echu", "") or ""),
                         p.create_date.strftime("%Y-%m-%d %H:%M:%S")
                         if getattr(p, "create_date", False)
                         else "",
@@ -598,7 +598,7 @@ class ExportSFTPScheduler(models.Model):
                             "not ilike",
                             "ACPT",
                         ),
-                        ("name", "not in", ["F202600012"]),
+                        ("name", "not", ["F202600012"]),
                     ]
                 )
 
@@ -695,7 +695,7 @@ class ExportSFTPScheduler(models.Model):
                         ("move_id.move_type", "in", ["out_invoice", "out_refund"]),
                         ("move_id.state", "=", "posted"),
                         ("product_id", "!=", False),
-                        ("move_id.name", "not in", ["F202600012"]),
+                        ("move_id.name", "not", ["F202600012"]),
                     ]
                 )
                 invoice_line_data = [
