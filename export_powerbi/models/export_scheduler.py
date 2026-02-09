@@ -144,7 +144,11 @@ class ExportSFTPScheduler(models.Model):
                     writer.writerow([_to_cell(cell) for cell in row])
             _logger.info(f"[Export Power BI] Fichier créé : {filepath}")
             return filepath
-
+        def to_float(value):
+            try:
+                return float(value or 0.0)
+            except (TypeError, ValueError):
+                return 0.0
         def create_attachment(filepath, name):
             with open(filepath, "rb") as f:
                 file_content = f.read()
@@ -310,9 +314,9 @@ class ExportSFTPScheduler(models.Model):
                             if getattr(o, "payment_term_id", False)
                             else ""
                         ),
-                        getattr(o, "amount_untaxed", 0.0) or 0.0,
-                        getattr(o, "amount_tax", 0.0) or 0.0,
-                        getattr(o, "amount_total", 0.0) or 0.0,
+                        to_float(getattr(o, "amount_untaxed", 0.0) or 0.0),
+                        to_float(getattr(o, "amount_tax", 0.0) or 0.0),
+                        to_float(getattr(o, "amount_total", 0.0) or 0.0),
                         o.invoice_status or "",
                         ", ".join([t.name for t in getattr(o, "tag_ids", [])])
                         if getattr(o, "tag_ids", False)
@@ -363,26 +367,26 @@ class ExportSFTPScheduler(models.Model):
                         o.so_date_de_livraison_prevu.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_de_livraison_prevu", False)
                         else "",
-                        getattr(o, "so_achat_matiere_devis", 0.0) or 0.0,
-                        getattr(o, "so_achat_vitrage_devis", 0.0) or 0.0,
-                        getattr(o, "so_cout_mod_devis", 0.0) or 0.0,
-                        getattr(o, "so_mtt_facturer_devis", 0.0) or 0.0,
-                        getattr(o, "so_marge_brute_devis", 0.0) or 0.0,
-                        getattr(o, "so_mcv_devis", 0.0) or 0.0,
-                         getattr(o, "so_achat_matiere_be", 0.0) or 0.0,
-                        getattr(o, "so_achat_vitrage_be", 0.0) or 0.0,
-                        getattr(o, "so_cout_mod_be", 0.0) or 0.0,
-                        getattr(o, "so_mtt_facturer_be", 0.0) or 0.0,
-                        getattr(o, "so_marge_brute_be", 0.0) or 0.0,
-                        getattr(o, "so_mcv_be", 0.0) or 0.0,
-                         getattr(o, "so_achat_matiere_reel", 0.0) or 0.0,
-                        getattr(o, "so_achat_vitrage_reel", 0.0) or 0.0,
-                        getattr(o, "so_cout_mod_reel", 0.0) or 0.0,
-                        getattr(o, "so_mtt_facturer_reel", 0.0) or 0.0,
-                        getattr(o, "so_marge_brute_reel", 0.0) or 0.0,
-                        getattr(o, "so_mcv_reel", 0.0) or 0.0,
-                        getattr(o, "x_studio_so_cout_appro_affaire", 0.0) or 0.0,
-                        getattr(o, "x_studio_so_cout_appro_stock", 0.0) or 0.0,
+                        to_float(getattr(o, "so_achat_matiere_devis", 0.0) or 0.0),
+                        to_float(getattr(o, "so_achat_vitrage_devis", 0.0) or 0.0),
+                        to_float(getattr(o, "so_cout_mod_devis", 0.0) or 0.0),
+                        to_float(getattr(o, "so_mtt_facturer_devis", 0.0) or 0.0),
+                        to_float(getattr(o, "so_marge_brute_devis", 0.0) or 0.0),
+                        to_float(getattr(o, "so_mcv_devis", 0.0) or 0.0),
+                        to_float(getattr(o, "so_achat_matiere_be", 0.0) or 0.0),
+                        to_float(getattr(o, "so_achat_vitrage_be", 0.0) or 0.0),
+                        to_float(getattr(o, "so_cout_mod_be", 0.0) or 0.0),
+                        to_float(getattr(o, "so_mtt_facturer_be", 0.0) or 0.0),
+                        to_float(getattr(o, "so_marge_brute_be", 0.0) or 0.0),
+                        to_float(getattr(o, "so_mcv_be", 0.0) or 0.0),
+                        to_float(getattr(o, "so_achat_matiere_reel", 0.0) or 0.0),
+                        to_float(getattr(o, "so_achat_vitrage_reel", 0.0) or 0.0),
+                        to_float(getattr(o, "so_cout_mod_reel", 0.0) or 0.0),
+                        to_float(getattr(o, "so_mtt_facturer_reel", 0.0) or 0.0),
+                        to_float(getattr(o, "so_marge_brute_reel", 0.0) or 0.0),
+                        to_float(getattr(o, "so_mcv_reel", 0.0) or 0.0),
+                        to_float(getattr(o, "x_studio_so_cout_appro_affaire", 0.0) or 0.0),
+                        to_float(getattr(o, "x_studio_so_cout_appro_stock", 0.0) or 0.0),
                     )
                     for o in orders
                 ]
@@ -522,23 +526,23 @@ class ExportSFTPScheduler(models.Model):
                     )
                     or "",
                     # Quantités / UoM / lead time
-                    getattr(l, "product_uom_qty", 0.0) or 0.0,
-                    getattr(l, "qty_delivered", 0.0) or 0.0,
-                    getattr(l, "qty_invoiced", 0.0) or 0.0,
+                    to_float(getattr(l, "product_uom_qty", 0.0) or 0.0),
+                    to_float(getattr(l, "qty_delivered", 0.0) or 0.0),
+                    to_float(getattr(l, "qty_invoiced", 0.0) or 0.0),
                     (l.product_uom.name if getattr(l, "product_uom", False) else ""),
                     # Prix / taxes / totaux
-                    getattr(l, "price_unit", 0.0) or 0.0,
-                    getattr(l, "discount", 0.0) or 0.0,
-                    (
+                    to_float(getattr(l, "price_unit", 0.0) or 0.0),
+                    to_float(getattr(l, "discount", 0.0) or 0.0),
+                    to_float((
                         (getattr(l, "price_unit", 0.0) or 0.0)
                         * (1 - (getattr(l, "discount", 0.0) or 0.0) / 100.0)
-                    ),
+                    )),
                     ", ".join([t.name for t in getattr(l, "tax_id", [])])
                     if getattr(l, "tax_id", False)
                     else "",
-                    getattr(l, "price_subtotal", 0.0) or 0.0,
-                    getattr(l, "price_tax", 0.0) or 0.0,
-                    getattr(l, "price_total", 0.0) or 0.0,
+                    to_float(getattr(l, "price_subtotal", 0.0) or 0.0),
+                    to_float(getattr(l, "price_tax", 0.0) or 0.0),
+                    to_float(getattr(l, "price_total", 0.0) or 0.0),
                     # Devise / société / vendeur
                     (l.currency_id.name if getattr(l, "currency_id", False) else ""),
                     # (l.company_id.name if getattr(l, 'company_id', False) else ''),
@@ -638,10 +642,10 @@ class ExportSFTPScheduler(models.Model):
                             else ""
                         ),
                         # Montants
-                        getattr(i, "amount_residual", 0.0) or 0.0,
-                        getattr(i, "amount_untaxed_signed", 0.0)
-                        or 0.0,  # HT signé "normal" (inclut acomptes)
-                        getattr(i, "amount_total_signed", 0.0) or 0.0,
+                        to_float(getattr(i, "amount_residual", 0.0) or 0.0),
+                        to_float(getattr(i, "amount_untaxed_signed", 0.0)
+                        or 0.0),  # HT signé "normal" (inclut acomptes)
+                        to_float(getattr(i, "amount_total_signed", 0.0) or 0.0),
                         # Divers
                         getattr(i, "x_studio_projet_vente", 0.0) or 0.0,
                         getattr(i, "inv_activite", None) or 'COMMUN',
@@ -752,20 +756,20 @@ class ExportSFTPScheduler(models.Model):
                         )
                         or "",
                         # Quantité / UoM
-                        getattr(l, "quantity", 0.0) or 0.0,
+                        to_float(getattr(l, "quantity", 0.0) or 0.0,
                         (
                             getattr(l, "product_uom_id", False)
                             and l.product_uom_id.name
                             or ""
-                        ),
+                        )),
                         # Prix / taxes / totaux (facture-line API)
                         # Négatif si avoir (out_refund)
-                        (getattr(l, "price_unit", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1),
+                        to_float((getattr(l, "price_unit", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1)),
                         ", ".join([t.name for t in getattr(l, "tax_ids", [])])
                         if getattr(l, "tax_ids", False)
                         else "",
-                        (getattr(l, "price_subtotal", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1),
-                        (getattr(l, "price_total", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1),
+                        to_float((getattr(l, "price_subtotal", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1)),
+                        to_float((getattr(l, "price_total", 0.0) or 0.0) * (-1 if l.move_id.move_type == "out_refund" else 1)),
                         (
                             l.currency_id.name
                             if getattr(l, "currency_id", False)
