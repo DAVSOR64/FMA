@@ -114,6 +114,7 @@ class MrpProduction(models.Model):
         for mo in self:
             mo.message_post(body="🧪 DEBUG : bouton Planifier -> application macro_planned_start vers dates WO")
             mo.apply_macro_to_workorders_dates()
+            mo._plan_workorders()  # <-- important pour le planning
             mo._update_mo_dates_from_workorders_dates_only()
         return res
 
@@ -151,14 +152,34 @@ class MrpProduction(models.Model):
             start_dt = self._morning_dt(start_day, wc)
             end_dt = self._evening_dt(last_day, wc)
 
-            vals = {}
+            #vals = {}
+            #if "date_start" in wo._fields:
+            #    vals["date_start"] = start_dt
+            #if "date_finished" in wo._fields:
+            #    vals["date_finished"] = end_dt
+
+            #if vals:
+            #    wo.with_context(mail_notrack=True).write(vals)
+            self._set_wo_planning_dates(wo, start_dt, end_dt)
+
+    def _set_wo_planning_dates(self, wo, start_dt, end_dt):
+        vals = {}
+        # Champs planifiés (selon version)
+        if "date_planned_start" in wo._fields:
+            vals["date_planned_start"] = start_dt
+        if "date_planned_finished" in wo._fields:
+            vals["date_planned_finished"] = end_dt
+    
+        # Fallback (certaines versions)
+        if not vals:
             if "date_start" in wo._fields:
                 vals["date_start"] = start_dt
             if "date_finished" in wo._fields:
                 vals["date_finished"] = end_dt
+    
+        if vals:
+            wo.with_context(mail_notrack=True).write(vals)
 
-            if vals:
-                wo.with_context(mail_notrack=True).write(vals)
 
     # ============================================================
     # MO DATES UPDATE (FROM MACRO)
