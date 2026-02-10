@@ -55,6 +55,9 @@ class MrpWorkorder(models.Model):
                     continue
 
                 delta = new_start - old_start
+                
+                if delta:
+                    wo._shift_workorders_after(old_start, delta)
                 _logger.info(
                     "GANTT MOVE (AFTER super.write) | WO %s(id=%s) | old_start=%s -> new_start=%s | delta=%s",
                     wo.name, wo.id, old_start, new_start, delta
