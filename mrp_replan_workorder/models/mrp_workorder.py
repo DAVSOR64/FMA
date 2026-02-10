@@ -56,7 +56,7 @@ class MrpWorkorder(models.Model):
 
             # base : si c'est le premier de la chaîne, on prend la date posée par l'utilisateur
             # sinon on calcule depuis prev_end_dt
-            user_start = fields.Datetime.to_datetime(wo.date_start) if wo.date_start else None
+            user_start = fields.Datetime.to_datetime(wo.date_start) if (i == idx and wo.date_start) else None
             macro_start = fields.Datetime.to_datetime(wo.macro_planned_start) if getattr(wo, "macro_planned_start", False) else None
 
             if prev_end_dt:
@@ -67,10 +67,16 @@ class MrpWorkorder(models.Model):
                 chain_start = None
 
             # start = max(macro, chain_start, user_start)
-            candidates = [d for d in (user_start, macro_start, chain_start) if d]
-            if not candidates:
-                continue
-            start_dt = max(candidates)
+            if i == idx:
+                # WO déplacé : max(user_start, macro, chain)
+                candidates = [d for d in (user_start, macro_start, chain_start) if d]
+                start_dt = max(candidates)
+            else:
+                # WO suivantes : max(macro, chain) (on ignore l'ancien date_start)
+                candidates = [d for d in (macro_start, chain_start) if d]
+                if not candidates:
+                    continue
+                start_dt = max(candidates)
 
             duration_min = wo.duration_expected or 0.0
             end_dt = start_dt + timedelta(minutes=duration_min)
