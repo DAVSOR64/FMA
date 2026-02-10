@@ -158,7 +158,7 @@ class MrpProduction(models.Model):
                 duration_min = wo.duration_expected or 0.0
                 end_dt = start_dt + timedelta(minutes=duration_min)
     
-                wo.write({
+                wo.with_context(skip_shift_chain=True, mail_notrack=True).write({
                     "date_start": start_dt,
                     "date_finished": end_dt,
                 })
