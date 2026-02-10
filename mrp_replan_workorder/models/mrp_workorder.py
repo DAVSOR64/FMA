@@ -9,6 +9,11 @@ _logger = logging.getLogger(__name__)
 class MrpWorkorder(models.Model):
     _inherit = "mrp.workorder"
 
+    macro_planned_start = fields.Datetime(
+        string="date début planifcalculée",
+        copy=False,
+        help="Date de début de fab calculée."
+    )
     def write(self, values):
         # éviter récursion quand on met à jour nous-mêmes
         if self.env.context.get("skip_shift_chain"):
