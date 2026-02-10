@@ -67,78 +67,50 @@ class MrpWorkorder(models.Model):
 
         return res
 
-    def _shift_following_workorders(self, delta):
-        """Décale toutes les WO suivantes du même delta sur date_start (et recale la fin en conservant la durée actuelle)."""
+    def _shift_workorders_after(self, cutoff_start, delta):
+        """Décale toutes les WO du même OF dont date_start >= cutoff_start (sauf la WO déplacée)."""
         self.ensure_one()
         mo = self.production_id
         if not mo:
-            _logger.warning("SHIFT: no production_id on WO %s(id=%s)", self.name, self.id)
             return
-
-        # WO actives
-        all_wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-
-        # Tri : opération.sequence puis id (comme tes scripts macro)
-        all_wos = sorted(all_wos, key=lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-
-        _logger.info("SHIFT START | MO %s | moved WO %s(id=%s) | delta=%s | WO count=%s",
-                     mo.name, self.name, self.id, delta, len(all_wos))
-
-        for w in all_wos:
-            _logger.info(
-                "  CHAIN | WO %s(id=%s) | state=%s | op_seq=%s | start=%s | end=%s",
-                w.name, w.id, w.state,
-                (w.operation_id.sequence if w.operation_id else None),
-                w.date_start, w.date_finished
-            )
-
-        # position WO déplacée
-        try:
-            idx = next(i for i, w in enumerate(all_wos) if w.id == self.id)
-        except StopIteration:
-            _logger.warning("SHIFT: moved WO %s(id=%s) not found in MO.workorder_ids", self.name, self.id)
-            return
-
-        following = all_wos[idx + 1:]
-        _logger.info("SHIFT: following count=%s | ids=%s", len(following), [w.id for w in following])
-
-        shifted = 0
-        skipped_no_start = 0
-
-        for wo in following:
-            if not wo.date_start:
-                skipped_no_start += 1
-                _logger.warning(
-                    "SHIFT SKIP (no date_start) | WO %s(id=%s) | op_seq=%s",
-                    wo.name, wo.id, (wo.operation_id.sequence if wo.operation_id else None)
-                )
-                continue
-
+    
+        cutoff_start = fields.Datetime.to_datetime(cutoff_start)
+    
+        # WO à décaler : toutes celles qui commencent après l'ancienne date
+        targets = mo.workorder_ids.filtered(lambda w: (
+            w.state not in ("done", "cancel")
+            and w.id != self.id
+            and w.date_start
+            and fields.Datetime.to_datetime(w.date_start) >= cutoff_start
+        ))
+    
+        # tri par date_start (logique "planning")
+        targets = targets.sorted(lambda w: (fields.Datetime.to_datetime(w.date_start), w.id))
+    
+        _logger.info(
+            "SHIFT AFTER | MO %s | moved=%s(%s) | cutoff=%s | delta=%s | targets=%s",
+            mo.name, self.name, self.id, cutoff_start, delta, targets.ids
+        )
+    
+        for wo in targets:
             old_start = fields.Datetime.to_datetime(wo.date_start)
             old_end = fields.Datetime.to_datetime(wo.date_finished) if wo.date_finished else None
-
-            # ✅ préserver la durée "réelle" affichée dans le planning
+    
+            # conserver la durée actuelle pour éviter les changements de barre
             if old_end and old_end >= old_start:
                 duration = old_end - old_start
             else:
-                # fallback si end vide/incohérent
                 duration = timedelta(minutes=(wo.duration_expected or 0.0))
-
+    
             new_start = old_start + delta
             new_end = new_start + duration
-
+    
             wo.with_context(skip_shift_chain=True, mail_notrack=True).write({
                 "date_start": new_start,
                 "date_finished": new_end,
             })
-            shifted += 1
-
+    
             _logger.info(
-                "SHIFT OK | WO %s(id=%s) | %s -> %s | duration_kept=%s | new_end=%s",
-                wo.name, wo.id, old_start, new_start, duration, new_end
+                "  SHIFT OK | WO %s(%s) | %s -> %s",
+                wo.name, wo.id, old_start, new_start
             )
-
-        _logger.info(
-            "SHIFT END | MO %s | moved WO %s(id=%s) | shifted=%s | skipped_no_start=%s",
-            mo.name, self.name, self.id, shifted, skipped_no_start
-        )
