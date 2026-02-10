@@ -124,26 +124,16 @@ class MrpProduction(models.Model):
           (pour avoir un Gantt exploitable)
         - puis recale date_start/date_finished de l'OF sur les dates WO
         """
+       
+        _logger.info("=== DEBUG button_plan START %s ===", self.mapped("name"))
         res = super().button_plan()
-
         for mo in self:
-            mo.apply_macro_to_workorders_dates()
-    
-            # Re-synchroniser le planning (EE) si leave_id existe
-            for wo in mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")):
-                leave = getattr(wo, "leave_id", False)
-                if leave and wo.date_start and wo.date_finished:
-                    vals = {}
-                    if "date_from" in leave._fields:
-                        vals["date_from"] = wo.date_start
-                    if "date_to" in leave._fields:
-                        vals["date_to"] = wo.date_finished
-                    if vals:
-                        leave.with_context(mail_notrack=True).write(vals)
-    
-            mo._update_mo_dates_from_workorders_dates_only()
-    
+            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+            _logger.info("MO %s AFTER super: WO dates=%s",
+                         mo.name, [(w.name, w.date_start, w.date_finished, getattr(w, "leave_id", False) and w.leave_id.id) for w in wos])
+        _logger.info("=== DEBUG button_plan END ===")
         return res
+
     def apply_macro_to_workorders_dates(self):
         """
         Écrit date_start/date_finished des WO à partir de macro_planned_start + durée (jours ouvrés)
