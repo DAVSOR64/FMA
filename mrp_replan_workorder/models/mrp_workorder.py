@@ -8,87 +8,87 @@ _logger = logging.getLogger(__name__)
 
 class MrpWorkorder(models.Model):
     _inherit = "mrp.workorder"
-  
-    macro_planned_start = fields.Datetime(string="Macro (début planifié)", copy=False)
 
     def write(self, values):
-        # éviter boucle
-        if self.env.context.get("skip_macro_replan"):
+        # éviter récursion quand on met à jour nous-mêmes
+        if self.env.context.get("skip_shift_chain"):
             return super().write(values)
+
+        # On ne déclenche que si on bouge date_start via planning
+        trigger = "date_start" in values
+        old_starts = {}
+        if trigger:
+            for wo in self:
+                old_starts[wo.id] = fields.Datetime.to_datetime(wo.date_start) if wo.date_start else None
 
         res = super().write(values)
 
-        trigger_fields = {"date_start", "date_finished"}
-        if trigger_fields.intersection(values.keys()):
+        if trigger:
             for wo in self:
-                wo._macro_replan_from_here()
+                old_start = old_starts.get(wo.id)
+                new_start = fields.Datetime.to_datetime(wo.date_start) if wo.date_start else None
+                if not old_start or not new_start:
+                    continue
+
+                delta = new_start - old_start
+                if not delta:
+                    continue
+
+                wo._shift_following_workorders(delta)
 
         return res
 
-    def _macro_replan_from_here(self):
-        """Replan selon règle métier : lendemain ouvré matin + respect macro_planned_start."""
+    def _shift_following_workorders(self, delta):
+        """Décale toutes les WO suivantes du même delta, et aligne macro_planned_start sur date_start."""
         self.ensure_one()
-
         mo = self.production_id
         if not mo:
             return
 
-        # WO de l'OF triées
-        wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        wos = sorted(wos, key=lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-        if not wos:
-            return
+        # Tri identique à celui de tes scripts (séquence opération puis id)
+        all_wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        all_wos = sorted(all_wos, key=lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
 
-        # index du WO déplacé
+        # index WO déplacé
         try:
-            idx = next(i for i, w in enumerate(wos) if w.id == self.id)
+            idx = next(i for i, w in enumerate(all_wos) if w.id == self.id)
         except StopIteration:
             return
 
-        # fin précédente = WO juste avant (si existe)
-        prev_end_dt = None
-        if idx > 0 and wos[idx - 1].date_finished:
-            prev_end_dt = fields.Datetime.to_datetime(wos[idx - 1].date_finished)
+        # on ne décale QUE les suivantes (idx+1 -> fin)
+        following = all_wos[idx + 1:]
 
-        # On repart du WO déplacé et on enchaîne jusqu'à la fin
-        for i in range(idx, len(wos)):
-            wo = wos[i]
+        # Optionnel : mettre macro_planned_start = date_start sur la WO déplacée aussi
+        if "macro_planned_start" in self._fields:
+            self.with_context(skip_shift_chain=True, mail_notrack=True).write({
+                "macro_planned_start": self.date_start,
+            })
 
-            # base : si c'est le premier de la chaîne, on prend la date posée par l'utilisateur
-            # sinon on calcule depuis prev_end_dt
-            user_start = fields.Datetime.to_datetime(wo.date_start) if (i == idx and wo.date_start) else None
-            macro_start = fields.Datetime.to_datetime(wo.macro_planned_start) if getattr(wo, "macro_planned_start", False) else None
+        for wo in following:
+            if not wo.date_start:
+                continue
 
-            if prev_end_dt:
-                prev_day = prev_end_dt.date()
-                next_day = mo._next_working_day(prev_day, wo.workcenter_id)
-                chain_start = mo._morning_dt(next_day, wo.workcenter_id)
-            else:
-                chain_start = None
+            start_dt = fields.Datetime.to_datetime(wo.date_start) + delta
 
-            # start = max(macro, chain_start, user_start)
-            if i == idx:
-                # WO déplacé : max(user_start, macro, chain)
-                candidates = [d for d in (user_start, macro_start, chain_start) if d]
-                start_dt = max(candidates)
-            else:
-                # WO suivantes : max(macro, chain) (on ignore l'ancien date_start)
-                candidates = [d for d in (macro_start, chain_start) if d]
-                if not candidates:
-                    continue
-                start_dt = max(candidates)
-
+            # fin = start + durée (minutes)
             duration_min = wo.duration_expected or 0.0
             end_dt = start_dt + timedelta(minutes=duration_min)
 
-            wo.with_context(skip_macro_replan=True, mail_notrack=True).write({
+            vals = {
                 "date_start": start_dt,
                 "date_finished": end_dt,
-            })
+            }
+
+            if "macro_planned_start" in wo._fields:
+                vals["macro_planned_start"] = start_dt
+
+            wo.with_context(skip_shift_chain=True, mail_notrack=True).write(vals)
 
             _logger.info(
-                "MACRO REPLAN | MO %s | WO %s | macro=%s | chain=%s | start=%s | end=%s",
-                mo.name, wo.name, macro_start, chain_start, start_dt, end_dt
+                "SHIFT | MO %s | WO %s | delta=%s | new_start=%s | new_end=%s",
+                mo.name, wo.name, delta, start_dt, end_dt
             )
 
-            prev_end_dt = end_dt
+        # (optionnel mais utile) recaler les dates de l'OF sur les WO
+        if hasattr(mo, "_update_mo_dates_from_workorders_dates_only"):
+            mo.with_context(skip_shift_chain=True, mail_notrack=True)._update_mo_dates_from_workorders_dates_only()
