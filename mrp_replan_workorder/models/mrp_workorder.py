@@ -68,7 +68,7 @@ class MrpWorkorder(models.Model):
             self.with_context(skip_shift_chain=True, mail_notrack=True).write({
                 "macro_planned_start": self.date_start,
             })
-
+        vals = {}  # ✅ IMPORTANT
         for wo in following:
             if not wo.date_start:
                 continue
