@@ -125,13 +125,38 @@ class MrpProduction(models.Model):
         - puis recale date_start/date_finished de l'OF sur les dates WO
         """
        
-        _logger.info("=== DEBUG button_plan START %s ===", self.mapped("name"))
+        _logger.warning("********** dans le module (macro only) **********")
         res = super().button_plan()
-        for mo in self:
-            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-            _logger.info("MO %s AFTER super: WO dates=%s",
-                         mo.name, [(w.name, w.date_start, w.date_finished, getattr(w, "leave_id", False) and w.leave_id.id) for w in wos])
-        _logger.info("=== DEBUG button_plan END ===")
+    
+        for production in self:
+            # Trier les workorders par ordre des opérations
+            workorders = sorted(
+                production.workorder_ids,
+                key=lambda wo: wo.operation_id.sequence if wo.operation_id else 0
+            )
+    
+            for workorder in workorders:
+                # On force le début = macro_planned_start
+                if not workorder.macro_planned_start:
+                    _logger.warning(
+                        "WO %s (%s) : macro_planned_start vide -> on saute",
+                        workorder.name, production.name
+                    )
+                    continue
+    
+                workorder.date_start = workorder.macro_planned_start
+                _logger.info("Opération %s : Start = %s", workorder.name, workorder.date_start)
+    
+                # Fin = début + durée attendue (minutes)
+                duration = workorder.duration_expected or 0.0
+                workorder.date_finished = workorder.date_start + timedelta(minutes=duration)
+                _logger.info("Opération %s : End = %s", workorder.name, workorder.date_finished)
+    
+                _logger.info(
+                    "Opération %s : Start = %s / End = %s (durée=%s min)",
+                    workorder.name, workorder.date_start, workorder.date_finished, duration
+                )
+    
         return res
 
     def apply_macro_to_workorders_dates(self):
