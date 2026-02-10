@@ -79,10 +79,10 @@ class MrpWorkorder(models.Model):
             duration_min = wo.duration_expected or 0.0
             end_dt = start_dt + timedelta(minutes=duration_min)
 
-            vals = {
+            wo.write({
                 "date_start": start_dt,
                 "date_finished": end_dt,
-            }
+            })
 
             if "macro_planned_start" in wo._fields:
                 vals["macro_planned_start"] = start_dt
