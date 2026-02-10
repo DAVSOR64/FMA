@@ -129,34 +129,52 @@ class MrpProduction(models.Model):
         res = super().button_plan()
     
         for production in self:
-            # Trier les workorders par ordre des opérations
             workorders = sorted(
                 production.workorder_ids,
                 key=lambda wo: wo.operation_id.sequence if wo.operation_id else 0
             )
     
-            for workorder in workorders:
-                # On force le début = macro_planned_start
-                if not workorder.macro_planned_start:
-                    _logger.warning(
-                        "WO %s (%s) : macro_planned_start vide -> on saute",
-                        workorder.name, production.name
-                    )
+            previous_end_dt = None
+    
+            for wo in workorders:
+                if not wo.macro_planned_start:
+                    _logger.warning("WO %s (%s) : macro_planned_start vide -> skip", wo.name, production.name)
                     continue
     
-                workorder.date_start = workorder.macro_planned_start
-                _logger.info("Opération %s : Start = %s", workorder.name, workorder.date_start)
+                macro_start = fields.Datetime.to_datetime(wo.macro_planned_start)
     
-                # Fin = début + durée attendue (minutes)
-                duration = workorder.duration_expected or 0.0
-                workorder.date_finished = workorder.date_start + timedelta(minutes=duration)
-                _logger.info("Opération %s : End = %s", workorder.name, workorder.date_finished)
+                # Règle métier : le lendemain (ouvré) matin après la fin précédente
+                if previous_end_dt:
+                    prev_day = fields.Datetime.to_datetime(previous_end_dt).date()
+    
+                    # lendemain calendaire puis on saute aux jours ouvrés (selon ton helper)
+                    next_day = production._next_working_day(prev_day, wo.workcenter_id)
+                    chain_start = production._morning_dt(next_day, wo.workcenter_id)
+    
+                    start_dt = max(macro_start, chain_start)
+                else:
+                    start_dt = macro_start
+    
+                duration_min = wo.duration_expected or 0.0
+                end_dt = start_dt + timedelta(minutes=duration_min)
+    
+                wo.write({
+                    "date_start": start_dt,
+                    "date_finished": end_dt,
+                })
     
                 _logger.info(
-                    "Opération %s : Start = %s / End = %s (durée=%s min)",
-                    workorder.name, workorder.date_start, workorder.date_finished, duration
+                    "WO %s : macro=%s | chain_start=%s | start=%s | end=%s | durée=%s min",
+                    wo.name,
+                    macro_start,
+                    (chain_start if previous_end_dt else None),
+                    start_dt,
+                    end_dt,
+                    duration_min,
                 )
     
+                previous_end_dt = end_dt
+        
         return res
 
     def apply_macro_to_workorders_dates(self):
