@@ -177,7 +177,7 @@ class CapaciteChargeDetail(models.Model):
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
             sale_id_expr = f"mp.{sale_col} AS sale_order_id,"
             sale_name_expr = "so.name AS sale_order_name,"
-            projet_expr = "so.x_studio_projet.name::text AS projet," if has_projet else "NULL::text AS projet,"
+            projet_expr = "so.x_studio_projet::text AS projet," if has_projet else "NULL::text AS projet,"
         else:
             sale_join = ""
             sale_id_expr = "NULL::integer AS sale_order_id,"
