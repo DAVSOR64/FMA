@@ -1,6 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <!-- WIZARD recalcul -->
+    <record id="view_capacite_refresh_wizard" model="ir.ui.view">
+        <field name="name">mrp.capacite.refresh.wizard.form</field>
+        <field name="model">mrp.capacite.refresh.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Recalculer la capacité">
+                <group>
+                    <field name="nb_slots" string="Slots planning publiés"/>
+                    <field name="nb_entries" string="Entrées calculées" invisible="nb_entries == 0"/>
+                    <field name="message" invisible="not message"/>
+                </group>
+                <footer>
+                    <button name="action_refresh" type="object"
+                            string="Recalculer" class="btn-primary"/>
+                    <button string="Fermer" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
     <!-- VUE LISTE avec décorateurs couleur -->
     <record id="view_capacite_charge_list" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.list</field>
@@ -12,6 +32,10 @@
                   decoration-warning="taux_charge &gt;= 80 and taux_charge &lt;= 100"
                   decoration-success="taux_charge &gt; 0 and taux_charge &lt; 80"
                   decoration-muted="taux_charge == 0">
+                <header>
+                    <button name="action_open_refresh_wizard" type="object"
+                            string="⟳ Recalculer la capacité" class="btn-primary"/>
+                </header>
                 <field name="date" string="Date"/>
                 <field name="workcenter_name" string="Poste de travail"/>
                 <field name="capacite_heures" string="Capacité (h)"/>
@@ -70,7 +94,7 @@
         </field>
     </record>
 
-    <!-- ACTION principale avec bouton Recalculer -->
+    <!-- ACTION -->
     <record id="action_capacite_charge" model="ir.actions.act_window">
         <field name="name">Capacité vs Charge</field>
         <field name="res_model">mrp.capacite.charge</field>
@@ -80,18 +104,6 @@
             'search_default_trois_semaines': 1,
             'search_default_group_workcenter': 1
         }</field>
-    </record>
-
-    <!-- ACTION Recalculer la capacité -->
-    <record id="action_refresh_capacite" model="ir.actions.server">
-        <field name="name">Recalculer la capacité</field>
-        <field name="model_id" ref="model_mrp_capacite_charge"/>
-        <field name="binding_model_id" ref="model_mrp_capacite_charge"/>
-        <field name="binding_view_types">list</field>
-        <field name="state">code</field>
-        <field name="code">
-env['mrp.capacite.cache'].refresh()
-        </field>
     </record>
 
 </odoo>
