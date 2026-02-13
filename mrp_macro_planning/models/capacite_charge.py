@@ -5,6 +5,17 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
+class PlanningRole(models.Model):
+    """Ajout d'un lien explicite vers mrp.workcenter sur planning.role"""
+    _inherit = 'planning.role'
+
+    workcenter_id = fields.Many2one(
+        'mrp.workcenter',
+        string='Poste de travail lié',
+        help='Lier ce rôle Planning au poste de travail correspondant pour le calcul de capacité',
+    )
+
+
 class CapaciteCache(models.Model):
     _name = 'mrp.capacite.cache'
     _description = 'Cache capacité planning par poste/jour'
@@ -17,36 +28,32 @@ class CapaciteCache(models.Model):
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2))
 
     def refresh(self):
-        """Recalcule la capacité en tenant compte des calendriers."""
+        """Recalcule la capacité via le lien explicite role → workcenter."""
         self.search([]).unlink()
 
         slots = self.env['planning.slot'].search([('state', '=', 'published')])
-        _logger.info('REFRESH CAPACITE : %d slots publiés trouvés', len(slots))
+        _logger.info('REFRESH CAPACITE : %d slots publiés', len(slots))
 
         if not slots:
+            _logger.warning('Aucun slot publié trouvé')
             return
 
         vals_list = []
 
         for slot in slots:
-            if not slot.resource_id:
-                _logger.info('Slot %s sans resource_id, ignoré', slot.id)
-                continue
-            if not slot.role_id:
-                _logger.info('Slot %s sans role_id, ignoré', slot.id)
+            if not slot.resource_id or not slot.role_id:
                 continue
 
-            workcenter = self.env['mrp.workcenter'].search([
-                ('name', '=ilike', slot.role_id.name)
-            ], limit=1)
+            # Lien explicite role → workcenter
+            workcenter = slot.role_id.workcenter_id
             if not workcenter:
-                _logger.info('Aucun workcenter pour role "%s"', slot.role_id.name)
+                _logger.info('Role "%s" sans workcenter lié, ignoré', slot.role_id.name)
                 continue
 
             calendar = slot.resource_id.calendar_id
             if not calendar:
+                # Fallback : durée brute du slot
                 delta = (slot.end_datetime - slot.start_datetime).total_seconds() / 3600.0
-                _logger.info('Slot %s sans calendrier, durée brute: %.2f h', slot.id, delta)
                 vals_list.append({
                     'workcenter_id': workcenter.id,
                     'workcenter_name': workcenter.name,
@@ -69,8 +76,8 @@ class CapaciteCache(models.Model):
                     duree = (stop - start).total_seconds() / 3600.0
                     heures_par_jour[jour] = heures_par_jour.get(jour, 0) + duree
 
-                _logger.info('Slot %s workcenter=%s : %s',
-                    slot.id, workcenter.name, heures_par_jour)
+                _logger.info('Slot %s role=%s workcenter=%s : %s',
+                             slot.id, slot.role_id.name, workcenter.name, heures_par_jour)
 
                 for jour, heures in heures_par_jour.items():
                     if heures > 0:
@@ -85,6 +92,7 @@ class CapaciteCache(models.Model):
                 _logger.error('Erreur slot %s : %s', slot.id, e)
                 continue
 
+        # Agréger plusieurs slots sur même poste/jour
         aggregated = {}
         for v in vals_list:
             key = (v['workcenter_id'], str(v['date']))
@@ -96,7 +104,7 @@ class CapaciteCache(models.Model):
         if aggregated:
             self.create(list(aggregated.values()))
 
-        _logger.info('REFRESH CAPACITE TERMINÉ : %d entrées créées', len(aggregated))
+        _logger.info('REFRESH TERMINÉ : %d entrées créées', len(aggregated))
 
 
 class CapaciteRefreshWizard(models.TransientModel):
@@ -118,7 +126,7 @@ class CapaciteRefreshWizard(models.TransientModel):
         nb = self.env['mrp.capacite.cache'].search_count([])
         self.write({
             'nb_entries': nb,
-            'message': '%d entrées capacité calculées depuis %d slots' % (nb, self.nb_slots),
+            'message': '%d entrées calculées depuis %d slots publiés' % (nb, self.nb_slots),
         })
         return {
             'type': 'ir.actions.act_window',
@@ -156,15 +164,6 @@ class CapaciteCharge(models.Model):
             return (f"COALESCE({table}.{col}->>'fr_FR', "
                     f"{table}.{col}->>'en_US', {table}.{col}::text)")
         return f"{table}.{col}::text"
-
-    def action_open_refresh_wizard(self):
-        return {
-            'type': 'ir.actions.act_window',
-            'name': 'Recalculer la capacité',
-            'res_model': 'mrp.capacite.refresh.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-        }
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')

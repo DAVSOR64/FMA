@@ -21,7 +21,15 @@
         </field>
     </record>
 
-    <!-- VUE LISTE avec décorateurs couleur -->
+    <!-- Action pour ouvrir le wizard directement depuis le menu -->
+    <record id="action_refresh_wizard" model="ir.actions.act_window">
+        <field name="name">Recalculer la capacité</field>
+        <field name="res_model">mrp.capacite.refresh.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- VUE LISTE -->
     <record id="view_capacite_charge_list" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.list</field>
         <field name="model">mrp.capacite.charge</field>
@@ -32,10 +40,6 @@
                   decoration-warning="taux_charge &gt;= 80 and taux_charge &lt;= 100"
                   decoration-success="taux_charge &gt; 0 and taux_charge &lt; 80"
                   decoration-muted="taux_charge == 0">
-                <header>
-                    <button name="action_open_refresh_wizard" type="object"
-                            string="⟳ Recalculer la capacité" class="btn-primary"/>
-                </header>
                 <field name="date" string="Date"/>
                 <field name="workcenter_name" string="Poste de travail"/>
                 <field name="capacite_heures" string="Capacité (h)"/>
@@ -94,7 +98,7 @@
         </field>
     </record>
 
-    <!-- ACTION -->
+    <!-- ACTION principale -->
     <record id="action_capacite_charge" model="ir.actions.act_window">
         <field name="name">Capacité vs Charge</field>
         <field name="res_model">mrp.capacite.charge</field>
@@ -107,3 +111,16 @@
     </record>
 
 </odoo>
+
+    <!-- Vue liste planning.role avec champ workcenter_id -->
+    <record id="view_planning_role_list_workcenter" model="ir.ui.view">
+        <field name="name">planning.role.list.workcenter</field>
+        <field name="model">planning.role</field>
+        <field name="inherit_id" ref="planning.planning_role_view_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="inside">
+                <field name="workcenter_id" string="Poste de travail lié" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
