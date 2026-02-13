@@ -12,7 +12,6 @@
                   decoration-warning="taux_charge &gt;= 80 and taux_charge &lt;= 100"
                   decoration-success="taux_charge &gt; 0 and taux_charge &lt; 80"
                   decoration-muted="taux_charge == 0">
-
                 <field name="date" string="Date"/>
                 <field name="workcenter_name" string="Poste de travail"/>
                 <field name="capacite_heures" string="Capacité (h)"/>
@@ -46,25 +45,19 @@
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
             <search string="Rechercher">
-
                 <filter string="En surcharge" name="surcharge"
                         domain="[('taux_charge', '&gt;', 100)]"/>
                 <filter string="Proche saturation (80-100%)" name="alerte"
                         domain="[('taux_charge', '&gt;=', 80), ('taux_charge', '&lt;=', 100)]"/>
                 <filter string="Disponible (&lt; 80%)" name="disponible"
                         domain="[('taux_charge', '&gt;', 0), ('taux_charge', '&lt;', 80)]"/>
-
                 <separator/>
-
                 <filter string="3 prochaines semaines" name="trois_semaines"
                         domain="[('date', '&gt;=', context_today().strftime('%Y-%m-%d')),
                                  ('date', '&lt;=', (context_today() + relativedelta(weeks=3)).strftime('%Y-%m-%d'))]"/>
-
                 <separator/>
-
                 <field name="workcenter_id" string="Poste de travail"/>
                 <field name="date" string="Date"/>
-
                 <group expand="1" string="Regrouper par">
                     <filter string="Poste de travail" name="group_workcenter"
                             context="{'group_by': 'workcenter_name'}"/>
@@ -73,12 +66,11 @@
                     <filter string="Semaine" name="group_semaine"
                             context="{'group_by': 'date:week'}"/>
                 </group>
-
             </search>
         </field>
     </record>
 
-    <!-- ACTION -->
+    <!-- ACTION principale avec bouton Recalculer -->
     <record id="action_capacite_charge" model="ir.actions.act_window">
         <field name="name">Capacité vs Charge</field>
         <field name="res_model">mrp.capacite.charge</field>
@@ -88,6 +80,18 @@
             'search_default_trois_semaines': 1,
             'search_default_group_workcenter': 1
         }</field>
+    </record>
+
+    <!-- ACTION Recalculer la capacité -->
+    <record id="action_refresh_capacite" model="ir.actions.server">
+        <field name="name">Recalculer la capacité</field>
+        <field name="model_id" ref="model_mrp_capacite_charge"/>
+        <field name="binding_model_id" ref="model_mrp_capacite_charge"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">
+env['mrp.capacite.cache'].refresh()
+        </field>
     </record>
 
 </odoo>

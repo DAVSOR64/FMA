@@ -1,5 +1,103 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, tools
+from datetime import timedelta
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
+class CapaciteCache(models.Model):
+    """
+    Table intermédiaire stockant la capacité calculée via les calendriers Odoo.
+    Remplie par _refresh_capacite(), appelée depuis init() et via un bouton.
+    """
+    _name = 'mrp.capacite.cache'
+    _description = 'Cache capacité planning par poste/jour'
+
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', index=True)
+    workcenter_name = fields.Char(string='Nom poste')
+    date = fields.Date(string='Date', index=True)
+    capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2))
+
+    def refresh(self):
+        """Recalcule la capacité en tenant compte des calendriers de chaque ressource."""
+        self.search([]).unlink()
+
+        slots = self.env['planning.slot'].search([('state', '=', 'published')])
+        if not slots:
+            return
+
+        vals_list = []
+
+        for slot in slots:
+            if not slot.resource_id or not slot.role_id:
+                continue
+
+            # Trouver le workcenter correspondant au role
+            workcenter = self.env['mrp.workcenter'].search([
+                ('name', '=ilike', slot.role_id.name)
+            ], limit=1)
+            if not workcenter:
+                continue
+
+            # Récupérer le calendrier de la ressource
+            calendar = slot.resource_id.calendar_id
+            if not calendar:
+                # Fallback : durée brute du slot si pas de calendrier
+                delta = (slot.end_datetime - slot.start_datetime).total_seconds() / 3600.0
+                date = slot.start_datetime.date()
+                vals_list.append({
+                    'workcenter_id': workcenter.id,
+                    'workcenter_name': workcenter.name,
+                    'date': date,
+                    'capacite_heures': delta,
+                })
+                continue
+
+            # Calculer les intervalles de travail réels selon le calendrier
+            # pour la plage du slot
+            try:
+                intervals = calendar._work_intervals_batch(
+                    slot.start_datetime,
+                    slot.end_datetime,
+                    resources=slot.resource_id,
+                )
+                # intervals est un dict {resource_id: Intervals}
+                resource_intervals = intervals.get(slot.resource_id.id, [])
+
+                # Regrouper par jour
+                heures_par_jour = {}
+                for start, stop, _meta in resource_intervals:
+                    jour = start.date()
+                    duree = (stop - start).total_seconds() / 3600.0
+                    heures_par_jour[jour] = heures_par_jour.get(jour, 0) + duree
+
+                for jour, heures in heures_par_jour.items():
+                    if heures > 0:
+                        vals_list.append({
+                            'workcenter_id': workcenter.id,
+                            'workcenter_name': workcenter.name,
+                            'date': jour,
+                            'capacite_heures': heures,
+                        })
+
+            except Exception as e:
+                _logger.warning('Erreur calcul capacité slot %s : %s', slot.id, e)
+                continue
+
+        # Agréger si plusieurs slots sur même poste/jour
+        aggregated = {}
+        for v in vals_list:
+            key = (v['workcenter_id'], v['date'])
+            if key in aggregated:
+                aggregated[key]['capacite_heures'] += v['capacite_heures']
+            else:
+                aggregated[key] = v.copy()
+
+        if aggregated:
+            self.create(list(aggregated.values()))
+
+        _logger.info('Capacité recalculée : %d entrées', len(aggregated))
 
 
 class CapaciteCharge(models.Model):
@@ -17,36 +115,23 @@ class CapaciteCharge(models.Model):
     taux_charge = fields.Float(string='Taux charge (%)', digits=(10, 1), readonly=True)
     solde_heures = fields.Float(string='Solde (h)', digits=(10, 2), readonly=True)
 
-    def _get_name_expr(self, alias, col='name'):
-        """
-        Retourne une expression SQL compatible varchar ET jsonb.
-        - Si varchar  → cast direct en text
-        - Si jsonb    → extraction fr_FR puis en_US puis cast brut
-        On détecte le type réel de la colonne au moment de l'init.
-        """
+    def _get_name_expr(self, table, col='name'):
         cr = self.env.cr
         cr.execute("""
-            SELECT data_type
-            FROM information_schema.columns
-            WHERE table_name = %s AND column_name = %s
-            LIMIT 1
-        """, (alias, col))
+            SELECT data_type FROM information_schema.columns
+            WHERE table_name = %s AND column_name = %s LIMIT 1
+        """, (table, col))
         row = cr.fetchone()
         dtype = row[0] if row else 'character varying'
         if dtype == 'jsonb':
-            return (
-                f"COALESCE({alias}.{col}->>'fr_FR', "
-                f"{alias}.{col}->>'en_US', "
-                f"{alias}.{col}::text)"
-            )
-        else:
-            return f"{alias}.{col}::text"
+            return (f"COALESCE({table}.{col}->>'fr_FR', "
+                    f"{table}.{col}->>'en_US', {table}.{col}::text)")
+        return f"{table}.{col}::text"
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')
 
-        wc_name  = self._get_name_expr('mrp_workcenter')
-        pr_name  = self._get_name_expr('planning_role')
+        wc_name = self._get_name_expr('mrp_workcenter')
 
         self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW mrp_capacite_charge AS (
@@ -61,11 +146,10 @@ class CapaciteCharge(models.Model):
                         CASE
                             WHEN wo.state IN ('pending', 'ready', 'waiting')
                                 THEN COALESCE(wo.duration_expected, 0) / 60.0
-                            ELSE
-                                GREATEST(
-                                    COALESCE(wo.duration_expected, 0)
-                                    - COALESCE(wo.duration, 0), 0
-                                ) / 60.0
+                            ELSE GREATEST(
+                                COALESCE(wo.duration_expected, 0)
+                                - COALESCE(wo.duration, 0), 0
+                            ) / 60.0
                         END
                     )                                            AS charge_heures
                 FROM mrp_workorder wo
@@ -78,24 +162,15 @@ class CapaciteCharge(models.Model):
                     DATE(wo.date_start)
             ),
 
+            -- Capacité depuis la table cache (calculée en Python avec calendriers)
             capacite AS (
                 SELECT
-                    mrp_workcenter.id                            AS workcenter_id,
-                    {wc_name}                                    AS workcenter_name,
-                    DATE(ps.start_datetime)                      AS date,
-                    SUM(
-                        EXTRACT(EPOCH FROM (
-                            ps.end_datetime - ps.start_datetime
-                        )) / 3600.0
-                    )                                            AS capacite_heures
-                FROM planning_slot ps
-                JOIN planning_role ON planning_role.id = ps.role_id
-                JOIN mrp_workcenter ON LOWER(TRIM({wc_name})) = LOWER(TRIM({pr_name}))
-                WHERE ps.state = 'published'
-                GROUP BY
-                    mrp_workcenter.id,
-                    {wc_name},
-                    DATE(ps.start_datetime)
+                    workcenter_id,
+                    workcenter_name,
+                    date,
+                    SUM(capacite_heures) AS capacite_heures
+                FROM mrp_capacite_cache
+                GROUP BY workcenter_id, workcenter_name, date
             ),
 
             all_keys AS (
@@ -105,33 +180,28 @@ class CapaciteCharge(models.Model):
             )
 
             SELECT
-                ROW_NUMBER() OVER (
-                    ORDER BY ak.date, ak.workcenter_name
-                )                                               AS id,
+                ROW_NUMBER() OVER (ORDER BY ak.date, ak.workcenter_name) AS id,
                 ak.workcenter_id,
                 ak.workcenter_name,
                 ak.date,
-                COALESCE(cap.capacite_heures, 0)               AS capacite_heures,
-                COALESCE(ch.charge_heures,   0)                AS charge_heures,
-                COALESCE(ch.nb_operations,   0)                AS nb_operations,
+                COALESCE(cap.capacite_heures, 0)    AS capacite_heures,
+                COALESCE(ch.charge_heures, 0)       AS charge_heures,
+                COALESCE(ch.nb_operations, 0)       AS nb_operations,
                 COALESCE(ch.charge_heures, 0)
-                    - COALESCE(cap.capacite_heures, 0)         AS solde_heures,
+                    - COALESCE(cap.capacite_heures, 0) AS solde_heures,
                 CASE
                     WHEN COALESCE(cap.capacite_heures, 0) > 0
-                        THEN ROUND(
-                            (COALESCE(ch.charge_heures, 0)
-                             / cap.capacite_heures * 100.0
-                            )::numeric, 1
-                        )
-                    WHEN COALESCE(ch.charge_heures, 0) > 0
-                        THEN 999
+                        THEN ROUND((
+                            COALESCE(ch.charge_heures, 0)
+                            / cap.capacite_heures * 100.0
+                        )::numeric, 1)
+                    WHEN COALESCE(ch.charge_heures, 0) > 0 THEN 999
                     ELSE 0
-                END                                             AS taux_charge
-
+                END                                 AS taux_charge
             FROM all_keys ak
-            LEFT JOIN charge   ch  ON ch.workcenter_id  = ak.workcenter_id
-                                   AND ch.date           = ak.date
-            LEFT JOIN capacite cap ON cap.workcenter_id  = ak.workcenter_id
-                                   AND cap.date          = ak.date
+            LEFT JOIN charge   ch  ON ch.workcenter_id = ak.workcenter_id
+                                   AND ch.date          = ak.date
+            LEFT JOIN capacite cap ON cap.workcenter_id = ak.workcenter_id
+                                   AND cap.date         = ak.date
         )
         """)

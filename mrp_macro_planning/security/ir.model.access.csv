@@ -1,3 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_capacite_charge_user,mrp.capacite.charge user,model_mrp_capacite_charge,mrp.group_mrp_user,1,0,0,0
 access_capacite_charge_manager,mrp.capacite.charge manager,model_mrp_capacite_charge,mrp.group_mrp_manager,1,0,0,0
+access_capacite_cache_user,mrp.capacite.cache user,model_mrp_capacite_cache,mrp.group_mrp_user,1,0,0,0
+access_capacite_cache_manager,mrp.capacite.cache manager,model_mrp_capacite_cache,mrp.group_mrp_manager,1,1,1,1
