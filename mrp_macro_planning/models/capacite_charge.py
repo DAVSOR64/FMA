@@ -1,30 +1,28 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, tools
-from datetime import timedelta
 import logging
 
 _logger = logging.getLogger(__name__)
 
 
 class CapaciteCache(models.Model):
-    """
-    Table intermédiaire stockant la capacité calculée via les calendriers Odoo.
-    Remplie par _refresh_capacite(), appelée depuis init() et via un bouton.
-    """
     _name = 'mrp.capacite.cache'
     _description = 'Cache capacité planning par poste/jour'
+    _auto = True  # Force la création de la table SQL
 
-    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', index=True)
+    workcenter_id = fields.Many2one(
+        'mrp.workcenter', string='Poste', index=True, ondelete='cascade')
     workcenter_name = fields.Char(string='Nom poste')
     date = fields.Date(string='Date', index=True)
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2))
 
     def refresh(self):
-        """Recalcule la capacité en tenant compte des calendriers de chaque ressource."""
+        """Recalcule la capacité en tenant compte des calendriers."""
         self.search([]).unlink()
 
         slots = self.env['planning.slot'].search([('state', '=', 'published')])
         if not slots:
+            _logger.info('Aucun slot publié trouvé')
             return
 
         vals_list = []
@@ -33,39 +31,32 @@ class CapaciteCache(models.Model):
             if not slot.resource_id or not slot.role_id:
                 continue
 
-            # Trouver le workcenter correspondant au role
             workcenter = self.env['mrp.workcenter'].search([
                 ('name', '=ilike', slot.role_id.name)
             ], limit=1)
             if not workcenter:
                 continue
 
-            # Récupérer le calendrier de la ressource
             calendar = slot.resource_id.calendar_id
             if not calendar:
-                # Fallback : durée brute du slot si pas de calendrier
+                # Fallback sans calendrier : durée brute
                 delta = (slot.end_datetime - slot.start_datetime).total_seconds() / 3600.0
-                date = slot.start_datetime.date()
                 vals_list.append({
                     'workcenter_id': workcenter.id,
                     'workcenter_name': workcenter.name,
-                    'date': date,
+                    'date': slot.start_datetime.date(),
                     'capacite_heures': delta,
                 })
                 continue
 
-            # Calculer les intervalles de travail réels selon le calendrier
-            # pour la plage du slot
             try:
                 intervals = calendar._work_intervals_batch(
                     slot.start_datetime,
                     slot.end_datetime,
                     resources=slot.resource_id,
                 )
-                # intervals est un dict {resource_id: Intervals}
                 resource_intervals = intervals.get(slot.resource_id.id, [])
 
-                # Regrouper par jour
                 heures_par_jour = {}
                 for start, stop, _meta in resource_intervals:
                     jour = start.date()
@@ -85,10 +76,10 @@ class CapaciteCache(models.Model):
                 _logger.warning('Erreur calcul capacité slot %s : %s', slot.id, e)
                 continue
 
-        # Agréger si plusieurs slots sur même poste/jour
+        # Agréger plusieurs slots sur même poste/jour
         aggregated = {}
         for v in vals_list:
-            key = (v['workcenter_id'], v['date'])
+            key = (v['workcenter_id'], str(v['date']))
             if key in aggregated:
                 aggregated[key]['capacite_heures'] += v['capacite_heures']
             else:
@@ -130,7 +121,6 @@ class CapaciteCharge(models.Model):
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')
-
         wc_name = self._get_name_expr('mrp_workcenter')
 
         self.env.cr.execute(f"""
@@ -139,9 +129,9 @@ class CapaciteCharge(models.Model):
             WITH charge AS (
                 SELECT
                     wo.workcenter_id,
-                    {wc_name}                                    AS workcenter_name,
-                    DATE(wo.date_start)                          AS date,
-                    COUNT(*)                                     AS nb_operations,
+                    {wc_name}                                   AS workcenter_name,
+                    DATE(wo.date_start)                         AS date,
+                    COUNT(*)                                    AS nb_operations,
                     SUM(
                         CASE
                             WHEN wo.state IN ('pending', 'ready', 'waiting')
@@ -151,7 +141,7 @@ class CapaciteCharge(models.Model):
                                 - COALESCE(wo.duration, 0), 0
                             ) / 60.0
                         END
-                    )                                            AS charge_heures
+                    )                                           AS charge_heures
                 FROM mrp_workorder wo
                 JOIN mrp_workcenter ON mrp_workcenter.id = wo.workcenter_id
                 WHERE wo.state NOT IN ('done', 'cancel')
@@ -162,7 +152,6 @@ class CapaciteCharge(models.Model):
                     DATE(wo.date_start)
             ),
 
-            -- Capacité depuis la table cache (calculée en Python avec calendriers)
             capacite AS (
                 SELECT
                     workcenter_id,
@@ -197,7 +186,7 @@ class CapaciteCharge(models.Model):
                         )::numeric, 1)
                     WHEN COALESCE(ch.charge_heures, 0) > 0 THEN 999
                     ELSE 0
-                END                                 AS taux_charge
+                END AS taux_charge
             FROM all_keys ak
             LEFT JOIN charge   ch  ON ch.workcenter_id = ak.workcenter_id
                                    AND ch.date          = ak.date
