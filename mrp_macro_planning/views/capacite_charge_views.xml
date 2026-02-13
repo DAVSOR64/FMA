@@ -1,13 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ============================================================
-         VUE LISTE principale avec décorateurs couleur
-         🟢 Vert   : taux < 80%
-         🟡 Orange : 80% ≤ taux ≤ 100%
-         🔴 Rouge  : taux > 100%
-         ⚫ Gris   : pas de capacité définie (taux = 999)
-    ============================================================ -->
+    <!-- VUE LISTE avec décorateurs couleur -->
     <record id="view_capacite_charge_list" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.list</field>
         <field name="model">mrp.capacite.charge</field>
@@ -21,25 +15,17 @@
 
                 <field name="date" string="Date"/>
                 <field name="workcenter_name" string="Poste de travail"/>
-                <field name="capacite_heures" string="Capacité (h)"
-                       widget="float" digits="[10,2]"/>
-                <field name="charge_heures" string="Charge restante (h)"
-                       widget="float" digits="[10,2]"/>
-                <field name="solde_heures" string="Solde (h)"
-                       widget="float" digits="[10,2]"/>
-                <field name="taux_charge" string="Taux charge (%)"
-                       widget="float" digits="[10,1]"/>
+                <field name="capacite_heures" string="Capacité (h)"/>
+                <field name="charge_heures" string="Charge restante (h)"/>
+                <field name="solde_heures" string="Solde (h)"/>
+                <field name="taux_charge" string="Taux charge (%)"/>
                 <field name="nb_operations" string="Nb opérations"/>
-
-                <!-- Champ technique pour les décorateurs, masqué -->
                 <field name="workcenter_id" column_invisible="1"/>
             </tree>
         </field>
     </record>
 
-    <!-- ============================================================
-         VUE PIVOT pour analyse croisée
-    ============================================================ -->
+    <!-- VUE PIVOT -->
     <record id="view_capacite_charge_pivot" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.pivot</field>
         <field name="model">mrp.capacite.charge</field>
@@ -54,61 +40,31 @@
         </field>
     </record>
 
-    <!-- ============================================================
-         VUE GRAPHIQUE barres groupées
-    ============================================================ -->
-    <record id="view_capacite_charge_graph" model="ir.ui.view">
-        <field name="name">mrp.capacite.charge.graph</field>
-        <field name="model">mrp.capacite.charge</field>
-        <field name="arch" type="xml">
-            <graph string="Capacité vs Charge" type="bar" stacking="0">
-                <field name="date" type="col"/>
-                <field name="workcenter_name" type="row"/>
-                <field name="capacite_heures" type="measure"/>
-                <field name="charge_heures" type="measure"/>
-            </graph>
-        </field>
-    </record>
-
-    <!-- ============================================================
-         RECHERCHE avec filtres et regroupements
-    ============================================================ -->
+    <!-- VUE RECHERCHE -->
     <record id="view_capacite_charge_search" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.search</field>
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
             <search string="Rechercher">
 
-                <!-- Filtres rapides -->
                 <filter string="En surcharge" name="surcharge"
                         domain="[('taux_charge', '&gt;', 100)]"/>
                 <filter string="Proche saturation (80-100%)" name="alerte"
                         domain="[('taux_charge', '&gt;=', 80), ('taux_charge', '&lt;=', 100)]"/>
                 <filter string="Disponible (&lt; 80%)" name="disponible"
                         domain="[('taux_charge', '&gt;', 0), ('taux_charge', '&lt;', 80)]"/>
-                <filter string="Sans capacité définie" name="sans_capacite"
-                        domain="[('taux_charge', '=', 999)]"/>
 
                 <separator/>
 
-                <!-- Filtres date -->
-                <filter string="Cette semaine" name="cette_semaine"
-                        domain="[('date', '&gt;=', (context_today() + relativedelta(weekday=0, days=-6)).strftime('%Y-%m-%d')),
-                                 ('date', '&lt;=', (context_today() + relativedelta(weekday=6, days=-6)).strftime('%Y-%m-%d'))]"/>
-                <filter string="Semaine prochaine" name="semaine_prochaine"
-                        domain="[('date', '&gt;=', (context_today() + relativedelta(weeks=1, weekday=0, days=-6)).strftime('%Y-%m-%d')),
-                                 ('date', '&lt;=', (context_today() + relativedelta(weeks=1, weekday=6, days=-6)).strftime('%Y-%m-%d'))]"/>
                 <filter string="3 prochaines semaines" name="trois_semaines"
                         domain="[('date', '&gt;=', context_today().strftime('%Y-%m-%d')),
                                  ('date', '&lt;=', (context_today() + relativedelta(weeks=3)).strftime('%Y-%m-%d'))]"/>
 
                 <separator/>
 
-                <!-- Recherche par poste -->
                 <field name="workcenter_id" string="Poste de travail"/>
                 <field name="date" string="Date"/>
 
-                <!-- Regroupements -->
                 <group expand="1" string="Regrouper par">
                     <filter string="Poste de travail" name="group_workcenter"
                             context="{'group_by': 'workcenter_name'}"/>
@@ -122,27 +78,16 @@
         </field>
     </record>
 
-    <!-- ============================================================
-         ACTION principale
-    ============================================================ -->
+    <!-- ACTION -->
     <record id="action_capacite_charge" model="ir.actions.act_window">
         <field name="name">Capacité vs Charge</field>
         <field name="res_model">mrp.capacite.charge</field>
-        <field name="view_mode">tree,pivot,graph</field>
+        <field name="view_mode">tree,pivot</field>
         <field name="search_view_id" ref="view_capacite_charge_search"/>
         <field name="context">{
             'search_default_trois_semaines': 1,
             'search_default_group_workcenter': 1
         }</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Aucune donnée pour la période sélectionnée.
-            </p>
-            <p>
-                Vérifiez que des workorders sont planifiés et que
-                des slots de planning sont publiés pour ces postes.
-            </p>
-        </field>
     </record>
 
 </odoo>
