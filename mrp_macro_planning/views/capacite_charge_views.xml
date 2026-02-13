@@ -21,7 +21,6 @@
         </field>
     </record>
 
-    <!-- Action pour ouvrir le wizard depuis le menu -->
     <record id="action_refresh_wizard" model="ir.actions.act_window">
         <field name="name">Recalculer la capacité</field>
         <field name="res_model">mrp.capacite.refresh.wizard</field>
@@ -29,16 +28,23 @@
         <field name="target">new</field>
     </record>
 
-    <!-- Vue liste planning.role avec champ workcenter_id -->
-    <record id="view_planning_role_list_workcenter" model="ir.ui.view">
-        <field name="name">planning.role.list.workcenter</field>
+    <!-- Vue standalone pour configurer les rôles → workcenters -->
+    <record id="view_planning_role_workcenter_tree" model="ir.ui.view">
+        <field name="name">planning.role.workcenter.tree</field>
         <field name="model">planning.role</field>
-        <field name="inherit_id" ref="planning.planning_role_view_list"/>
         <field name="arch" type="xml">
-            <xpath expr="//tree" position="inside">
-                <field name="workcenter_id" string="Poste de travail lié" optional="show"/>
-            </xpath>
+            <tree string="Rôles Planning - Postes liés" editable="bottom">
+                <field name="name" string="Rôle"/>
+                <field name="workcenter_id" string="Poste de travail lié"/>
+            </tree>
         </field>
+    </record>
+
+    <record id="action_planning_role_workcenter" model="ir.actions.act_window">
+        <field name="name">Lier Rôles → Postes</field>
+        <field name="res_model">planning.role</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_planning_role_workcenter_tree"/>
     </record>
 
     <!-- VUE LISTE -->
