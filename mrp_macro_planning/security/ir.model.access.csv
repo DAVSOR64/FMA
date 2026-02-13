@@ -5,3 +5,5 @@ access_capacite_cache_user,mrp.capacite.cache user,model_mrp_capacite_cache,mrp.
 access_capacite_cache_manager,mrp.capacite.cache manager,model_mrp_capacite_cache,mrp.group_mrp_manager,1,1,1,1
 access_capacite_refresh_wizard_user,mrp.capacite.refresh.wizard user,model_mrp_capacite_refresh_wizard,mrp.group_mrp_user,1,1,1,1
 access_capacite_refresh_wizard_manager,mrp.capacite.refresh.wizard manager,model_mrp_capacite_refresh_wizard,mrp.group_mrp_manager,1,1,1,1
+access_capacite_charge_detail_user,mrp.capacite.charge.detail user,model_mrp_capacite_charge_detail,mrp.group_mrp_user,1,0,0,0
+access_capacite_charge_detail_manager,mrp.capacite.charge.detail manager,model_mrp_capacite_charge_detail,mrp.group_mrp_manager,1,0,0,0

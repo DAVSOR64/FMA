@@ -28,7 +28,7 @@
         <field name="target">new</field>
     </record>
 
-    <!-- Vue standalone pour configurer les rôles → workcenters -->
+    <!-- Vue standalone rôles → workcenters -->
     <record id="view_planning_role_workcenter_tree" model="ir.ui.view">
         <field name="name">planning.role.workcenter.tree</field>
         <field name="model">planning.role</field>
@@ -47,7 +47,38 @@
         <field name="view_id" ref="view_planning_role_workcenter_tree"/>
     </record>
 
-    <!-- VUE LISTE -->
+    <!-- VUE DETAIL des workorders -->
+    <record id="view_capacite_charge_detail_tree" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.detail.tree</field>
+        <field name="model">mrp.capacite.charge.detail</field>
+        <field name="arch" type="xml">
+            <tree string="Détail opérations" create="false" edit="false" delete="false">
+                <field name="production_name" string="N° OF"/>
+                <field name="sale_order_name" string="Commande"/>
+                <field name="projet" string="Projet"/>
+                <field name="operation_name" string="Opération"/>
+                <field name="duration_expected" string="Prévu (h)"/>
+                <field name="duration_done" string="Réalisé (h)"/>
+                <field name="charge_restante" string="Restant (h)"/>
+                <field name="state" string="Statut"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_capacite_charge_detail_search" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.detail.search</field>
+        <field name="model">mrp.capacite.charge.detail</field>
+        <field name="arch" type="xml">
+            <search string="Rechercher">
+                <field name="projet" string="Projet"/>
+                <field name="production_name" string="N° OF"/>
+                <field name="sale_order_name" string="Commande"/>
+                <field name="workcenter_name" string="Poste"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- VUE LISTE principale -->
     <record id="view_capacite_charge_list" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.list</field>
         <field name="model">mrp.capacite.charge</field>
@@ -65,7 +96,10 @@
                 <field name="solde_heures" string="Solde (h)"/>
                 <field name="taux_charge" string="Taux charge (%)"/>
                 <field name="nb_operations" string="Nb opérations"/>
+                <field name="projets" string="Projets"/>
                 <field name="workcenter_id" column_invisible="1"/>
+                <button name="action_voir_detail" type="object"
+                        string="Détail" icon="fa-list"/>
             </tree>
         </field>
     </record>
@@ -85,12 +119,13 @@
         </field>
     </record>
 
-    <!-- VUE RECHERCHE -->
+    <!-- VUE RECHERCHE avec filtre projet -->
     <record id="view_capacite_charge_search" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.search</field>
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
             <search string="Rechercher">
+                <field name="projets" string="Projet" filter_domain="[('projets', 'ilike', self)]"/>
                 <filter string="En surcharge" name="surcharge"
                         domain="[('taux_charge', '&gt;', 100)]"/>
                 <filter string="Proche saturation (80-100%)" name="alerte"
