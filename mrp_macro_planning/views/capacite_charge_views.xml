@@ -12,7 +12,7 @@
         <field name="name">mrp.capacite.charge.list</field>
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
-            <list string="Capacité vs Charge"
+            <tree string="Capacité vs Charge"
                   create="false" edit="false" delete="false"
                   decoration-danger="taux_charge &gt; 100"
                   decoration-warning="taux_charge &gt;= 80 and taux_charge &lt;= 100"
@@ -33,7 +33,7 @@
 
                 <!-- Champ technique pour les décorateurs, masqué -->
                 <field name="workcenter_id" column_invisible="1"/>
-            </list>
+            </tree>
         </field>
     </record>
 
@@ -128,7 +128,7 @@
     <record id="action_capacite_charge" model="ir.actions.act_window">
         <field name="name">Capacité vs Charge</field>
         <field name="res_model">mrp.capacite.charge</field>
-        <field name="view_mode">list,pivot,graph</field>
+        <field name="view_mode">tree,pivot,graph</field>
         <field name="search_view_id" ref="view_capacite_charge_search"/>
         <field name="context">{
             'search_default_trois_semaines': 1,
