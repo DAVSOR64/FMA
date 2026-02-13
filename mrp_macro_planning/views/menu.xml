@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Menu principal sous Fabrication -->
+    <menuitem id="menu_capacite_charge_root"
+              name="Macro Planning"
+              parent="mrp.menu_mrp_root"
+              sequence="95"/>
+
+    <menuitem id="menu_capacite_charge"
+              name="Capacité vs Charge"
+              parent="menu_capacite_charge_root"
+              action="action_capacite_charge"
+              sequence="10"/>
+
+</odoo>

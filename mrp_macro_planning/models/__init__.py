@@ -1,2 +1,2 @@
-#from . import mrp_production
-from . import planning_slot
+# -*- coding: utf-8 -*-
+from . import capacite_charge
