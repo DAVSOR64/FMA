@@ -11,6 +11,7 @@
         'views/capacite_charge_views.xml',
         'views/menu.xml',
     ],
+    
     'installable': True,
     'application': False,
     'license': 'LGPL-3',
