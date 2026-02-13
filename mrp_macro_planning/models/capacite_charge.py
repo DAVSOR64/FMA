@@ -8,35 +8,53 @@ class CapaciteCharge(models.Model):
     _description = 'Capacité vs Charge par poste de travail'
     _order = 'date asc, workcenter_name asc'
 
-    # --- Dimensions ---
     date = fields.Date(string='Date', readonly=True)
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', readonly=True)
     workcenter_name = fields.Char(string='Poste', readonly=True)
-
-    # --- Capacité (depuis planning.slot) ---
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2), readonly=True)
-
-    # --- Charge (depuis mrp.workorder) ---
     charge_heures = fields.Float(string='Charge restante (h)', digits=(10, 2), readonly=True)
     nb_operations = fields.Integer(string='Nb opérations', readonly=True)
-
-    # --- Indicateur ---
     taux_charge = fields.Float(string='Taux charge (%)', digits=(10, 1), readonly=True)
     solde_heures = fields.Float(string='Solde (h)', digits=(10, 2), readonly=True)
 
+    def _get_name_expr(self, alias, col='name'):
+        """
+        Retourne une expression SQL compatible varchar ET jsonb.
+        - Si varchar  → cast direct en text
+        - Si jsonb    → extraction fr_FR puis en_US puis cast brut
+        On détecte le type réel de la colonne au moment de l'init.
+        """
+        cr = self.env.cr
+        cr.execute("""
+            SELECT data_type
+            FROM information_schema.columns
+            WHERE table_name = %s AND column_name = %s
+            LIMIT 1
+        """, (alias, col))
+        row = cr.fetchone()
+        dtype = row[0] if row else 'character varying'
+        if dtype == 'jsonb':
+            return (
+                f"COALESCE({alias}.{col}->>'fr_FR', "
+                f"{alias}.{col}->>'en_US', "
+                f"{alias}.{col}::text)"
+            )
+        else:
+            return f"{alias}.{col}::text"
+
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')
-        self.env.cr.execute("""
+
+        wc_name  = self._get_name_expr('mrp_workcenter')
+        pr_name  = self._get_name_expr('planning_role')
+
+        self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW mrp_capacite_charge AS (
 
             WITH charge AS (
                 SELECT
                     wo.workcenter_id,
-                    COALESCE(
-                        wc.name->>'fr_FR',
-                        wc.name->>'en_US',
-                        wc.name::text
-                    )                                            AS workcenter_name,
+                    {wc_name}                                    AS workcenter_name,
                     DATE(wo.date_start)                          AS date,
                     COUNT(*)                                     AS nb_operations,
                     SUM(
@@ -51,23 +69,19 @@ class CapaciteCharge(models.Model):
                         END
                     )                                            AS charge_heures
                 FROM mrp_workorder wo
-                JOIN mrp_workcenter wc ON wc.id = wo.workcenter_id
+                JOIN mrp_workcenter ON mrp_workcenter.id = wo.workcenter_id
                 WHERE wo.state NOT IN ('done', 'cancel')
                   AND wo.date_start IS NOT NULL
                 GROUP BY
                     wo.workcenter_id,
-                    COALESCE(wc.name->>'fr_FR', wc.name->>'en_US', wc.name::text),
+                    {wc_name},
                     DATE(wo.date_start)
             ),
 
             capacite AS (
                 SELECT
-                    wc.id                                        AS workcenter_id,
-                    COALESCE(
-                        wc.name->>'fr_FR',
-                        wc.name->>'en_US',
-                        wc.name::text
-                    )                                            AS workcenter_name,
+                    mrp_workcenter.id                            AS workcenter_id,
+                    {wc_name}                                    AS workcenter_name,
                     DATE(ps.start_datetime)                      AS date,
                     SUM(
                         EXTRACT(EPOCH FROM (
@@ -75,16 +89,12 @@ class CapaciteCharge(models.Model):
                         )) / 3600.0
                     )                                            AS capacite_heures
                 FROM planning_slot ps
-                JOIN planning_role pr ON pr.id = ps.role_id
-                JOIN mrp_workcenter wc ON LOWER(TRIM(
-                    COALESCE(wc.name->>'fr_FR', wc.name->>'en_US', wc.name::text)
-                )) = LOWER(TRIM(
-                    COALESCE(pr.name->>'fr_FR', pr.name->>'en_US', pr.name::text)
-                ))
+                JOIN planning_role ON planning_role.id = ps.role_id
+                JOIN mrp_workcenter ON LOWER(TRIM({wc_name})) = LOWER(TRIM({pr_name}))
                 WHERE ps.state = 'published'
                 GROUP BY
-                    wc.id,
-                    COALESCE(wc.name->>'fr_FR', wc.name->>'en_US', wc.name::text),
+                    mrp_workcenter.id,
+                    {wc_name},
                     DATE(ps.start_datetime)
             ),
 
