@@ -21,12 +21,24 @@
         </field>
     </record>
 
-    <!-- Action pour ouvrir le wizard directement depuis le menu -->
+    <!-- Action pour ouvrir le wizard depuis le menu -->
     <record id="action_refresh_wizard" model="ir.actions.act_window">
         <field name="name">Recalculer la capacité</field>
         <field name="res_model">mrp.capacite.refresh.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
+    </record>
+
+    <!-- Vue liste planning.role avec champ workcenter_id -->
+    <record id="view_planning_role_list_workcenter" model="ir.ui.view">
+        <field name="name">planning.role.list.workcenter</field>
+        <field name="model">planning.role</field>
+        <field name="inherit_id" ref="planning.planning_role_view_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="inside">
+                <field name="workcenter_id" string="Poste de travail lié" optional="show"/>
+            </xpath>
+        </field>
     </record>
 
     <!-- VUE LISTE -->
@@ -111,16 +123,3 @@
     </record>
 
 </odoo>
-
-    <!-- Vue liste planning.role avec champ workcenter_id -->
-    <record id="view_planning_role_list_workcenter" model="ir.ui.view">
-        <field name="name">planning.role.list.workcenter</field>
-        <field name="model">planning.role</field>
-        <field name="inherit_id" ref="planning.planning_role_view_list"/>
-        <field name="arch" type="xml">
-            <xpath expr="//tree" position="inside">
-                <field name="workcenter_id" string="Poste de travail lié" optional="show"/>
-            </xpath>
-        </field>
-    </record>
-
