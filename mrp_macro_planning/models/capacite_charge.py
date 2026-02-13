@@ -1,18 +1,20 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, tools
 import logging
+import traceback
+import pytz
+from datetime import datetime
 
 _logger = logging.getLogger(__name__)
 
 
 class PlanningRole(models.Model):
-    """Ajout d'un lien explicite vers mrp.workcenter sur planning.role"""
     _inherit = 'planning.role'
 
     workcenter_id = fields.Many2one(
         'mrp.workcenter',
         string='Poste de travail lié',
-        help='Lier ce rôle Planning au poste de travail correspondant pour le calcul de capacité',
+        help='Lier ce rôle Planning au poste de travail pour le calcul de capacité',
     )
 
 
@@ -27,15 +29,22 @@ class CapaciteCache(models.Model):
     date = fields.Date(string='Date', index=True)
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2))
 
+    def _to_utc(self, dt):
+        """Assure que le datetime est en UTC avec timezone pour _work_intervals_batch."""
+        if dt is None:
+            return dt
+        if dt.tzinfo is None:
+            return pytz.utc.localize(dt)
+        return dt.astimezone(pytz.utc)
+
     def refresh(self):
-        """Recalcule la capacité via le lien explicite role → workcenter."""
+        """Recalcule la capacité en tenant compte des calendriers."""
         self.search([]).unlink()
 
         slots = self.env['planning.slot'].search([('state', '=', 'published')])
         _logger.info('REFRESH CAPACITE : %d slots publiés', len(slots))
 
         if not slots:
-            _logger.warning('Aucun slot publié trouvé')
             return
 
         vals_list = []
@@ -44,15 +53,13 @@ class CapaciteCache(models.Model):
             if not slot.resource_id or not slot.role_id:
                 continue
 
-            # Lien explicite role → workcenter
             workcenter = slot.role_id.workcenter_id
             if not workcenter:
-                _logger.info('Role "%s" sans workcenter lié, ignoré', slot.role_id.name)
+                _logger.info('Role "%s" sans workcenter lié', slot.role_id.name)
                 continue
 
             calendar = slot.resource_id.calendar_id
             if not calendar:
-                # Fallback : durée brute du slot
                 delta = (slot.end_datetime - slot.start_datetime).total_seconds() / 3600.0
                 vals_list.append({
                     'workcenter_id': workcenter.id,
@@ -63,9 +70,12 @@ class CapaciteCache(models.Model):
                 continue
 
             try:
+                date_start = self._to_utc(slot.start_datetime)
+                date_stop = self._to_utc(slot.end_datetime)
+
                 intervals = calendar._work_intervals_batch(
-                    slot.start_datetime,
-                    slot.end_datetime,
+                    date_start,
+                    date_stop,
                     resources=slot.resource_id,
                 )
                 resource_intervals = intervals.get(slot.resource_id.id, [])
@@ -76,7 +86,7 @@ class CapaciteCache(models.Model):
                     duree = (stop - start).total_seconds() / 3600.0
                     heures_par_jour[jour] = heures_par_jour.get(jour, 0) + duree
 
-                _logger.info('Slot %s role=%s workcenter=%s : %s',
+                _logger.info('Slot %s role=%s wc=%s heures=%s',
                              slot.id, slot.role_id.name, workcenter.name, heures_par_jour)
 
                 for jour, heures in heures_par_jour.items():
@@ -89,10 +99,10 @@ class CapaciteCache(models.Model):
                         })
 
             except Exception as e:
-                _logger.error('Erreur slot %s : %s', slot.id, e)
+                _logger.error('Erreur slot %s : %s\n%s',
+                              slot.id, e, traceback.format_exc())
                 continue
 
-        # Agréger plusieurs slots sur même poste/jour
         aggregated = {}
         for v in vals_list:
             key = (v['workcenter_id'], str(v['date']))
@@ -171,7 +181,6 @@ class CapaciteCharge(models.Model):
 
         self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW mrp_capacite_charge AS (
-
             WITH charge AS (
                 SELECT
                     wo.workcenter_id,
@@ -192,51 +201,34 @@ class CapaciteCharge(models.Model):
                 JOIN mrp_workcenter ON mrp_workcenter.id = wo.workcenter_id
                 WHERE wo.state NOT IN ('done', 'cancel')
                   AND wo.date_start IS NOT NULL
-                GROUP BY
-                    wo.workcenter_id,
-                    {wc_name},
-                    DATE(wo.date_start)
+                GROUP BY wo.workcenter_id, {wc_name}, DATE(wo.date_start)
             ),
-
             capacite AS (
-                SELECT
-                    workcenter_id,
-                    workcenter_name,
-                    date,
-                    SUM(capacite_heures) AS capacite_heures
+                SELECT workcenter_id, workcenter_name, date,
+                       SUM(capacite_heures) AS capacite_heures
                 FROM mrp_capacite_cache
                 GROUP BY workcenter_id, workcenter_name, date
             ),
-
             all_keys AS (
                 SELECT workcenter_id, workcenter_name, date FROM charge
                 UNION
                 SELECT workcenter_id, workcenter_name, date FROM capacite
             )
-
             SELECT
                 ROW_NUMBER() OVER (ORDER BY ak.date, ak.workcenter_name) AS id,
-                ak.workcenter_id,
-                ak.workcenter_name,
-                ak.date,
+                ak.workcenter_id, ak.workcenter_name, ak.date,
                 COALESCE(cap.capacite_heures, 0)       AS capacite_heures,
                 COALESCE(ch.charge_heures, 0)          AS charge_heures,
                 COALESCE(ch.nb_operations, 0)          AS nb_operations,
-                COALESCE(ch.charge_heures, 0)
-                    - COALESCE(cap.capacite_heures, 0) AS solde_heures,
+                COALESCE(ch.charge_heures, 0) - COALESCE(cap.capacite_heures, 0) AS solde_heures,
                 CASE
                     WHEN COALESCE(cap.capacite_heures, 0) > 0
-                        THEN ROUND((
-                            COALESCE(ch.charge_heures, 0)
-                            / cap.capacite_heures * 100.0
-                        )::numeric, 1)
+                        THEN ROUND((COALESCE(ch.charge_heures, 0) / cap.capacite_heures * 100.0)::numeric, 1)
                     WHEN COALESCE(ch.charge_heures, 0) > 0 THEN 999
                     ELSE 0
                 END AS taux_charge
             FROM all_keys ak
-            LEFT JOIN charge   ch  ON ch.workcenter_id = ak.workcenter_id
-                                   AND ch.date          = ak.date
-            LEFT JOIN capacite cap ON cap.workcenter_id = ak.workcenter_id
-                                   AND cap.date         = ak.date
+            LEFT JOIN charge   ch  ON ch.workcenter_id  = ak.workcenter_id AND ch.date  = ak.date
+            LEFT JOIN capacite cap ON cap.workcenter_id = ak.workcenter_id AND cap.date = ak.date
         )
         """)
