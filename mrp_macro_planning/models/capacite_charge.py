@@ -177,7 +177,7 @@ class CapaciteChargeDetail(models.Model):
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
             sale_id_expr = f"mp.{sale_col} AS sale_order_id,"
             sale_name_expr = "so.name AS sale_order_name,"
-            projet_expr = "so.x_studio_projet::text AS projet," if has_projet else "NULL::text AS projet,"
+            projet_expr = "so.x_studio_projet.name::text AS projet," if has_projet else "NULL::text AS projet,"
         else:
             sale_join = ""
             sale_id_expr = "NULL::integer AS sale_order_id,"
@@ -335,7 +335,7 @@ class CapaciteCharge(models.Model):
                 COALESCE(ch.charge_heures, 0) - COALESCE(cap.capacite_heures, 0) AS solde_heures,
                 CASE
                     WHEN COALESCE(cap.capacite_heures, 0) > 0
-                        THEN ROUND((COALESCE(ch.charge_heures, 0) / cap.capacite_heures * 100.0)::numeric, 1)
+                        THEN ROUND(((COALESCE(ch.charge_heures, 0) / cap.capacite_heures) * 100.0)::numeric, 1)
                     WHEN COALESCE(ch.charge_heures, 0) > 0 THEN 999
                     ELSE 0
                 END AS taux_charge
