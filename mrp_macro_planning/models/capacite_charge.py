@@ -177,7 +177,8 @@ class CapaciteChargeDetail(models.Model):
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
             sale_id_expr = f"mp.{sale_col} AS sale_order_id,"
             sale_name_expr = "so.name AS sale_order_name,"
-            projet_expr = "so.x_studio_projet::text AS projet," if has_projet else "NULL::text AS projet,"
+            projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet" if has_projet else ""
+            projet_expr = "pp.name::text AS projet," if has_projet else "NULL::text AS projet,"
         else:
             sale_join = ""
             sale_id_expr = "NULL::integer AS sale_order_id,"
@@ -282,7 +283,8 @@ class CapaciteCharge(models.Model):
 
         if sale_col and has_projet:
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
-            projet_agg = "STRING_AGG(DISTINCT so.x_studio_projet::text, ', ') AS projets,"
+            projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet"
+            projet_agg = "STRING_AGG(DISTINCT pp.name::text, ', ') AS projets,"
         else:
             sale_join = ""
             projet_agg = "NULL::text AS projets,"
@@ -310,6 +312,7 @@ class CapaciteCharge(models.Model):
                 JOIN mrp_workcenter ON mrp_workcenter.id = wo.workcenter_id
                 JOIN mrp_production mp ON mp.id = wo.production_id
                 {sale_join}
+                {projet_join}
                 WHERE wo.state NOT IN ('done', 'cancel')
                   AND wo.date_start IS NOT NULL
                 GROUP BY wo.workcenter_id, {wc_name}, DATE(wo.date_start)
