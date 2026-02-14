@@ -164,6 +164,7 @@ class CapaciteChargeDetail(models.Model):
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge_detail')
         wc_name = self._get_name_expr('mrp_workcenter')
+        pp_name = self._get_name_expr('project_project')  # FIX : gère le JSONB
         sale_col = self._get_sale_col()
 
         # Vérifier si x_studio_projet existe
@@ -177,12 +178,11 @@ class CapaciteChargeDetail(models.Model):
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
             sale_id_expr = f"mp.{sale_col} AS sale_order_id,"
             sale_name_expr = "so.name AS sale_order_name,"
-            # FIX : jointure project_project pour récupérer le nom (pas l'ID)
             projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet" if has_projet else ""
-            projet_expr = "pp.name::text AS projet," if has_projet else "NULL::text AS projet,"
+            projet_expr = f"{pp_name} AS projet," if has_projet else "NULL::text AS projet,"
         else:
             sale_join = ""
-            projet_join = ""  # FIX : initialisation explicite
+            projet_join = ""
             sale_id_expr = "NULL::integer AS sale_order_id,"
             sale_name_expr = "NULL::text AS sale_order_name,"
             projet_expr = "NULL::text AS projet,"
@@ -276,6 +276,7 @@ class CapaciteCharge(models.Model):
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')
         wc_name = self._get_name_expr('mrp_workcenter')
+        pp_name = self._get_name_expr('project_project')  # FIX : gère le JSONB
         sale_col = self._get_sale_col()
 
         self.env.cr.execute("""
@@ -286,12 +287,11 @@ class CapaciteCharge(models.Model):
 
         if sale_col and has_projet:
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
-            # FIX : jointure project_project pour récupérer le nom (pas l'ID)
             projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet"
-            projet_agg = "STRING_AGG(DISTINCT pp.name::text, ', ') AS projets,"
+            projet_agg = f"STRING_AGG(DISTINCT {pp_name}, ', ') AS projets,"  # FIX : gère le JSONB
         else:
             sale_join = ""
-            projet_join = ""  # FIX : initialisation manquante → évite NameError
+            projet_join = ""
             projet_agg = "NULL::text AS projets,"
 
         self.env.cr.execute(f"""
