@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================== -->
+    <!-- Charge par opérateur — Vue liste                                    -->
+    <!-- ================================================================== -->
+
+    <record id="view_capacite_charge_operateur_list" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.operateur.list</field>
+        <field name="model">mrp.capacite.charge.operateur</field>
+        <field name="arch" type="xml">
+            <tree string="Charge par opérateur"
+                  create="false" edit="false" delete="false"
+                  decoration-danger="charge_heures &gt; 8"
+                  decoration-warning="charge_heures &gt;= 6 and charge_heures &lt;= 8"
+                  decoration-success="charge_heures &gt; 0 and charge_heures &lt; 6"
+                  decoration-muted="charge_heures == 0">
+                <field name="date" string="Date"/>
+                <field name="employee_name" string="Opérateur"/>
+                <field name="workcenter_name" string="Poste"/>
+                <field name="nb_operations" string="Nb opérations"/>
+                <field name="charge_heures" string="Charge restante (h)"/>
+                <field name="duration_done" string="Réalisé (h)"/>
+                <field name="projets" string="Projets"/>
+                <field name="employee_id" column_invisible="1"/>
+                <field name="workcenter_id" column_invisible="1"/>
+                <button name="action_voir_detail" type="object"
+                        string="Détail" icon="fa-list"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- Charge par opérateur — Vue pivot                                    -->
+    <!-- ================================================================== -->
+
+    <record id="view_capacite_charge_operateur_pivot" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.operateur.pivot</field>
+        <field name="model">mrp.capacite.charge.operateur</field>
+        <field name="arch" type="xml">
+            <pivot string="Charge par opérateur" disable_linking="1">
+                <field name="employee_name" type="row"/>
+                <field name="date" type="col"/>
+                <field name="charge_heures" type="measure"/>
+                <field name="duration_done" type="measure"/>
+                <field name="nb_operations" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- Charge par opérateur — Vue graphique                               -->
+    <!-- ================================================================== -->
+
+    <record id="view_capacite_charge_operateur_graph" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.operateur.graph</field>
+        <field name="model">mrp.capacite.charge.operateur</field>
+        <field name="arch" type="xml">
+            <graph string="Charge par opérateur" type="bar" stacked="1">
+                <field name="date" type="col"/>
+                <field name="employee_name" type="row"/>
+                <field name="charge_heures" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- Charge par opérateur — Vue recherche                               -->
+    <!-- ================================================================== -->
+
+    <record id="view_capacite_charge_operateur_search" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.operateur.search</field>
+        <field name="model">mrp.capacite.charge.operateur</field>
+        <field name="arch" type="xml">
+            <search string="Rechercher">
+                <field name="employee_id" string="Opérateur"/>
+                <field name="workcenter_id" string="Poste"/>
+                <field name="projets" string="Projet"
+                       filter_domain="[('projets', 'ilike', self)]"/>
+                <filter string="3 prochaines semaines" name="trois_semaines"
+                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-%d')),
+                                 ('date', '&lt;=', (context_today() + relativedelta(weeks=3)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <group expand="1" string="Regrouper par">
+                    <filter string="Opérateur" name="group_employee"
+                            context="{'group_by': 'employee_name'}"/>
+                    <filter string="Poste" name="group_workcenter"
+                            context="{'group_by': 'workcenter_name'}"/>
+                    <filter string="Date" name="group_date"
+                            context="{'group_by': 'date'}"/>
+                    <filter string="Semaine" name="group_semaine"
+                            context="{'group_by': 'date:week'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- Action principale charge opérateur                                  -->
+    <!-- ================================================================== -->
+
+    <record id="action_capacite_charge_operateur" model="ir.actions.act_window">
+        <field name="name">Charge par opérateur</field>
+        <field name="res_model">mrp.capacite.charge.operateur</field>
+        <field name="view_mode">tree,pivot,graph</field>
+        <field name="search_view_id" ref="view_capacite_charge_operateur_search"/>
+        <field name="context">{
+            'search_default_trois_semaines': 1,
+            'search_default_group_employee': 1
+        }</field>
+    </record>
+
+</odoo>

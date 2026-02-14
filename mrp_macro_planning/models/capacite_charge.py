@@ -118,25 +118,13 @@ class CapaciteRefreshWizard(models.TransientModel):
         }
 
 
-class CapaciteChargeDetail(models.Model):
-    _name = 'mrp.capacite.charge.detail'
-    _auto = False
-    _description = 'Détail opérations par poste/jour'
-    _order = 'date asc, workcenter_name asc'
+# ─────────────────────────────────────────────────────────────────────────────
+# Méthodes utilitaires partagées (mixin interne)
+# ─────────────────────────────────────────────────────────────────────────────
 
-    date = fields.Date(string='Date', readonly=True)
-    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', readonly=True)
-    workcenter_name = fields.Char(string='Poste', readonly=True)
-    production_id = fields.Many2one('mrp.production', string='OF', readonly=True)
-    production_name = fields.Char(string='N° OF', readonly=True)
-    sale_order_id = fields.Many2one('sale.order', string='Commande', readonly=True)
-    sale_order_name = fields.Char(string='N° Commande', readonly=True)
-    projet = fields.Char(string='Projet', readonly=True)
-    operation_name = fields.Char(string='Opération', readonly=True)
-    duration_expected = fields.Float(string='Prévu (h)', digits=(10, 2), readonly=True)
-    duration_done = fields.Float(string='Réalisé (h)', digits=(10, 2), readonly=True)
-    charge_restante = fields.Float(string='Restant (h)', digits=(10, 2), readonly=True)
-    state = fields.Char(string='Statut', readonly=True)
+class CapaciteMixin(models.AbstractModel):
+    _name = 'mrp.capacite.mixin'
+    _description = 'Mixin utilitaires capacité'
 
     def _get_sale_col(self):
         """Détecte le nom du champ liant mrp.production à sale.order."""
@@ -152,11 +140,11 @@ class CapaciteChargeDetail(models.Model):
     def _get_name_expr(self, table, col='name', alias=None):
         """
         Génère l'expression SQL pour lire un champ name (varchar ou jsonb).
-        - table  : nom physique de la table (pour information_schema)
-        - col    : nom de la colonne
-        - alias  : alias SQL utilisé dans la requête (si différent de table)
+        - table : nom physique de la table (pour information_schema)
+        - col   : nom de la colonne
+        - alias : alias SQL utilisé dans la requête (si différent de table)
         """
-        ref = alias or table  # préfixe à utiliser dans le SQL généré
+        ref = alias or table
         self.env.cr.execute("""
             SELECT data_type FROM information_schema.columns
             WHERE table_name = %s AND column_name = %s LIMIT 1
@@ -168,19 +156,55 @@ class CapaciteChargeDetail(models.Model):
                     f"{ref}.{col}->>'en_US', {ref}.{col}::text)")
         return f"{ref}.{col}::text"
 
-    def init(self):
-        tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge_detail')
-        wc_name = self._get_name_expr('mrp_workcenter')
-        # FIX : table physique = 'project_project', alias SQL = 'pp'
-        pp_name = self._get_name_expr('project_project', alias='pp')
+    def _get_projet_fragments(self):
+        """
+        Retourne (sale_join, projet_join, projet_expr_or_agg, has_projet)
+        pour construire les parties SQL liées au projet.
+        Le paramètre agg=True retourne un STRING_AGG, sinon une expression scalaire.
+        """
         sale_col = self._get_sale_col()
+        pp_name = self._get_name_expr('project_project', alias='pp')
 
-        # Vérifier si x_studio_projet existe
         self.env.cr.execute("""
             SELECT column_name FROM information_schema.columns
             WHERE table_name = 'sale_order' AND column_name = 'x_studio_projet'
         """)
         has_projet = bool(self.env.cr.fetchone())
+
+        return sale_col, pp_name, has_projet
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vue détail des workorders
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CapaciteChargeDetail(models.Model):
+    _name = 'mrp.capacite.charge.detail'
+    _inherit = 'mrp.capacite.mixin'
+    _auto = False
+    _description = 'Détail opérations par poste/jour'
+    _order = 'date asc, workcenter_name asc'
+
+    date = fields.Date(string='Date', readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', readonly=True)
+    workcenter_name = fields.Char(string='Poste', readonly=True)
+    production_id = fields.Many2one('mrp.production', string='OF', readonly=True)
+    production_name = fields.Char(string='N° OF', readonly=True)
+    sale_order_id = fields.Many2one('sale.order', string='Commande', readonly=True)
+    sale_order_name = fields.Char(string='N° Commande', readonly=True)
+    projet = fields.Char(string='Projet', readonly=True)
+    operation_name = fields.Char(string='Opération', readonly=True)
+    operateurs = fields.Char(string='Opérateur(s)', readonly=True)
+    duration_expected = fields.Float(string='Prévu (h)', digits=(10, 2), readonly=True)
+    duration_done = fields.Float(string='Réalisé (h)', digits=(10, 2), readonly=True)
+    charge_restante = fields.Float(string='Restant (h)', digits=(10, 2), readonly=True)
+    state = fields.Char(string='Statut', readonly=True)
+
+    def init(self):
+        tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge_detail')
+        wc_name = self._get_name_expr('mrp_workcenter')
+        emp_name = self._get_name_expr('hr_employee', alias='emp')
+        sale_col, pp_name, has_projet = self._get_projet_fragments()
 
         if sale_col:
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
@@ -208,6 +232,13 @@ class CapaciteChargeDetail(models.Model):
                 {sale_name_expr}
                 {projet_expr}
                 wo.name                                     AS operation_name,
+                (
+                    SELECT STRING_AGG(DISTINCT {emp_name}, ', ')
+                    FROM mrp_workcenter_productivity wop
+                    LEFT JOIN hr_employee emp ON emp.id = wop.employee_id
+                    WHERE wop.workorder_id = wo.id
+                      AND wop.employee_id IS NOT NULL
+                )                                           AS operateurs,
                 COALESCE(wo.duration_expected, 0) / 60.0   AS duration_expected,
                 COALESCE(wo.duration, 0) / 60.0             AS duration_done,
                 CASE
@@ -230,8 +261,13 @@ class CapaciteChargeDetail(models.Model):
         """)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Vue capacité vs charge par poste
+# ─────────────────────────────────────────────────────────────────────────────
+
 class CapaciteCharge(models.Model):
     _name = 'mrp.capacite.charge'
+    _inherit = 'mrp.capacite.mixin'
     _auto = False
     _description = 'Capacité vs Charge par poste de travail'
     _order = 'date asc, workcenter_name asc'
@@ -245,35 +281,6 @@ class CapaciteCharge(models.Model):
     taux_charge = fields.Float(string='Taux charge (%)', digits=(10, 1), readonly=True)
     solde_heures = fields.Float(string='Solde (h)', digits=(10, 2), readonly=True)
     projets = fields.Char(string='Projets', readonly=True)
-
-    def _get_sale_col(self):
-        self.env.cr.execute("""
-            SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'mrp_production'
-            AND column_name IN ('sale_id', 'x_sale_id', 'procurement_sale_id', 'x_studio_mtn_mrp_sale_order')
-            LIMIT 1
-        """)
-        row = self.env.cr.fetchone()
-        return row[0] if row else None
-
-    def _get_name_expr(self, table, col='name', alias=None):
-        """
-        Génère l'expression SQL pour lire un champ name (varchar ou jsonb).
-        - table  : nom physique de la table (pour information_schema)
-        - col    : nom de la colonne
-        - alias  : alias SQL utilisé dans la requête (si différent de table)
-        """
-        ref = alias or table
-        self.env.cr.execute("""
-            SELECT data_type FROM information_schema.columns
-            WHERE table_name = %s AND column_name = %s LIMIT 1
-        """, (table, col))
-        row = self.env.cr.fetchone()
-        dtype = row[0] if row else 'character varying'
-        if dtype == 'jsonb':
-            return (f"COALESCE({ref}.{col}->>'fr_FR', "
-                    f"{ref}.{col}->>'en_US', {ref}.{col}::text)")
-        return f"{ref}.{col}::text"
 
     def action_voir_detail(self):
         return {
@@ -291,15 +298,7 @@ class CapaciteCharge(models.Model):
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')
         wc_name = self._get_name_expr('mrp_workcenter')
-        # FIX : table physique = 'project_project', alias SQL = 'pp'
-        pp_name = self._get_name_expr('project_project', alias='pp')
-        sale_col = self._get_sale_col()
-
-        self.env.cr.execute("""
-            SELECT column_name FROM information_schema.columns
-            WHERE table_name = 'sale_order' AND column_name = 'x_studio_projet'
-        """)
-        has_projet = bool(self.env.cr.fetchone())
+        sale_col, pp_name, has_projet = self._get_projet_fragments()
 
         if sale_col and has_projet:
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
@@ -366,5 +365,98 @@ class CapaciteCharge(models.Model):
             FROM all_keys ak
             LEFT JOIN charge   ch  ON ch.workcenter_id  = ak.workcenter_id AND ch.date = ak.date
             LEFT JOIN capacite cap ON cap.workcenter_id = ak.workcenter_id AND cap.date = ak.date
+        )
+        """)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vue charge par opérateur / jour
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CapaciteChargeOperateur(models.Model):
+    _name = 'mrp.capacite.charge.operateur'
+    _inherit = 'mrp.capacite.mixin'
+    _auto = False
+    _description = 'Charge par opérateur et par jour'
+    _order = 'date asc, employee_name asc'
+
+    date = fields.Date(string='Date', readonly=True)
+    employee_id = fields.Many2one('hr.employee', string='Opérateur', readonly=True)
+    employee_name = fields.Char(string='Opérateur', readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', readonly=True)
+    workcenter_name = fields.Char(string='Poste', readonly=True)
+    nb_operations = fields.Integer(string='Nb opérations', readonly=True)
+    charge_heures = fields.Float(string='Charge restante (h)', digits=(10, 2), readonly=True)
+    duration_done = fields.Float(string='Réalisé (h)', digits=(10, 2), readonly=True)
+    projets = fields.Char(string='Projets', readonly=True)
+
+    def action_voir_detail(self):
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Détail — %s %s' % (self.employee_name, self.date),
+            'res_model': 'mrp.capacite.charge.detail',
+            'view_mode': 'tree',
+            'domain': [
+                ('operateurs', 'like', self.employee_name),
+                ('date', '=', str(self.date)),
+            ],
+            'target': 'new',
+        }
+
+    def init(self):
+        tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge_operateur')
+        wc_name = self._get_name_expr('mrp_workcenter')
+        emp_name = self._get_name_expr('hr_employee', alias='emp')
+        sale_col, pp_name, has_projet = self._get_projet_fragments()
+
+        if sale_col and has_projet:
+            sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
+            projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet"
+            projet_agg = f"STRING_AGG(DISTINCT {pp_name}, ', ') AS projets,"
+        else:
+            sale_join = ""
+            projet_join = ""
+            projet_agg = "NULL::text AS projets,"
+
+        self.env.cr.execute(f"""
+            CREATE OR REPLACE VIEW mrp_capacite_charge_operateur AS (
+            SELECT
+                ROW_NUMBER() OVER (
+                    ORDER BY DATE(wo.date_start), {emp_name}, {wc_name}
+                )                                           AS id,
+                DATE(wo.date_start)                         AS date,
+                wop.employee_id,
+                {emp_name}                                  AS employee_name,
+                wo.workcenter_id,
+                {wc_name}                                   AS workcenter_name,
+                COUNT(DISTINCT wo.id)                       AS nb_operations,
+                {projet_agg}
+                SUM(COALESCE(wop.duration, 0)) / 60.0       AS duration_done,
+                SUM(
+                    CASE
+                        WHEN wo.state IN ('pending', 'ready', 'waiting')
+                            THEN COALESCE(wo.duration_expected, 0) / 60.0
+                        ELSE GREATEST(
+                            COALESCE(wo.duration_expected, 0)
+                            - COALESCE(wo.duration, 0), 0
+                        ) / 60.0
+                    END
+                )                                           AS charge_heures
+            FROM mrp_workcenter_productivity wop
+            JOIN mrp_workorder wo   ON wo.id  = wop.workorder_id
+            JOIN hr_employee emp    ON emp.id = wop.employee_id
+            JOIN mrp_workcenter     ON mrp_workcenter.id = wo.workcenter_id
+            JOIN mrp_production mp  ON mp.id = wo.production_id
+            {sale_join}
+            {projet_join}
+            WHERE wo.state NOT IN ('done', 'cancel')
+              AND wo.date_start IS NOT NULL
+              AND wop.employee_id IS NOT NULL
+            GROUP BY
+                DATE(wo.date_start),
+                wop.employee_id,
+                {emp_name},
+                wo.workcenter_id,
+                {wc_name}
         )
         """)

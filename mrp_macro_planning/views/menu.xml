@@ -12,16 +12,22 @@
               action="action_capacite_charge"
               sequence="10"/>
 
+    <menuitem id="menu_capacite_charge_operateur"
+              name="Charge par opérateur"
+              parent="menu_capacite_charge_root"
+              action="action_capacite_charge_operateur"
+              sequence="20"/>
+
     <menuitem id="menu_refresh_capacite"
               name="⟳ Recalculer la capacité"
               parent="menu_capacite_charge_root"
               action="action_refresh_wizard"
-              sequence="20"/>
+              sequence="30"/>
 
     <menuitem id="menu_planning_role_workcenter"
               name="Lier Rôles → Postes"
               parent="menu_capacite_charge_root"
               action="action_planning_role_workcenter"
-              sequence="30"/>
+              sequence="40"/>
 
 </odoo>

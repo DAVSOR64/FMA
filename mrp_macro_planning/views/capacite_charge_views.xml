@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- WIZARD recalcul -->
+    <!-- ================================================================== -->
+    <!-- WIZARD recalcul capacité                                            -->
+    <!-- ================================================================== -->
+
     <record id="view_capacite_refresh_wizard" model="ir.ui.view">
         <field name="name">mrp.capacite.refresh.wizard.form</field>
         <field name="model">mrp.capacite.refresh.wizard</field>
@@ -28,7 +31,10 @@
         <field name="target">new</field>
     </record>
 
-    <!-- Vue standalone rôles → workcenters -->
+    <!-- ================================================================== -->
+    <!-- Lier rôles → postes de travail                                      -->
+    <!-- ================================================================== -->
+
     <record id="view_planning_role_workcenter_tree" model="ir.ui.view">
         <field name="name">planning.role.workcenter.tree</field>
         <field name="model">planning.role</field>
@@ -47,7 +53,10 @@
         <field name="view_id" ref="view_planning_role_workcenter_tree"/>
     </record>
 
-    <!-- VUE DETAIL des workorders -->
+    <!-- ================================================================== -->
+    <!-- Détail workorders (popup)                                           -->
+    <!-- ================================================================== -->
+
     <record id="view_capacite_charge_detail_tree" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.detail.tree</field>
         <field name="model">mrp.capacite.charge.detail</field>
@@ -57,6 +66,7 @@
                 <field name="sale_order_name" string="Commande"/>
                 <field name="projet" string="Projet"/>
                 <field name="operation_name" string="Opération"/>
+                <field name="operateurs" string="Opérateur(s)"/>
                 <field name="duration_expected" string="Prévu (h)"/>
                 <field name="duration_done" string="Réalisé (h)"/>
                 <field name="charge_restante" string="Restant (h)"/>
@@ -74,11 +84,15 @@
                 <field name="production_name" string="N° OF"/>
                 <field name="sale_order_name" string="Commande"/>
                 <field name="workcenter_name" string="Poste"/>
+                <field name="operateurs" string="Opérateur"/>
             </search>
         </field>
     </record>
 
-    <!-- VUE LISTE principale -->
+    <!-- ================================================================== -->
+    <!-- Vue principale Capacité vs Charge par poste                        -->
+    <!-- ================================================================== -->
+
     <record id="view_capacite_charge_list" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.list</field>
         <field name="model">mrp.capacite.charge</field>
@@ -104,7 +118,6 @@
         </field>
     </record>
 
-    <!-- VUE PIVOT -->
     <record id="view_capacite_charge_pivot" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.pivot</field>
         <field name="model">mrp.capacite.charge</field>
@@ -119,7 +132,6 @@
         </field>
     </record>
 
-    <!-- VUE RECHERCHE avec filtre projet -->
     <record id="view_capacite_charge_search" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.search</field>
         <field name="model">mrp.capacite.charge</field>
@@ -151,7 +163,6 @@
         </field>
     </record>
 
-    <!-- ACTION principale -->
     <record id="action_capacite_charge" model="ir.actions.act_window">
         <field name="name">Capacité vs Charge</field>
         <field name="res_model">mrp.capacite.charge</field>
