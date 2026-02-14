@@ -149,7 +149,14 @@ class CapaciteChargeDetail(models.Model):
         row = self.env.cr.fetchone()
         return row[0] if row else None
 
-    def _get_name_expr(self, table, col='name'):
+    def _get_name_expr(self, table, col='name', alias=None):
+        """
+        Génère l'expression SQL pour lire un champ name (varchar ou jsonb).
+        - table  : nom physique de la table (pour information_schema)
+        - col    : nom de la colonne
+        - alias  : alias SQL utilisé dans la requête (si différent de table)
+        """
+        ref = alias or table  # préfixe à utiliser dans le SQL généré
         self.env.cr.execute("""
             SELECT data_type FROM information_schema.columns
             WHERE table_name = %s AND column_name = %s LIMIT 1
@@ -157,14 +164,15 @@ class CapaciteChargeDetail(models.Model):
         row = self.env.cr.fetchone()
         dtype = row[0] if row else 'character varying'
         if dtype == 'jsonb':
-            return (f"COALESCE({table}.{col}->>'fr_FR', "
-                    f"{table}.{col}->>'en_US', {table}.{col}::text)")
-        return f"{table}.{col}::text"
+            return (f"COALESCE({ref}.{col}->>'fr_FR', "
+                    f"{ref}.{col}->>'en_US', {ref}.{col}::text)")
+        return f"{ref}.{col}::text"
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge_detail')
         wc_name = self._get_name_expr('mrp_workcenter')
-        pp_name = self._get_name_expr('project_project')  # FIX : gère le JSONB
+        # FIX : table physique = 'project_project', alias SQL = 'pp'
+        pp_name = self._get_name_expr('project_project', alias='pp')
         sale_col = self._get_sale_col()
 
         # Vérifier si x_studio_projet existe
@@ -248,7 +256,14 @@ class CapaciteCharge(models.Model):
         row = self.env.cr.fetchone()
         return row[0] if row else None
 
-    def _get_name_expr(self, table, col='name'):
+    def _get_name_expr(self, table, col='name', alias=None):
+        """
+        Génère l'expression SQL pour lire un champ name (varchar ou jsonb).
+        - table  : nom physique de la table (pour information_schema)
+        - col    : nom de la colonne
+        - alias  : alias SQL utilisé dans la requête (si différent de table)
+        """
+        ref = alias or table
         self.env.cr.execute("""
             SELECT data_type FROM information_schema.columns
             WHERE table_name = %s AND column_name = %s LIMIT 1
@@ -256,9 +271,9 @@ class CapaciteCharge(models.Model):
         row = self.env.cr.fetchone()
         dtype = row[0] if row else 'character varying'
         if dtype == 'jsonb':
-            return (f"COALESCE({table}.{col}->>'fr_FR', "
-                    f"{table}.{col}->>'en_US', {table}.{col}::text)")
-        return f"{table}.{col}::text"
+            return (f"COALESCE({ref}.{col}->>'fr_FR', "
+                    f"{ref}.{col}->>'en_US', {ref}.{col}::text)")
+        return f"{ref}.{col}::text"
 
     def action_voir_detail(self):
         return {
@@ -276,7 +291,8 @@ class CapaciteCharge(models.Model):
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')
         wc_name = self._get_name_expr('mrp_workcenter')
-        pp_name = self._get_name_expr('project_project')  # FIX : gère le JSONB
+        # FIX : table physique = 'project_project', alias SQL = 'pp'
+        pp_name = self._get_name_expr('project_project', alias='pp')
         sale_col = self._get_sale_col()
 
         self.env.cr.execute("""
@@ -288,7 +304,7 @@ class CapaciteCharge(models.Model):
         if sale_col and has_projet:
             sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
             projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet"
-            projet_agg = f"STRING_AGG(DISTINCT {pp_name}, ', ') AS projets,"  # FIX : gère le JSONB
+            projet_agg = f"STRING_AGG(DISTINCT {pp_name}, ', ') AS projets,"
         else:
             sale_join = ""
             projet_join = ""
