@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================== -->
+    <!-- WIZARD recalcul capacité                                            -->
+    <!-- ================================================================== -->
+
+    <record id="view_capacite_refresh_wizard" model="ir.ui.view">
+        <field name="name">mrp.capacite.refresh.wizard.form</field>
+        <field name="model">mrp.capacite.refresh.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Recalculer la capacité">
+                <group>
+                    <field name="nb_slots" string="Slots planning publiés"/>
+                    <field name="nb_entries" string="Entrées calculées" invisible="nb_entries == 0"/>
+                    <field name="message" invisible="not message"/>
+                </group>
+                <footer>
+                    <button name="action_refresh" type="object"
+                            string="Recalculer" class="btn-primary"/>
+                    <button string="Fermer" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_refresh_wizard" model="ir.actions.act_window">
+        <field name="name">Recalculer la capacité</field>
+        <field name="res_model">mrp.capacite.refresh.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- Lier rôles → postes de travail                                      -->
+    <!-- ================================================================== -->
+
+    <record id="view_planning_role_workcenter_tree" model="ir.ui.view">
+        <field name="name">planning.role.workcenter.tree</field>
+        <field name="model">planning.role</field>
+        <field name="arch" type="xml">
+            <tree string="Rôles Planning - Postes liés" editable="bottom">
+                <field name="name" string="Rôle"/>
+                <field name="workcenter_id" string="Poste de travail lié"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_planning_role_workcenter" model="ir.actions.act_window">
+        <field name="name">Lier Rôles → Postes</field>
+        <field name="res_model">planning.role</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_planning_role_workcenter_tree"/>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- Détail workorders (popup)                                           -->
+    <!-- ================================================================== -->
+
+    <record id="view_capacite_charge_detail_tree" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.detail.tree</field>
+        <field name="model">mrp.capacite.charge.detail</field>
+        <field name="arch" type="xml">
+            <tree string="Détail opérations" create="false" edit="false" delete="false">
+                <field name="production_name" string="N° OF"/>
+                <field name="sale_order_name" string="Commande"/>
+                <field name="projet" string="Projet"/>
+                <field name="operation_name" string="Opération"/>
+                <field name="operateurs" string="Opérateur(s)"/>
+                <field name="duration_expected" string="Prévu (h)"/>
+                <field name="duration_done" string="Réalisé (h)"/>
+                <field name="charge_restante" string="Restant (h)"/>
+                <field name="state" string="Statut"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_capacite_charge_detail_search" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.detail.search</field>
+        <field name="model">mrp.capacite.charge.detail</field>
+        <field name="arch" type="xml">
+            <search string="Rechercher">
+                <field name="projet" string="Projet"/>
+                <field name="production_name" string="N° OF"/>
+                <field name="sale_order_name" string="Commande"/>
+                <field name="workcenter_name" string="Poste"/>
+                <field name="operateurs" string="Opérateur"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- Vue principale Capacité vs Charge par poste                        -->
+    <!-- ================================================================== -->
+
+    <record id="view_capacite_charge_list" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.list</field>
+        <field name="model">mrp.capacite.charge</field>
+        <field name="arch" type="xml">
+            <tree string="Capacité vs Charge"
+                  create="false" edit="false" delete="false"
+                  decoration-danger="taux_charge &gt; 100"
+                  decoration-warning="taux_charge &gt;= 80 and taux_charge &lt;= 100"
+                  decoration-success="taux_charge &gt; 0 and taux_charge &lt; 80"
+                  decoration-muted="taux_charge == 0">
+                <field name="date" string="Date"/>
+                <field name="workcenter_name" string="Poste de travail"/>
+                <field name="capacite_heures" string="Capacité (h)"/>
+                <field name="charge_heures" string="Charge restante (h)"/>
+                <field name="solde_heures" string="Solde (h)"/>
+                <field name="taux_charge" string="Taux charge (%)"/>
+                <field name="nb_operations" string="Nb opérations"/>
+                <field name="projets" string="Projets"/>
+                <field name="workcenter_id" column_invisible="1"/>
+                <button name="action_voir_detail" type="object"
+                        string="Détail" icon="fa-list"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_capacite_charge_pivot" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.pivot</field>
+        <field name="model">mrp.capacite.charge</field>
+        <field name="arch" type="xml">
+            <pivot string="Capacité vs Charge" disable_linking="1">
+                <field name="workcenter_name" type="row"/>
+                <field name="date" type="col"/>
+                <field name="capacite_heures" type="measure"/>
+                <field name="charge_heures" type="measure"/>
+                <field name="taux_charge" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_capacite_charge_search" model="ir.ui.view">
+        <field name="name">mrp.capacite.charge.search</field>
+        <field name="model">mrp.capacite.charge</field>
+        <field name="arch" type="xml">
+            <search string="Rechercher">
+                <field name="projets" string="Projet" filter_domain="[('projets', 'ilike', self)]"/>
+                <filter string="En surcharge" name="surcharge"
+                        domain="[('taux_charge', '&gt;', 100)]"/>
+                <filter string="Proche saturation (80-100%)" name="alerte"
+                        domain="[('taux_charge', '&gt;=', 80), ('taux_charge', '&lt;=', 100)]"/>
+                <filter string="Disponible (&lt; 80%)" name="disponible"
+                        domain="[('taux_charge', '&gt;', 0), ('taux_charge', '&lt;', 80)]"/>
+                <separator/>
+                <filter string="3 prochaines semaines" name="trois_semaines"
+                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-%d')),
+                                 ('date', '&lt;=', (context_today() + relativedelta(weeks=3)).strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <field name="workcenter_id" string="Poste de travail"/>
+                <field name="date" string="Date"/>
+                <group expand="1" string="Regrouper par">
+                    <filter string="Poste de travail" name="group_workcenter"
+                            context="{'group_by': 'workcenter_name'}"/>
+                    <filter string="Date" name="group_date"
+                            context="{'group_by': 'date'}"/>
+                    <filter string="Semaine" name="group_semaine"
+                            context="{'group_by': 'date:week'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_capacite_charge" model="ir.actions.act_window">
+        <field name="name">Capacité vs Charge</field>
+        <field name="res_model">mrp.capacite.charge</field>
+        <field name="view_mode">tree,pivot</field>
+        <field name="search_view_id" ref="view_capacite_charge_search"/>
+        <field name="context">{
+            'search_default_trois_semaines': 1,
+            'search_default_group_workcenter': 1
+        }</field>
+    </record>
+
+</odoo>
