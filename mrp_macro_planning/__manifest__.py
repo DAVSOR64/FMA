@@ -12,6 +12,7 @@
         'views/capacite_operateur_views.xml',
         'views/menu.xml',
     ],
+    
     'installable': True,
     'application': False,
     'license': 'LGPL-3',
