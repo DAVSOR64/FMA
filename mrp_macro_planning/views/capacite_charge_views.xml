@@ -163,37 +163,40 @@
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
             <tree string="Capacité vs Charge"
-                  create="false" edit="false" delete="false"
-                  decoration-danger="taux_charge &gt; 100"
-                  decoration-warning="taux_charge &gt;= 80 and taux_charge &lt;= 100"
-                  decoration-success="taux_charge &gt; 0 and taux_charge &lt; 80"
-                  decoration-muted="taux_charge == 0">
+                  create="false" edit="false" delete="false">
                 
                 <!-- Identification -->
-                <field name="date" string="Date"/>
+                <field name="date" string="Date"
+                       decoration-bf="date == context_today().strftime('%Y-%m-%d')"/>
                 <field name="workcenter_name" string="Poste de travail"/>
                 <field name="nb_personnes" string="👤 Pers."/>
                 <field name="capacite_heures" string="⏱️ Capacité (h)" sum="Total capacité"/>
                 
                 <!-- Charge du jour -->
-                <field name="charge_prevue_jour" string="📅 Prévu jour (h)" sum="Total prévu"
-                       decoration-bf="charge_prevue_jour &gt; 0"/>
-                <field name="charge_effectuee_jour" string="✓ Effectué jour (h)" sum="Total effectué"
-                       decoration-bf="charge_effectuee_jour &gt; 0"/>
-                <field name="solde_heures" string="⚖️ Solde jour (h)" sum="Total solde"
-                       decoration-danger="solde_heures &gt; 2"
-                       decoration-warning="solde_heures &gt; 0 and solde_heures &lt;= 2"
-                       decoration-success="solde_heures &lt;= 0"/>
-                <field name="taux_charge" string="📊 Taux (%)"
-                       widget="progressbar"/>
+                <field name="charge_prevue_jour" string="📅 Prévu jour (h)" sum="Total prévu"/>
+                <field name="charge_effectuee_jour" string="✓ Effectué jour (h)" sum="Total effectué"/>
                 
-                <!-- Cumuls - VISIBLES -->
+                <field name="solde_heures" string="⚖️ Solde jour (h)" sum="Total solde"
+                       decoration-danger="solde_heures &gt; 0"
+                       decoration-bf="solde_heures &gt; 0"
+                       decoration-success="solde_heures &lt; 0"
+                       decoration-bf="solde_heures &lt; 0"/>
+                
+                <field name="taux_charge" string="📊 Taux (%)"
+                       widget="progressbar"
+                       decoration-danger="taux_charge &gt; 100"
+                       decoration-success="taux_charge &gt;= 80 and taux_charge &lt;= 100"
+                       decoration-warning="taux_charge &lt; 80"/>
+                
+                <!-- Cumuls - sans colorisation de ligne -->
                 <field name="cumul_prevu" string="📈 Cumul prévu (h)"/>
                 <field name="cumul_effectue" string="📉 Cumul effectué (h)"/>
+                
                 <field name="ecart" string="🎯 Écart cumul (h)"
-                       decoration-danger="ecart &lt; -2"
-                       decoration-warning="ecart &gt;= -2 and ecart &lt; 0"
+                       decoration-danger="ecart &lt; 0"
+                       decoration-bf="ecart &lt; 0"
                        decoration-success="ecart &gt;= 0"
+                       decoration-bf="ecart &gt;= 0"
                        widget="monetary" options="{'currency_field': 'False'}"/>
                 
                 <!-- Info -->
