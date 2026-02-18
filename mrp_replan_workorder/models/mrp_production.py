@@ -129,6 +129,9 @@ class MrpProduction(models.Model):
         _logger.warning("********** dans le module (macro only) **********")
         res = super().button_plan()
     
+        # IMPORTANT : Désactiver le recalcul macro pendant qu'on copie les dates
+        self = self.with_context(skip_macro_recalc=True)
+    
         for production in self:
             workorders = sorted(
                 production.workorder_ids,
