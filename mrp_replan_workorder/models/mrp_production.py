@@ -123,7 +123,7 @@ class MrpProduction(models.Model):
         - exécute la planif standard
         - puis FORCE wo.date_start/date_finished à partir de wo.macro_planned_start
           (pour avoir un Gantt exploitable)
-        - puis recale date_start/date_finished de l'OF sur les dates WO
+        - COPIE DIRECTEMENT les macro sans recalculer l'enchaînement
         """
        
         _logger.warning("********** dans le module (macro only) **********")
@@ -135,27 +135,13 @@ class MrpProduction(models.Model):
                 key=lambda wo: wo.operation_id.sequence if wo.operation_id else 0
             )
     
-            previous_end_dt = None
-    
             for wo in workorders:
                 if not wo.macro_planned_start:
                     _logger.warning("WO %s (%s) : macro_planned_start vide -> skip", wo.name, production.name)
                     continue
     
-                macro_start = fields.Datetime.to_datetime(wo.macro_planned_start)
-    
-                # Règle métier : le lendemain (ouvré) matin après la fin précédente
-                if previous_end_dt:
-                    prev_day = fields.Datetime.to_datetime(previous_end_dt).date()
-    
-                    # lendemain calendaire puis on saute aux jours ouvrés (selon ton helper)
-                    next_day = production._next_working_day(prev_day, wo.workcenter_id)
-                    chain_start = production._morning_dt(next_day, wo.workcenter_id)
-    
-                    start_dt = max(macro_start, chain_start)
-                else:
-                    start_dt = macro_start
-    
+                # Utiliser directement macro_planned_start sans le décaler
+                start_dt = fields.Datetime.to_datetime(wo.macro_planned_start)
                 duration_min = wo.duration_expected or 0.0
                 end_dt = start_dt + timedelta(minutes=duration_min)
     
@@ -165,16 +151,13 @@ class MrpProduction(models.Model):
                 })
     
                 _logger.info(
-                    "WO %s : macro=%s | chain_start=%s | start=%s | end=%s | durée=%s min",
+                    "WO %s : macro=%s | start=%s | end=%s | durée=%s min",
                     wo.name,
-                    macro_start,
-                    (chain_start if previous_end_dt else None),
+                    start_dt,
                     start_dt,
                     end_dt,
                     duration_min,
                 )
-    
-                previous_end_dt = end_dt
         
         return res
 
@@ -255,6 +238,7 @@ class MrpProduction(models.Model):
         # 1) Fin forcée = livraison - délai sécurité (jours ouvrés société)
         if forced_end_dt:
             end_dt = fields.Datetime.to_datetime(forced_end_dt)
+            _logger.info("OF %s : forced_end_dt=%s", self.name, end_dt)
         else:
             # 2) Sinon : fin = max fin WO calculée
             end_candidates = []
@@ -285,7 +269,7 @@ class MrpProduction(models.Model):
             vals["date_deadline"] = end_dt
     
         if vals:
-            self.with_context(mail_notrack=True, skip_macro_recalc=True).write(vals)
+            self.with_context(mail_notrack=True, from_macro_update=True).write(vals)
 
 
     # ============================================================
@@ -316,7 +300,7 @@ class MrpProduction(models.Model):
             vals["date_deadline"] = last_wo.date_finished
 
         if vals:
-            self.with_context(mail_notrack=True, skip_macro_recalc=True).write(vals)
+            self.with_context(mail_notrack=True, from_macro_update=True).write(vals)
 
     # ============================================================
     # PICKING COMPONENTS UPDATE (via procurement group)
@@ -507,8 +491,10 @@ class MrpProduction(models.Model):
         # Appel standard
         res = super().write(vals)
         
-        # Si changement de dates ET que ce n'est pas un appel interne
-        if (date_start_changed or date_finished_changed) and not self.env.context.get('skip_macro_recalc'):
+        # Si changement de dates ET que ce n'est pas un appel interne ET pas depuis _update_mo_dates_from_macro
+        if (date_start_changed or date_finished_changed) \
+           and not self.env.context.get('skip_macro_recalc') \
+           and not self.env.context.get('from_macro_update'):
             for production in self:
                 try:
                     production._recalculate_macro_on_date_change(
@@ -715,6 +701,11 @@ class MrpProduction(models.Model):
         
         if delivery_date and self.date_finished:
             date_finished = fields.Datetime.to_datetime(self.date_finished).date()
+            
+            # Assurer que delivery_date est aussi une date
+            if isinstance(delivery_date, datetime):
+                delivery_date = delivery_date.date()
+            
             if date_finished > delivery_date:
                 days_late = (date_finished - delivery_date).days
                 
