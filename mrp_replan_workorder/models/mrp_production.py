@@ -129,10 +129,8 @@ class MrpProduction(models.Model):
         _logger.warning("********** dans le module (macro only) **********")
         res = super().button_plan()
     
-        # IMPORTANT : Désactiver le recalcul macro pendant qu'on copie les dates
-        self = self.with_context(skip_macro_recalc=True)
-    
-        for production in self:
+        # IMPORTANT : Flag pour désactiver TOUT recalcul pendant qu'on copie les dates
+        for production in self.with_context(in_button_plan=True, skip_macro_recalc=True):
             workorders = sorted(
                 production.workorder_ids,
                 key=lambda wo: wo.operation_id.sequence if wo.operation_id else 0
@@ -494,10 +492,11 @@ class MrpProduction(models.Model):
         # Appel standard
         res = super().write(vals)
         
-        # Si changement de dates ET que ce n'est pas un appel interne ET pas depuis _update_mo_dates_from_macro
+        # Si changement de dates ET que ce n'est pas un appel interne ET pas depuis _update_mo_dates_from_macro ET pas pendant button_plan
         if (date_start_changed or date_finished_changed) \
            and not self.env.context.get('skip_macro_recalc') \
-           and not self.env.context.get('from_macro_update'):
+           and not self.env.context.get('from_macro_update') \
+           and not self.env.context.get('in_button_plan'):
             for production in self:
                 try:
                     production._recalculate_macro_on_date_change(
