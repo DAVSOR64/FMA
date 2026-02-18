@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MRP Macro Planning - Capacité vs Charge',
-    'version': '17.0.3.0.0',
+    'version': '17.0.4.0.0',
     'category': 'Manufacturing',
-    'summary': 'Tableau de bord capacité vs charge par poste de travail et par opérateur avec répartition calendaire',
+    'summary': 'Tableau de bord capacité vs charge par poste avec répartition calendaire optimisée',
     'author': 'Paxo Consulting',
     'depends': ['mrp', 'planning', 'hr'],
     'data': [

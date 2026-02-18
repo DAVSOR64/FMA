@@ -20,6 +20,7 @@ class PlanningRole(models.Model):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cache CAPACITE (depuis Planning)
+# MODIFIÉ : compte le nombre de slots par workcenter/date pour multiplier capacité
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CapaciteCache(models.Model):
@@ -31,6 +32,7 @@ class CapaciteCache(models.Model):
     workcenter_name = fields.Char(string='Nom poste')
     date = fields.Date(string='Date', index=True)
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2))
+    nb_personnes = fields.Integer(string='Nb personnes', default=1)
 
     def _to_utc(self, dt):
         if dt is None:
@@ -47,7 +49,9 @@ class CapaciteCache(models.Model):
         if not slots:
             return
         
-        vals_list = []
+        # Dictionnaire : (workcenter_id, date) → liste des capacités par personne
+        capacite_par_jour = {}
+        
         for slot in slots:
             if not slot.resource_id or not slot.role_id:
                 continue
@@ -58,12 +62,14 @@ class CapaciteCache(models.Model):
             calendar = slot.resource_id.calendar_id
             if not calendar:
                 delta = (slot.end_datetime - slot.start_datetime).total_seconds() / 3600.0
-                vals_list.append({
-                    'workcenter_id': workcenter.id,
-                    'workcenter_name': workcenter.name,
-                    'date': slot.start_datetime.date(),
-                    'capacite_heures': delta,
-                })
+                jour = slot.start_datetime.date()
+                key = (workcenter.id, jour)
+                if key not in capacite_par_jour:
+                    capacite_par_jour[key] = {'workcenter_id': workcenter.id, 
+                                              'workcenter_name': workcenter.name,
+                                              'date': jour,
+                                              'heures': []}
+                capacite_par_jour[key]['heures'].append(delta)
                 continue
             
             try:
@@ -80,27 +86,32 @@ class CapaciteCache(models.Model):
                 
                 for jour, heures in heures_par_jour.items():
                     if heures > 0:
-                        vals_list.append({
-                            'workcenter_id': workcenter.id,
-                            'workcenter_name': workcenter.name,
-                            'date': jour,
-                            'capacite_heures': heures,
-                        })
+                        key = (workcenter.id, jour)
+                        if key not in capacite_par_jour:
+                            capacite_par_jour[key] = {'workcenter_id': workcenter.id,
+                                                      'workcenter_name': workcenter.name,
+                                                      'date': jour,
+                                                      'heures': []}
+                        capacite_par_jour[key]['heures'].append(heures)
             except Exception as e:
                 _logger.error('Erreur slot %s : %s\n%s', slot.id, e, traceback.format_exc())
         
-        # Agréger par workcenter_id + date
-        aggregated = {}
-        for v in vals_list:
-            key = (v['workcenter_id'], str(v['date']))
-            if key in aggregated:
-                aggregated[key]['capacite_heures'] += v['capacite_heures']
-            else:
-                aggregated[key] = v.copy()
+        # Créer les entrées : capacité = somme des heures de toutes les personnes
+        vals_list = []
+        for key, data in capacite_par_jour.items():
+            nb_personnes = len(data['heures'])
+            capacite_totale = sum(data['heures'])
+            vals_list.append({
+                'workcenter_id': data['workcenter_id'],
+                'workcenter_name': data['workcenter_name'],
+                'date': data['date'],
+                'capacite_heures': capacite_totale,
+                'nb_personnes': nb_personnes,
+            })
         
-        if aggregated:
-            self.create(list(aggregated.values()))
-        _logger.info('REFRESH CAPACITE TERMINÉ : %d entrées', len(aggregated))
+        if vals_list:
+            self.create(vals_list)
+        _logger.info('REFRESH CAPACITE TERMINÉ : %d entrées', len(vals_list))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -383,7 +394,7 @@ class CapaciteMixin(models.AbstractModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Vue détail workorders
+# Vue détail workorders (garde les projets)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CapaciteChargeDetail(models.Model):
@@ -460,7 +471,8 @@ class CapaciteChargeDetail(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Vue capacité vs charge par poste
+# Vue capacité vs charge par poste - CORRIGÉE
+# GROUP BY sur workcenter_id + date UNIQUEMENT (pas de name, pas de projets)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CapaciteCharge(models.Model):
@@ -468,7 +480,7 @@ class CapaciteCharge(models.Model):
     _inherit = 'mrp.capacite.mixin'
     _auto = False
     _description = 'Capacité vs Charge par poste de travail'
-    _order = 'date asc, workcenter_name asc'
+    _order = 'date asc, workcenter_id asc'
 
     date = fields.Date(string='Date', readonly=True)
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', readonly=True)
@@ -476,9 +488,9 @@ class CapaciteCharge(models.Model):
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2), readonly=True)
     charge_heures = fields.Float(string='Charge restante (h)', digits=(10, 2), readonly=True)
     nb_operations = fields.Integer(string='Nb opérations', readonly=True)
+    nb_personnes = fields.Integer(string='Nb personnes', readonly=True)
     taux_charge = fields.Float(string='Taux charge (%)', digits=(10, 1), readonly=True)
     solde_heures = fields.Float(string='Solde (h)', digits=(10, 2), readonly=True)
-    projets = fields.Char(string='Projets', readonly=True)
 
     def action_voir_detail(self):
         return {
@@ -496,53 +508,41 @@ class CapaciteCharge(models.Model):
     def init(self):
         tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')
         wc_name = self._get_name_expr('mrp_workcenter', alias='wc')
-        sale_col, pp_name, has_projet = self._get_projet_fragments()
-
-        if sale_col and has_projet:
-            sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
-            projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet"
-            projet_agg = f"STRING_AGG(DISTINCT {pp_name}, ', ') AS projets,"
-        else:
-            sale_join = ""
-            projet_join = ""
-            projet_agg = "NULL::text AS projets,"
 
         self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW mrp_capacite_charge AS (
             WITH charge AS (
                 SELECT
                     wcc.workcenter_id,
-                    {wc_name}                                   AS workcenter_name,
                     wcc.date,
                     COUNT(DISTINCT wcc.workorder_id)            AS nb_operations,
-                    {projet_agg}
                     SUM(wcc.charge_heures)                      AS charge_heures
                 FROM mrp_workorder_charge_cache wcc
-                JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
-                JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
-                JOIN mrp_production mp ON mp.id = wo.production_id
-                {sale_join}
-                {projet_join}
-                GROUP BY wcc.workcenter_id, {wc_name}, wcc.date
+                GROUP BY wcc.workcenter_id, wcc.date
             ),
             capacite AS (
-                SELECT workcenter_id, workcenter_name, date,
-                       SUM(capacite_heures) AS capacite_heures
+                SELECT 
+                    workcenter_id, 
+                    date,
+                    SUM(capacite_heures) AS capacite_heures,
+                    MAX(nb_personnes) AS nb_personnes
                 FROM mrp_capacite_cache
-                GROUP BY workcenter_id, workcenter_name, date
+                GROUP BY workcenter_id, date
             ),
             all_keys AS (
-                SELECT workcenter_id, workcenter_name, date FROM charge
+                SELECT workcenter_id, date FROM charge
                 UNION
-                SELECT workcenter_id, workcenter_name, date FROM capacite
+                SELECT workcenter_id, date FROM capacite
             )
             SELECT
-                ROW_NUMBER() OVER (ORDER BY ak.date, ak.workcenter_name) AS id,
-                ak.workcenter_id, ak.workcenter_name, ak.date,
+                ROW_NUMBER() OVER (ORDER BY ak.date, ak.workcenter_id) AS id,
+                ak.workcenter_id,
+                (SELECT {wc_name} FROM mrp_workcenter wc WHERE wc.id = ak.workcenter_id) AS workcenter_name,
+                ak.date,
                 COALESCE(cap.capacite_heures, 0)       AS capacite_heures,
                 COALESCE(ch.charge_heures, 0)          AS charge_heures,
                 COALESCE(ch.nb_operations, 0)          AS nb_operations,
-                COALESCE(ch.projets, '')                AS projets,
+                COALESCE(cap.nb_personnes, 0)          AS nb_personnes,
                 COALESCE(ch.charge_heures, 0) - COALESCE(cap.capacite_heures, 0) AS solde_heures,
                 CASE
                     WHEN COALESCE(cap.capacite_heures, 0) > 0

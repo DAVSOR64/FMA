@@ -60,7 +60,7 @@
     </record>
 
     <!-- ================================================================== -->
-    <!-- Détail workorders (popup)                                           -->
+    <!-- Détail workorders (popup) - GARDE les projets                       -->
     <!-- ================================================================== -->
 
     <record id="view_capacite_charge_detail_tree" model="ir.ui.view">
@@ -95,7 +95,7 @@
     </record>
 
     <!-- ================================================================== -->
-    <!-- Vue principale Capacité vs Charge par poste                        -->
+    <!-- Vue principale Capacité vs Charge par poste - SANS projets         -->
     <!-- ================================================================== -->
 
     <record id="view_capacite_charge_list" model="ir.ui.view">
@@ -110,12 +110,12 @@
                   decoration-muted="taux_charge == 0">
                 <field name="date" string="Date"/>
                 <field name="workcenter_name" string="Poste de travail"/>
+                <field name="nb_personnes" string="Personnes"/>
                 <field name="capacite_heures" string="Capacité (h)"/>
                 <field name="charge_heures" string="Charge restante (h)"/>
                 <field name="solde_heures" string="Solde (h)"/>
                 <field name="taux_charge" string="Taux charge (%)"/>
                 <field name="nb_operations" string="Nb opérations"/>
-                <field name="projets" string="Projets"/>
                 <field name="workcenter_id" column_invisible="1"/>
                 <button name="action_voir_detail" type="object"
                         string="Détail" icon="fa-list"/>
@@ -142,7 +142,6 @@
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
             <search string="Rechercher">
-                <field name="projets" string="Projet" filter_domain="[('projets', 'ilike', self)]"/>
                 <filter string="En surcharge" name="surcharge"
                         domain="[('taux_charge', '&gt;', 100)]"/>
                 <filter string="Proche saturation (80-100%)" name="alerte"
