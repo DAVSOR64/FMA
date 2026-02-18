@@ -178,9 +178,8 @@
                 
                 <field name="solde_heures" string="⚖️ Solde jour (h)" sum="Total solde"
                        decoration-danger="solde_heures &gt; 0"
-                       decoration-bf="solde_heures &gt; 0"
                        decoration-success="solde_heures &lt; 0"
-                       decoration-bf="solde_heures &lt; 0"/>
+                       decoration-bf="solde_heures != 0"/>
                 
                 <field name="taux_charge" string="📊 Taux (%)"
                        widget="progressbar"
@@ -194,9 +193,8 @@
                 
                 <field name="ecart" string="🎯 Écart cumul (h)"
                        decoration-danger="ecart &lt; 0"
-                       decoration-bf="ecart &lt; 0"
                        decoration-success="ecart &gt;= 0"
-                       decoration-bf="ecart &gt;= 0"
+                       decoration-bf="ecart != 0"
                        widget="monetary" options="{'currency_field': 'False'}"/>
                 
                 <!-- Info -->
