@@ -127,7 +127,7 @@ class WorkorderChargeCache(models.Model):
         return dt.astimezone(pytz.utc)
 
     def refresh(self):
-        """Recalcule la charge depuis les workorders actifs"""
+        """Recalcule la charge depuis les workorders actifs - VERSION OPTIMISÉE"""
         self.search([]).unlink()
         
         workorders = self.env['mrp.workorder'].search([
@@ -140,7 +140,12 @@ class WorkorderChargeCache(models.Model):
             return
         
         vals_list = []
+        batch_size = 50
+        count = 0
+        
         for wo in workorders:
+            count += 1
+            
             if not wo.workcenter_id or not wo.date_start:
                 continue
             
@@ -164,28 +169,14 @@ class WorkorderChargeCache(models.Model):
             # Calendrier du workcenter
             calendar = wo.workcenter_id.resource_calendar_id
             
-            if not calendar:
-                # Pas de calendrier → tout sur date_start
-                vals_list.append({
-                    'workorder_id': wo.id,
-                    'workcenter_id': wo.workcenter_id.id,
-                    'workcenter_name': wo.workcenter_id.name,
-                    'date': wo.date_start.date(),
-                    'charge_heures': charge_restante_heures,
-                    'employee_ids': [(6, 0, employee_ids)],
-                })
-                continue
-            
-            # Calculer la date de fin prévue à partir de macro_date_planned
+            # Date de début de l'opération
             date_start_operation = wo.macro_date_planned if hasattr(wo, 'macro_date_planned') and wo.macro_date_planned else wo.date_start
             
             if not date_start_operation:
                 continue
-                
-            if wo.duration_expected:
-                date_end = date_start_operation + timedelta(minutes=wo.duration_expected)
-            else:
-                # Pas de durée → tout sur date_start
+            
+            # OPTIMISATION : Si pas de calendrier OU durée > 80h → tout sur date_start
+            if not calendar or charge_restante_heures > 80:
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
@@ -196,16 +187,26 @@ class WorkorderChargeCache(models.Model):
                 })
                 continue
             
+            # Calculer la date de fin
+            if not wo.duration_expected:
+                vals_list.append({
+                    'workorder_id': wo.id,
+                    'workcenter_id': wo.workcenter_id.id,
+                    'workcenter_name': wo.workcenter_id.name,
+                    'date': date_start_operation.date(),
+                    'charge_heures': charge_restante_heures,
+                    'employee_ids': [(6, 0, employee_ids)],
+                })
+                continue
+            
+            date_end = date_start_operation + timedelta(minutes=wo.duration_expected)
+            
             try:
                 date_start_utc = self._to_utc(date_start_operation)
                 date_end_utc = self._to_utc(date_end)
                 
-                # Récupérer les intervalles de travail
-                intervals = calendar._work_intervals_batch(date_start_utc, date_end_utc)
-                work_intervals = intervals.get(False, [])  # calendar sans resource_id
-                
-                if not work_intervals:
-                    # Fallback : tout sur date_start_operation
+                # OPTIMISATION : Si > 30 jours → tout sur date_start
+                if (date_end_utc - date_start_utc).days > 30:
                     vals_list.append({
                         'workorder_id': wo.id,
                         'workcenter_id': wo.workcenter_id.id,
@@ -216,7 +217,22 @@ class WorkorderChargeCache(models.Model):
                     })
                     continue
                 
-                # Calculer le total d'heures ouvrées disponibles
+                # Récupérer les intervalles de travail
+                intervals = calendar._work_intervals_batch(date_start_utc, date_end_utc)
+                work_intervals = intervals.get(False, [])
+                
+                if not work_intervals:
+                    vals_list.append({
+                        'workorder_id': wo.id,
+                        'workcenter_id': wo.workcenter_id.id,
+                        'workcenter_name': wo.workcenter_id.name,
+                        'date': date_start_operation.date(),
+                        'charge_heures': charge_restante_heures,
+                        'employee_ids': [(6, 0, employee_ids)],
+                    })
+                    continue
+                
+                # Calculer le total d'heures ouvrées
                 total_heures_ouvrées = sum(
                     (stop - start).total_seconds() / 3600.0
                     for start, stop, _meta in work_intervals
@@ -254,8 +270,7 @@ class WorkorderChargeCache(models.Model):
                         })
             
             except Exception as e:
-                _logger.error('Erreur workorder %s : %s\n%s', wo.id, e, traceback.format_exc())
-                # Fallback
+                _logger.error('Erreur workorder %s : %s', wo.id, str(e))
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
@@ -263,6 +278,20 @@ class WorkorderChargeCache(models.Model):
                     'date': date_start_operation.date(),
                     'charge_heures': charge_restante_heures,
                     'employee_ids': [(6, 0, employee_ids)],
+                })
+            
+            # OPTIMISATION : Commit par batch pour éviter timeout
+            if count % batch_size == 0 and vals_list:
+                self.create(vals_list)
+                self.env.cr.commit()
+                _logger.info('REFRESH CHARGE : %d/%d traités', count, len(workorders))
+                vals_list = []
+        
+        # Dernier batch
+        if vals_list:
+            self.create(vals_list)
+        
+        _logger.info('REFRESH CHARGE TERMINÉ : %d workorders traités', count)
                 })
         
         if vals_list:
