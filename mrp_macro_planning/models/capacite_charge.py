@@ -162,7 +162,7 @@ class WorkorderChargeCache(models.Model):
             ]).mapped('employee_id').ids
             
             # Calendrier du workcenter
-            calendar = wo.workcenter_id.calendar_id
+            calendar = wo.workcenter_id.resource_calendar_id
             
             if not calendar:
                 # Pas de calendrier → tout sur date_start
