@@ -30,4 +30,11 @@
               action="action_planning_role_workcenter"
               sequence="40"/>
 
+    <menuitem id="menu_debug_cache_charge"
+              name="🔍 Debug cache charge"
+              parent="menu_capacite_charge_root"
+              action="action_workorder_charge_cache"
+              sequence="50"
+              groups="base.group_no_one"/>
+
 </odoo>

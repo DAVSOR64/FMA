@@ -122,6 +122,7 @@ class WorkorderChargeCache(models.Model):
     _name = 'mrp.workorder.charge.cache'
     _description = 'Cache charge workorder répartie par jour'
     _auto = True
+    _order = 'date asc, workcenter_id asc, workorder_id asc'
 
     workorder_id = fields.Many2one('mrp.workorder', string='Ordre de travail', index=True, ondelete='cascade')
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', index=True, ondelete='cascade')
@@ -442,25 +443,9 @@ class CapaciteChargeDetail(models.Model):
 
         self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW mrp_capacite_charge_detail AS (
-            WITH charge_cumul AS (
-                SELECT 
-                    wcc.id,
-                    wcc.workorder_id,
-                    wcc.date,
-                    wcc.charge_heures,
-                    SUM(wcc2.charge_heures) OVER (
-                        PARTITION BY wcc.workorder_id 
-                        ORDER BY wcc2.date 
-                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                    ) AS charge_cumulee
-                FROM mrp_workorder_charge_cache wcc
-                JOIN mrp_workorder_charge_cache wcc2 
-                    ON wcc2.workorder_id = wcc.workorder_id 
-                    AND wcc2.date <= wcc.date
-            )
             SELECT
-                cc.id                                       AS id,
-                cc.date,
+                wcc.id                                      AS id,
+                wcc.date,
                 wcc.workcenter_id,
                 {wc_name}                                   AS workcenter_name,
                 wo.production_id,
@@ -477,13 +462,9 @@ class CapaciteChargeDetail(models.Model):
                       AND wop.employee_id IS NOT NULL
                 )                                           AS operateurs,
                 COALESCE(wo.duration_expected, 0) / 60.0   AS duration_expected,
-                GREATEST(
-                    (COALESCE(wo.duration_expected, 0) - COALESCE(wo.duration, 0)) / 60.0 
-                    - cc.charge_cumulee, 0
-                )                                           AS charge_restante,
+                wcc.charge_heures                           AS charge_restante,
                 wo.state
-            FROM charge_cumul cc
-            JOIN mrp_workorder_charge_cache wcc ON wcc.id = cc.id
+            FROM mrp_workorder_charge_cache wcc
             JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
             JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
             JOIN mrp_production mp ON mp.id = wo.production_id

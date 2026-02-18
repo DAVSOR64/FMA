@@ -38,6 +38,29 @@
     </record>
 
     <!-- ================================================================== -->
+    <!-- Vue DEBUG cache charge                                              -->
+    <!-- ================================================================== -->
+
+    <record id="view_workorder_charge_cache_tree" model="ir.ui.view">
+        <field name="name">mrp.workorder.charge.cache.tree</field>
+        <field name="model">mrp.workorder.charge.cache</field>
+        <field name="arch" type="xml">
+            <tree string="Cache charge (debug)" create="false" edit="false">
+                <field name="date" string="Date"/>
+                <field name="workcenter_name" string="Poste"/>
+                <field name="workorder_id" string="Ordre travail"/>
+                <field name="charge_heures" string="Charge (h)"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="action_workorder_charge_cache" model="ir.actions.act_window">
+        <field name="name">Cache charge (debug)</field>
+        <field name="res_model">mrp.workorder.charge.cache</field>
+        <field name="view_mode">tree</field>
+    </record>
+
+    <!-- ================================================================== -->
     <!-- Lier rôles → postes                                                 -->
     <!-- ================================================================== -->
 
