@@ -20,7 +20,6 @@
                 <field name="workcenter_name" string="Poste"/>
                 <field name="nb_operations" string="Nb opérations"/>
                 <field name="charge_heures" string="Charge restante (h)"/>
-                <field name="duration_done" string="Réalisé (h)"/>
                 <field name="projets" string="Projets"/>
                 <field name="employee_id" column_invisible="1"/>
                 <field name="workcenter_id" column_invisible="1"/>
@@ -42,7 +41,6 @@
                 <field name="employee_name" type="row"/>
                 <field name="date" type="col"/>
                 <field name="charge_heures" type="measure"/>
-                <field name="duration_done" type="measure"/>
                 <field name="nb_operations" type="measure"/>
             </pivot>
         </field>

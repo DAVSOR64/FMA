@@ -2,18 +2,24 @@
 <odoo>
 
     <!-- ================================================================== -->
-    <!-- WIZARD recalcul capacité                                            -->
+    <!-- WIZARD recalcul capacité + charge                                   -->
     <!-- ================================================================== -->
 
     <record id="view_capacite_refresh_wizard" model="ir.ui.view">
         <field name="name">mrp.capacite.refresh.wizard.form</field>
         <field name="model">mrp.capacite.refresh.wizard</field>
         <field name="arch" type="xml">
-            <form string="Recalculer la capacité">
+            <form string="Recalculer capacité et charge">
                 <group>
-                    <field name="nb_slots" string="Slots planning publiés"/>
-                    <field name="nb_entries" string="Entrées calculées" invisible="nb_entries == 0"/>
-                    <field name="message" invisible="not message"/>
+                    <group>
+                        <field name="nb_slots" string="Slots planning publiés"/>
+                        <field name="nb_workorders" string="Workorders actifs"/>
+                    </group>
+                    <group invisible="not message">
+                        <field name="nb_capacite" string="Entrées capacité calculées"/>
+                        <field name="nb_charge" string="Entrées charge calculées"/>
+                        <field name="message"/>
+                    </group>
                 </group>
                 <footer>
                     <button name="action_refresh" type="object"
@@ -25,14 +31,14 @@
     </record>
 
     <record id="action_refresh_wizard" model="ir.actions.act_window">
-        <field name="name">Recalculer la capacité</field>
+        <field name="name">Recalculer capacité et charge</field>
         <field name="res_model">mrp.capacite.refresh.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record>
 
     <!-- ================================================================== -->
-    <!-- Lier rôles → postes de travail                                      -->
+    <!-- Lier rôles → postes                                                 -->
     <!-- ================================================================== -->
 
     <record id="view_planning_role_workcenter_tree" model="ir.ui.view">
@@ -68,7 +74,6 @@
                 <field name="operation_name" string="Opération"/>
                 <field name="operateurs" string="Opérateur(s)"/>
                 <field name="duration_expected" string="Prévu (h)"/>
-                <field name="duration_done" string="Réalisé (h)"/>
                 <field name="charge_restante" string="Restant (h)"/>
                 <field name="state" string="Statut"/>
             </tree>

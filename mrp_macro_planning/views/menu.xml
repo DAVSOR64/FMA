@@ -19,7 +19,7 @@
               sequence="20"/>
 
     <menuitem id="menu_refresh_capacite"
-              name="⟳ Recalculer la capacité"
+              name="⟳ Recalculer capacité et charge"
               parent="menu_capacite_charge_root"
               action="action_refresh_wizard"
               sequence="30"/>
