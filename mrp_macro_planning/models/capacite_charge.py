@@ -404,9 +404,10 @@ class CapaciteChargeDetail(models.Model):
                 wo.name                                     AS operation_name,
                 (
                     SELECT STRING_AGG(DISTINCT {emp_name}, ', ')
-                    FROM mrp_workorder_charge_cache_hr_employee_rel rel
-                    JOIN hr_employee emp ON emp.id = rel.hr_employee_id
-                    WHERE rel.mrp_workorder_charge_cache_id = wcc.id
+                    FROM mrp_workcenter_productivity wop
+                    JOIN hr_employee emp ON emp.id = wop.employee_id
+                    WHERE wop.workorder_id = wo.id
+                      AND wop.employee_id IS NOT NULL
                 )                                           AS operateurs,
                 COALESCE(wo.duration_expected, 0) / 60.0   AS duration_expected,
                 wcc.charge_heures                           AS charge_restante,
@@ -574,7 +575,7 @@ class CapaciteChargeOperateur(models.Model):
                     ORDER BY wcc.date, {emp_name}, {wc_name}
                 )                                           AS id,
                 wcc.date,
-                rel.hr_employee_id                          AS employee_id,
+                wop.employee_id                             AS employee_id,
                 {emp_name}                                  AS employee_name,
                 wcc.workcenter_id,
                 {wc_name}                                   AS workcenter_name,
@@ -582,17 +583,17 @@ class CapaciteChargeOperateur(models.Model):
                 {projet_agg}
                 SUM(wcc.charge_heures)                      AS charge_heures
             FROM mrp_workorder_charge_cache wcc
-            JOIN mrp_workorder_charge_cache_hr_employee_rel rel 
-                ON rel.mrp_workorder_charge_cache_id = wcc.id
-            JOIN hr_employee emp ON emp.id = rel.hr_employee_id
-            JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
             JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
+            JOIN mrp_workcenter_productivity wop ON wop.workorder_id = wo.id
+            JOIN hr_employee emp ON emp.id = wop.employee_id
+            JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
             JOIN mrp_production mp ON mp.id = wo.production_id
             {sale_join}
             {projet_join}
+            WHERE wop.employee_id IS NOT NULL
             GROUP BY
                 wcc.date,
-                rel.hr_employee_id,
+                wop.employee_id,
                 {emp_name},
                 wcc.workcenter_id,
                 {wc_name}
