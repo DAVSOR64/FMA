@@ -3,7 +3,7 @@ from odoo import models, fields, tools, api
 import logging
 import traceback
 import pytz
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 _logger = logging.getLogger(__name__)
 
@@ -20,7 +20,6 @@ class PlanningRole(models.Model):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cache CAPACITE (depuis Planning)
-# MODIFIÉ : compte le nombre de slots par workcenter/date pour multiplier capacité
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CapaciteCache(models.Model):
@@ -49,7 +48,6 @@ class CapaciteCache(models.Model):
         if not slots:
             return
         
-        # Dictionnaire : (workcenter_id, date) → liste des capacités par personne
         capacite_par_jour = {}
         
         for slot in slots:
@@ -96,7 +94,6 @@ class CapaciteCache(models.Model):
             except Exception as e:
                 _logger.error('Erreur slot %s : %s\n%s', slot.id, e, traceback.format_exc())
         
-        # Créer les entrées : capacité = somme des heures de toutes les personnes
         vals_list = []
         for key, data in capacite_par_jour.items():
             nb_personnes = len(data['heures'])
@@ -115,7 +112,8 @@ class CapaciteCache(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Cache CHARGE (depuis Workorders) - VERSION OPTIMISÉE
+# Cache CHARGE (depuis Workorders) - VERSION FINALE
+# Stocke la charge PRÉVUE par OF/poste/date
 # ─────────────────────────────────────────────────────────────────────────────
 
 class WorkorderChargeCache(models.Model):
@@ -125,10 +123,12 @@ class WorkorderChargeCache(models.Model):
     _order = 'date asc, workcenter_id asc, workorder_id asc'
 
     workorder_id = fields.Many2one('mrp.workorder', string='Ordre de travail', index=True, ondelete='cascade')
+    production_id = fields.Many2one('mrp.production', string='OF', related='workorder_id.production_id', store=True)
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', index=True, ondelete='cascade')
     workcenter_name = fields.Char(string='Nom poste')
     date = fields.Date(string='Date', index=True)
-    charge_heures = fields.Float(string='Charge (h)', digits=(10, 2))
+    charge_prevue_heures = fields.Float(string='Charge prévue (h)', digits=(10, 2), 
+                                         help='Charge planifiée pour ce jour sur cet OF')
     employee_ids = fields.Many2many('hr.employee', string='Opérateurs')
 
     def _to_utc(self, dt):
@@ -139,7 +139,7 @@ class WorkorderChargeCache(models.Model):
         return dt.astimezone(pytz.utc)
 
     def refresh(self):
-        """Recalcule la charge depuis les workorders actifs avec plafonnement calendaire jour par jour"""
+        """Recalcule la charge depuis les workorders actifs - RÉPARTITION JOUR PAR JOUR"""
         self.search([]).unlink()
         
         workorders = self.env['mrp.workorder'].search([
@@ -179,7 +179,7 @@ class WorkorderChargeCache(models.Model):
             # Calendrier du workcenter
             calendar = wo.workcenter_id.resource_calendar_id
             
-            # Date de début de l'opération
+            # Date de début de l'opération (macro_date_planned ou date_start)
             date_start_operation = wo.macro_date_planned if hasattr(wo, 'macro_date_planned') and wo.macro_date_planned else wo.date_start
             
             if not date_start_operation:
@@ -192,41 +192,17 @@ class WorkorderChargeCache(models.Model):
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_start_operation.date(),
-                    'charge_heures': charge_restante_totale,
+                    'charge_prevue_heures': charge_restante_totale,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
                 continue
             
-            # Calculer la date de fin estimée
-            if not wo.duration_expected:
-                vals_list.append({
-                    'workorder_id': wo.id,
-                    'workcenter_id': wo.workcenter_id.id,
-                    'workcenter_name': wo.workcenter_id.name,
-                    'date': date_start_operation.date(),
-                    'charge_heures': charge_restante_totale,
-                    'employee_ids': [(6, 0, employee_ids)],
-                })
-                continue
-            
-            # Date de fin = début + durée totale (pour avoir une fenêtre large)
-            date_end = date_start_operation + timedelta(minutes=wo.duration_expected)
+            # Calculer une fenêtre large pour récupérer les jours ouvrés (60 jours)
+            date_end_window = date_start_operation + timedelta(days=60)
             
             try:
                 date_start_utc = self._to_utc(date_start_operation)
-                date_end_utc = self._to_utc(date_end)
-                
-                # OPTIMISATION : Si > 30 jours → tout sur date_start
-                if (date_end_utc - date_start_utc).days > 30:
-                    vals_list.append({
-                        'workorder_id': wo.id,
-                        'workcenter_id': wo.workcenter_id.id,
-                        'workcenter_name': wo.workcenter_id.name,
-                        'date': date_start_operation.date(),
-                        'charge_heures': charge_restante_totale,
-                        'employee_ids': [(6, 0, employee_ids)],
-                    })
-                    continue
+                date_end_utc = self._to_utc(date_end_window)
                 
                 # Récupérer les intervalles de travail
                 intervals = calendar._work_intervals_batch(date_start_utc, date_end_utc)
@@ -238,7 +214,7 @@ class WorkorderChargeCache(models.Model):
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': date_start_operation.date(),
-                        'charge_heures': charge_restante_totale,
+                        'charge_prevue_heures': charge_restante_totale,
                         'employee_ids': [(6, 0, employee_ids)],
                     })
                     continue
@@ -250,7 +226,18 @@ class WorkorderChargeCache(models.Model):
                     heures_interval = (stop - start).total_seconds() / 3600.0
                     heures_calendrier_par_jour[jour] = heures_calendrier_par_jour.get(jour, 0) + heures_interval
                 
-                # Répartir la charge avec plafonnement jour par jour
+                if not heures_calendrier_par_jour:
+                    vals_list.append({
+                        'workorder_id': wo.id,
+                        'workcenter_id': wo.workcenter_id.id,
+                        'workcenter_name': wo.workcenter_id.name,
+                        'date': date_start_operation.date(),
+                        'charge_prevue_heures': charge_restante_totale,
+                        'employee_ids': [(6, 0, employee_ids)],
+                    })
+                    continue
+                
+                # RÉPARTITION JOUR PAR JOUR avec plafonnement à la capacité calendrier
                 charge_restante = charge_restante_totale
                 jours_tries = sorted(heures_calendrier_par_jour.keys())
                 
@@ -258,21 +245,21 @@ class WorkorderChargeCache(models.Model):
                     if charge_restante <= 0:
                         break
                     
-                    heures_dispo_jour = heures_calendrier_par_jour[jour]
-                    charge_jour = min(charge_restante, heures_dispo_jour)
+                    capacite_jour = heures_calendrier_par_jour[jour]
+                    charge_ce_jour = min(charge_restante, capacite_jour)
                     
-                    if charge_jour > 0:
+                    if charge_ce_jour > 0:
                         vals_list.append({
                             'workorder_id': wo.id,
                             'workcenter_id': wo.workcenter_id.id,
                             'workcenter_name': wo.workcenter_id.name,
                             'date': jour,
-                            'charge_heures': charge_jour,
+                            'charge_prevue_heures': charge_ce_jour,
                             'employee_ids': [(6, 0, employee_ids)],
                         })
-                        charge_restante -= charge_jour
+                        charge_restante -= charge_ce_jour
                 
-                # S'il reste de la charge après tous les jours calendrier
+                # S'il reste de la charge après 60 jours
                 if charge_restante > 0:
                     dernier_jour = jours_tries[-1] if jours_tries else date_start_operation.date()
                     vals_list.append({
@@ -280,9 +267,10 @@ class WorkorderChargeCache(models.Model):
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': dernier_jour,
-                        'charge_heures': charge_restante,
+                        'charge_prevue_heures': charge_restante,
                         'employee_ids': [(6, 0, employee_ids)],
                     })
+                    _logger.warning('WO %s : charge restante %sh après 60 jours', wo.id, charge_restante)
             
             except Exception as e:
                 _logger.error('Erreur workorder %s : %s', wo.id, str(e))
@@ -291,11 +279,11 @@ class WorkorderChargeCache(models.Model):
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_start_operation.date(),
-                    'charge_heures': charge_restante_totale,
+                    'charge_prevue_heures': charge_restante_totale,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
             
-            # OPTIMISATION : Commit par batch pour éviter timeout
+            # OPTIMISATION : Commit par batch
             if count % batch_size == 0 and vals_list:
                 self.create(vals_list)
                 self.env.cr.commit()
@@ -310,7 +298,7 @@ class WorkorderChargeCache(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Wizard de refresh (capacité + charge)
+# Wizard de refresh
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CapaciteRefreshWizard(models.TransientModel):
@@ -398,14 +386,14 @@ class CapaciteMixin(models.AbstractModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Vue détail workorders (garde les projets)
+# Vue détail workorders - AVEC CUMULS
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CapaciteChargeDetail(models.Model):
     _name = 'mrp.capacite.charge.detail'
     _inherit = 'mrp.capacite.mixin'
     _auto = False
-    _description = 'Détail opérations par poste/jour'
+    _description = 'Détail opérations par poste/jour avec cumuls'
     _order = 'date asc, workcenter_name asc'
 
     date = fields.Date(string='Date', readonly=True)
@@ -418,8 +406,11 @@ class CapaciteChargeDetail(models.Model):
     projet = fields.Char(string='Projet', readonly=True)
     operation_name = fields.Char(string='Opération', readonly=True)
     operateurs = fields.Char(string='Opérateur(s)', readonly=True)
-    duration_expected = fields.Float(string='Prévu (h)', digits=(10, 2), readonly=True)
-    charge_restante = fields.Float(string='Restant (h)', digits=(10, 2), readonly=True)
+    prevu_jour = fields.Float(string='Prévu ce jour (h)', digits=(10, 2), readonly=True)
+    effectue_jour = fields.Float(string='Effectué ce jour (h)', digits=(10, 2), readonly=True)
+    cumul_prevu = fields.Float(string='Cumul prévu (h)', digits=(10, 2), readonly=True)
+    cumul_effectue = fields.Float(string='Cumul effectué (h)', digits=(10, 2), readonly=True)
+    ecart = fields.Float(string='Écart (h)', digits=(10, 2), readonly=True)
     state = fields.Char(string='Statut', readonly=True)
 
     def init(self):
@@ -443,9 +434,40 @@ class CapaciteChargeDetail(models.Model):
 
         self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW mrp_capacite_charge_detail AS (
+            WITH effectue_par_jour AS (
+                SELECT 
+                    wop.workorder_id,
+                    DATE(wop.date_start) AS date,
+                    SUM(COALESCE(wop.duration, 0)) / 60.0 AS effectue_heures
+                FROM mrp_workcenter_productivity wop
+                WHERE wop.date_start IS NOT NULL
+                GROUP BY wop.workorder_id, DATE(wop.date_start)
+            ),
+            cumuls AS (
+                SELECT
+                    wcc.id,
+                    wcc.workorder_id,
+                    wcc.date,
+                    wcc.charge_prevue_heures,
+                    COALESCE(epj.effectue_heures, 0) AS effectue_jour,
+                    SUM(wcc.charge_prevue_heures) OVER (
+                        PARTITION BY wcc.workorder_id 
+                        ORDER BY wcc.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS cumul_prevu,
+                    SUM(COALESCE(epj.effectue_heures, 0)) OVER (
+                        PARTITION BY wcc.workorder_id 
+                        ORDER BY wcc.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS cumul_effectue
+                FROM mrp_workorder_charge_cache wcc
+                LEFT JOIN effectue_par_jour epj 
+                    ON epj.workorder_id = wcc.workorder_id 
+                    AND epj.date = wcc.date
+            )
             SELECT
-                wcc.id                                      AS id,
-                wcc.date,
+                cum.id                                      AS id,
+                cum.date,
                 wcc.workcenter_id,
                 {wc_name}                                   AS workcenter_name,
                 wo.production_id,
@@ -461,10 +483,14 @@ class CapaciteChargeDetail(models.Model):
                     WHERE wop.workorder_id = wo.id
                       AND wop.employee_id IS NOT NULL
                 )                                           AS operateurs,
-                COALESCE(wo.duration_expected, 0) / 60.0   AS duration_expected,
-                wcc.charge_heures                           AS charge_restante,
+                cum.charge_prevue_heures                    AS prevu_jour,
+                cum.effectue_jour                           AS effectue_jour,
+                cum.cumul_prevu                             AS cumul_prevu,
+                cum.cumul_effectue                          AS cumul_effectue,
+                cum.cumul_effectue - cum.cumul_prevu        AS ecart,
                 wo.state
-            FROM mrp_workorder_charge_cache wcc
+            FROM cumuls cum
+            JOIN mrp_workorder_charge_cache wcc ON wcc.id = cum.id
             JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
             JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
             JOIN mrp_production mp ON mp.id = wo.production_id
@@ -475,24 +501,30 @@ class CapaciteChargeDetail(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Vue capacité vs charge par poste - CORRIGÉE
-# GROUP BY sur workcenter_id + date UNIQUEMENT (pas de name, pas de projets)
+# Vue capacité vs charge par poste - AVEC CUMULS
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CapaciteCharge(models.Model):
     _name = 'mrp.capacite.charge'
     _inherit = 'mrp.capacite.mixin'
     _auto = False
-    _description = 'Capacité vs Charge par poste de travail'
+    _description = 'Capacité vs Charge par poste avec cumuls'
     _order = 'date asc, workcenter_id asc'
 
     date = fields.Date(string='Date', readonly=True)
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', readonly=True)
     workcenter_name = fields.Char(string='Poste', readonly=True)
+    nb_personnes = fields.Integer(string='Personnes', readonly=True)
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2), readonly=True)
-    charge_heures = fields.Float(string='Charge restante (h)', digits=(10, 2), readonly=True)
     nb_operations = fields.Integer(string='Nb opérations', readonly=True)
-    nb_personnes = fields.Integer(string='Nb personnes', readonly=True)
+    
+    charge_prevue_jour = fields.Float(string='Charge prévue ce jour (h)', digits=(10, 2), readonly=True)
+    charge_effectuee_jour = fields.Float(string='Charge effectuée ce jour (h)', digits=(10, 2), readonly=True)
+    cumul_prevu = fields.Float(string='Cumul prévu (h)', digits=(10, 2), readonly=True)
+    cumul_effectue = fields.Float(string='Cumul effectué (h)', digits=(10, 2), readonly=True)
+    ecart = fields.Float(string='Écart (h)', digits=(10, 2), readonly=True, 
+                         help='Cumul effectué - Cumul prévu (négatif = retard, positif = avance)')
+    
     taux_charge = fields.Float(string='Taux charge (%)', digits=(10, 1), readonly=True)
     solde_heures = fields.Float(string='Solde (h)', digits=(10, 2), readonly=True)
 
@@ -515,14 +547,28 @@ class CapaciteCharge(models.Model):
 
         self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW mrp_capacite_charge AS (
-            WITH charge AS (
+            WITH effectue_par_jour AS (
+                SELECT 
+                    wo.workcenter_id,
+                    DATE(wop.date_start) AS date,
+                    SUM(COALESCE(wop.duration, 0)) / 60.0 AS effectue_heures
+                FROM mrp_workcenter_productivity wop
+                JOIN mrp_workorder wo ON wo.id = wop.workorder_id
+                WHERE wop.date_start IS NOT NULL
+                GROUP BY wo.workcenter_id, DATE(wop.date_start)
+            ),
+            charge AS (
                 SELECT
                     wcc.workcenter_id,
                     wcc.date,
-                    COUNT(DISTINCT wcc.workorder_id)            AS nb_operations,
-                    SUM(wcc.charge_heures)                      AS charge_heures
+                    COUNT(DISTINCT wcc.workorder_id)                AS nb_operations,
+                    SUM(wcc.charge_prevue_heures)                   AS charge_prevue_jour,
+                    COALESCE(epj.effectue_heures, 0)                AS charge_effectuee_jour
                 FROM mrp_workorder_charge_cache wcc
-                GROUP BY wcc.workcenter_id, wcc.date
+                LEFT JOIN effectue_par_jour epj 
+                    ON epj.workcenter_id = wcc.workcenter_id 
+                    AND epj.date = wcc.date
+                GROUP BY wcc.workcenter_id, wcc.date, epj.effectue_heures
             ),
             capacite AS (
                 SELECT 
@@ -537,32 +583,57 @@ class CapaciteCharge(models.Model):
                 SELECT workcenter_id, date FROM charge
                 UNION
                 SELECT workcenter_id, date FROM capacite
+            ),
+            with_cumuls AS (
+                SELECT
+                    ak.workcenter_id,
+                    ak.date,
+                    COALESCE(cap.capacite_heures, 0)            AS capacite_heures,
+                    COALESCE(cap.nb_personnes, 0)               AS nb_personnes,
+                    COALESCE(ch.nb_operations, 0)               AS nb_operations,
+                    COALESCE(ch.charge_prevue_jour, 0)          AS charge_prevue_jour,
+                    COALESCE(ch.charge_effectuee_jour, 0)       AS charge_effectuee_jour,
+                    SUM(COALESCE(ch.charge_prevue_jour, 0)) OVER (
+                        PARTITION BY ak.workcenter_id 
+                        ORDER BY ak.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS cumul_prevu,
+                    SUM(COALESCE(ch.charge_effectuee_jour, 0)) OVER (
+                        PARTITION BY ak.workcenter_id 
+                        ORDER BY ak.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS cumul_effectue
+                FROM all_keys ak
+                LEFT JOIN charge   ch  ON ch.workcenter_id  = ak.workcenter_id AND ch.date = ak.date
+                LEFT JOIN capacite cap ON cap.workcenter_id = ak.workcenter_id AND cap.date = ak.date
             )
             SELECT
-                ROW_NUMBER() OVER (ORDER BY ak.date, ak.workcenter_id) AS id,
-                ak.workcenter_id,
-                (SELECT {wc_name} FROM mrp_workcenter wc WHERE wc.id = ak.workcenter_id) AS workcenter_name,
-                ak.date,
-                COALESCE(cap.capacite_heures, 0)       AS capacite_heures,
-                COALESCE(ch.charge_heures, 0)          AS charge_heures,
-                COALESCE(ch.nb_operations, 0)          AS nb_operations,
-                COALESCE(cap.nb_personnes, 0)          AS nb_personnes,
-                COALESCE(ch.charge_heures, 0) - COALESCE(cap.capacite_heures, 0) AS solde_heures,
+                ROW_NUMBER() OVER (ORDER BY date, workcenter_id) AS id,
+                workcenter_id,
+                (SELECT {wc_name} FROM mrp_workcenter wc WHERE wc.id = workcenter_id) AS workcenter_name,
+                date,
+                nb_personnes,
+                capacite_heures,
+                nb_operations,
+                charge_prevue_jour,
+                charge_effectuee_jour,
+                cumul_prevu,
+                cumul_effectue,
+                cumul_effectue - cumul_prevu AS ecart,
+                charge_prevue_jour - capacite_heures AS solde_heures,
                 CASE
-                    WHEN COALESCE(cap.capacite_heures, 0) > 0
-                        THEN ROUND(((COALESCE(ch.charge_heures, 0) / cap.capacite_heures) * 100.0)::numeric, 1)
-                    WHEN COALESCE(ch.charge_heures, 0) > 0 THEN 999
+                    WHEN capacite_heures > 0
+                        THEN ROUND(((charge_prevue_jour / capacite_heures) * 100.0)::numeric, 1)
+                    WHEN charge_prevue_jour > 0 THEN 999
                     ELSE 0
                 END AS taux_charge
-            FROM all_keys ak
-            LEFT JOIN charge   ch  ON ch.workcenter_id  = ak.workcenter_id AND ch.date = ak.date
-            LEFT JOIN capacite cap ON cap.workcenter_id = ak.workcenter_id AND cap.date = ak.date
+            FROM with_cumuls
         )
         """)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Vue charge par opérateur
+# Vue charge par opérateur (inchangée)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CapaciteChargeOperateur(models.Model):
@@ -622,7 +693,7 @@ class CapaciteChargeOperateur(models.Model):
                 {wc_name}                                   AS workcenter_name,
                 COUNT(DISTINCT wcc.workorder_id)            AS nb_operations,
                 {projet_agg}
-                SUM(wcc.charge_heures)                      AS charge_heures
+                SUM(wcc.charge_prevue_heures)               AS charge_heures
             FROM mrp_workorder_charge_cache wcc
             JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
             JOIN mrp_workcenter_productivity wop ON wop.workorder_id = wo.id

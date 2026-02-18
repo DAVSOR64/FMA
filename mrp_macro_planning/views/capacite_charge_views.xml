@@ -49,15 +49,35 @@
                 <field name="date" string="Date"/>
                 <field name="workcenter_name" string="Poste"/>
                 <field name="workorder_id" string="Ordre travail"/>
-                <field name="charge_heures" string="Charge (h)"/>
+                <field name="production_id" string="OF"/>
+                <field name="charge_prevue_heures" string="Charge prévue (h)" sum="Total"/>
             </tree>
         </field>
     </record>
 
+    <record id="view_workorder_charge_cache_search" model="ir.ui.view">
+        <field name="name">mrp.workorder.charge.cache.search</field>
+        <field name="model">mrp.workorder.charge.cache</field>
+        <field name="arch" type="xml">
+            <search string="Rechercher">
+                <field name="workcenter_name" string="Poste"/>
+                <field name="workorder_id" string="Ordre travail"/>
+                <field name="production_id" string="OF"/>
+                <field name="date" string="Date"/>
+                <group expand="1" string="Regrouper par">
+                    <filter string="Date" name="group_date" context="{'group_by': 'date'}"/>
+                    <filter string="Poste" name="group_workcenter" context="{'group_by': 'workcenter_name'}"/>
+                    <filter string="OF" name="group_production" context="{'group_by': 'production_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <record id="action_workorder_charge_cache" model="ir.actions.act_window">
-        <field name="name">Cache charge (debug)</field>
+        <field name="name">🔍 Cache charge (debug)</field>
         <field name="res_model">mrp.workorder.charge.cache</field>
         <field name="view_mode">tree</field>
+        <field name="context">{'search_default_group_date': 1}</field>
     </record>
 
     <!-- ================================================================== -->
@@ -83,21 +103,27 @@
     </record>
 
     <!-- ================================================================== -->
-    <!-- Détail workorders (popup) - GARDE les projets                       -->
+    <!-- Détail workorders - AVEC CUMULS                                     -->
     <!-- ================================================================== -->
 
     <record id="view_capacite_charge_detail_tree" model="ir.ui.view">
         <field name="name">mrp.capacite.charge.detail.tree</field>
         <field name="model">mrp.capacite.charge.detail</field>
         <field name="arch" type="xml">
-            <tree string="Détail opérations" create="false" edit="false" delete="false">
+            <tree string="Détail opérations" create="false" edit="false" delete="false"
+                  decoration-danger="ecart &lt; -1"
+                  decoration-warning="ecart &gt;= -1 and ecart &lt; 0"
+                  decoration-success="ecart &gt;= 0">
                 <field name="production_name" string="N° OF"/>
                 <field name="sale_order_name" string="Commande"/>
                 <field name="projet" string="Projet"/>
                 <field name="operation_name" string="Opération"/>
                 <field name="operateurs" string="Opérateur(s)"/>
-                <field name="duration_expected" string="Prévu (h)"/>
-                <field name="charge_restante" string="Restant (h)"/>
+                <field name="prevu_jour" string="Prévu ce jour (h)" sum="Total prévu"/>
+                <field name="effectue_jour" string="Effectué ce jour (h)" sum="Total effectué"/>
+                <field name="cumul_prevu" string="Cumul prévu (h)"/>
+                <field name="cumul_effectue" string="Cumul effectué (h)"/>
+                <field name="ecart" string="Écart (h)"/>
                 <field name="state" string="Statut"/>
             </tree>
         </field>
@@ -113,12 +139,14 @@
                 <field name="sale_order_name" string="Commande"/>
                 <field name="workcenter_name" string="Poste"/>
                 <field name="operateurs" string="Opérateur"/>
+                <filter string="En retard" name="retard" domain="[('ecart', '&lt;', 0)]"/>
+                <filter string="En avance" name="avance" domain="[('ecart', '&gt;', 0)]"/>
             </search>
         </field>
     </record>
 
     <!-- ================================================================== -->
-    <!-- Vue principale Capacité vs Charge par poste - SANS projets         -->
+    <!-- Vue principale Capacité vs Charge - AVEC CUMULS                    -->
     <!-- ================================================================== -->
 
     <record id="view_capacite_charge_list" model="ir.ui.view">
@@ -132,13 +160,20 @@
                   decoration-success="taux_charge &gt; 0 and taux_charge &lt; 80"
                   decoration-muted="taux_charge == 0">
                 <field name="date" string="Date"/>
-                <field name="workcenter_name" string="Poste de travail"/>
-                <field name="nb_personnes" string="Personnes"/>
+                <field name="workcenter_name" string="Poste"/>
+                <field name="nb_personnes" string="Pers."/>
                 <field name="capacite_heures" string="Capacité (h)"/>
-                <field name="charge_heures" string="Charge restante (h)"/>
+                <field name="nb_operations" string="Ops"/>
+                <field name="charge_prevue_jour" string="Prévu ce jour (h)" sum="Total prévu"/>
+                <field name="charge_effectuee_jour" string="Effectué ce jour (h)" sum="Total effectué"/>
+                <field name="cumul_prevu" string="Cumul prévu (h)"/>
+                <field name="cumul_effectue" string="Cumul effectué (h)"/>
+                <field name="ecart" string="Écart (h)" 
+                       decoration-danger="ecart &lt; -2"
+                       decoration-warning="ecart &gt;= -2 and ecart &lt; 0"
+                       decoration-success="ecart &gt;= 0"/>
                 <field name="solde_heures" string="Solde (h)"/>
-                <field name="taux_charge" string="Taux charge (%)"/>
-                <field name="nb_operations" string="Nb opérations"/>
+                <field name="taux_charge" string="Taux (%)"/>
                 <field name="workcenter_id" column_invisible="1"/>
                 <button name="action_voir_detail" type="object"
                         string="Détail" icon="fa-list"/>
@@ -154,8 +189,9 @@
                 <field name="workcenter_name" type="row"/>
                 <field name="date" type="col"/>
                 <field name="capacite_heures" type="measure"/>
-                <field name="charge_heures" type="measure"/>
-                <field name="taux_charge" type="measure"/>
+                <field name="charge_prevue_jour" type="measure"/>
+                <field name="charge_effectuee_jour" type="measure"/>
+                <field name="ecart" type="measure"/>
             </pivot>
         </field>
     </record>
@@ -169,8 +205,8 @@
                         domain="[('taux_charge', '&gt;', 100)]"/>
                 <filter string="Proche saturation (80-100%)" name="alerte"
                         domain="[('taux_charge', '&gt;=', 80), ('taux_charge', '&lt;=', 100)]"/>
-                <filter string="Disponible (&lt; 80%)" name="disponible"
-                        domain="[('taux_charge', '&gt;', 0), ('taux_charge', '&lt;', 80)]"/>
+                <filter string="En retard" name="retard"
+                        domain="[('ecart', '&lt;', 0)]"/>
                 <separator/>
                 <filter string="3 prochaines semaines" name="trois_semaines"
                         domain="[('date', '&gt;=', context_today().strftime('%Y-%m-%d')),

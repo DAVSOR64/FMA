@@ -4,7 +4,7 @@
     <menuitem id="menu_capacite_charge_root"
               name="Macro Planning"
               parent="mrp.menu_mrp_root"
-              sequence="95"/>
+              sequence="50"/>
 
     <menuitem id="menu_capacite_charge"
               name="Capacité vs Charge"
@@ -12,14 +12,14 @@
               action="action_capacite_charge"
               sequence="10"/>
 
-    <menuitem id="menu_capacite_charge_operateur"
+    <menuitem id="menu_charge_operateur"
               name="Charge par opérateur"
               parent="menu_capacite_charge_root"
               action="action_capacite_charge_operateur"
               sequence="20"/>
 
     <menuitem id="menu_refresh_capacite"
-              name="⟳ Recalculer capacité et charge"
+              name="⚙️ Recalculer capacité et charge"
               parent="menu_capacite_charge_root"
               action="action_refresh_wizard"
               sequence="30"/>
