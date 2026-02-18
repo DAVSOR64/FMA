@@ -138,7 +138,7 @@ class WorkorderChargeCache(models.Model):
         return dt.astimezone(pytz.utc)
 
     def refresh(self):
-        """Recalcule la charge depuis les workorders actifs - VERSION OPTIMISÉE"""
+        """Recalcule la charge depuis les workorders actifs avec plafonnement calendaire jour par jour"""
         self.search([]).unlink()
         
         workorders = self.env['mrp.workorder'].search([
@@ -160,16 +160,14 @@ class WorkorderChargeCache(models.Model):
             if not wo.workcenter_id or not wo.date_start:
                 continue
             
-            # Charge restante en heures
+            # Charge restante TOTALE en heures
             if wo.state in ('pending', 'ready', 'waiting'):
-                charge_restante_minutes = wo.duration_expected or 0
+                charge_restante_totale = (wo.duration_expected or 0) / 60.0
             else:
-                charge_restante_minutes = max((wo.duration_expected or 0) - (wo.duration or 0), 0)
+                charge_restante_totale = max((wo.duration_expected or 0) - (wo.duration or 0), 0) / 60.0
             
-            if charge_restante_minutes <= 0:
+            if charge_restante_totale <= 0:
                 continue
-            
-            charge_restante_heures = charge_restante_minutes / 60.0
             
             # Récupérer les opérateurs assignés
             employee_ids = self.env['mrp.workcenter.productivity'].search([
@@ -187,29 +185,30 @@ class WorkorderChargeCache(models.Model):
                 continue
             
             # OPTIMISATION : Si pas de calendrier OU durée > 80h → tout sur date_start
-            if not calendar or charge_restante_heures > 80:
+            if not calendar or charge_restante_totale > 80:
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_start_operation.date(),
-                    'charge_heures': charge_restante_heures,
+                    'charge_heures': charge_restante_totale,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
                 continue
             
-            # Calculer la date de fin
+            # Calculer la date de fin estimée
             if not wo.duration_expected:
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_start_operation.date(),
-                    'charge_heures': charge_restante_heures,
+                    'charge_heures': charge_restante_totale,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
                 continue
             
+            # Date de fin = début + durée totale (pour avoir une fenêtre large)
             date_end = date_start_operation + timedelta(minutes=wo.duration_expected)
             
             try:
@@ -223,7 +222,7 @@ class WorkorderChargeCache(models.Model):
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': date_start_operation.date(),
-                        'charge_heures': charge_restante_heures,
+                        'charge_heures': charge_restante_totale,
                         'employee_ids': [(6, 0, employee_ids)],
                     })
                     continue
@@ -238,47 +237,51 @@ class WorkorderChargeCache(models.Model):
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': date_start_operation.date(),
-                        'charge_heures': charge_restante_heures,
+                        'charge_heures': charge_restante_totale,
                         'employee_ids': [(6, 0, employee_ids)],
                     })
                     continue
                 
-                # Calculer le total d'heures ouvrées
-                total_heures_ouvrées = sum(
-                    (stop - start).total_seconds() / 3600.0
-                    for start, stop, _meta in work_intervals
-                )
-                
-                if total_heures_ouvrées <= 0:
-                    vals_list.append({
-                        'workorder_id': wo.id,
-                        'workcenter_id': wo.workcenter_id.id,
-                        'workcenter_name': wo.workcenter_id.name,
-                        'date': date_start_operation.date(),
-                        'charge_heures': charge_restante_heures,
-                        'employee_ids': [(6, 0, employee_ids)],
-                    })
-                    continue
-                
-                # Répartir proportionnellement sur les jours ouvrés
-                heures_par_jour = {}
+                # Calculer les heures ouvrées par jour
+                heures_calendrier_par_jour = {}
                 for start, stop, _meta in work_intervals:
                     jour = start.date()
                     heures_interval = (stop - start).total_seconds() / 3600.0
-                    proportion = heures_interval / total_heures_ouvrées
-                    charge_jour = charge_restante_heures * proportion
-                    heures_par_jour[jour] = heures_par_jour.get(jour, 0) + charge_jour
+                    heures_calendrier_par_jour[jour] = heures_calendrier_par_jour.get(jour, 0) + heures_interval
                 
-                for jour, heures in heures_par_jour.items():
-                    if heures > 0:
+                # Répartir la charge avec plafonnement jour par jour
+                charge_restante = charge_restante_totale
+                jours_tries = sorted(heures_calendrier_par_jour.keys())
+                
+                for jour in jours_tries:
+                    if charge_restante <= 0:
+                        break
+                    
+                    heures_dispo_jour = heures_calendrier_par_jour[jour]
+                    charge_jour = min(charge_restante, heures_dispo_jour)
+                    
+                    if charge_jour > 0:
                         vals_list.append({
                             'workorder_id': wo.id,
                             'workcenter_id': wo.workcenter_id.id,
                             'workcenter_name': wo.workcenter_id.name,
                             'date': jour,
-                            'charge_heures': heures,
+                            'charge_heures': charge_jour,
                             'employee_ids': [(6, 0, employee_ids)],
                         })
+                        charge_restante -= charge_jour
+                
+                # S'il reste de la charge après tous les jours calendrier
+                if charge_restante > 0:
+                    dernier_jour = jours_tries[-1] if jours_tries else date_start_operation.date()
+                    vals_list.append({
+                        'workorder_id': wo.id,
+                        'workcenter_id': wo.workcenter_id.id,
+                        'workcenter_name': wo.workcenter_id.name,
+                        'date': dernier_jour,
+                        'charge_heures': charge_restante,
+                        'employee_ids': [(6, 0, employee_ids)],
+                    })
             
             except Exception as e:
                 _logger.error('Erreur workorder %s : %s', wo.id, str(e))
@@ -287,7 +290,7 @@ class WorkorderChargeCache(models.Model):
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_start_operation.date(),
-                    'charge_heures': charge_restante_heures,
+                    'charge_heures': charge_restante_totale,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
             
@@ -439,9 +442,25 @@ class CapaciteChargeDetail(models.Model):
 
         self.env.cr.execute(f"""
             CREATE OR REPLACE VIEW mrp_capacite_charge_detail AS (
+            WITH charge_cumul AS (
+                SELECT 
+                    wcc.id,
+                    wcc.workorder_id,
+                    wcc.date,
+                    wcc.charge_heures,
+                    SUM(wcc2.charge_heures) OVER (
+                        PARTITION BY wcc.workorder_id 
+                        ORDER BY wcc2.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS charge_cumulee
+                FROM mrp_workorder_charge_cache wcc
+                JOIN mrp_workorder_charge_cache wcc2 
+                    ON wcc2.workorder_id = wcc.workorder_id 
+                    AND wcc2.date <= wcc.date
+            )
             SELECT
-                wcc.id                                      AS id,
-                wcc.date,
+                cc.id                                       AS id,
+                cc.date,
                 wcc.workcenter_id,
                 {wc_name}                                   AS workcenter_name,
                 wo.production_id,
@@ -458,9 +477,13 @@ class CapaciteChargeDetail(models.Model):
                       AND wop.employee_id IS NOT NULL
                 )                                           AS operateurs,
                 COALESCE(wo.duration_expected, 0) / 60.0   AS duration_expected,
-                wcc.charge_heures                           AS charge_restante,
+                GREATEST(
+                    (COALESCE(wo.duration_expected, 0) - COALESCE(wo.duration, 0)) / 60.0 
+                    - cc.charge_cumulee, 0
+                )                                           AS charge_restante,
                 wo.state
-            FROM mrp_workorder_charge_cache wcc
+            FROM charge_cumul cc
+            JOIN mrp_workorder_charge_cache wcc ON wcc.id = cc.id
             JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
             JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
             JOIN mrp_production mp ON mp.id = wo.production_id
