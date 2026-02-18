@@ -598,7 +598,7 @@ class ExportSFTPScheduler(models.Model):
                             "not ilike",
                             "ACPT",
                         ),
-                        ("name", "not in", ["F202600012"]),
+                        ("name", "!=", "F202600012"),
                     ]
                 )
 
@@ -695,7 +695,7 @@ class ExportSFTPScheduler(models.Model):
                         ("move_id.move_type", "in", ["out_invoice", "out_refund"]),
                         ("move_id.state", "=", "posted"),
                         ("product_id", "!=", False),
-                        ("move_id.name", "not in", ["F202600012"]),
+                        ("move_id.name", "!=", "F202600012"),
                     ]
                 )
                 invoice_line_data = [
