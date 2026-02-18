@@ -104,7 +104,7 @@ class CapaciteCache(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Cache CHARGE (depuis Workorders)
+# Cache CHARGE (depuis Workorders) - VERSION OPTIMISÉE
 # ─────────────────────────────────────────────────────────────────────────────
 
 class WorkorderChargeCache(models.Model):
@@ -292,11 +292,6 @@ class WorkorderChargeCache(models.Model):
             self.create(vals_list)
         
         _logger.info('REFRESH CHARGE TERMINÉ : %d workorders traités', count)
-                })
-        
-        if vals_list:
-            self.create(vals_list)
-        _logger.info('REFRESH CHARGE TERMINÉ : %d entrées', len(vals_list))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
