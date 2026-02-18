@@ -412,7 +412,7 @@ class CapaciteChargeDetail(models.Model):
                 wcc.charge_heures                           AS charge_restante,
                 wo.state
             FROM mrp_workorder_charge_cache wcc
-            JOIN mrp.workcenter wc ON wc.id = wcc.workcenter_id
+            JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
             JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
             JOIN mrp_production mp ON mp.id = wo.production_id
             {sale_join}
