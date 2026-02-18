@@ -176,25 +176,28 @@ class WorkorderChargeCache(models.Model):
                 })
                 continue
             
-            # Calculer la date de fin prévue
-            if wo.date_planned_start and wo.duration_expected:
-                date_end = wo.date_planned_start + timedelta(minutes=wo.duration_expected)
-            elif wo.date_start and wo.duration_expected:
-                date_end = wo.date_start + timedelta(minutes=wo.duration_expected)
+            # Calculer la date de fin prévue à partir de macro_date_planned
+            date_start_operation = wo.macro_date_planned if hasattr(wo, 'macro_date_planned') and wo.macro_date_planned else wo.date_start
+            
+            if not date_start_operation:
+                continue
+                
+            if wo.duration_expected:
+                date_end = date_start_operation + timedelta(minutes=wo.duration_expected)
             else:
-                # Pas de date de fin → tout sur date_start
+                # Pas de durée → tout sur date_start
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
-                    'date': wo.date_start.date(),
+                    'date': date_start_operation.date(),
                     'charge_heures': charge_restante_heures,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
                 continue
             
             try:
-                date_start_utc = self._to_utc(wo.date_start)
+                date_start_utc = self._to_utc(date_start_operation)
                 date_end_utc = self._to_utc(date_end)
                 
                 # Récupérer les intervalles de travail
@@ -202,12 +205,12 @@ class WorkorderChargeCache(models.Model):
                 work_intervals = intervals.get(False, [])  # calendar sans resource_id
                 
                 if not work_intervals:
-                    # Fallback : tout sur date_start
+                    # Fallback : tout sur date_start_operation
                     vals_list.append({
                         'workorder_id': wo.id,
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
-                        'date': wo.date_start.date(),
+                        'date': date_start_operation.date(),
                         'charge_heures': charge_restante_heures,
                         'employee_ids': [(6, 0, employee_ids)],
                     })
@@ -224,7 +227,7 @@ class WorkorderChargeCache(models.Model):
                         'workorder_id': wo.id,
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
-                        'date': wo.date_start.date(),
+                        'date': date_start_operation.date(),
                         'charge_heures': charge_restante_heures,
                         'employee_ids': [(6, 0, employee_ids)],
                     })
@@ -257,7 +260,7 @@ class WorkorderChargeCache(models.Model):
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
-                    'date': wo.date_start.date(),
+                    'date': date_start_operation.date(),
                     'charge_heures': charge_restante_heures,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
