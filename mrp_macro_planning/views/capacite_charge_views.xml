@@ -187,11 +187,9 @@
                 <field name="taux_charge" string="📊 Taux (%)"
                        widget="progressbar"/>
                 
-                <!-- Cumuls -->
-                <field name="cumul_prevu" string="📈 Cumul prévu (h)"
-                       optional="hide"/>
-                <field name="cumul_effectue" string="📉 Cumul effectué (h)"
-                       optional="hide"/>
+                <!-- Cumuls - VISIBLES -->
+                <field name="cumul_prevu" string="📈 Cumul prévu (h)"/>
+                <field name="cumul_effectue" string="📉 Cumul effectué (h)"/>
                 <field name="ecart" string="🎯 Écart cumul (h)"
                        decoration-danger="ecart &lt; -2"
                        decoration-warning="ecart &gt;= -2 and ecart &lt; 0"
