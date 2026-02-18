@@ -177,11 +177,21 @@ class WorkorderChargeCache(models.Model):
                 continue
             
             # Calculer la date de fin prévue
-            if wo.date_planned_finished:
-                date_end = wo.date_planned_finished
+            if wo.date_planned_start and wo.duration_expected:
+                date_end = wo.date_planned_start + timedelta(minutes=wo.duration_expected)
+            elif wo.date_start and wo.duration_expected:
+                date_end = wo.date_start + timedelta(minutes=wo.duration_expected)
             else:
-                # Estimer date_end = date_start + duration_expected
-                date_end = wo.date_start + timedelta(minutes=wo.duration_expected or 0)
+                # Pas de date de fin → tout sur date_start
+                vals_list.append({
+                    'workorder_id': wo.id,
+                    'workcenter_id': wo.workcenter_id.id,
+                    'workcenter_name': wo.workcenter_id.name,
+                    'date': wo.date_start.date(),
+                    'charge_heures': charge_restante_heures,
+                    'employee_ids': [(6, 0, employee_ids)],
+                })
+                continue
             
             try:
                 date_start_utc = self._to_utc(wo.date_start)
