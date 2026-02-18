@@ -182,10 +182,10 @@
                        decoration-bf="solde_heures != 0"/>
                 
                 <field name="taux_charge" string="📊 Taux (%)"
-                       widget="progressbar"
+                       widget="badge"
                        decoration-danger="taux_charge &gt; 100"
                        decoration-success="taux_charge &gt;= 80 and taux_charge &lt;= 100"
-                       decoration-warning="taux_charge &lt; 80"/>
+                       decoration-warning="taux_charge &lt; 80 and taux_charge &gt; 0"/>
                 
                 <!-- Cumuls - sans colorisation de ligne -->
                 <field name="cumul_prevu" string="📈 Cumul prévu (h)"/>
