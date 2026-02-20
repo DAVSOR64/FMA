@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mrp_capacite_cache_user,mrp.capacite.cache user,model_mrp_capacite_cache,mrp.group_mrp_user,1,0,0,0
+access_mrp_capacite_cache_manager,mrp.capacite.cache manager,model_mrp_capacite_cache,mrp.group_mrp_manager,1,1,1,1
+access_mrp_workorder_charge_cache_user,mrp.workorder.charge.cache user,model_mrp_workorder_charge_cache,mrp.group_mrp_user,1,0,0,0
+access_mrp_workorder_charge_cache_manager,mrp.workorder.charge.cache manager,model_mrp_workorder_charge_cache,mrp.group_mrp_manager,1,1,1,1
+access_mrp_capacite_charge_user,mrp.capacite.charge user,model_mrp_capacite_charge,mrp.group_mrp_user,1,0,0,0
+access_mrp_capacite_charge_detail_user,mrp.capacite.charge.detail user,model_mrp_capacite_charge_detail,mrp.group_mrp_user,1,0,0,0
+access_mrp_capacite_charge_operateur_user,mrp.capacite.charge.operateur user,model_mrp_capacite_charge_operateur,mrp.group_mrp_user,1,0,0,0
+access_mrp_capacite_refresh_wizard_user,mrp.capacite.refresh.wizard user,model_mrp_capacite_refresh_wizard,mrp.group_mrp_user,1,1,1,1
