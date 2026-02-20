@@ -117,6 +117,10 @@ class MrpProduction(models.Model):
     # ============================================================
     # BUTTON "PLANIFIER" (MO) -> push macro to WO dates for gantt
     # ============================================================
+    def _button_plan_super(self):
+        """Wrapper pour appeler super().button_plan() avec les contextes actifs."""
+        return super(MrpProduction, self).button_plan()
+
     def button_plan(self):
         """
         Phase 2 (clic sur Planifier) :
@@ -138,8 +142,12 @@ class MrpProduction(models.Model):
 
         _logger.info("BUTTON_PLAN : sauvegarde %d macro_planned_start", len(macro_backup))
 
-        # ── 2. Planif standard Odoo (change états WO, vérifie dispo, etc.) ──
-        res = super().button_plan()
+        # ── 2. Planif standard Odoo — skip_macro_recalc bloque _recalculate_macro_on_date_change
+        #       qui serait sinon déclenché par les écritures dates OF faites par super()
+        res = self.with_context(
+            skip_macro_recalc=True,
+            in_button_plan=True,
+        )._button_plan_super()
 
         # ── 3. Restaurer les macro_planned_start et appliquer sur date_start/date_finished ──
         for production in self.with_context(in_button_plan=True, skip_macro_recalc=True):
