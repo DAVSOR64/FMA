@@ -23,14 +23,15 @@ class MrpWorkorder(models.Model):
         # (via resource.calendar.leaves). On bloque cet écrasement pour préserver nos macros.
         if self.env.context.get("in_button_plan"):
             # Filtrer les remises à False provenant du super() d'Odoo
-            if values.get("date_start") is False or values.get("date_finished") is False:
+            blocked = {"date_start","date_finished","date_planned_start","date_planned_finished"}
+            if any(values.get(f) is False for f in blocked):
                 _logger.info(
                     "BUTTON_PLAN : blocage write date_start/date_finished=False sur WO %s",
                     self.ids
                 )
                 # On laisse passer les autres vals (état, etc.) mais pas les dates à False
                 filtered = {k: v for k, v in values.items()
-                           if k not in ("date_start", "date_finished")}
+                           if k not in ("date_start", "date_finished", "date_planned_start", "date_planned_finished")}
                 if filtered:
                     return super().write(filtered)
                 return True

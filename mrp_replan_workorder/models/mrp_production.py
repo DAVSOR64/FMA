@@ -95,80 +95,16 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(first_day, wc)
 
             if "macro_planned_start" in wo._fields:
-                wo.with_context(mail_notrack=True).write({"macro_planned_start": macro_dt})
-
-            _logger.info(
-                "WO %s (%s): %s -> %s | %s min (~%s h) => %s j | macro_planned_start=%s",
-                wo.name, wc.display_name, first_day, last_day,
-                int(duration_minutes), round(duration_hours, 2), required_days, macro_dt
-            )
-
-            # Décalage "veille ouvrée" entre opérations
-            current_end_day = self._previous_working_day(first_day, wc)
-
-        # ✅ Recaler l'OF depuis les macros WO
-        self._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
-
-        # ✅ Recaler les pickings composants depuis le début fab (MO.date_start)
-        self._update_components_picking_dates()
-
-        return True
-
-    # ============================================================
-    # BUTTON "PLANIFIER" (MO) -> push macro to WO dates for gantt
-    # ============================================================
-    def button_plan(self):
-        """
-        Phase 2 (clic sur Planifier) :
-        - Sauvegarde les macro_planned_start AVANT super().button_plan()
-        - Exécute la planif standard (change les états WO, supprime les congés ressource, etc.)
-        - APRÈS le super (qui remet les WO à False), restaure les dates depuis les macros
-        - Recale les dates de l'OF
-        """
-        _logger.warning("********** dans le module (macro only) **********")
-
-        # ── 1. Sauvegarder les macro_planned_start AVANT le super() ──
-        macro_backup = {}
-        for production in self:
-            for wo in production.workorder_ids:
-                if wo.macro_planned_start:
-                    macro_backup[wo.id] = fields.Datetime.to_datetime(wo.macro_planned_start)
-
-        _logger.info("BUTTON_PLAN : sauvegarde %d macro_planned_start", len(macro_backup))
-
-        # ── 2. Planif standard Odoo avec tous les guards activés ──
-        # skip_macro_recalc : bloque _recalculate_macro_on_date_change pendant le super()
-        # in_button_plan : guard supplémentaire
-        res = super(MrpProduction, self.with_context(
-            skip_macro_recalc=True,
-            in_button_plan=True,
-        )).button_plan()
-
-        # ── 3. Restaurer les dates depuis les macros sauvegardés ──
-        # Le super() a remis date_start/date_finished des WO à False — on les réapplique ici
-        for production in self:
-            workorders = production.workorder_ids.sorted(
-                lambda wo: (wo.operation_id.sequence if wo.operation_id else 0, wo.id)
-            )
-
-            for wo in workorders:
-                saved_macro = macro_backup.get(wo.id)
-                if not saved_macro:
-                    _logger.warning("WO %s (%s) : pas de macro sauvegardé -> skip", wo.name, production.name)
-                    continue
-
-                duration_min = wo.duration_expected or 0.0
-                end_dt = saved_macro + timedelta(minutes=duration_min)
-
                 wo.with_context(
                     skip_shift_chain=True,
                     skip_macro_recalc=True,
                     mail_notrack=True,
                 ).write({
                     "macro_planned_start": saved_macro,
-                    "date_start": saved_macro,
-                    "date_finished": end_dt,
                 })
+
+                # Appliquer les dates sur les champs planifiés (v18) si présents, sinon fallback.
+                production._set_wo_planning_dates(wo, saved_macro, end_dt)
 
                 _logger.info(
                     "WO %s : macro=%s start=%s end=%s durée=%s min",

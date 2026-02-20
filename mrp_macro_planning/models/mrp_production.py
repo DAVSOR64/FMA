@@ -11,11 +11,19 @@ class MrpProduction(models.Model):
     _inherit = 'mrp.production'
 
     def write(self, vals):
-        """Intercepte les changements de dates pour recalculer les opérations"""
+        """Intercepte les changements de dates pour recalculer les opérations
+
+        Important : pendant les actions de (dé)planification standard, Odoo peut remettre des dates à False.
+        On ne doit pas recalculer les macros dans ces cas.
+        """
+        # Guards (utilisés par mrp_replan_workorder et autres flows)
+        if self.env.context.get("skip_macro_recalc") or self.env.context.get("in_button_plan") or self.env.context.get("in_button_unplan"):
+            return super().write(vals)
+
         res = super().write(vals)
         
         # Si changement de date_planned_start ou date_planned_finished
-        if 'date_planned_start' in vals or 'date_planned_finished' in vals:
+        if ('date_planned_start' in vals and vals.get('date_planned_start') is not False) or ('date_planned_finished' in vals and vals.get('date_planned_finished') is not False):
             for production in self:
                 production._recalculate_operations_dates(
                     date_start_changed='date_planned_start' in vals,
