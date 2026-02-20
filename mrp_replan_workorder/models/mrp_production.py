@@ -120,46 +120,70 @@ class MrpProduction(models.Model):
     def button_plan(self):
         """
         Phase 2 (clic sur Planifier) :
-        - exécute la planif standard
-        - puis FORCE wo.date_start/date_finished à partir de wo.macro_planned_start
-          (pour avoir un Gantt exploitable)
-        - COPIE DIRECTEMENT les macro sans recalculer l'enchaînement
+        - Sauvegarde les macro_planned_start AVANT super().button_plan()
+          car Odoo les écrase avec son propre calcul de charge
+        - Exécute la planif standard (nécessaire pour changer l'état des WO)
+        - Restaure les macro_planned_start sauvegardés
+        - Force date_start/date_finished des WO depuis les macros
+        - Recale les dates de l'OF
         """
-       
         _logger.warning("********** dans le module (macro only) **********")
+
+        # ── 1. Sauvegarder les macro_planned_start AVANT le super() ──
+        macro_backup = {}
+        for production in self:
+            for wo in production.workorder_ids:
+                if wo.macro_planned_start:
+                    macro_backup[wo.id] = fields.Datetime.to_datetime(wo.macro_planned_start)
+
+        _logger.info("BUTTON_PLAN : sauvegarde %d macro_planned_start", len(macro_backup))
+
+        # ── 2. Planif standard Odoo (change états WO, vérifie dispo, etc.) ──
         res = super().button_plan()
-    
-        # IMPORTANT : Flag pour désactiver TOUT recalcul pendant qu'on copie les dates
+
+        # ── 3. Restaurer les macro_planned_start et appliquer sur date_start/date_finished ──
         for production in self.with_context(in_button_plan=True, skip_macro_recalc=True):
             workorders = sorted(
                 production.workorder_ids,
                 key=lambda wo: wo.operation_id.sequence if wo.operation_id else 0
             )
-    
+
             for wo in workorders:
-                if not wo.macro_planned_start:
-                    _logger.warning("WO %s (%s) : macro_planned_start vide -> skip", wo.name, production.name)
+                saved_macro = macro_backup.get(wo.id)
+                if not saved_macro:
+                    _logger.warning("WO %s (%s) : macro_planned_start non sauvegardé -> skip", wo.name, production.name)
                     continue
-    
-                # Utiliser directement macro_planned_start sans le décaler
-                start_dt = fields.Datetime.to_datetime(wo.macro_planned_start)
+
+                # Restaurer macro_planned_start si Odoo l'a écrasé
+                if fields.Datetime.to_datetime(wo.macro_planned_start) != saved_macro:
+                    _logger.info("WO %s : restauration macro %s -> %s", wo.name, wo.macro_planned_start, saved_macro)
+                    wo.with_context(skip_macro_recalc=True, mail_notrack=True).write({
+                        "macro_planned_start": saved_macro,
+                    })
+
+                # Appliquer macro sur date_start/date_finished
                 duration_min = wo.duration_expected or 0.0
-                end_dt = start_dt + timedelta(minutes=duration_min)
-    
+                end_dt = saved_macro + timedelta(minutes=duration_min)
+
                 wo.with_context(skip_shift_chain=True, mail_notrack=True).write({
-                    "date_start": start_dt,
+                    "date_start": saved_macro,
                     "date_finished": end_dt,
                 })
-    
+
                 _logger.info(
                     "WO %s : macro=%s | start=%s | end=%s | durée=%s min",
-                    wo.name,
-                    start_dt,
-                    start_dt,
-                    end_dt,
-                    duration_min,
+                    wo.name, saved_macro, saved_macro, end_dt, duration_min,
                 )
-        
+
+            # ── 4. Recaler les dates de l'OF sur les macros WO ──
+            production.with_context(
+                skip_macro_recalc=True,
+                from_macro_update=True,
+                mail_notrack=True,
+            )._update_mo_dates_from_macro(
+                forced_end_dt=production.macro_forced_end or None
+            )
+
         return res
 
     def apply_macro_to_workorders_dates(self):
@@ -266,13 +290,21 @@ class MrpProduction(models.Model):
         vals = {}
         if "date_start" in self._fields:
             vals["date_start"] = start_dt
+        if "date_planned_start" in self._fields:
+            vals["date_planned_start"] = start_dt
         if "date_finished" in self._fields:
             vals["date_finished"] = end_dt
+        if "date_planned_finished" in self._fields:
+            vals["date_planned_finished"] = end_dt
         if "date_deadline" in self._fields:
             vals["date_deadline"] = end_dt
     
         if vals:
-            self.with_context(mail_notrack=True, from_macro_update=True).write(vals)
+            self.with_context(
+                mail_notrack=True,
+                from_macro_update=True,
+                skip_macro_recalc=True,
+            ).write(vals)
 
 
     # ============================================================
