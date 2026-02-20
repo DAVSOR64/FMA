@@ -117,18 +117,12 @@ class MrpProduction(models.Model):
     # ============================================================
     # BUTTON "PLANIFIER" (MO) -> push macro to WO dates for gantt
     # ============================================================
-    def _button_plan_super(self):
-        """Wrapper pour appeler super().button_plan() avec les contextes actifs."""
-        return super(MrpProduction, self).button_plan()
-
     def button_plan(self):
         """
         Phase 2 (clic sur Planifier) :
         - Sauvegarde les macro_planned_start AVANT super().button_plan()
-          car Odoo les écrase avec son propre calcul de charge
-        - Exécute la planif standard (nécessaire pour changer l'état des WO)
-        - Restaure les macro_planned_start sauvegardés
-        - Force date_start/date_finished des WO depuis les macros
+        - Exécute la planif standard (change les états WO, supprime les congés ressource, etc.)
+        - APRÈS le super (qui remet les WO à False), restaure les dates depuis les macros
         - Recale les dates de l'OF
         """
         _logger.warning("********** dans le module (macro only) **********")
@@ -142,44 +136,42 @@ class MrpProduction(models.Model):
 
         _logger.info("BUTTON_PLAN : sauvegarde %d macro_planned_start", len(macro_backup))
 
-        # ── 2. Planif standard Odoo — skip_macro_recalc bloque _recalculate_macro_on_date_change
-        #       qui serait sinon déclenché par les écritures dates OF faites par super()
-        res = self.with_context(
+        # ── 2. Planif standard Odoo avec tous les guards activés ──
+        # skip_macro_recalc : bloque _recalculate_macro_on_date_change pendant le super()
+        # in_button_plan : guard supplémentaire
+        res = super(MrpProduction, self.with_context(
             skip_macro_recalc=True,
             in_button_plan=True,
-        )._button_plan_super()
+        )).button_plan()
 
-        # ── 3. Restaurer les macro_planned_start et appliquer sur date_start/date_finished ──
-        for production in self.with_context(in_button_plan=True, skip_macro_recalc=True):
-            workorders = sorted(
-                production.workorder_ids,
-                key=lambda wo: wo.operation_id.sequence if wo.operation_id else 0
+        # ── 3. Restaurer les dates depuis les macros sauvegardés ──
+        # Le super() a remis date_start/date_finished des WO à False — on les réapplique ici
+        for production in self:
+            workorders = production.workorder_ids.sorted(
+                lambda wo: (wo.operation_id.sequence if wo.operation_id else 0, wo.id)
             )
 
             for wo in workorders:
                 saved_macro = macro_backup.get(wo.id)
                 if not saved_macro:
-                    _logger.warning("WO %s (%s) : macro_planned_start non sauvegardé -> skip", wo.name, production.name)
+                    _logger.warning("WO %s (%s) : pas de macro sauvegardé -> skip", wo.name, production.name)
                     continue
 
-                # Restaurer macro_planned_start si Odoo l'a écrasé
-                if fields.Datetime.to_datetime(wo.macro_planned_start) != saved_macro:
-                    _logger.info("WO %s : restauration macro %s -> %s", wo.name, wo.macro_planned_start, saved_macro)
-                    wo.with_context(skip_macro_recalc=True, mail_notrack=True).write({
-                        "macro_planned_start": saved_macro,
-                    })
-
-                # Appliquer macro sur date_start/date_finished
                 duration_min = wo.duration_expected or 0.0
                 end_dt = saved_macro + timedelta(minutes=duration_min)
 
-                wo.with_context(skip_shift_chain=True, mail_notrack=True).write({
+                wo.with_context(
+                    skip_shift_chain=True,
+                    skip_macro_recalc=True,
+                    mail_notrack=True,
+                ).write({
+                    "macro_planned_start": saved_macro,
                     "date_start": saved_macro,
                     "date_finished": end_dt,
                 })
 
                 _logger.info(
-                    "WO %s : macro=%s | start=%s | end=%s | durée=%s min",
+                    "WO %s : macro=%s start=%s end=%s durée=%s min",
                     wo.name, saved_macro, saved_macro, end_dt, duration_min,
                 )
 
