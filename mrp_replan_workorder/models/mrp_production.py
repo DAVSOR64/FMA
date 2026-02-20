@@ -214,7 +214,9 @@ class MrpProduction(models.Model):
                 vals["date_finished"] = end_dt
     
         if vals:
-            wo.with_context(mail_notrack=True).write(vals)
+            # skip_shift_chain : évite que le write WO déclenche _shift_workorders_after
+            # skip_macro_recalc : évite un recalcul macro en boucle
+            wo.with_context(mail_notrack=True, skip_shift_chain=True, skip_macro_recalc=True).write(vals)
 
 
     # ============================================================
@@ -568,6 +570,9 @@ class MrpProduction(models.Model):
         Recalcule FORWARD : depuis date_start de l'OF vers le futur
         Utilisé quand date_start change et aucune opération démarrée
         """
+        # Invalider le cache ORM pour être sûr de lire la valeur qui vient d'être écrite
+        self.invalidate_recordset(['date_start', 'date_finished', 'date_deadline'])
+
         if not self.date_start:
             return
         
@@ -609,6 +614,13 @@ class MrpProduction(models.Model):
         
         # Recalculer date_finished de l'OF
         self._update_mo_dates_from_macro()
+
+        # Si les WO n'ont plus de date_start (cas post-déprogrammation),
+        # appliquer les macros sur date_start/date_finished pour que le Gantt soit à jour
+        wos_without_dates = workorders.filtered(lambda w: not w.date_start)
+        if wos_without_dates:
+            _logger.info("FORWARD : %d WO sans date_start après déprogrammation -> apply_macro", len(wos_without_dates))
+            self.with_context(skip_macro_recalc=True).apply_macro_to_workorders_dates()
         
         # Vérifier dépassement livraison
         self._check_delivery_date_exceeded()
