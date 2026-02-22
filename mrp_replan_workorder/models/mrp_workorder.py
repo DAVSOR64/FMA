@@ -19,32 +19,6 @@ class MrpWorkorder(models.Model):
         if self.env.context.get("skip_shift_chain"):
             return super().write(values)
 
-        # Pendant Programmer/Déprogrammer, Odoo remet date_start/date_finished à False en cascade.
-        # Le context peut se perdre, donc on s'appuie sur un verrou en base sur l'OF.
-        if (values.get("date_start") is False or values.get("date_finished") is False):
-            if any(self.mapped("production_id.macro_plan_freeze")):
-                filtered = {k: v for k, v in values.items() if k not in ("date_start", "date_finished")}
-                _logger.info("PLAN FREEZE : blocage write date_start/date_finished=False sur WO %s", self.ids)
-                if not filtered:
-                    return True
-                values = filtered
-
-        # Pendant button_plan, Odoo remet date_start/date_finished à False en cascade
-        # (via resource.calendar.leaves). On bloque cet écrasement pour préserver nos macros.
-        if self.env.context.get("in_button_plan"):
-            # Filtrer les remises à False provenant du super() d'Odoo
-            if values.get("date_start") is False or values.get("date_finished") is False:
-                _logger.info(
-                    "BUTTON_PLAN : blocage write date_start/date_finished=False sur WO %s",
-                    self.ids
-                )
-                # On laisse passer les autres vals (état, etc.) mais pas les dates à False
-                filtered = {k: v for k, v in values.items()
-                           if k not in ("date_start", "date_finished")}
-                if filtered:
-                    return super().write(filtered)
-                return True
-
         trigger = "date_start" in values  # ton champ de planning
         old_starts = {}
         old_ends = {}

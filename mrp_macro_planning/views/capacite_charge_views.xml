@@ -114,17 +114,26 @@
                   decoration-danger="ecart &lt; -1"
                   decoration-warning="ecart &gt;= -1 and ecart &lt; 0"
                   decoration-success="ecart &gt;= 0">
+                
+                <!-- Identification -->
                 <field name="production_name" string="N° OF"/>
-                <field name="sale_order_name" string="Commande"/>
-                <field name="projet" string="Projet"/>
+                <field name="sale_order_name" string="Commande" optional="show"/>
+                <field name="projet" string="Projet" optional="hide"/>
                 <field name="operation_name" string="Opération"/>
-                <field name="operateurs" string="Opérateur(s)"/>
-                <field name="prevu_jour" string="Prévu ce jour (h)" sum="Total prévu"/>
-                <field name="effectue_jour" string="Effectué ce jour (h)" sum="Total effectué"/>
-                <field name="cumul_prevu" string="Cumul prévu (h)"/>
-                <field name="cumul_effectue" string="Cumul effectué (h)"/>
-                <field name="ecart" string="Écart (h)"/>
-                <field name="state" string="Statut"/>
+                <field name="operateurs" string="👤 Opérateur(s)" optional="show"/>
+                <field name="state" string="Statut" optional="hide"/>
+                
+                <!-- Charge du jour -->
+                <field name="prevu_jour" string="📅 Prévu jour (h)" sum="Total prévu"
+                       decoration-bf="prevu_jour &gt; 0"/>
+                <field name="effectue_jour" string="✓ Effectué jour (h)" sum="Total effectué"
+                       decoration-bf="effectue_jour &gt; 0"/>
+                
+                <!-- Cumuls -->
+                <field name="cumul_prevu" string="📈 Cumul prévu (h)"/>
+                <field name="cumul_effectue" string="📉 Cumul effectué (h)"/>
+                <field name="ecart" string="🎯 Écart (h)"
+                       widget="monetary" options="{'currency_field': 'False'}"/>
             </tree>
         </field>
     </record>
@@ -154,29 +163,47 @@
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
             <tree string="Capacité vs Charge"
-                  create="false" edit="false" delete="false"
-                  decoration-danger="taux_charge &gt; 100"
-                  decoration-warning="taux_charge &gt;= 80 and taux_charge &lt;= 100"
-                  decoration-success="taux_charge &gt; 0 and taux_charge &lt; 80"
-                  decoration-muted="taux_charge == 0">
-                <field name="date" string="Date"/>
-                <field name="workcenter_name" string="Poste"/>
-                <field name="nb_personnes" string="Pers."/>
-                <field name="capacite_heures" string="Capacité (h)"/>
-                <field name="nb_operations" string="Ops"/>
-                <field name="charge_prevue_jour" string="Prévu ce jour (h)" sum="Total prévu"/>
-                <field name="charge_effectuee_jour" string="Effectué ce jour (h)" sum="Total effectué"/>
-                <field name="cumul_prevu" string="Cumul prévu (h)"/>
-                <field name="cumul_effectue" string="Cumul effectué (h)"/>
-                <field name="ecart" string="Écart (h)" 
-                       decoration-danger="ecart &lt; -2"
-                       decoration-warning="ecart &gt;= -2 and ecart &lt; 0"
-                       decoration-success="ecart &gt;= 0"/>
-                <field name="solde_heures" string="Solde (h)"/>
-                <field name="taux_charge" string="Taux (%)"/>
+                  create="false" edit="false" delete="false">
+                
+                <!-- Identification -->
+                <field name="date" string="Date"
+                       decoration-bf="date == context_today().strftime('%Y-%m-%d')"/>
+                <field name="workcenter_name" string="Poste de travail"/>
+                <field name="nb_personnes" string="👤 Pers."/>
+                <field name="capacite_heures" string="⏱️ Capacité (h)" sum="Total capacité"/>
+                
+                <!-- Charge du jour -->
+                <field name="charge_prevue_jour" string="📅 Prévu jour (h)" sum="Total prévu"/>
+                <field name="charge_effectuee_jour" string="✓ Effectué jour (h)" sum="Total effectué"/>
+                
+                <field name="solde_heures" string="⚖️ Solde jour (h)" sum="Total solde"
+                       decoration-danger="solde_heures &gt; 0"
+                       decoration-success="solde_heures &lt; 0"
+                       decoration-bf="solde_heures != 0"/>
+                
+                <field name="taux_charge" string="📊 Taux (%)"
+                       widget="badge"
+                       decoration-danger="taux_charge &gt; 100"
+                       decoration-success="taux_charge &gt;= 80 and taux_charge &lt;= 100"
+                       decoration-warning="taux_charge &lt; 80 and taux_charge &gt; 0"/>
+                
+                <!-- Cumuls - sans colorisation de ligne -->
+                <field name="cumul_prevu" string="📈 Cumul prévu (h)"/>
+                <field name="cumul_effectue" string="📉 Cumul effectué (h)"/>
+                
+                <field name="ecart" string="🎯 Écart cumul (h)"
+                       decoration-danger="ecart &lt; 0"
+                       decoration-success="ecart &gt;= 0"
+                       decoration-bf="ecart != 0"
+                       widget="monetary" options="{'currency_field': 'False'}"/>
+                
+                <!-- Info -->
+                <field name="nb_operations" string="# Ops" optional="show"/>
                 <field name="workcenter_id" column_invisible="1"/>
+                
+                <!-- Actions -->
                 <button name="action_voir_detail" type="object"
-                        string="Détail" icon="fa-list"/>
+                        string="📋 Détail" icon="fa-list" class="btn-primary"/>
             </tree>
         </field>
     </record>
