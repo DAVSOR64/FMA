@@ -13,6 +13,8 @@ _logger = logging.getLogger(__name__)
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
+    macro_plan_freeze = fields.Boolean(string="Gel planif macro", copy=False, help="Verrou technique pour empêcher Odoo d'écraser les dates pendant Programmer/Déprogrammer.")
+
     macro_forced_end = fields.Datetime(
         string="Fin macro forcée",
         copy=False,
@@ -59,11 +61,16 @@ class MrpProduction(models.Model):
             return False
 
         # Tri robuste : séquence opération puis id
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+        workorders = workorders.sorted(lambda w: (fields.Datetime.to_datetime(w.macro_planned_start) if w.macro_planned_start else datetime.max, w.id))
 
         # Fin fabrication = livraison - délai sécurité en jours ouvrés (calendrier société)
         end_fab_dt = self._add_working_days_company(delivery_dt, -float(security_days))
         end_fab_day = end_fab_dt.date()
+
+        # Forcer une fin "fin de journée" sur le dernier jour ouvré (sinon on hérite de l'heure de delivery_dt)
+        last_wc_for_end = workorders[-1].workcenter_id if workorders else None
+        end_fab_day = self._previous_or_same_working_day(end_fab_day, last_wc_for_end)
+        end_fab_dt = self._evening_dt(end_fab_day, last_wc_for_end)
 
         self.with_context(mail_notrack=True).write({"macro_forced_end": end_fab_dt,})
         self.with_context(mail_notrack=True).write({"x_studio_date_de_fin": end_fab_day})
@@ -117,57 +124,53 @@ class MrpProduction(models.Model):
     # ============================================================
     # BUTTON "PLANIFIER" (MO) -> push macro to WO dates for gantt
     # ============================================================
-    def button_plan(self):
-        """
-        Phase 2 (clic sur Planifier) :
-        - Sauvegarde les macro_planned_start AVANT super().button_plan()
-        - Exécute la planif standard (change les états WO, supprime les congés ressource, etc.)
-        - APRÈS le super (qui remet les WO à False), restaure les dates depuis les macros
-        - Recale les dates de l'OF
+    
+def button_plan(self):
+        """Planifier (bouton standard OF) sans casser les macros / dates.
+
+        Stratégie:
+        1) Sauvegarder macro_planned_start
+        2) Activer un verrou en base (macro_plan_freeze) pour empêcher Odoo d'écraser date_start/date_finished à False
+        3) Appeler super().button_plan()
+        4) Restaurer macro_planned_start
+        5) Appliquer macro -> dates (date_start/date_finished/date_planned_*)
+        6) Recaler les dates OF (début = 1ère macro, fin = macro_forced_end)
         """
         _logger.warning("********** dans le module (macro only) **********")
 
-        # ── 1. Sauvegarder les macro_planned_start AVANT le super() ──
+        # 1) backup macro
         macro_backup = {}
         for production in self:
             for wo in production.workorder_ids:
                 if wo.macro_planned_start:
                     macro_backup[wo.id] = fields.Datetime.to_datetime(wo.macro_planned_start)
-
         _logger.info("BUTTON_PLAN : sauvegarde %d macro_planned_start", len(macro_backup))
 
-        # ── 2. Planif standard Odoo avec tous les guards activés ──
-        # skip_macro_recalc : bloque _recalculate_macro_on_date_change pendant le super()
-        # in_button_plan : guard supplémentaire
+        # 2) freeze en base (ne dépend pas du context)
+        self.with_context(mail_notrack=True).write({"macro_plan_freeze": True})
+
+        # 3) super (on garde aussi les guards contextuels)
         res = super(MrpProduction, self.with_context(
             skip_macro_recalc=True,
             in_button_plan=True,
+            mrp_macro_plan=True,
         )).button_plan()
 
-        # ── 3. Restaurer les macros sauvegardés ──
-        # Le super() peut remettre des dates WO à False — ici on restaure uniquement les macros.
-        # Les dates planifiées (v18) seront ensuite recalées via apply_macro_to_workorders_dates().
+        # 4) restore macros + apply dates
         for production in self:
-            workorders = production.workorder_ids.sorted(
-                lambda wo: (wo.operation_id.sequence if wo.operation_id else 0, wo.id)
-            )
-
-            for wo in workorders:
+            # Restaurer macros
+            for wo in production.workorder_ids:
                 saved_macro = macro_backup.get(wo.id)
-                if not saved_macro:
-                    _logger.warning("WO %s (%s) : pas de macro sauvegardé -> skip", wo.name, production.name)
-                    continue
+                if saved_macro:
+                    wo.with_context(skip_shift_chain=True, skip_macro_recalc=True, mail_notrack=True).write({
+                        "macro_planned_start": saved_macro,
+                    })
+                    _logger.info("WO %s : macro_planned_start restauré = %s", wo.name, saved_macro)
 
-                wo.with_context(skip_shift_chain=True, skip_macro_recalc=True, mail_notrack=True).write({
-                    "macro_planned_start": saved_macro,
-                })
-
-                _logger.info("WO %s : macro_planned_start restauré = %s", wo.name, saved_macro)
-
-            # Recaler les dates planifiées des WO depuis les macros (jours ouvrés + morning/evening)
+            # Appliquer macros -> dates WO (ordre = macro_planned_start)
             production.with_context(skip_macro_recalc=True, mail_notrack=True).apply_macro_to_workorders_dates()
 
-            # ── 4. Recaler les dates de l'OF sur les macros WO ──
+            # Recaler dates OF (début figé sur 1ère macro ; fin = livraison - sécurité)
             production.with_context(
                 skip_macro_recalc=True,
                 from_macro_update=True,
@@ -176,6 +179,8 @@ class MrpProduction(models.Model):
                 forced_end_dt=production.macro_forced_end or None
             )
 
+        # 5) release freeze
+        self.with_context(mail_notrack=True).write({"macro_plan_freeze": False})
         return res
 
     # ============================================================
@@ -230,7 +235,7 @@ class MrpProduction(models.Model):
             return
 
         # Tri ordre de fabrication
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+        workorders = workorders.sorted(lambda w: (fields.Datetime.to_datetime(w.macro_planned_start) if w.macro_planned_start else datetime.max, w.id))
 
         for wo in workorders:
             if not wo.macro_planned_start:
@@ -254,24 +259,28 @@ class MrpProduction(models.Model):
 
             self._set_wo_planning_dates(wo, start_dt, end_dt)
 
-    def _set_wo_planning_dates(self, wo, start_dt, end_dt):
+    
+def _set_wo_planning_dates(self, wo, start_dt, end_dt):
+        """Écrit les dates WO de manière robuste.
+
+        - Toujours renseigner date_planned_* si présent
+        - ET aussi date_start/date_finished si présent (sinon certaines vues restent vides, et Odoo peut les remettre à False)
+        """
         vals = {}
-        # Champs planifiés (selon version)
+
+        # Champs planifiés
         if "date_planned_start" in wo._fields:
             vals["date_planned_start"] = start_dt
         if "date_planned_finished" in wo._fields:
             vals["date_planned_finished"] = end_dt
-    
-        # Fallback (certaines versions)
-        if not vals:
-            if "date_start" in wo._fields:
-                vals["date_start"] = start_dt
-            if "date_finished" in wo._fields:
-                vals["date_finished"] = end_dt
-    
+
+        # Champs réels (affichés dans certaines vues)
+        if "date_start" in wo._fields:
+            vals["date_start"] = start_dt
+        if "date_finished" in wo._fields:
+            vals["date_finished"] = end_dt
+
         if vals:
-            # skip_shift_chain : évite que le write WO déclenche _shift_workorders_after
-            # skip_macro_recalc : évite un recalcul macro en boucle
             wo.with_context(mail_notrack=True, skip_shift_chain=True, skip_macro_recalc=True).write(vals)
 
 
@@ -596,7 +605,7 @@ class MrpProduction(models.Model):
             return
         
         # Tri par séquence
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+        workorders = workorders.sorted(lambda w: (fields.Datetime.to_datetime(w.macro_planned_start) if w.macro_planned_start else datetime.max, w.id))
         
         # Vérifier si des opérations sont terminées
         done_wos = [wo.name for wo in self.workorder_ids if wo.state == 'done']
