@@ -517,43 +517,43 @@ class MrpProduction(models.Model):
     # ============================================================
 
     def write(self, vals):
-    # IMPORTANT : ne jamais recalculer si write interne (programmer, sync, etc.)
-    if self.env.context.get("skip_macro_recalc") or self.env.context.get("in_button_plan"):
-        return super().write(vals)
+        # IMPORTANT : ne jamais recalculer si write interne (programmer, sync, etc.)
+        if self.env.context.get("skip_macro_recalc") or self.env.context.get("in_button_plan"):
+            return super().write(vals)
 
-    start_changed = "date_start" in vals
-    x_end_changed = "x_studio_date_fin" in vals or "x_studio_date_de_fin" in vals
+        start_changed = "date_start" in vals
+        x_end_changed = "x_studio_date_fin" in vals or "x_studio_date_de_fin" in vals
 
-    res = super().write(vals)
+        res = super().write(vals)
 
-    for mo in self:
-        try:
-            # 1) Si on change la date de début OF -> recalcul FORWARD
-            if start_changed and mo.date_start:
-                _logger.info("=== RECALCUL MACRO FORWARD depuis date_start pour %s ===", mo.name)
-                mo._recalculate_macro_forward()
+        for mo in self:
+            try:
+                # 1) Si on change la date de début OF -> recalcul FORWARD
+                if start_changed and mo.date_start:
+                    _logger.info("=== RECALCUL MACRO FORWARD depuis date_start pour %s ===", mo.name)
+                    mo._recalculate_macro_forward()
 
-            # 2) Si on change la date de fin métier -> recalcul BACKWARD
-            elif x_end_changed:
-                x_end = mo.x_studio_date_fin or mo.x_studio_date_de_fin
-                if x_end:
-                    _logger.info("=== RECALCUL MACRO BACKWARD depuis x_studio_date_fin pour %s ===", mo.name)
+                # 2) Si on change la date de fin métier -> recalcul BACKWARD
+                elif x_end_changed:
+                    x_end = mo.x_studio_date_fin or mo.x_studio_date_de_fin
+                    if x_end:
+                        _logger.info("=== RECALCUL MACRO BACKWARD depuis x_studio_date_fin pour %s ===", mo.name)
 
-                    # Convertir en datetime fin de journée
-                    end_dt = mo._evening_dt(x_end)
+                        # Convertir en datetime fin de journée
+                        end_dt = mo._evening_dt(x_end)
 
-                    # Synchroniser champs standard SANS boucler
-                    mo.with_context(skip_macro_recalc=True, mail_notrack=True).write({
-                        "date_finished": end_dt,
-                        "date_deadline": end_dt,
-                    })
+                        # Synchroniser champs standard SANS boucler
+                        mo.with_context(skip_macro_recalc=True, mail_notrack=True).write({
+                            "date_finished": end_dt,
+                            "date_deadline": end_dt,
+                        })
 
-                    mo._recalculate_macro_backward()
+                        mo._recalculate_macro_backward()
 
-        except Exception as e:
-            _logger.exception("Erreur recalcul macro pour %s : %s", mo.name, e)
+            except Exception as e:
+                _logger.exception("Erreur recalcul macro pour %s : %s", mo.name, e)
 
-    return res
+        return res
 
     def _recalculate_macro_on_date_change(self, date_start_changed=False, date_finished_changed=False):
         """
