@@ -538,7 +538,21 @@ class MrpProduction(models.Model):
         date_start_changed = 'date_start' in vals
         date_finished_changed = 'date_finished' in vals or 'date_deadline' in vals
         # Champ métier Studio : date de fin (type date)
-        x_end_changed = 'x_studio_date_de_fin' in vals
+        x_end_changed = ('x_studio_date_fin' in vals or 'x_studio_date_de_fin' in vals)
+
+        # IMPORTANT : si l'utilisateur modifie la date de fin métier, on mémorise la valeur d'entrée
+        # (vals) car d'autres logiques (onchange/computed) peuvent réécrire le champ après le write.
+        x_end_input = None
+        if x_end_changed:
+            x_end_input = vals.get('x_studio_date_fin') or vals.get('x_studio_date_de_fin')
+            try:
+                if isinstance(x_end_input, datetime):
+                    x_end_input = x_end_input.date()
+                elif isinstance(x_end_input, str):
+                    x_end_input = fields.Date.to_date(x_end_input)
+                # sinon, Studio renvoie déjà un date
+            except Exception:
+                x_end_input = None
         
         # Log pour debug
         if date_start_changed or date_finished_changed or x_end_changed:
@@ -558,14 +572,16 @@ class MrpProduction(models.Model):
                 try:
                     # 0) Si l'utilisateur modifie la date de fin métier (x_studio_date_de_fin)
                     #    => on synchro date_deadline/date_finished (fin de journée), puis rétroplanning
-                    if x_end_changed and getattr(production, 'x_studio_date_de_fin', False):
+                    if x_end_changed and (x_end_input or getattr(production, 'x_studio_date_de_fin', False) or getattr(production, 'x_studio_date_fin', False)):
                         wos = production.workorder_ids.sorted(lambda w: (w.operation_id.sequence, w.id))
                         last_wc = wos[-1].workcenter_id if wos else False
 
+                        x_end = x_end_input or getattr(production, 'x_studio_date_fin', False) or getattr(production, 'x_studio_date_de_fin', False)
+
                         if last_wc:
-                            end_dt = production._evening_dt(production.x_studio_date_de_fin, last_wc)
+                            end_dt = production._evening_dt(x_end, last_wc)
                         else:
-                            end_dt = datetime.combine(production.x_studio_date_de_fin, time(17, 0))
+                            end_dt = datetime.combine(x_end, time(17, 0))
 
                         # Ecriture des champs standards sans boucler
                         production.with_context(skip_macro_recalc=True, from_macro_update=True, mail_notrack=True).write({
@@ -573,10 +589,11 @@ class MrpProduction(models.Model):
                             'date_finished': end_dt,
                         })
 
-                        production._recalculate_macro_on_date_change(
-                            date_start_changed=False,
-                            date_finished_changed=True,
-                        )
+                        # Rétroplanning macro en forçant explicitement la date de fin demandée
+                        active_wos = production.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
+                        active_wos = active_wos.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+                        production._recalculate_macro_backward(active_wos, end_dt=end_dt)
+                        production._refresh_charge_cache_for_production()
                         continue
 
                     production._recalculate_macro_on_date_change(
@@ -703,13 +720,14 @@ class MrpProduction(models.Model):
         # Vérifier dépassement livraison
         self._check_delivery_date_exceeded()
 
-    def _recalculate_macro_backward(self, workorders):
+    def _recalculate_macro_backward(self, workorders, end_dt=None):
         """
         Recalcule BACKWARD : depuis date_finished de l'OF vers le passé
         Utilisé quand date_finished change (avec ou sans opérations démarrées)
         """
-        # Utiliser date_deadline en priorité, sinon date_finished
-        end_dt = self.date_deadline or self.date_finished
+        # Utiliser la date de fin fournie si elle est imposée,
+        # sinon date_deadline en priorité, puis date_finished
+        end_dt = end_dt or self.date_deadline or self.date_finished
         if not end_dt:
             return
         
@@ -724,7 +742,7 @@ class MrpProduction(models.Model):
         if not not_started_wos:
             # Toutes commencées : juste recalculer date_finished de l'OF
             _logger.info("Toutes les opérations ont démarré, pas de recalcul macro")
-            self._update_mo_dates_from_macro()
+            self._update_mo_dates_from_macro(forced_end_dt=end_dt)
             self._check_delivery_date_exceeded()
             return
         
@@ -767,8 +785,8 @@ class MrpProduction(models.Model):
             # via _previous_or_same_working_day().
             current_end_day = first_day - timedelta(days=1)
         
-        # Recalculer date_start de l'OF
-        self._update_mo_dates_from_macro()
+        # Recalculer date_start de l'OF + forcer la date de fin demandée
+        self._update_mo_dates_from_macro(forced_end_dt=end_dt)
         
         # Vérifier dépassement livraison
         self._check_delivery_date_exceeded()
