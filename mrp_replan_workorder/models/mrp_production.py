@@ -143,7 +143,10 @@ class MrpProduction(models.Model):
             production.with_context(_macro_replan_done_ids=list(already_replanned))._replan_macro_if_dates_changed()
 
         # Planif standard Odoo
-        res = super().with_context(skip_mo_replan=True, _macro_replan_done_ids=list(already_replanned)).button_plan()
+        # ⚠️ with_context() retourne un recordset du même modèle => notre override serait rappelé.
+        # On passe self avec le contexte puis on remonte la MRO via super(MrpProduction, self_ctx).
+        self_ctx = self.with_context(skip_mo_replan=True, _macro_replan_done_ids=list(already_replanned))
+        res = super(MrpProduction, self_ctx).button_plan()
 
         # Push macro -> WO dates (Gantt)
         for production in self:
