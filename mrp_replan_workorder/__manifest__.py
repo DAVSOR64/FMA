@@ -1,6 +1,6 @@
 {
     'name': "Replan WorkOrder",
-    'version': "17.0.0.0.2",
+    'version': "17.0.0.0.1",
     "license": "LGPL-3",
     'category': 'Manufacturing',
     'summary': 'Planification atelier avec règle 1 opération/jour par OF',
@@ -18,7 +18,6 @@
         'sale_mrp',
         'resource',
     ],
-    
     
     'data': [
         'views/sale_order_views.xml',
