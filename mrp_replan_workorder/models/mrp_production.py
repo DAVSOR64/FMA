@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import math
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, date
 
 import pytz
 from odoo import models, fields, _
