@@ -791,50 +791,65 @@ class MrpProduction(models.Model):
         # Vérifier dépassement livraison
         self._check_delivery_date_exceeded()
 
+    def _to_date(value):
+        """Convertit value (date/datetime/str) en date python, sinon None."""
+        if not value:
+            return None
+        if isinstance(value, date) and not isinstance(value, datetime):
+            return value
+        if isinstance(value, datetime):
+            return value.date()
+        # Odoo peut envoyer des dates en str ('YYYY-MM-DD') ou datetime str
+        try:
+            dt = fields.Datetime.to_datetime(value)
+            if dt:
+                return dt.date()
+        except Exception:
+            pass
+        try:
+            d = fields.Date.to_date(value)
+            return d
+        except Exception:
+            return None
+
     def _check_delivery_date_exceeded(self):
-        """Vérifie si la date de fin calculée dépasse la date de livraison"""
+        """Vérifie si la date de fin MÉTIER dépasse la date de livraison promise."""
         self.ensure_one()
-        
-        # Récupérer la date de livraison depuis la commande
-        delivery_date = None
-        
-        # Essayer différents champs selon la config
+
+        # 1) Retrouver la commande
+        so = None
         if hasattr(self, 'x_studio_mtn_mrp_sale_order') and self.x_studio_mtn_mrp_sale_order:
             so = self.x_studio_mtn_mrp_sale_order
         elif hasattr(self, 'sale_id') and self.sale_id:
             so = self.sale_id
+        elif self.procurement_group_id and self.procurement_group_id.sale_id:
+            so = self.procurement_group_id.sale_id
         else:
-            # Chercher via procurement group
-            if self.procurement_group_id and self.procurement_group_id.sale_id:
-                so = self.procurement_group_id.sale_id
-            else:
-                return
-        
-        delivery_date = so.commitment_date or so.expected_date
-        
-        if delivery_date and self.date_finished:
-            date_finished = fields.Datetime.to_datetime(self.date_finished).date()
-            
-            # Assurer que delivery_date est aussi une date
-            if isinstance(delivery_date, datetime):
-                delivery_date = delivery_date.date()
-            
-            if date_finished > delivery_date:
-                days_late = (date_finished - delivery_date).days
-                
-                raise ValidationError(_(
-                    "⚠️ ALERTE DÉPASSEMENT DATE DE LIVRAISON ⚠️\n\n"
-                    "OF : %s\n"
-                    "Date de fin calculée : %s\n"
-                    "Date de livraison promise : %s\n"
-                    "Retard : %d jours\n\n"
-                    "La fabrication se terminera APRÈS la date promise au client !"
-                ) % (
-                    self.name,
-                    date_finished.strftime('%d/%m/%Y'),
-                    delivery_date.strftime('%d/%m/%Y'),
-                    days_late
-                ))
+            return
+
+        # 2) Date de livraison promise (date ou datetime)
+        delivery_date = _to_date(so.commitment_date or so.expected_date)
+
+        # 3) Date de fin métier (priorité x_studio_date_de_fin)
+        x_end = getattr(self, "x_studio_date_de_fin", False) or getattr(self, "x_studio_date_fin", False)
+        date_end = _to_date(x_end)
+
+        if delivery_date and date_end and date_end > delivery_date:
+            days_late = (date_end - delivery_date).days
+
+            raise ValidationError(_(
+                "⚠️ ALERTE DÉPASSEMENT DATE DE LIVRAISON ⚠️\n\n"
+                "OF : %s\n"
+                "Date de fin (métier) : %s\n"
+                "Date de livraison promise : %s\n"
+                "Retard : %d jours\n\n"
+                "La fabrication se terminera APRÈS la date promise au client !"
+            ) % (
+                self.name,
+                date_end.strftime('%d/%m/%Y'),
+                delivery_date.strftime('%d/%m/%Y'),
+                days_late
+            ))
 
     def _refresh_charge_cache_for_production(self):
         """Rafraîchit le cache charge pour cet OF"""
