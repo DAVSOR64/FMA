@@ -813,43 +813,59 @@ class MrpProduction(models.Model):
             return None
 
     def _check_delivery_date_exceeded(self):
-        """Vérifie si la date de fin MÉTIER dépasse la date de livraison promise."""
         self.ensure_one()
 
-        # 1) Retrouver la commande
+        # --- TRACE : entrée ---
+        _logger.warning(
+            "[DELIVERY CHECK] START | OF=%s | x_de_fin(raw)=%r | x_fin(raw)=%r | date_finished(raw)=%r",
+            self.name,
+            getattr(self, "x_studio_date_de_fin", None),
+            getattr(self, "x_studio_date_fin", None),
+            self.date_finished,
+        )
+
+        # Retrouver la commande
         so = None
         if hasattr(self, 'x_studio_mtn_mrp_sale_order') and self.x_studio_mtn_mrp_sale_order:
             so = self.x_studio_mtn_mrp_sale_order
+            _logger.warning("[DELIVERY CHECK] SO via x_studio_mtn_mrp_sale_order: %s", so.name)
         elif hasattr(self, 'sale_id') and self.sale_id:
             so = self.sale_id
+            _logger.warning("[DELIVERY CHECK] SO via sale_id: %s", so.name)
         elif self.procurement_group_id and self.procurement_group_id.sale_id:
             so = self.procurement_group_id.sale_id
+            _logger.warning("[DELIVERY CHECK] SO via procurement_group_id.sale_id: %s", so.name)
         else:
+            _logger.warning("[DELIVERY CHECK] NO SO FOUND -> exit")
             return
 
-        # 2) Date de livraison promise (date ou datetime)
-        delivery_date = _to_date(so.commitment_date or so.expected_date)
+        raw_delivery = so.commitment_date or so.expected_date
+        delivery_date = _to_date(raw_delivery)
 
-        # 3) Date de fin métier (priorité x_studio_date_de_fin)
-        x_end = getattr(self, "x_studio_date_de_fin", False) or getattr(self, "x_studio_date_fin", False)
-        date_end = _to_date(x_end)
+        x_end_raw = getattr(self, "x_studio_date_de_fin", False) or getattr(self, "x_studio_date_fin", False)
+        date_end = _to_date(x_end_raw)
+
+        _logger.warning(
+            "[DELIVERY CHECK] VALUES | OF=%s | delivery(raw)=%r -> %s | x_end(raw)=%r -> %s",
+            self.name,
+            raw_delivery,
+            delivery_date,
+            x_end_raw,
+            date_end,
+        )
 
         if delivery_date and date_end and date_end > delivery_date:
             days_late = (date_end - delivery_date).days
-
-            raise ValidationError(_(
-                "⚠️ ALERTE DÉPASSEMENT DATE DE LIVRAISON ⚠️\n\n"
-                "OF : %s\n"
-                "Date de fin (métier) : %s\n"
-                "Date de livraison promise : %s\n"
-                "Retard : %d jours\n\n"
-                "La fabrication se terminera APRÈS la date promise au client !"
-            ) % (
-                self.name,
-                date_end.strftime('%d/%m/%Y'),
-                delivery_date.strftime('%d/%m/%Y'),
-                days_late
-            ))
+            _logger.warning(
+                "[DELIVERY CHECK] LATE | OF=%s | end=%s > delivery=%s | days=%s",
+                self.name, date_end, delivery_date, days_late
+            )
+            raise ValidationError(...)
+        else:
+            _logger.warning(
+                "[DELIVERY CHECK] OK/NO CHECK | OF=%s | delivery=%s | end=%s",
+                self.name, delivery_date, date_end
+            )
 
     def _refresh_charge_cache_for_production(self):
         """Rafraîchit le cache charge pour cet OF"""
