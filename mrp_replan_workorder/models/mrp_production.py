@@ -517,50 +517,43 @@ class MrpProduction(models.Model):
     # ============================================================
 
     def write(self, vals):
-        """Intercepte les changements de dates de l'OF pour recalculer les opérations"""
-        
-        # Détecter changement de dates
-        date_start_changed = 'date_start' in vals
-        date_finished_changed = 'date_finished' in vals or 'date_deadline' in vals
-        x_end_changed = ('x_studio_date_fin' in vals) or ('x_studio_date_de_fin' in vals)
-        # si on pilote la fin via un champ Studio (date), synchroniser date_finished/date_deadline
-        if x_end_changed and not date_finished_changed:
-            end_day = vals.get('x_studio_date_fin') or vals.get('x_studio_date_de_fin')
-            if end_day:
-                # end_day peut être string ou date
-                end_day = fields.Date.to_date(end_day)
-                end_dt = self._evening_dt(end_day)
-                vals = dict(vals)
-                vals.update({'date_finished': end_dt, 'date_deadline': end_dt})
-                date_finished_changed = True
+    # IMPORTANT : ne jamais recalculer si write interne (programmer, sync, etc.)
+    if self.env.context.get("skip_macro_recalc") or self.env.context.get("in_button_plan"):
+        return super().write(vals)
 
-        
-        # Log pour debug
-        if date_start_changed or date_finished_changed:
-            _logger.info("=== MRP PRODUCTION WRITE === OF: %s, vals: %s", 
-                        self.mapped('name'), vals)
-        
-        # Appel standard
-        res = super().write(vals)
-        
-        # Si changement de dates ET que ce n'est pas un appel interne ET pas depuis _update_mo_dates_from_macro ET pas pendant button_plan
-        if (date_start_changed or date_finished_changed or x_end_changed) \
+    start_changed = "date_start" in vals
+    x_end_changed = "x_studio_date_fin" in vals or "x_studio_date_de_fin" in vals
 
-           and not self.env.context.get('skip_macro_recalc') \
-           and not self.env.context.get('from_macro_update') \
-           and not self.env.context.get('in_button_plan'):
-            for production in self:
-                try:
-                    production._recalculate_macro_on_date_change(
-                        date_start_changed=date_start_changed,
-                        date_finished_changed=date_finished_changed
-                    )
-                except (UserError, ValidationError) as e:
-                    raise
-                except Exception as e:
-                    _logger.error("Erreur recalcul macro OF %s : %s", production.name, str(e), exc_info=True)
-        
-        return res
+    res = super().write(vals)
+
+    for mo in self:
+        try:
+            # 1) Si on change la date de début OF -> recalcul FORWARD
+            if start_changed and mo.date_start:
+                _logger.info("=== RECALCUL MACRO FORWARD depuis date_start pour %s ===", mo.name)
+                mo._recalculate_macro_forward()
+
+            # 2) Si on change la date de fin métier -> recalcul BACKWARD
+            elif x_end_changed:
+                x_end = mo.x_studio_date_fin or mo.x_studio_date_de_fin
+                if x_end:
+                    _logger.info("=== RECALCUL MACRO BACKWARD depuis x_studio_date_fin pour %s ===", mo.name)
+
+                    # Convertir en datetime fin de journée
+                    end_dt = mo._evening_dt(x_end)
+
+                    # Synchroniser champs standard SANS boucler
+                    mo.with_context(skip_macro_recalc=True, mail_notrack=True).write({
+                        "date_finished": end_dt,
+                        "date_deadline": end_dt,
+                    })
+
+                    mo._recalculate_macro_backward()
+
+        except Exception as e:
+            _logger.exception("Erreur recalcul macro pour %s : %s", mo.name, e)
+
+    return res
 
     def _recalculate_macro_on_date_change(self, date_start_changed=False, date_finished_changed=False):
         """
