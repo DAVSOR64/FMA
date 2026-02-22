@@ -13,6 +13,7 @@ class MrpProduction(models.Model):
 
     # ⚠️ IMPORTANT : doit être un vrai champ Odoo (sinon mrp_workorder.write ne peut pas le lire)
     macro_plan_freeze = fields.Boolean(default=False)
+    macro_forced_end = fields.Datetime(string="Macro forced end")
 
     def button_plan(self):
         _logger.warning("********** PLAN (macro inspired) **********")
