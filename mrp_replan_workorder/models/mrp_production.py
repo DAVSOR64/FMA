@@ -761,8 +761,11 @@ class MrpProduction(models.Model):
             _logger.info("WO %s : macro=%s | %s -> %s | durée=%s min", 
                         wo.name, macro_dt, first_day, last_day, duration_minutes)
             
-            # Opération précédente se termine la veille ouvrée
-            current_end_day = self._previous_working_day(first_day, wc)
+            # Opération précédente se termine AVANT first_day.
+            # On impose un jour calendaire de "trou" entre opérations,
+            # puis la prochaine itération recale sur un jour ouvré du workcenter
+            # via _previous_or_same_working_day().
+            current_end_day = first_day - timedelta(days=1)
         
         # Recalculer date_start de l'OF
         self._update_mo_dates_from_macro()
