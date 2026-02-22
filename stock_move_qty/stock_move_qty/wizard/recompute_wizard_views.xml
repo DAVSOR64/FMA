@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_recompute_qty_wizard_form" model="ir.ui.view">
+        <field name="name">stock.move.qty.recompute.wizard.form</field>
+        <field name="model">stock.move.qty.recompute.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Recalculer quantités avant/après">
+                <group>
+                    <field name="info" nolabel="1" colspan="2"/>
+                </group>
+                <footer>
+                    <button name="action_recompute"
+                            string="Lancer le recalcul"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Annuler"
+                            class="btn-secondary"
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_recompute_qty_wizard" model="ir.actions.act_window">
+        <field name="name">Recalculer quantités stock</field>
+        <field name="res_model">stock.move.qty.recompute.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Menu dans Inventaire > Configuration -->
+    <menuitem id="menu_recompute_qty_wizard"
+              name="Recalculer qté avant/après"
+              parent="stock.menu_stock_config_settings"
+              action="action_recompute_qty_wizard"
+              sequence="100"/>
+</odoo>
