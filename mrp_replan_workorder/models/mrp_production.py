@@ -791,27 +791,32 @@ class MrpProduction(models.Model):
         # Vérifier dépassement livraison
         self._check_delivery_date_exceeded()
 
-    def _to_date(value):
-        """Convertit value (date/datetime/str) en date python, sinon None."""
+    def _to_date(self, value):
+        """Convertit value (datetime/date/str) en date python, sinon None."""
         if not value:
             return None
         if isinstance(value, date) and not isinstance(value, datetime):
             return value
         if isinstance(value, datetime):
             return value.date()
-        # Odoo peut envoyer des dates en str ('YYYY-MM-DD') ou datetime str
-        try:
-            dt = fields.Datetime.to_datetime(value)
-            if dt:
-                return dt.date()
-        except Exception:
-            pass
-        try:
-            d = fields.Date.to_date(value)
-            return d
-        except Exception:
-            return None
 
+        # Odoo peut parfois passer des strings 'YYYY-MM-DD' ou 'YYYY-MM-DD HH:MM:SS'
+        if isinstance(value, str):
+            try:
+                # datetime string ?
+                dt = fields.Datetime.to_datetime(value)
+                if dt:
+                    return dt.date()
+            except Exception:
+                pass
+            try:
+                # date string ?
+                d = fields.Date.to_date(value)
+                return d
+            except Exception:
+                return None
+
+        return None
     def _check_delivery_date_exceeded(self):
         self.ensure_one()
 
@@ -840,10 +845,10 @@ class MrpProduction(models.Model):
             return
 
         raw_delivery = so.commitment_date or so.expected_date
-        delivery_date = _to_date(raw_delivery)
+        delivery_date = self._to_date(raw_delivery)
 
         x_end_raw = getattr(self, "x_studio_date_de_fin", False) or getattr(self, "x_studio_date_fin", False)
-        date_end = _to_date(x_end_raw)
+        date_end = self._to_date(x_end_raw)
 
         _logger.warning(
             "[DELIVERY CHECK] VALUES | OF=%s | delivery(raw)=%r -> %s | x_end(raw)=%r -> %s",
