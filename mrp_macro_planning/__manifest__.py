@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 {
-    'name': 'MRP Macro Planning - Capacité vs Charge',
+    'name': ' Bon MRP Macro Planning - Capacité vs Charge',
     'version': '17.0.5.0.0',
     'category': 'Manufacturing',
     'summary': 'Tableau de bord capacité vs charge avec suivi prévu/effectué/cumul',

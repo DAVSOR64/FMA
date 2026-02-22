@@ -22,24 +22,26 @@ class MrpWorkorder(models.Model):
         # Pendant button_plan, Odoo remet date_start/date_finished à False en cascade
         # (via resource.calendar.leaves). On bloque cet écrasement pour préserver nos macros.
         if self.env.context.get("in_button_plan"):
-            blocked = {"date_start", "date_finished", "date_planned_start", "date_planned_finished"}
-            if any(values.get(f) is False for f in blocked):
+            # Filtrer les remises à False provenant du super() d'Odoo
+            if values.get("date_start") is False or values.get("date_finished") is False:
                 _logger.info(
-                    "BUTTON_PLAN : blocage write dates=False sur WO %s | values=%s",
-                    self.ids, values
+                    "BUTTON_PLAN : blocage write date_start/date_finished=False sur WO %s",
+                    self.ids
                 )
-                filtered = {k: v for k, v in values.items() if k not in blocked}
+                # On laisse passer les autres vals (état, etc.) mais pas les dates à False
+                filtered = {k: v for k, v in values.items()
+                           if k not in ("date_start", "date_finished")}
                 if filtered:
                     return super().write(filtered)
                 return True
 
-        trigger = any(k in values for k in ("date_start", "date_planned_start"))  # champ planning
+        trigger = "date_start" in values  # ton champ de planning
         old_starts = {}
         old_ends = {}
 
         if trigger:
             for wo in self:
-                old_starts[wo.id] = fields.Datetime.to_datetime(wo.date_planned_start or wo.date_start) if (wo.date_planned_start or wo.date_start) else None
+                old_starts[wo.id] = fields.Datetime.to_datetime(wo.date_start) if wo.date_start else None
                 old_ends[wo.id] = fields.Datetime.to_datetime(wo.date_finished) if wo.date_finished else None
 
             _logger.info(
@@ -60,7 +62,7 @@ class MrpWorkorder(models.Model):
         if trigger:
             for wo in self:
                 old_start = old_starts.get(wo.id)
-                new_start = fields.Datetime.to_datetime(wo.date_planned_start or wo.date_start) if (wo.date_planned_start or wo.date_start) else None
+                new_start = fields.Datetime.to_datetime(wo.date_start) if wo.date_start else None
                 if not old_start or not new_start:
                     _logger.warning(
                         "SKIP delta | WO %s(id=%s) | old_start=%s new_start=%s",

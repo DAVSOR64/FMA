@@ -13,12 +13,6 @@ _logger = logging.getLogger(__name__)
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
-    macro_planning_freeze = fields.Boolean(
-        string="Verrou planification macro",
-        copy=False,
-        help="Verrou technique : empêche les recalculs macro pendant Planifier/Déprogrammer, même si Odoo réécrit les dates sans contexte."
-    )
-
     macro_forced_end = fields.Datetime(
         string="Fin macro forcée",
         copy=False,
@@ -150,8 +144,9 @@ class MrpProduction(models.Model):
             in_button_plan=True,
         )).button_plan()
 
-        # ── 3. Restaurer les dates depuis les macros sauvegardés ──
-        # Le super() a remis date_start/date_finished des WO à False — on les réapplique ici
+        # ── 3. Restaurer les macros sauvegardés ──
+        # Le super() peut remettre des dates WO à False — ici on restaure uniquement les macros.
+        # Les dates planifiées (v18) seront ensuite recalées via apply_macro_to_workorders_dates().
         for production in self:
             workorders = production.workorder_ids.sorted(
                 lambda wo: (wo.operation_id.sequence if wo.operation_id else 0, wo.id)
@@ -162,69 +157,66 @@ class MrpProduction(models.Model):
                 if not saved_macro:
                     _logger.warning("WO %s (%s) : pas de macro sauvegardé -> skip", wo.name, production.name)
                     continue
-                # Durée WO -> fin en jours ouvrés (pas en minutes)
-                wc = wo.workcenter_id
-                cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-                hours_per_day = cal.hours_per_day or 7.8
 
-                duration_minutes = wo.duration_expected or 0.0
-                duration_hours = duration_minutes / 60.0
-                required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-
-                start_day = fields.Datetime.to_datetime(saved_macro).date()
-                last_day = start_day
-                for _ in range(required_days - 1):
-                    last_day = self._next_working_day(last_day, wc)
-
-                start_dt = self._morning_dt(start_day, wc)
-                end_dt = self._evening_dt(last_day, wc)
-
-                # Restaurer macro + dates planifiées (v18)
-                wo.with_context(
-                    skip_shift_chain=True,
-                    skip_macro_recalc=True,
-                    mail_notrack=True,
-                ).write({
+                wo.with_context(skip_shift_chain=True, skip_macro_recalc=True, mail_notrack=True).write({
                     "macro_planned_start": saved_macro,
                 })
 
-                self._set_wo_planning_dates(wo, start_dt, end_dt)
+                _logger.info("WO %s : macro_planned_start restauré = %s", wo.name, saved_macro)
 
-                _logger.info(
-                    "WO %s : macro=%s start=%s end=%s durée=%s min (~%s j)",
-                    wo.name, saved_macro, start_dt, end_dt, duration_minutes, required_days,
-                )
+            # Recaler les dates planifiées des WO depuis les macros (jours ouvrés + morning/evening)
+            production.with_context(skip_macro_recalc=True, mail_notrack=True).apply_macro_to_workorders_dates()
 
-            # ── 4. Recaler les dates de l'OF (sans bouger le début) ──
-            mo_start = mo_start_backup.get(production.id) or production.date_planned_start or production.date_start
-
-            vals = {}
-            if mo_start:
-                if "date_start" in production._fields:
-                    vals["date_start"] = mo_start
-                if "date_planned_start" in production._fields:
-                    vals["date_planned_start"] = mo_start
-
-            forced_end = production.macro_forced_end
-            if forced_end:
-                if "date_finished" in production._fields:
-                    vals["date_finished"] = forced_end
-                if "date_planned_finished" in production._fields:
-                    vals["date_planned_finished"] = forced_end
-                if "date_deadline" in production._fields:
-                    vals["date_deadline"] = forced_end
-
-            if vals:
-                production.with_context(
-                    skip_macro_recalc=True,
-                    from_macro_update=True,
-                    mail_notrack=True,
-                ).write(vals)
-
-        # Déverrouiller
-        self.with_context(mail_notrack=True).write({"macro_planning_freeze": False})
+            # ── 4. Recaler les dates de l'OF sur les macros WO ──
+            production.with_context(
+                skip_macro_recalc=True,
+                from_macro_update=True,
+                mail_notrack=True,
+            )._update_mo_dates_from_macro(
+                forced_end_dt=production.macro_forced_end or None
+            )
 
         return res
+
+    # ============================================================
+    # DEBUG / STEP-BY-STEP ACTIONS (SAFE: no impact on capacity listing)
+    # ============================================================
+    def action_debug_macro_dates(self):
+        """Étape 1: vérifie le calcul des dates macro (début opérations) et trace le chaînage."""
+        for mo in self:
+            wos = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")).sorted(
+                lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)
+            )
+            _logger.info("=== DEBUG MACRO %s | WO=%s ===", mo.name, len(wos))
+            for wo in wos:
+                wc = wo.workcenter_id
+                cal = (wc.resource_calendar_id if wc else None) or self.env.company.resource_calendar_id
+                hours_per_day = (cal.hours_per_day or 7.8) if cal else 7.8
+                dur_min = float(wo.duration_expected or 0.0)
+                dur_h = dur_min / 60.0
+                req_days = max(1, int(math.ceil(dur_h / hours_per_day))) if dur_min else 0
+                macro_dt = fields.Datetime.to_datetime(getattr(wo, "macro_planned_start", False))
+                _logger.info(
+                    "WO %-30s | seq=%s | wc=%s | macro_start=%s | dur=%s min | req_days=%s",
+                    wo.name,
+                    wo.operation_id.sequence if wo.operation_id else wo.sequence,
+                    wc.display_name if wc else None,
+                    macro_dt,
+                    int(dur_min),
+                    req_days,
+                )
+        return True
+
+    def action_apply_macro_to_planned_dates(self):
+        """Étape 2: applique macro -> dates planifiées WO (sans utiliser le bouton standard Programmer)."""
+        for mo in self:
+            mo.with_context(skip_macro_recalc=True, mail_notrack=True).apply_macro_to_workorders_dates()
+            mo.with_context(
+                skip_macro_recalc=True,
+                from_macro_update=True,
+                mail_notrack=True,
+            )._update_mo_dates_from_macro(forced_end_dt=mo.macro_forced_end or None)
+        return True
 
     def apply_macro_to_workorders_dates(self):
         """
@@ -552,42 +544,36 @@ class MrpProduction(models.Model):
     # ============================================================
 
     def write(self, vals):
-        """Intercepte les changements de dates de l'OF pour recalculer les opérations.
-
-        IMPORTANT : on ne doit JAMAIS recalculer pendant Planifier/Déprogrammer.
-        Comme certaines écritures internes peuvent perdre le contexte, on s'appuie aussi
-        sur le flag en base `macro_planning_freeze`.
-        """
-
-        date_fields = {"date_start", "date_finished", "date_deadline", "date_planned_start", "date_planned_finished"}
-        touched = date_fields.intersection(vals.keys())
-
-        if touched:
-            _logger.info("=== MRP PRODUCTION WRITE === OF: %s, vals: %s", self.mapped('name'), vals)
-
-        # Écritures internes de déprogrammation : dates remises à False -> jamais de recalcul
-        resetting_dates = any(f in vals and vals.get(f) is False for f in touched)
-
+        """Intercepte les changements de dates de l'OF pour recalculer les opérations"""
+        
+        # Détecter changement de dates
+        date_start_changed = 'date_start' in vals
+        date_finished_changed = 'date_finished' in vals or 'date_deadline' in vals
+        
+        # Log pour debug
+        if date_start_changed or date_finished_changed:
+            _logger.info("=== MRP PRODUCTION WRITE === OF: %s, vals: %s", 
+                        self.mapped('name'), vals)
+        
+        # Appel standard
         res = super().write(vals)
-
-        # Skip recalcul si verrou actif (même si le contexte a été perdu)
-        freeze_active = any(self.mapped("macro_planning_freeze"))
-
-        # Recalcul seulement si on a explicitement touché les dates ET que ce n'est pas interne
-        if touched and not resetting_dates            and not freeze_active            and not self.env.context.get('skip_macro_recalc')            and not self.env.context.get('from_macro_update')            and not self.env.context.get('in_button_plan')            and not self.env.context.get('in_button_unplan'):
-            date_start_changed = any(f in vals for f in ("date_start", "date_planned_start"))
-            date_finished_changed = any(f in vals for f in ("date_finished", "date_deadline", "date_planned_finished"))
+        
+        # Si changement de dates ET que ce n'est pas un appel interne ET pas depuis _update_mo_dates_from_macro ET pas pendant button_plan
+        if (date_start_changed or date_finished_changed) \
+           and not self.env.context.get('skip_macro_recalc') \
+           and not self.env.context.get('from_macro_update') \
+           and not self.env.context.get('in_button_plan'):
             for production in self:
                 try:
                     production._recalculate_macro_on_date_change(
                         date_start_changed=date_start_changed,
-                        date_finished_changed=date_finished_changed,
+                        date_finished_changed=date_finished_changed
                     )
-                except (UserError, ValidationError):
+                except (UserError, ValidationError) as e:
                     raise
                 except Exception as e:
                     _logger.error("Erreur recalcul macro OF %s : %s", production.name, str(e), exc_info=True)
-
+        
         return res
 
     def _recalculate_macro_on_date_change(self, date_start_changed=False, date_finished_changed=False):
@@ -709,7 +695,7 @@ class MrpProduction(models.Model):
         Utilisé quand date_finished change (avec ou sans opérations démarrées)
         """
         # Utiliser date_deadline en priorité, sinon date_finished
-        end_dt = self.macro_forced_end or self.date_deadline or self.date_finished
+        end_dt = self.date_deadline or self.date_finished
         if not end_dt:
             return
         

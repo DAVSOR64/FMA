@@ -1,0 +1,21 @@
+<odoo>
+  <record id="view_mrp_production_form_debug_macro" model="ir.ui.view">
+    <field name="name">mrp.production.form.debug.macro</field>
+    <field name="model">mrp.production</field>
+    <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <button name="action_debug_macro_dates"
+                type="object"
+                string="DEBUG Macro dates"
+                class="btn-secondary"
+                groups="base.group_system"/>
+        <button name="action_apply_macro_to_planned_dates"
+                type="object"
+                string="Appliquer macro → dates"
+                class="btn-secondary"
+                groups="base.group_system"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
