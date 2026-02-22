@@ -522,7 +522,7 @@ class MrpProduction(models.Model):
             return super().write(vals)
 
         start_changed = "date_start" in vals
-        x_end_changed = "x_studio_date_fin" in vals or "x_studio_date_de_fin" in vals
+        x_end_changed = "x_studio_date_de_fin" in vals  # <-- uniquement le vrai champ
 
         res = super().write(vals)
 
@@ -535,9 +535,9 @@ class MrpProduction(models.Model):
 
                 # 2) Si on change la date de fin métier -> recalcul BACKWARD
                 elif x_end_changed:
-                    x_end = mo.x_studio_date_fin or mo.x_studio_date_de_fin
+                    x_end = getattr(mo, "x_studio_date_de_fin", False)
                     if x_end:
-                        _logger.info("=== RECALCUL MACRO BACKWARD depuis x_studio_date_fin pour %s ===", mo.name)
+                        _logger.info("=== RECALCUL MACRO BACKWARD depuis x_studio_date_de_fin pour %s ===", mo.name)
 
                         # Convertir en datetime fin de journée
                         end_dt = mo._evening_dt(x_end)
