@@ -1,11 +1,7 @@
 
-# -*- coding: utf-8 -*-
-import logging
-import math
-from datetime import datetime, timedelta, time
-
-import pytz
 from odoo import models, fields
+import logging
+from datetime import timedelta
 
 _logger = logging.getLogger(__name__)
 
@@ -13,723 +9,88 @@ _logger = logging.getLogger(__name__)
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
-    macro_forced_end = fields.Datetime(
-        string="Fin macro forcée",
-        copy=False,
-        help="Date de fin de fabrication imposée (livraison - délai de sécurité)."
-    )
-    
-    def _log_wo_dates(self, label, workorders):
-        _logger.info("=== %s | MO %s | WO count=%s ===", label, self.name, len(workorders))
-        for wo in workorders:
-            _logger.info(
-                "WO %s | state=%s | wc=%s | macro=%s | date_start=%s | date_finished=%s | duration=%s",
-                wo.name,
-                wo.state,
-                wo.workcenter_id.display_name if wo.workcenter_id else None,
-                getattr(wo, "macro_planned_start", None),
-                wo.date_start,
-                wo.date_finished,
-                wo.duration_expected,
-            )
-
-    # ============================================================
-    # ENTRY POINT FROM SALE ORDER (SO -> MO)
-    # ============================================================
-    def compute_macro_schedule_from_sale(self, sale_order, security_days=6):
-        """
-        Phase 1 (à la confirmation du devis) :
-        - calcule et écrit workorder.macro_planned_start (début macro)
-        - recale mrp.production.date_start / date_finished depuis macro_planned_start + durées
-        - met à jour le picking composants (deadline = début fab, scheduled = veille ouvrée)
-        - NE TOUCHE PAS aux dates standard des WO (date_start/date_finished)
-        """
-        self.ensure_one()
-
-        delivery_dt = fields.Datetime.to_datetime(sale_order.commitment_date)
-        if not delivery_dt:
-            _logger.info("SO %s : pas de commitment_date -> pas de macro planning", sale_order.name)
-            return False
-
-        self.message_post(body="🧪 DEBUG : macro planning (SO confirm) exécuté")
-
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        if not workorders:
-            _logger.info("MO %s : aucun WO", self.name)
-            return False
-
-        # Tri robuste : séquence opération puis id
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-
-        # Fin fabrication = livraison - délai sécurité en jours ouvrés (calendrier société)
-        end_fab_dt = self._add_working_days_company(delivery_dt, -float(security_days))
-        end_fab_day = end_fab_dt.date()
-
-        self.with_context(mail_notrack=True).write({"macro_forced_end": end_fab_dt,})
-        self.with_context(mail_notrack=True).write({"x_studio_date_de_fin": end_fab_day})
-
-        _logger.info("MO %s : delivery=%s security_days=%s end_fab_day=%s",
-                     self.name, delivery_dt, security_days, end_fab_day)
-
-        # Planif backward en jours ouvrés => on remplit UNIQUEMENT macro_planned_start
-        last_wc = workorders[-1].workcenter_id
-        current_end_day = self._previous_or_same_working_day(end_fab_day, last_wc)
-
-        # Backward : dernière -> première
-        for wo in workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True):
-            wc = wo.workcenter_id
-            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-            hours_per_day = cal.hours_per_day or 7.8
-
-            duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
-            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-
-            # Bloc de required_days se terminant à current_end_day
-            last_day = self._previous_or_same_working_day(current_end_day, wc)
-            first_day = last_day
-            for _ in range(required_days - 1):
-                first_day = self._previous_working_day(first_day, wc)
-
-            # macro_planned_start = début du bloc (matin)
-            macro_dt = self._morning_dt(first_day, wc)
-
-            if "macro_planned_start" in wo._fields:
-                wo.with_context(mail_notrack=True).write({"macro_planned_start": macro_dt})
-
-            _logger.info(
-                "WO %s (%s): %s -> %s | %s min (~%s h) => %s j | macro_planned_start=%s",
-                wo.name, wc.display_name, first_day, last_day,
-                int(duration_minutes), round(duration_hours, 2), required_days, macro_dt
-            )
-
-            # Décalage “veille ouvrée” entre opérations
-            current_end_day = self._previous_working_day(first_day, wc)
-
-        # ✅ Recaler l'OF depuis les macros WO
-        self._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
-
-        # ✅ Recaler les pickings composants depuis le début fab (MO.date_start)
-        self._update_components_picking_dates()
-
-        return True
-
-    # ============================================================
-    # BUTTON "PLANIFIER" (MO) -> recalcul macro si date changée, puis push Gantt
-    # ============================================================
+    # Empêche les boucles lors du bouton Programmer
     def button_plan(self):
-        """
-        Flux complet :
-        1. Détecte si date_start ou date_finished de l'OF ont été modifiées manuellement
-           depuis le dernier macro planning.
-           - date_finished changée => rétroplanification (backward)
-           - date_start changée    => planification forward
-        2. Exécute la planif standard Odoo (super)
-        3. Pousse les macro_planned_start sur les dates WO pour le Gantt
+        _logger.info("BUTTON PLAN with skip_macro_recalc context")
+        return super(MrpProduction, self.with_context(skip_macro_recalc=True)).button_plan()
 
-        Guard anti-boucle : on stocke dans le contexte les IDs déjà traités pour éviter
-        qu'un appel récursif ou multi-OF ne relance le replan sur le même OF.
-        """
-        _logger.warning("********** button_plan (macro replan) **********")
+    def write(self, vals):
+        if self.env.context.get("skip_macro_recalc"):
+            return super().write(vals)
 
-        # IDs déjà traités dans cet appel (protection anti-boucle)
-        already_replanned = set(self.env.context.get("_macro_replan_done_ids", []))
+        start_changed = "date_start" in vals
+        end_changed = "x_studio_date_fin" in vals
 
-        for production in self:
-            if production.id in already_replanned:
-                _logger.info("MO %s : déjà replanifié dans cet appel -> skip", production.name)
-                continue
-            already_replanned.add(production.id)
-            production.with_context(_macro_replan_done_ids=list(already_replanned))._replan_macro_if_dates_changed()
+        res = super().write(vals)
 
-        # Planif standard Odoo
-        # ⚠️ with_context() retourne un recordset du même modèle => notre override serait rappelé.
-        # On passe self avec le contexte puis on remonte la MRO via super(MrpProduction, self_ctx).
-        self_ctx = self.with_context(skip_mo_replan=True, _macro_replan_done_ids=list(already_replanned))
-        res = super(MrpProduction, self_ctx).button_plan()
+        for mo in self:
+            try:
+                if start_changed and mo.date_start:
+                    _logger.info("Recalc macro FORWARD depuis date_start pour %s", mo.name)
+                    mo._macro_recalc_from_date_start()
 
-        # Push macro -> WO dates (Gantt)
-        for production in self:
-            production._push_macro_to_gantt()
+                elif end_changed and mo.x_studio_date_fin:
+                    _logger.info("Recalc macro BACKWARD depuis x_studio_date_fin pour %s", mo.name)
+                    mo._macro_recalc_from_x_end_date()
+
+            except Exception as e:
+                _logger.exception("Erreur recalcul macro pour %s : %s", mo.name, e)
 
         return res
 
-    def _replan_macro_if_dates_changed(self):
-        """
-        Appelé au début de button_plan.
-        Détecte si l'utilisateur a changé date_start ou date_finished de l'OF
-        après le dernier macro planning et recalcule les macros en conséquence.
-
-        Anti-boucle : on écrit macro_forced_end = date_finished EN PREMIER
-        pour que le prochain appel éventuel ne détecte plus de delta.
-        """
+    # Forward depuis date_start
+    def _macro_recalc_from_date_start(self):
         self.ensure_one()
-
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        if not workorders:
-            return
-
-        mo_date_start = fields.Datetime.to_datetime(self.date_start) if self.date_start else None
-        mo_date_finished = fields.Datetime.to_datetime(self.date_finished) if self.date_finished else None
-        macro_forced_end = fields.Datetime.to_datetime(self.macro_forced_end) if self.macro_forced_end else None
-
-        def same_day(dt1, dt2):
-            if not dt1 or not dt2:
-                return dt1 == dt2
-            return dt1.date() == dt2.date()
-
-        # -- Détection changement date_finished --
-        if mo_date_finished and not same_day(mo_date_finished, macro_forced_end):
-            _logger.info(
-                "MO %s : date_finished=%s != macro_forced_end=%s => rétroplanification",
-                self.name, mo_date_finished, macro_forced_end
-            )
-            # ⚠️ Anti-boucle : on aligne macro_forced_end IMMÉDIATEMENT avant le calcul
-            self.with_context(mail_notrack=True).write({"macro_forced_end": mo_date_finished})
-            self._replan_macro_backward(mo_date_finished)
-            return
-
-        # -- Détection changement date_start --
-        wos_with_macro = workorders.filtered(lambda w: w.macro_planned_start)
-        if wos_with_macro and mo_date_start:
-            macro_min_start = min(wos_with_macro.mapped("macro_planned_start"))
-            macro_min_start = fields.Datetime.to_datetime(macro_min_start)
-            if not same_day(mo_date_start, macro_min_start):
-                _logger.info(
-                    "MO %s : date_start=%s != macro_min_start=%s => forward planning",
-                    self.name, mo_date_start, macro_min_start
-                )
-                self._replan_macro_forward(mo_date_start)
-                return
-
-        _logger.info("MO %s : aucun changement de date détecté, macros conservées", self.name)
-
-    def _push_macro_to_gantt(self):
-        """
-        Pousse macro_planned_start + durée vers date_start/date_finished des WO
-        pour rendre le Gantt cohérent avec le macro planning.
-        """
-        self.ensure_one()
-
-        workorders = self.workorder_ids.sorted(
-            lambda wo: (wo.operation_id.sequence if wo.operation_id else 0, wo.id)
-        )
-
-        previous_end_dt = None
-
-        for wo in workorders:
-            if not wo.macro_planned_start:
-                _logger.warning("WO %s (%s) : macro_planned_start vide -> skip", wo.name, self.name)
-                continue
-
-            macro_start = fields.Datetime.to_datetime(wo.macro_planned_start)
-
-            # Règle métier : lendemain ouvré matin après la fin de la WO précédente
-            if previous_end_dt:
-                prev_day = fields.Datetime.to_datetime(previous_end_dt).date()
-                next_day = self._next_working_day(prev_day, wo.workcenter_id)
-                chain_start = self._morning_dt(next_day, wo.workcenter_id)
-                start_dt = max(macro_start, chain_start)
-            else:
-                start_dt = macro_start
-
-            duration_min = wo.duration_expected or 0.0
-            end_dt = start_dt + timedelta(minutes=duration_min)
-
-            wo.with_context(skip_shift_chain=True, mail_notrack=True).write({
-                "date_start": start_dt,
-                "date_finished": end_dt,
-            })
-
-            _logger.info(
-                "GANTT | WO %s : macro=%s | start=%s | end=%s | durée=%s min",
-                wo.name, macro_start, start_dt, end_dt, duration_min,
-            )
-
-            previous_end_dt = end_dt
-
-    def apply_macro_to_workorders_dates(self):
-        """
-        Écrit date_start/date_finished des WO à partir de macro_planned_start + durée (jours ouvrés)
-        pour toutes les WO non done/cancel.
-        """
-        self.ensure_one()
-
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        if not workorders:
-            return
-
-        # Tri ordre de fabrication
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-
-        for wo in workorders:
-            if not wo.macro_planned_start:
-                continue
-
-            wc = wo.workcenter_id
-            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-            hours_per_day = cal.hours_per_day or 7.8
-
-            duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
-            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-
-            start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
-            last_day = start_day
-            for _ in range(required_days - 1):
-                last_day = self._next_working_day(last_day, wc)
-
-            start_dt = self._morning_dt(start_day, wc)
-            end_dt = self._evening_dt(last_day, wc)
-
-            #vals = {}
-            #if "date_start" in wo._fields:
-            #    vals["date_start"] = start_dt
-            #if "date_finished" in wo._fields:
-            #    vals["date_finished"] = end_dt
-
-            #if vals:
-            #    wo.with_context(mail_notrack=True).write(vals)
-            self._set_wo_planning_dates(wo, start_dt, end_dt)
-
-    def _set_wo_planning_dates(self, wo, start_dt, end_dt):
-        vals = {}
-        # Champs planifiés (selon version)
-        if "date_planned_start" in wo._fields:
-            vals["date_planned_start"] = start_dt
-        if "date_planned_finished" in wo._fields:
-            vals["date_planned_finished"] = end_dt
-    
-        # Fallback (certaines versions)
-        if not vals:
-            if "date_start" in wo._fields:
-                vals["date_start"] = start_dt
-            if "date_finished" in wo._fields:
-                vals["date_finished"] = end_dt
-    
-        if vals:
-            wo.with_context(mail_notrack=True).write(vals)
-
-
-    # ============================================================
-    # MO DATES UPDATE (FROM MACRO)
-    # ============================================================
-    def _update_mo_dates_from_macro(self, forced_end_dt=None):
-        """
-        Recale l'OF sur :
-        - début = min(WO.macro_planned_start)
-        - fin = forced_end_dt si fourni, sinon fin calculée depuis les WO
-        """
-        self.ensure_one()
-    
-        wos = self.workorder_ids.filtered(
-            lambda w: w.state not in ("done", "cancel") and w.macro_planned_start
-        )
-        if not wos:
-            return
-    
-        start_dt = min(wos.mapped("macro_planned_start"))
-    
-        # 1) Fin forcée = livraison - délai sécurité (jours ouvrés société)
-        if forced_end_dt:
-            end_dt = fields.Datetime.to_datetime(forced_end_dt)
-        else:
-            # 2) Sinon : fin = max fin WO calculée
-            end_candidates = []
-            for wo in wos:
-                wc = wo.workcenter_id
-                cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-                hours_per_day = cal.hours_per_day or 7.8
-    
-                duration_minutes = wo.duration_expected or 0.0
-                duration_hours = duration_minutes / 60.0
-                required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-    
-                start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
-                last_day = start_day
-                for _ in range(required_days - 1):
-                    last_day = self._next_working_day(last_day, wc)
-    
-                end_candidates.append(self._evening_dt(last_day, wc))
-    
-            end_dt = max(end_candidates) if end_candidates else start_dt
-    
-        vals = {}
-        if "date_start" in self._fields:
-            vals["date_start"] = start_dt
-        if "date_finished" in self._fields:
-            vals["date_finished"] = end_dt
-        if "date_deadline" in self._fields:
-            vals["date_deadline"] = end_dt
-    
-        if vals:
-            self.with_context(skip_mo_replan=True, mail_notrack=True).write(vals)
-    def _update_mo_dates_from_workorders_dates_only(self):
-        """
-        Après button_plan (où on écrit date_start/date_finished des WO),
-        on recale les dates de l'OF sur les WO.
-        """
-        self.ensure_one()
-
-        wos = self.workorder_ids.filtered(
-            lambda w: w.state not in ("done", "cancel") and w.date_start and w.date_finished
-        )
-        if not wos:
-            return
-
-        first_wo = wos.sorted("date_start")[0]
-        last_wo = wos.sorted("date_finished")[-1]
-
-        vals = {}
-        if "date_start" in self._fields:
-            vals["date_start"] = first_wo.date_start
-        if "date_finished" in self._fields:
-            vals["date_finished"] = last_wo.date_finished
-        if "date_deadline" in self._fields:
-            vals["date_deadline"] = last_wo.date_finished
-
-        if vals:
-            self.with_context(skip_mo_replan=True, mail_notrack=True).write(vals)
-
-    # ============================================================
-    # PICKING COMPONENTS UPDATE (via procurement group)
-    # ============================================================
-    def _update_components_picking_dates(self):
-        """
-        - date_deadline = début fab (MO.date_start, matin)
-        - scheduled_date = veille ouvrée (matin)
-        Recherche pickings via group_id (procurement group) => robuste.
-        """
-        self.ensure_one()
-
-        if not self.procurement_group_id:
-            _logger.info("MO %s : pas de procurement_group_id, MAJ picking ignorée", self.name)
-            return
-
         if not self.date_start:
-            _logger.info("MO %s : pas de date_start, MAJ picking ignorée", self.name)
             return
 
-        start_day = fields.Datetime.to_datetime(self.date_start).date()
+        if hasattr(self, "_recalculate_macro_forward"):
+            self.with_context(skip_macro_recalc=True)._recalculate_macro_forward()
+        else:
+            _logger.warning("Méthode _recalculate_macro_forward absente sur %s", self.name)
 
-        pickings = self.env["stock.picking"].search([
-            ("group_id", "=", self.procurement_group_id.id),
-            ("state", "not in", ("done", "cancel")),
-        ])
-        if not pickings:
-            _logger.info("MO %s : aucun picking via group_id=%s", self.name, self.procurement_group_id.id)
-            return
+        last_wo = self.workorder_ids.filtered(lambda w: w.macro_planned_start)
+        last_wo = last_wo.sorted(key=lambda w: w.macro_planned_start)[-1:]
 
-        comp_pickings = pickings.filtered(
-            lambda p: "collect" in (p.picking_type_id.name or "").lower()
-            or "compos" in (p.picking_type_id.name or "").lower()
-            or "component" in (p.picking_type_id.name or "").lower()
-        ) or pickings
+        if last_wo:
+            wo = last_wo[0]
+            duration = wo.duration_expected or 0.0
+            end_dt = wo.macro_planned_start + timedelta(minutes=duration)
+        else:
+            end_dt = self.date_start
 
-        first_wc = self.workorder_ids[:1].workcenter_id if self.workorder_ids else None
-        prev_day = self._previous_working_day(start_day, first_wc) if first_wc else (start_day - timedelta(days=1))
+        end_day = fields.Datetime.to_datetime(end_dt).date()
 
-        scheduled_dt = datetime.combine(prev_day, time(7, 30))
-        deadline_dt = datetime.combine(start_day, time(7, 30))
+        vals = {
+            "x_studio_date_fin": end_day,
+            "date_finished": end_dt,
+            "date_deadline": end_dt,
+        }
 
-        vals = {}
-        if "scheduled_date" in comp_pickings._fields:
-            vals["scheduled_date"] = scheduled_dt
-        if "date_deadline" in comp_pickings._fields:
-            vals["date_deadline"] = deadline_dt
+        self.with_context(skip_macro_recalc=True, mail_notrack=True).write(vals)
 
-        if vals:
-            comp_pickings.with_context(mail_notrack=True).write(vals)
-
-        self.message_post(
-            body=f"🧪 DEBUG : pickings MAJ ({len(comp_pickings)}) scheduled={scheduled_dt} deadline={deadline_dt}"
-        )
-
-    # ============================================================
-    # REPLAN MACRO : FORWARD (depuis date_start OF)
-    # ============================================================
-    def _replan_macro_forward(self, start_dt):
-        """
-        Recalcule macro_planned_start de chaque WO en forward planning
-        depuis start_dt (nouvelle date_start de l'OF).
-        Recalcule ensuite date_finished de l'OF depuis la fin de la dernière WO.
-        Règle métier : même logique que compute_macro_schedule_from_sale mais en avant.
-        """
+    # Backward depuis x_studio_date_fin
+    def _macro_recalc_from_x_end_date(self):
         self.ensure_one()
-
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        if not workorders:
-            _logger.info("MO %s : aucun WO -> skip forward replan", self.name)
+        if not self.x_studio_date_fin:
             return
 
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+        end_dt = fields.Datetime.to_datetime(self.x_studio_date_fin) + timedelta(hours=18)
 
-        start_day = fields.Datetime.to_datetime(start_dt).date()
-        current_start_day = start_day
+        if hasattr(self, "_recalculate_macro_backward"):
+            self.with_context(skip_macro_recalc=True)._recalculate_macro_backward()
+        else:
+            _logger.warning("Méthode _recalculate_macro_backward absente sur %s", self.name)
 
-        for wo in workorders:
-            wc = wo.workcenter_id
-            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-            hours_per_day = cal.hours_per_day or 7.8
+        first_wo = self.workorder_ids.filtered(lambda w: w.macro_planned_start)
+        first_wo = first_wo.sorted(key=lambda w: w.macro_planned_start)[:1]
 
-            duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
-            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
+        start_dt = first_wo[0].macro_planned_start if first_wo else self.date_start
 
-            first_day = self._next_or_same_working_day(current_start_day, wc)
-            last_day = first_day
-            for _ in range(required_days - 1):
-                last_day = self._next_working_day(last_day, wc)
+        vals = {
+            "date_start": start_dt,
+            "date_finished": end_dt,
+            "date_deadline": end_dt,
+        }
 
-            macro_dt = self._morning_dt(first_day, wc)
-
-            if "macro_planned_start" in wo._fields:
-                wo.with_context(mail_notrack=True).write({"macro_planned_start": macro_dt})
-
-            _logger.info(
-                "FORWARD | WO %s (%s): start=%s end=%s | %s j | macro=%s",
-                wo.name, wc.display_name if wc else "?",
-                first_day, last_day, required_days, macro_dt
-            )
-
-            # Prochain WO commence le lendemain ouvré après la fin de celui-ci
-            current_start_day = self._next_working_day(last_day, wc)
-
-        # Recalcule date_finished OF = fin de la dernière WO
-        last_wo = workorders[-1]
-        wc = last_wo.workcenter_id
-        cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-        hours_per_day = cal.hours_per_day or 7.8
-        duration_hours = (last_wo.duration_expected or 0.0) / 60.0
-        required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-
-        macro_start_day = fields.Datetime.to_datetime(last_wo.macro_planned_start).date()
-        last_day = macro_start_day
-        for _ in range(required_days - 1):
-            last_day = self._next_working_day(last_day, wc)
-
-        end_fab_dt = self._evening_dt(last_day, wc)
-
-        self.with_context(skip_mo_replan=True, mail_notrack=True).write({
-            "date_finished": end_fab_dt,
-            "date_deadline": end_fab_dt,
-            "macro_forced_end": end_fab_dt,
-            "x_studio_date_de_fin": end_fab_dt.date(),
-        })
-
-        _logger.info("MO %s : forward replan done | date_start=%s | date_finished=%s", self.name, start_dt, end_fab_dt)
-        self.message_post(body=f"📅 Replanification forward : début {start_dt.date()} → fin calculée {end_fab_dt.date()}")
-
-    # ============================================================
-    # REPLAN MACRO : BACKWARD (depuis date_finished OF)
-    # ============================================================
-    def _replan_macro_backward(self, end_dt):
-        """
-        Recalcule macro_planned_start de chaque WO en rétroplanification
-        depuis end_dt (nouvelle date_finished de l'OF).
-        Recalcule ensuite date_start de l'OF depuis le début de la première WO.
-        Même logique que compute_macro_schedule_from_sale.
-        """
-        self.ensure_one()
-
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        if not workorders:
-            _logger.info("MO %s : aucun WO -> skip backward replan", self.name)
-            return
-
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-
-        end_fab_day = fields.Datetime.to_datetime(end_dt).date()
-
-        # macro_forced_end est déjà écrit par _replan_macro_if_dates_changed avant l'appel
-        self.with_context(skip_mo_replan=True, mail_notrack=True).write({
-            "x_studio_date_de_fin": end_fab_day,
-        })
-
-        last_wc = workorders[-1].workcenter_id
-        current_end_day = self._previous_or_same_working_day(end_fab_day, last_wc)
-
-        # Backward : dernière -> première
-        for wo in workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True):
-            wc = wo.workcenter_id
-            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-            hours_per_day = cal.hours_per_day or 7.8
-
-            duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
-            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-
-            last_day = self._previous_or_same_working_day(current_end_day, wc)
-            first_day = last_day
-            for _ in range(required_days - 1):
-                first_day = self._previous_working_day(first_day, wc)
-
-            macro_dt = self._morning_dt(first_day, wc)
-
-            if "macro_planned_start" in wo._fields:
-                wo.with_context(mail_notrack=True).write({"macro_planned_start": macro_dt})
-
-            _logger.info(
-                "BACKWARD | WO %s (%s): start=%s end=%s | %s j | macro=%s",
-                wo.name, wc.display_name if wc else "?",
-                first_day, last_day, required_days, macro_dt
-            )
-
-            current_end_day = self._previous_working_day(first_day, wc)
-
-        # Recalcule date_start OF = début de la première WO
-        first_wo = workorders[0]
-        start_fab_dt = fields.Datetime.to_datetime(first_wo.macro_planned_start) if first_wo.macro_planned_start else None
-
-        if start_fab_dt:
-            self.with_context(skip_mo_replan=True, mail_notrack=True).write({
-                "date_start": start_fab_dt,
-            })
-
-        _logger.info("MO %s : backward replan done | date_start=%s | date_finished=%s", self.name, start_fab_dt, end_dt)
-        self.message_post(body=f"📅 Rétroplanification : fin imposée {end_fab_day} → début calculé {start_fab_dt.date() if start_fab_dt else '?'}")
-
-    # ============================================================
-    # HELPER : prochain jour ouvré ou même jour si ouvré
-    # ============================================================
-    def _next_or_same_working_day(self, day, workcenter):
-        if not day:
-            return day
-
-        d = day
-        if not workcenter:
-            while d.weekday() >= 5:
-                d += timedelta(days=1)
-            return d
-
-        cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        if not cal:
-            while d.weekday() >= 5:
-                d += timedelta(days=1)
-            return d
-
-        for _ in range(365):
-            start_dt = self._to_aware(datetime.combine(d, time.min))
-            end_dt = self._to_aware(datetime.combine(d, time.max))
-            intervals = cal._work_intervals_batch(start_dt, end_dt)
-            if intervals.get(False):
-                return d
-            d += timedelta(days=1)
-
-        return day
-
-    # ============================================================
-    # WORKING DAYS / CALENDAR HELPERS
-    # ============================================================
-    def _user_tz(self):
-        return pytz.timezone(self.env.user.tz or "UTC")
-
-    def _to_aware(self, dt_naive):
-        tz = self._user_tz()
-        return dt_naive if dt_naive.tzinfo else tz.localize(dt_naive)
-
-    def _add_working_days_company(self, dt, days):
-        cal = self.env.company.resource_calendar_id
-        if not cal:
-            return dt + timedelta(days=days)
-        return cal.plan_days(float(days), dt, compute_leaves=True)
-
-    def _previous_or_same_working_day(self, day, workcenter):
-        if not day:
-            return day
-
-        d = day
-        if not workcenter:
-            while d.weekday() >= 5:
-                d -= timedelta(days=1)
-            return d
-
-        cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        if not cal:
-            while d.weekday() >= 5:
-                d -= timedelta(days=1)
-            return d
-
-        for _ in range(365):
-            start_dt = self._to_aware(datetime.combine(d, time.min))
-            end_dt = self._to_aware(datetime.combine(d, time.max))
-            intervals = cal._work_intervals_batch(start_dt, end_dt)
-            if intervals.get(False):
-                return d
-            d -= timedelta(days=1)
-
-        return day
-
-    def _previous_working_day(self, day, workcenter):
-        d = day - timedelta(days=1)
-
-        if not workcenter:
-            while d.weekday() >= 5:
-                d -= timedelta(days=1)
-            return d
-
-        cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        if not cal:
-            while d.weekday() >= 5:
-                d -= timedelta(days=1)
-            return d
-
-        for _ in range(365):
-            start_dt = self._to_aware(datetime.combine(d, time.min))
-            end_dt = self._to_aware(datetime.combine(d, time.max))
-            intervals = cal._work_intervals_batch(start_dt, end_dt)
-            if intervals.get(False):
-                return d
-            d -= timedelta(days=1)
-
-        return day - timedelta(days=1)
-
-    def _next_working_day(self, day, workcenter):
-        d = day + timedelta(days=1)
-
-        if not workcenter:
-            while d.weekday() >= 5:
-                d += timedelta(days=1)
-            return d
-
-        cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        if not cal:
-            while d.weekday() >= 5:
-                d += timedelta(days=1)
-            return d
-
-        for _ in range(365):
-            start_dt = self._to_aware(datetime.combine(d, time.min))
-            end_dt = self._to_aware(datetime.combine(d, time.max))
-            intervals = cal._work_intervals_batch(start_dt, end_dt)
-            if intervals.get(False):
-                return d
-            d += timedelta(days=1)
-
-        return day + timedelta(days=1)
-
-    def _morning_dt(self, day, workcenter):
-        start_hour = 7.5  # fallback 07:30
-        cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        if cal and cal.attendance_ids:
-            weekday = day.weekday()
-            attend = cal.attendance_ids.filtered(lambda a: int(a.dayofweek) == weekday).sorted("hour_from")
-            if attend:
-                start_hour = attend[0].hour_from
-
-        h = int(start_hour)
-        m = int((start_hour - h) * 60)
-        return datetime.combine(day, time(h, m))
-
-    def _evening_dt(self, day, workcenter):
-        end_hour = 17.0  # fallback 17:00
-        cal = workcenter.resource_calendar_id or self.env.company.resource_calendar_id
-        if cal and cal.attendance_ids:
-            weekday = day.weekday()
-            attend = cal.attendance_ids.filtered(lambda a: int(a.dayofweek) == weekday).sorted("hour_to")
-            if attend:
-                end_hour = attend[-1].hour_to
-
-        h = int(end_hour)
-        m = int((end_hour - h) * 60)
-        return datetime.combine(day, time(h, m))
+        self.with_context(skip_macro_recalc=True, mail_notrack=True).write(vals)
