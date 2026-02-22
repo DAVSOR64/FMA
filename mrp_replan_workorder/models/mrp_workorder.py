@@ -20,20 +20,21 @@ class MrpWorkorder(models.Model):
             return super().write(values)
 
         # Pendant button_plan, Odoo remet date_start/date_finished à False en cascade
-        # (via resource.calendar.leaves). On bloque cet écrasement pour préserver nos macros.
-        if self.env.context.get("in_button_plan"):
-            # Filtrer les remises à False provenant du super() d'Odoo
-            if values.get("date_start") is False or values.get("date_finished") is False:
-                _logger.info(
-                    "BUTTON_PLAN : blocage write date_start/date_finished=False sur WO %s",
-                    self.ids
-                )
-                # On laisse passer les autres vals (état, etc.) mais pas les dates à False
-                filtered = {k: v for k, v in values.items()
-                           if k not in ("date_start", "date_finished")}
-                if filtered:
-                    return super().write(filtered)
-                return True
+        # (via resource.calendar.leaves). Et parfois ça arrive aussi sans contexte.
+        #
+        # => on neutralise ces writes "vides" SAUF si on est explicitement en déprogrammation
+        # (button_unplan met allow_wo_clear=True).
+        if (values.get("date_start") is False or values.get("date_finished") is False) and not self.env.context.get("allow_wo_clear"):
+            _logger.info(
+                "BLOCAGE write date_start/date_finished=False sur WO %s (ctx in_button_plan=%s)",
+                self.ids,
+                bool(self.env.context.get("in_button_plan")),
+            )
+            # On laisse passer les autres vals (état, etc.) mais pas les dates à False
+            filtered = {k: v for k, v in values.items() if k not in ("date_start", "date_finished")}
+            if filtered:
+                return super().write(filtered)
+            return True
 
         trigger = "date_start" in values  # ton champ de planning
         old_starts = {}
