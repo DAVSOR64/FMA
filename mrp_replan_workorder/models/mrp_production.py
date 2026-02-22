@@ -121,19 +121,29 @@ class MrpProduction(models.Model):
         """
         Flux complet :
         1. Détecte si date_start ou date_finished de l'OF ont été modifiées manuellement
-           depuis le dernier macro planning (comparaison avec macro_forced_end / macro_planned_start).
+           depuis le dernier macro planning.
            - date_finished changée => rétroplanification (backward)
            - date_start changée    => planification forward
         2. Exécute la planif standard Odoo (super)
         3. Pousse les macro_planned_start sur les dates WO pour le Gantt
+
+        Guard anti-boucle : on stocke dans le contexte les IDs déjà traités pour éviter
+        qu'un appel récursif ou multi-OF ne relance le replan sur le même OF.
         """
         _logger.warning("********** button_plan (macro replan) **********")
 
-        for production in self:
-            production._replan_macro_if_dates_changed()
+        # IDs déjà traités dans cet appel (protection anti-boucle)
+        already_replanned = set(self.env.context.get("_macro_replan_done_ids", []))
 
-        # Planif standard Odoo (écrit ses propres dates, on laisse faire puis on écrase)
-        res = super().with_context(skip_mo_replan=True).button_plan()
+        for production in self:
+            if production.id in already_replanned:
+                _logger.info("MO %s : déjà replanifié dans cet appel -> skip", production.name)
+                continue
+            already_replanned.add(production.id)
+            production.with_context(_macro_replan_done_ids=list(already_replanned))._replan_macro_if_dates_changed()
+
+        # Planif standard Odoo
+        res = super().with_context(skip_mo_replan=True, _macro_replan_done_ids=list(already_replanned)).button_plan()
 
         # Push macro -> WO dates (Gantt)
         for production in self:
@@ -147,11 +157,8 @@ class MrpProduction(models.Model):
         Détecte si l'utilisateur a changé date_start ou date_finished de l'OF
         après le dernier macro planning et recalcule les macros en conséquence.
 
-        Règles de détection :
-        - Si date_finished != macro_forced_end  => l'utilisateur a imposé une nouvelle fin
-          => rétroplanification depuis date_finished
-        - Sinon si date_start != min(macro_planned_start des WO) => nouvelle date de début
-          => forward planning depuis date_start
+        Anti-boucle : on écrit macro_forced_end = date_finished EN PREMIER
+        pour que le prochain appel éventuel ne détecte plus de delta.
         """
         self.ensure_one()
 
@@ -163,18 +170,19 @@ class MrpProduction(models.Model):
         mo_date_finished = fields.Datetime.to_datetime(self.date_finished) if self.date_finished else None
         macro_forced_end = fields.Datetime.to_datetime(self.macro_forced_end) if self.macro_forced_end else None
 
-        # -- Détection changement date_finished --
-        # On compare à la journée (truncate à la date) pour ignorer les décalages d'heure
         def same_day(dt1, dt2):
             if not dt1 or not dt2:
                 return dt1 == dt2
             return dt1.date() == dt2.date()
 
+        # -- Détection changement date_finished --
         if mo_date_finished and not same_day(mo_date_finished, macro_forced_end):
             _logger.info(
                 "MO %s : date_finished=%s != macro_forced_end=%s => rétroplanification",
                 self.name, mo_date_finished, macro_forced_end
             )
+            # ⚠️ Anti-boucle : on aligne macro_forced_end IMMÉDIATEMENT avant le calcul
+            self.with_context(mail_notrack=True).write({"macro_forced_end": mo_date_finished})
             self._replan_macro_backward(mo_date_finished)
             return
 
@@ -530,8 +538,8 @@ class MrpProduction(models.Model):
 
         end_fab_day = fields.Datetime.to_datetime(end_dt).date()
 
+        # macro_forced_end est déjà écrit par _replan_macro_if_dates_changed avant l'appel
         self.with_context(skip_mo_replan=True, mail_notrack=True).write({
-            "macro_forced_end": end_dt,
             "x_studio_date_de_fin": end_fab_day,
         })
 
