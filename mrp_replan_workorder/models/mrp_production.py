@@ -537,9 +537,11 @@ class MrpProduction(models.Model):
         # Détecter changement de dates
         date_start_changed = 'date_start' in vals
         date_finished_changed = 'date_finished' in vals or 'date_deadline' in vals
+        # Champ métier Studio : date de fin (type date)
+        x_end_changed = 'x_studio_date_de_fin' in vals
         
         # Log pour debug
-        if date_start_changed or date_finished_changed:
+        if date_start_changed or date_finished_changed or x_end_changed:
             _logger.info("=== MRP PRODUCTION WRITE === OF: %s, vals: %s", 
                         self.mapped('name'), vals)
         
@@ -547,12 +549,36 @@ class MrpProduction(models.Model):
         res = super().write(vals)
         
         # Si changement de dates ET que ce n'est pas un appel interne ET pas depuis _update_mo_dates_from_macro ET pas pendant button_plan
-        if (date_start_changed or date_finished_changed) \
+        # + support : changement du champ métier x_studio_date_de_fin
+        if (date_start_changed or date_finished_changed or x_end_changed) \
            and not self.env.context.get('skip_macro_recalc') \
            and not self.env.context.get('from_macro_update') \
            and not self.env.context.get('in_button_plan'):
             for production in self:
                 try:
+                    # 0) Si l'utilisateur modifie la date de fin métier (x_studio_date_de_fin)
+                    #    => on synchro date_deadline/date_finished (fin de journée), puis rétroplanning
+                    if x_end_changed and getattr(production, 'x_studio_date_de_fin', False):
+                        wos = production.workorder_ids.sorted(lambda w: (w.operation_id.sequence, w.id))
+                        last_wc = wos[-1].workcenter_id if wos else False
+
+                        if last_wc:
+                            end_dt = production._evening_dt(production.x_studio_date_de_fin, last_wc)
+                        else:
+                            end_dt = datetime.combine(production.x_studio_date_de_fin, time(17, 0))
+
+                        # Ecriture des champs standards sans boucler
+                        production.with_context(skip_macro_recalc=True, from_macro_update=True, mail_notrack=True).write({
+                            'date_deadline': end_dt,
+                            'date_finished': end_dt,
+                        })
+
+                        production._recalculate_macro_on_date_change(
+                            date_start_changed=False,
+                            date_finished_changed=True,
+                        )
+                        continue
+
                     production._recalculate_macro_on_date_change(
                         date_start_changed=date_start_changed,
                         date_finished_changed=date_finished_changed
