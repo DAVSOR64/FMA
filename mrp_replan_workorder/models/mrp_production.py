@@ -13,56 +13,6 @@ _logger = logging.getLogger(__name__)
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
-    # ============================================================
-    # WRITE OVERRIDE : retrigger macro planning on date change
-    # ============================================================
-    def write(self, values):
-        """
-        Si on modifie date_start ou date_finished sur l'OF (hors contexte de skip),
-        on recalcule automatiquement les dates macro des WO :
-        - date_start changée  => forward planning depuis cette date
-        - date_finished changée => backward planning (rétroplanification) depuis cette date
-        """
-        if self.env.context.get("skip_mo_replan"):
-            return super().write(values)
-
-        # Capturer les anciennes valeurs AVANT l'écriture
-        old_vals = {}
-        if "date_start" in values or "date_finished" in values:
-            for mo in self:
-                old_vals[mo.id] = {
-                    "date_start": fields.Datetime.to_datetime(mo.date_start) if mo.date_start else None,
-                    "date_finished": fields.Datetime.to_datetime(mo.date_finished) if mo.date_finished else None,
-                }
-
-        res = super().write(values)
-
-        if not old_vals:
-            return res
-
-        for mo in self:
-            prev = old_vals.get(mo.id, {})
-            new_start = fields.Datetime.to_datetime(values.get("date_start")) if "date_start" in values else None
-            new_end = fields.Datetime.to_datetime(values.get("date_finished")) if "date_finished" in values else None
-
-            # Priorité : date_finished changée => rétroplanif
-            if new_end and new_end != prev.get("date_finished"):
-                _logger.info(
-                    "MO %s : date_finished changée (%s -> %s) => rétroplanification macro",
-                    mo.name, prev.get("date_finished"), new_end
-                )
-                mo.with_context(skip_mo_replan=True)._replan_macro_backward(new_end)
-
-            # Sinon : date_start changée => forward planif
-            elif new_start and new_start != prev.get("date_start"):
-                _logger.info(
-                    "MO %s : date_start changée (%s -> %s) => forward planification macro",
-                    mo.name, prev.get("date_start"), new_start
-                )
-                mo.with_context(skip_mo_replan=True)._replan_macro_forward(new_start)
-
-        return res
-
     macro_forced_end = fields.Datetime(
         string="Fin macro forcée",
         copy=False,
@@ -165,68 +115,127 @@ class MrpProduction(models.Model):
         return True
 
     # ============================================================
-    # BUTTON "PLANIFIER" (MO) -> push macro to WO dates for gantt
+    # BUTTON "PLANIFIER" (MO) -> recalcul macro si date changée, puis push Gantt
     # ============================================================
     def button_plan(self):
         """
-        Phase 2 (clic sur Planifier) :
-        - exécute la planif standard
-        - puis FORCE wo.date_start/date_finished à partir de wo.macro_planned_start
-          (pour avoir un Gantt exploitable)
-        - puis recale date_start/date_finished de l'OF sur les dates WO
+        Flux complet :
+        1. Détecte si date_start ou date_finished de l'OF ont été modifiées manuellement
+           depuis le dernier macro planning (comparaison avec macro_forced_end / macro_planned_start).
+           - date_finished changée => rétroplanification (backward)
+           - date_start changée    => planification forward
+        2. Exécute la planif standard Odoo (super)
+        3. Pousse les macro_planned_start sur les dates WO pour le Gantt
         """
-       
-        _logger.warning("********** dans le module (macro only) **********")
-        res = super().button_plan()
-    
+        _logger.warning("********** button_plan (macro replan) **********")
+
         for production in self:
-            workorders = sorted(
-                production.workorder_ids,
-                key=lambda wo: wo.operation_id.sequence if wo.operation_id else 0
-            )
-    
-            previous_end_dt = None
-    
-            for wo in workorders:
-                if not wo.macro_planned_start:
-                    _logger.warning("WO %s (%s) : macro_planned_start vide -> skip", wo.name, production.name)
-                    continue
-    
-                macro_start = fields.Datetime.to_datetime(wo.macro_planned_start)
-    
-                # Règle métier : le lendemain (ouvré) matin après la fin précédente
-                if previous_end_dt:
-                    prev_day = fields.Datetime.to_datetime(previous_end_dt).date()
-    
-                    # lendemain calendaire puis on saute aux jours ouvrés (selon ton helper)
-                    next_day = production._next_working_day(prev_day, wo.workcenter_id)
-                    chain_start = production._morning_dt(next_day, wo.workcenter_id)
-    
-                    start_dt = max(macro_start, chain_start)
-                else:
-                    start_dt = macro_start
-    
-                duration_min = wo.duration_expected or 0.0
-                end_dt = start_dt + timedelta(minutes=duration_min)
-    
-                wo.with_context(skip_shift_chain=True, mail_notrack=True).write({
-                    "date_start": start_dt,
-                    "date_finished": end_dt,
-                })
-    
-                _logger.info(
-                    "WO %s : macro=%s | chain_start=%s | start=%s | end=%s | durée=%s min",
-                    wo.name,
-                    macro_start,
-                    (chain_start if previous_end_dt else None),
-                    start_dt,
-                    end_dt,
-                    duration_min,
-                )
-    
-                previous_end_dt = end_dt
-        
+            production._replan_macro_if_dates_changed()
+
+        # Planif standard Odoo (écrit ses propres dates, on laisse faire puis on écrase)
+        res = super().with_context(skip_mo_replan=True).button_plan()
+
+        # Push macro -> WO dates (Gantt)
+        for production in self:
+            production._push_macro_to_gantt()
+
         return res
+
+    def _replan_macro_if_dates_changed(self):
+        """
+        Appelé au début de button_plan.
+        Détecte si l'utilisateur a changé date_start ou date_finished de l'OF
+        après le dernier macro planning et recalcule les macros en conséquence.
+
+        Règles de détection :
+        - Si date_finished != macro_forced_end  => l'utilisateur a imposé une nouvelle fin
+          => rétroplanification depuis date_finished
+        - Sinon si date_start != min(macro_planned_start des WO) => nouvelle date de début
+          => forward planning depuis date_start
+        """
+        self.ensure_one()
+
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        if not workorders:
+            return
+
+        mo_date_start = fields.Datetime.to_datetime(self.date_start) if self.date_start else None
+        mo_date_finished = fields.Datetime.to_datetime(self.date_finished) if self.date_finished else None
+        macro_forced_end = fields.Datetime.to_datetime(self.macro_forced_end) if self.macro_forced_end else None
+
+        # -- Détection changement date_finished --
+        # On compare à la journée (truncate à la date) pour ignorer les décalages d'heure
+        def same_day(dt1, dt2):
+            if not dt1 or not dt2:
+                return dt1 == dt2
+            return dt1.date() == dt2.date()
+
+        if mo_date_finished and not same_day(mo_date_finished, macro_forced_end):
+            _logger.info(
+                "MO %s : date_finished=%s != macro_forced_end=%s => rétroplanification",
+                self.name, mo_date_finished, macro_forced_end
+            )
+            self._replan_macro_backward(mo_date_finished)
+            return
+
+        # -- Détection changement date_start --
+        wos_with_macro = workorders.filtered(lambda w: w.macro_planned_start)
+        if wos_with_macro and mo_date_start:
+            macro_min_start = min(wos_with_macro.mapped("macro_planned_start"))
+            macro_min_start = fields.Datetime.to_datetime(macro_min_start)
+            if not same_day(mo_date_start, macro_min_start):
+                _logger.info(
+                    "MO %s : date_start=%s != macro_min_start=%s => forward planning",
+                    self.name, mo_date_start, macro_min_start
+                )
+                self._replan_macro_forward(mo_date_start)
+                return
+
+        _logger.info("MO %s : aucun changement de date détecté, macros conservées", self.name)
+
+    def _push_macro_to_gantt(self):
+        """
+        Pousse macro_planned_start + durée vers date_start/date_finished des WO
+        pour rendre le Gantt cohérent avec le macro planning.
+        """
+        self.ensure_one()
+
+        workorders = self.workorder_ids.sorted(
+            lambda wo: (wo.operation_id.sequence if wo.operation_id else 0, wo.id)
+        )
+
+        previous_end_dt = None
+
+        for wo in workorders:
+            if not wo.macro_planned_start:
+                _logger.warning("WO %s (%s) : macro_planned_start vide -> skip", wo.name, self.name)
+                continue
+
+            macro_start = fields.Datetime.to_datetime(wo.macro_planned_start)
+
+            # Règle métier : lendemain ouvré matin après la fin de la WO précédente
+            if previous_end_dt:
+                prev_day = fields.Datetime.to_datetime(previous_end_dt).date()
+                next_day = self._next_working_day(prev_day, wo.workcenter_id)
+                chain_start = self._morning_dt(next_day, wo.workcenter_id)
+                start_dt = max(macro_start, chain_start)
+            else:
+                start_dt = macro_start
+
+            duration_min = wo.duration_expected or 0.0
+            end_dt = start_dt + timedelta(minutes=duration_min)
+
+            wo.with_context(skip_shift_chain=True, mail_notrack=True).write({
+                "date_start": start_dt,
+                "date_finished": end_dt,
+            })
+
+            _logger.info(
+                "GANTT | WO %s : macro=%s | start=%s | end=%s | durée=%s min",
+                wo.name, macro_start, start_dt, end_dt, duration_min,
+            )
+
+            previous_end_dt = end_dt
 
     def apply_macro_to_workorders_dates(self):
         """
@@ -343,12 +352,7 @@ class MrpProduction(models.Model):
             vals["date_deadline"] = end_dt
     
         if vals:
-            self.with_context(mail_notrack=True).write(vals)
-
-
-    # ============================================================
-    # MO DATES UPDATE (FROM WO DATES)
-    # ============================================================
+            self.with_context(skip_mo_replan=True, mail_notrack=True).write(vals)
     def _update_mo_dates_from_workorders_dates_only(self):
         """
         Après button_plan (où on écrit date_start/date_finished des WO),
@@ -374,7 +378,7 @@ class MrpProduction(models.Model):
             vals["date_deadline"] = last_wo.date_finished
 
         if vals:
-            self.with_context(mail_notrack=True).write(vals)
+            self.with_context(skip_mo_replan=True, mail_notrack=True).write(vals)
 
     # ============================================================
     # PICKING COMPONENTS UPDATE (via procurement group)
