@@ -201,13 +201,23 @@ class MrpCapacityWeek(models.Model):
                     ('date_to', '>=', fields.Datetime.to_string(dt_start)),
                 ])
                 for l in leaves:
-                    overlap = self._overlap_hours(l.date_from, l.date_to, dt_start, dt_end)
-                    _logger.info('[MrpCapacity] Congé %s: %s → %s, overlap=%.2fH (semaine %s → %s)',
-                                 l.holiday_status_id.name, l.date_from, l.date_to,
-                                 overlap, dt_start, dt_end)
-                    h_leave += overlap
+                    # Utilise number_of_hours_display = heures ouvrées réelles
+                    # Mais on pondère si le congé chevauche partiellement la semaine
+                    total_hours = l.number_of_hours_display or 0.0
+                    if total_hours > 0:
+                        # Durée totale brute du congé en secondes
+                        total_duration = (l.date_to - l.date_from).total_seconds()
+                        # Chevauchement brut avec la semaine
+                        overlap_raw = self._overlap_seconds(l.date_from, l.date_to, dt_start, dt_end)
+                        # Proportion du congé qui tombe dans la semaine
+                        ratio = overlap_raw / total_duration if total_duration > 0 else 0
+                        h_leave += round(total_hours * ratio, 2)
+                        _logger.info(
+                            '[MrpCapacity] Congé %s: %.2fH ouvrées × ratio %.2f = %.2fH cette semaine',
+                            l.holiday_status_id.name, total_hours, ratio, total_hours * ratio
+                        )
 
-            # 3. Arrêts maladie (time_type = sick OU catégorie contient 'maladie')
+            # 3. Arrêts maladie
             h_sick = 0.0
             if employee:
                 sick_types = self.env['hr.leave.type'].search([
@@ -215,7 +225,6 @@ class MrpCapacityWeek(models.Model):
                     ('time_type', '=', 'sick'),
                     ('name', 'ilike', 'maladie'),
                 ])
-                _logger.info('[MrpCapacity] Types maladie trouvés: %s', sick_types.mapped('name'))
                 sick_domain = [
                     ('employee_id', '=', employee.id),
                     ('state', '=', 'validate'),
@@ -226,10 +235,18 @@ class MrpCapacityWeek(models.Model):
                     sick_domain.append(('holiday_status_id', 'in', sick_types.ids))
                     sick_leaves = self.env['hr.leave'].search(sick_domain)
                     for s in sick_leaves:
-                        overlap = self._overlap_hours(s.date_from, s.date_to, dt_start, dt_end)
-                        _logger.info('[MrpCapacity] Maladie %s: %s → %s, overlap=%.2fH',
-                                     s.holiday_status_id.name, s.date_from, s.date_to, overlap)
-                        h_sick += overlap
+                        total_hours = s.number_of_hours_display or 0.0
+                        if total_hours > 0:
+                            total_duration = (s.date_to - s.date_from).total_seconds()
+                            overlap_raw = self._overlap_seconds(s.date_from, s.date_to, dt_start, dt_end)
+                            ratio = overlap_raw / total_duration if total_duration > 0 else 0
+                            sick_h = round(total_hours * ratio, 2)
+                            h_sick += sick_h
+                            _logger.info(
+                                '[MrpCapacity] Maladie %s: %.2fH ouvrées × ratio %.2f = %.2fH cette semaine',
+                                s.holiday_status_id.name, total_hours, ratio, sick_h
+                            )
+                    # Retire les malades du total congés pour éviter le double comptage
                     h_leave = max(0.0, h_leave - h_sick)
 
             rec.hours_public_holiday = round(h_holiday * rate, 2)
@@ -343,6 +360,17 @@ class MrpCapacityWeek(models.Model):
         end = min(d_to, week_end)
         if end > start:
             return (end - start).total_seconds() / 3600.0
+        return 0.0
+
+    @staticmethod
+    def _overlap_seconds(d_from, d_to, week_start, week_end):
+        """Chevauchement en secondes entre [d_from, d_to] et [week_start, week_end]."""
+        if not d_from or not d_to:
+            return 0.0
+        start = max(d_from, week_start)
+        end = min(d_to, week_end)
+        if end > start:
+            return (end - start).total_seconds()
         return 0.0
 
     # ══════════════════════════════════════════════════════════════════════════
