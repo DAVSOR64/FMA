@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         VUE LISTE — Affectations ressource → poste
-         ═══════════════════════════════════════════════════════════ -->
     <record id="view_mrp_capacity_resource_list" model="ir.ui.view">
         <field name="name">mrp.capacity.resource.list</field>
         <field name="model">mrp.capacity.resource</field>
@@ -11,44 +8,30 @@
             <tree string="Affectations ressources" editable="bottom">
                 <field name="employee_id"/>
                 <field name="workcenter_id"/>
-                <field name="resource_calendar_id" optional="show" readonly="1"/>
+                <field name="resource_calendar_id"/>
                 <field name="allocation_rate" optional="show"/>
                 <field name="date_start" optional="show"/>
                 <field name="date_end" optional="show"/>
-                <field name="capacity_week_count" optional="show" readonly="1"
-                       string="Semaines"/>
+                <field name="capacity_week_count" optional="show" readonly="1" string="Semaines"/>
                 <field name="active" optional="hide"/>
-                <button name="action_view_capacity_weeks"
-                        type="object"
-                        icon="fa-calendar"
-                        title="Voir les semaines de capacité"
-                        class="btn-sm"/>
-                <button name="action_generate_weeks"
-                        type="object"
-                        icon="fa-magic"
-                        title="Générer les semaines"
-                        class="btn-sm"/>
+                <button name="action_view_capacity_weeks" type="object"
+                        icon="fa-calendar" title="Voir les semaines" class="btn-sm"/>
+                <button name="action_generate_weeks" type="object"
+                        icon="fa-magic" title="Générer les semaines" class="btn-sm"/>
             </tree>
         </field>
     </record>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         VUE FORMULAIRE — Affectation
-         ═══════════════════════════════════════════════════════════ -->
     <record id="view_mrp_capacity_resource_form" model="ir.ui.view">
         <field name="name">mrp.capacity.resource.form</field>
         <field name="model">mrp.capacity.resource</field>
         <field name="arch" type="xml">
             <form string="Affectation ressource → poste">
                 <header>
-                    <button name="action_generate_weeks"
-                            string="Générer les semaines"
-                            type="object"
-                            class="btn-primary"/>
-                    <button name="action_view_capacity_weeks"
-                            string="Voir le planning capacité"
-                            type="object"
-                            class="btn-secondary"
+                    <button name="action_generate_weeks" string="Générer les semaines"
+                            type="object" class="btn-primary"/>
+                    <button name="action_view_capacity_weeks" string="Voir le planning"
+                            type="object" class="btn-secondary"
                             invisible="capacity_week_count == 0"/>
                 </header>
                 <sheet>
@@ -58,16 +41,16 @@
                     <group>
                         <group string="Ressource">
                             <field name="employee_id"/>
-                            <field name="resource_calendar_id" readonly="1"/>
+                            <field name="allocation_rate" widget="percentage"/>
                         </group>
-                        <group string="Poste de travail">
+                        <group string="Poste &amp; Calendrier">
                             <field name="workcenter_id"/>
-                            <field name="allocation_rate"
-                                   widget="percentage"
-                                   help="100% = ressource dédiée à ce poste"/>
+                            <!-- Calendrier choisi ici — indépendant du RH -->
+                            <field name="resource_calendar_id"
+                                   help="Calendrier appliqué à ce poste. Pré-rempli depuis l'employé mais modifiable. Si vous le changez, toutes les semaines futures se recalculent automatiquement."/>
                         </group>
                     </group>
-                    <group string="Validité de l'affectation">
+                    <group string="Validité">
                         <group>
                             <field name="date_start"/>
                             <field name="date_end"/>
@@ -78,17 +61,13 @@
                         </group>
                     </group>
                     <group string="Note">
-                        <field name="note" nolabel="1"
-                               placeholder="Informations complémentaires..."/>
+                        <field name="note" nolabel="1" placeholder="Informations complémentaires..."/>
                     </group>
                 </sheet>
             </form>
         </field>
     </record>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         VUE RECHERCHE
-         ═══════════════════════════════════════════════════════════ -->
     <record id="view_mrp_capacity_resource_search" model="ir.ui.view">
         <field name="name">mrp.capacity.resource.search</field>
         <field name="model">mrp.capacity.resource</field>
@@ -96,31 +75,25 @@
             <search>
                 <field name="employee_id"/>
                 <field name="workcenter_id"/>
+                <field name="resource_calendar_id"/>
                 <filter string="Actif" name="active" domain="[('active','=',True)]"/>
                 <group string="Grouper par">
-                    <filter string="Poste de travail" name="by_wc"
-                            context="{'group_by': 'workcenter_id'}"/>
-                    <filter string="Ressource" name="by_emp"
-                            context="{'group_by': 'employee_id'}"/>
+                    <filter string="Poste" name="by_wc" context="{'group_by': 'workcenter_id'}"/>
+                    <filter string="Ressource" name="by_emp" context="{'group_by': 'employee_id'}"/>
                 </group>
             </search>
         </field>
     </record>
 
-    <!-- Action -->
     <record id="action_mrp_capacity_resource" model="ir.actions.act_window">
         <field name="name">Ressources &amp; Postes</field>
         <field name="res_model">mrp.capacity.resource</field>
         <field name="view_mode">list,form</field>
         <field name="context">{'search_default_active': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Aucune affectation configurée
-            </p>
-            <p>
-                Créez une affectation pour lier une ressource (employé)
-                à un poste de travail, puis générez les semaines de capacité.
-            </p>
+            <p class="o_view_nocontent_smiling_face">Aucune affectation configurée</p>
+            <p>Créez une affectation : choisissez un <b>employé</b>, un <b>poste de travail</b>
+            et le <b>calendrier</b> à appliquer (ex: 39H, 43H). Puis générez les semaines.</p>
         </field>
     </record>
 

@@ -2,11 +2,11 @@
 """
 mrp.capacity.resource
 =====================
-Table de correspondance Ressource ↔ Poste de travail.
+Affectation Ressource (employé) ↔ Poste de travail.
 
-C'est ici qu'on déclare qu'un employé est affecté à un poste.
-Un employé peut être affecté à plusieurs postes (avec des pourcentages).
-Un poste peut avoir plusieurs ressources.
+Le calendrier est choisi ici — il peut être différent du calendrier
+par défaut de l'employé (ex: un employé à 35H affecté à un poste 39H).
+Il est modifiable à tout moment : les semaines futures se recalculeront.
 """
 import logging
 from odoo import api, fields, models
@@ -34,11 +34,15 @@ class MrpCapacityResource(models.Model):
         store=True,
         string='Ressource technique',
     )
+
+    # ── Calendrier — choisi ici, indépendant du calendrier RH de l'employé ────
     resource_calendar_id = fields.Many2one(
-        related='employee_id.resource_calendar_id',
-        store=True,
+        'resource.calendar',
         string='Calendrier de travail',
-        readonly=False,
+        required=True,
+        help='Calendrier appliqué à ce poste pour cette ressource. '
+             'Peut être différent du calendrier RH de l\'employé. '
+             'Ex: employé à 35H mais affecté à un poste 39H ou 43H.',
     )
 
     # ── Poste de travail ───────────────────────────────────────────────────────
@@ -50,48 +54,48 @@ class MrpCapacityResource(models.Model):
         ondelete='cascade',
     )
 
-    # ── Paramètres d'affectation ───────────────────────────────────────────────
+    # ── Taux d'affectation ─────────────────────────────────────────────────────
     allocation_rate = fields.Float(
         string='Taux d\'affectation (%)',
         default=100.0,
         digits=(5, 1),
-        help='Pourcentage du temps de la ressource alloué à ce poste. '
-             'Ex: 50% si la ressource partage son temps entre deux postes.',
+        help='100% = ressource dédiée à ce poste. '
+             '50% = partage son temps entre deux postes.',
     )
-    date_start = fields.Date(
-        string='Date de début',
-        help='Laisser vide = sans limite de début',
-    )
-    date_end = fields.Date(
-        string='Date de fin',
-        help='Laisser vide = sans limite de fin',
-    )
+
+    # ── Validité ───────────────────────────────────────────────────────────────
+    date_start = fields.Date(string='Date de début')
+    date_end = fields.Date(string='Date de fin')
     active = fields.Boolean(default=True)
     note = fields.Text(string='Note')
 
     # ── Computed ───────────────────────────────────────────────────────────────
-    display_name = fields.Char(
-        compute='_compute_display_name',
-        store=True,
-    )
+    display_name = fields.Char(compute='_compute_display_name', store=True)
     capacity_week_count = fields.Integer(
         string='Semaines planifiées',
         compute='_compute_capacity_week_count',
     )
 
-    @api.depends('employee_id', 'workcenter_id', 'allocation_rate')
+    @api.depends('employee_id', 'workcenter_id', 'allocation_rate', 'resource_calendar_id')
     def _compute_display_name(self):
         for rec in self:
             emp = rec.employee_id.name or '?'
             wc = rec.workcenter_id.name or '?'
-            rate = f' ({int(rec.allocation_rate)}%)' if rec.allocation_rate != 100 else ''
-            rec.display_name = f'{emp} → {wc}{rate}'
+            cal = rec.resource_calendar_id.name or '?'
+            rate = f' — {int(rec.allocation_rate)}%' if rec.allocation_rate != 100 else ''
+            rec.display_name = f'{emp} → {wc} [{cal}]{rate}'
 
     def _compute_capacity_week_count(self):
         for rec in self:
             rec.capacity_week_count = self.env['mrp.capacity.week'].search_count([
                 ('capacity_resource_id', '=', rec.id),
             ])
+
+    # ── Onchange : pré-remplit le calendrier depuis l'employé ─────────────────
+    @api.onchange('employee_id')
+    def _onchange_employee_id(self):
+        if self.employee_id and self.employee_id.resource_calendar_id:
+            self.resource_calendar_id = self.employee_id.resource_calendar_id
 
     # ── Contraintes ────────────────────────────────────────────────────────────
     @api.constrains('allocation_rate')
@@ -106,6 +110,24 @@ class MrpCapacityResource(models.Model):
             if rec.date_start and rec.date_end and rec.date_start > rec.date_end:
                 raise ValidationError('La date de début doit être avant la date de fin.')
 
+    # ── Recalcul automatique quand le calendrier change ────────────────────────
+    def write(self, vals):
+        res = super().write(vals)
+        if 'resource_calendar_id' in vals or 'allocation_rate' in vals:
+            # Recalcule toutes les semaines futures de cette affectation
+            today = fields.Date.today()
+            weeks = self.env['mrp.capacity.week'].search([
+                ('capacity_resource_id', 'in', self.ids),
+                ('week_date', '>=', today),
+            ])
+            if weeks:
+                weeks._compute_capacity_standard()
+                weeks._compute_capacity_net()
+                _logger.info(
+                    '[MrpCapacity] Recalcul %d semaines après changement calendrier', len(weeks)
+                )
+        return res
+
     # ── Actions ────────────────────────────────────────────────────────────────
     def action_view_capacity_weeks(self):
         self.ensure_one()
@@ -119,7 +141,6 @@ class MrpCapacityResource(models.Model):
         }
 
     def action_generate_weeks(self):
-        """Ouvre le wizard de génération pré-filtré sur cette ressource."""
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
