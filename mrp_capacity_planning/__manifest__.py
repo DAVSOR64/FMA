@@ -26,11 +26,11 @@
     'data': [
         'security/ir.model.access.csv',
         'data/mrp_capacity_cron.xml',
+        'wizard/generate_weeks_wizard_views.xml',
         'views/mrp_capacity_resource_views.xml',
         'views/mrp_capacity_week_views.xml',
         'views/mrp_capacity_week_gantt.xml',
         'views/menu.xml',
-        'wizard/generate_weeks_wizard_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
