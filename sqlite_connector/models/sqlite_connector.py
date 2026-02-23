@@ -1473,7 +1473,7 @@ class SqliteConnector(models.Model):
         aggregated_data = {}
         # Modif 
         
-        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount FROM LabourTimes LEFT JOIN Elevations where Elevations.ElevationID = LabourTime.ElevationId order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
+        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount FROM LabourTimes LEFT JOIN Elevations where Elevations.ElevationID = LabourTimes.ElevationId order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
         
     
         name = ''
