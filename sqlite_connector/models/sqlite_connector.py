@@ -1472,7 +1472,7 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
         
-        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId FROM LabourTimes order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
+        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount FROM LabourTimes LEFT JOIN Elevations where Elevations.ElevationID = LabourTime.ElevationID order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
         
         name = ''
         ope = ''
@@ -1498,9 +1498,9 @@ class SqliteConnector(models.Model):
             if rowOpe[1] is not None and rowOpe[1] != '' : 	  
                 ope = name
                 if ope in aggregated_data:
-                    aggregated_data[ope]['temps'] += temps
+                    aggregated_data[ope]['temps'] += temps * row[4]
                 else:
-                    aggregated_data[ope] = {'temps': temps, 'name': name}
+                    aggregated_data[ope] = {'temps': temps, 'name': name} * row[4]
         
         # Étape 2: Créer les opérations dans Odoo
         for ope, data in aggregated_data.items():
