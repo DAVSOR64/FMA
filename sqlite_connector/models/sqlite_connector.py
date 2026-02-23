@@ -1473,7 +1473,7 @@ class SqliteConnector(models.Model):
         aggregated_data = {}
         # Modif 
         
-        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount, LabourTimes.ElevationId FROM LabourTimes LEFT JOIN Elevations ON Elevations.ElevationID = LabourTimes.ElevationId order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
+        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount, LabourTimes.ElevationId, LabourTimes.TimeType FROM LabourTimes LEFT JOIN Elevations ON Elevations.ElevationID = LabourTimes.ElevationId order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
         
     
         name = ''
@@ -1487,26 +1487,44 @@ class SqliteConnector(models.Model):
             Qty = float(rowOpe[4]) if rowOpe[4] else 1.0
             reference = rowOpe[1].strip() if rowOpe[1] else ''
             _logger.warning("**********ID********* %s " % str(rowOpe[3]) )
-            if rowOpe[2] is not None and rowOpe[2] != '' :
-                if ( rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage') and eticom == 'F2M':
-                    name = 'Remontage'  + ' ' + eticom
-                else :
-                    if rowOpe[2].strip() == 'Prépa'  and eticom == 'F2M':
-                        name = 'Usinage'  + ' ' + eticom
-                    else :
-                        if rowOpe[2].strip() == 'Parcloses ACIER'  and eticom == 'F2M':
-                            name = 'Débit'  + ' ' + eticom													  
-                        else :
-                            name = rowOpe[2].strip() + ' ' + eticom
+            #if rowOpe[2] is not None and rowOpe[2] != '' :
+            #    if ( rowOpe[2].strip() == 'Parcloses ALU' or rowOpe[2].strip() == 'Emballage') and eticom == 'F2M':
+            #        name = 'Remontage'  + ' ' + eticom
+            #    else :
+            #        if rowOpe[2].strip() == 'Prépa'  and eticom == 'F2M':
+            #            name = 'Usinage'  + ' ' + eticom
+            #        else :
+            #            if rowOpe[2].strip() == 'Parcloses ACIER'  and eticom == 'F2M':
+            #                name = 'Débit'  + ' ' + eticom													  
+            #            else :
+            #                name = rowOpe[2].strip() + ' ' + eticom
+            if rowOpe[6] is not None and rowOpe[2] == '0' :
+                name = 'Débit'  + ' ' + eticom
+            else:
+                if rowOpe[6] is not None and rowOpe[2] == '4' :
+                    name = 'Usinage'  + ' ' + eticom
+                else:
+                    if rowOpe[6] is not None and rowOpe[2] == '5' :
+                        name = 'CU (banc)'  + ' ' + eticom
+                    else:
+                        if rowOpe[6] is not None and rowOpe[2] == '6' :
+                            name = 'Montage'  + ' ' + eticom
+                        else:
+                            if rowOpe[6] is not None and rowOpe[2] == '10' :
+                                name = 'Vitrage'  + ' ' + eticom
+                            else:
+                                if rowOpe[6] is not None and rowOpe[2] == '11' :
+                                    name = 'Emballage'  + ' ' + eticom
             _logger.warning("**********Qty ********* %s " % str(Qty) )
             _logger.warning("**********Name ********* %s " % str(name) )
             _logger.warning("**********Elevation******** %s " % str(rowOpe[5]) )
-            if rowOpe[1] is not None and rowOpe[1] != '' : 	  
-                ope = name
-                if ope in aggregated_data:
-                    aggregated_data[ope]['temps'] += temps * Qty
-                else:
-                    aggregated_data[ope] = {'temps': temps * Qty, 'name': name}
+
+            #if rowOpe[1] is not None and rowOpe[1] != '' : 	  
+            ope = name
+            if ope in aggregated_data:
+                aggregated_data[ope]['temps'] += temps * Qty
+            else:
+                aggregated_data[ope] = {'temps': temps * Qty, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
         for ope, data in aggregated_data.items():
