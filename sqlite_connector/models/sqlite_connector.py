@@ -1502,7 +1502,7 @@ class SqliteConnector(models.Model):
                 if ope in aggregated_data:
                     aggregated_data[ope]['temps'] += temps * row[4]
                 else:
-                    aggregated_data[ope] = {'temps': temps, 'name': name} * row[4]
+                    aggregated_data[ope] = {'temps': temps * row[4], 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
         for ope, data in aggregated_data.items():
