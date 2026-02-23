@@ -1479,10 +1479,12 @@ class SqliteConnector(models.Model):
         name = ''
         ope = ''
         temps = 0
+        Qty = 0
         reference = ''
         
         for rowOpe in resuOpe:
             temps = float(rowOpe[0])
+            Qty = float(rowOpe[4]) if rowOpe[4] else 1.0
             reference = rowOpe[1].strip() if rowOpe[1] else ''
             _logger.warning("**********ID********* %s " % str(rowOpe[3]) )
             if rowOpe[2] is not None and rowOpe[2] != '' :
@@ -1500,9 +1502,9 @@ class SqliteConnector(models.Model):
             if rowOpe[1] is not None and rowOpe[1] != '' : 	  
                 ope = name
                 if ope in aggregated_data:
-                    aggregated_data[ope]['temps'] += temps * (rowOpe[4] or 1)
+                    aggregated_data[ope]['temps'] += temps * Qty
                 else:
-                    aggregated_data[ope] = {'temps': temps * (rowOpe[4] or 1), 'name': name}
+                    aggregated_data[ope] = {'temps': temps * Qty, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
         for ope, data in aggregated_data.items():
