@@ -35,6 +35,7 @@
                             invisible="capacity_week_count == 0"/>
                 </header>
                 <sheet>
+                    <field name="capacity_week_count" invisible="1"/>
                     <div class="oe_title">
                         <h1><field name="display_name" readonly="1"/></h1>
                     </div>

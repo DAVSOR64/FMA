@@ -43,6 +43,9 @@
                             type="object" class="btn-secondary"/>
                 </header>
                 <sheet>
+                    <!-- Champs requis pour les conditions invisible -->
+                    <field name="is_overridden" invisible="1"/>
+                    <field name="override_calendar_id" invisible="1"/>
                     <widget name="web_ribbon" title="Calendrier alternatif"
                             bg_color="bg-warning"
                             invisible="not override_calendar_id"/>
