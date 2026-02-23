@@ -15,7 +15,7 @@
                 <field name="resource_calendar_id" optional="show" readonly="1" string="Calendrier base"/>
                 <field name="override_calendar_id" optional="show" string="Calendrier semaine"/>
                 <field name="capacity_standard" optional="show" readonly="1" string="Standard (H)"/>
-                <field name="capacity_override" optional="show" string="Manuel (H)"/>
+                <field name="capacity_override" optional="show" string="Surchargé (H)"/>
                 <field name="hours_public_holiday" optional="hide" readonly="1" string="Fériés (H)"/>
                 <field name="hours_leaves" optional="hide" readonly="1" string="Congés (H)"/>
                 <field name="hours_sick" optional="hide" readonly="1" string="Maladie (H)"/>
@@ -75,11 +75,11 @@
                                    string="Calendrier alternatif cette semaine"
                                    help="Choisissez un calendrier différent pour cette semaine uniquement (ex: semaine à 43H au lieu de 39H). La capacité standard se recalcule automatiquement."/>
                             <field name="capacity_standard" readonly="1"
-                                   string="Capacité calculée (H)"
-                                   help="Calculée depuis le calendrier alternatif si défini, sinon depuis le calendrier de base."/>
+                                   string="Standard (H)"
+                                   help="Calculé depuis le calendrier alternatif si défini, sinon depuis le calendrier de base. Non modifiable — changez le calendrier pour l'ajuster."/>
                             <field name="capacity_override"
-                                   string="Forcer manuellement (H)"
-                                   help="Uniquement si vous voulez saisir une valeur brute sans passer par un calendrier. Laissez à 0 pour utiliser le calendrier."/>
+                                   string="Surchargé (H)"
+                                   help="Valeur brute forcée sans passer par un calendrier. À utiliser uniquement si aucun calendrier ne correspond. Laissez à 0 pour utiliser le calendrier."/>
                         </group>
                         <group>
                             <field name="capacity_net" readonly="1" class="o_field_highlight"/>

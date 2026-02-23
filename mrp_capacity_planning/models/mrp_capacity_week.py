@@ -63,10 +63,12 @@ class MrpCapacityWeek(models.Model):
              'Laissez vide pour utiliser le calendrier de l\'affectation.',
     )
     capacity_override = fields.Float(
-        string='Capacité manuelle (H)',
+        string='Surchargé (H)',
         default=0.0,
         digits=(6, 2),
-        help='Saisissez une valeur pour forcer la capacité sans passer par un calendrier.',
+        help='Valeur brute forcée sans passer par un calendrier. '
+             'À utiliser uniquement si aucun calendrier ne correspond. '
+             'Laissez à 0 pour utiliser le calendrier.',
     )
     is_overridden = fields.Boolean(
         compute='_compute_is_overridden', store=True, string='Override actif',
