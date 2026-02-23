@@ -201,21 +201,7 @@ class MrpCapacityWeek(models.Model):
                     ('date_to', '>=', fields.Datetime.to_string(dt_start)),
                 ])
                 for l in leaves:
-                    # Utilise number_of_hours_display = heures ouvrées réelles
-                    # Mais on pondère si le congé chevauche partiellement la semaine
-                    total_hours = l.number_of_hours_display or 0.0
-                    if total_hours > 0:
-                        # Durée totale brute du congé en secondes
-                        total_duration = (l.date_to - l.date_from).total_seconds()
-                        # Chevauchement brut avec la semaine
-                        overlap_raw = self._overlap_seconds(l.date_from, l.date_to, dt_start, dt_end)
-                        # Proportion du congé qui tombe dans la semaine
-                        ratio = overlap_raw / total_duration if total_duration > 0 else 0
-                        h_leave += round(total_hours * ratio, 2)
-                        _logger.info(
-                            '[MrpCapacity] Congé %s: %.2fH ouvrées × ratio %.2f = %.2fH cette semaine',
-                            l.holiday_status_id.name, total_hours, ratio, total_hours * ratio
-                        )
+                    h_leave += self._leave_hours_in_week(l, dt_start, dt_end)
 
             # 3. Arrêts maladie
             h_sick = 0.0
@@ -233,21 +219,9 @@ class MrpCapacityWeek(models.Model):
                 ]
                 if sick_types:
                     sick_domain.append(('holiday_status_id', 'in', sick_types.ids))
-                    sick_leaves = self.env['hr.leave'].search(sick_domain)
-                    for s in sick_leaves:
-                        total_hours = s.number_of_hours_display or 0.0
-                        if total_hours > 0:
-                            total_duration = (s.date_to - s.date_from).total_seconds()
-                            overlap_raw = self._overlap_seconds(s.date_from, s.date_to, dt_start, dt_end)
-                            ratio = overlap_raw / total_duration if total_duration > 0 else 0
-                            sick_h = round(total_hours * ratio, 2)
-                            h_sick += sick_h
-                            _logger.info(
-                                '[MrpCapacity] Maladie %s: %.2fH ouvrées × ratio %.2f = %.2fH cette semaine',
-                                s.holiday_status_id.name, total_hours, ratio, sick_h
-                            )
-                    # Retire les malades du total congés pour éviter le double comptage
-                    h_leave = max(0.0, h_leave - h_sick)
+                    for s in self.env['hr.leave'].search(sick_domain):
+                        h_sick += self._leave_hours_in_week(s, dt_start, dt_end)
+                h_leave = max(0.0, h_leave - h_sick)
 
             rec.hours_public_holiday = round(h_holiday * rate, 2)
             rec.hours_leaves = round(h_leave * rate, 2)
@@ -364,7 +338,6 @@ class MrpCapacityWeek(models.Model):
 
     @staticmethod
     def _overlap_seconds(d_from, d_to, week_start, week_end):
-        """Chevauchement en secondes entre [d_from, d_to] et [week_start, week_end]."""
         if not d_from or not d_to:
             return 0.0
         start = max(d_from, week_start)
@@ -372,6 +345,66 @@ class MrpCapacityWeek(models.Model):
         if end > start:
             return (end - start).total_seconds()
         return 0.0
+
+    def _leave_hours_in_week(self, leave, week_start, week_end):
+        """
+        Retourne les heures ouvrées du congé dans la semaine,
+        basé sur le nombre de jours du congé × heures/jour du calendrier du POSTE.
+
+        number_of_hours_display d'Odoo utilise le calendrier RH de l'employé
+        qui peut être différent du calendrier du poste → on recalcule.
+        """
+        if not leave.date_from or not leave.date_to:
+            return 0.0
+
+        # Heures par jour travaillé selon le calendrier du poste
+        calendar = self.resource_calendar_id
+        hours_per_day = self._get_hours_per_day(calendar)
+
+        # Nombre de jours ouvrés du congé qui tombent dans la semaine
+        # On itère jour par jour entre max(leave_start, week_start) et min(leave_end, week_end)
+        overlap_start = max(leave.date_from.date(), week_start.date() if hasattr(week_start, 'date') else week_start)
+        overlap_end = min(leave.date_to.date(), week_end.date() if hasattr(week_end, 'date') else week_end)
+
+        if overlap_end < overlap_start:
+            return 0.0
+
+        # Jours ouvrés du calendrier dans la période de chevauchement
+        worked_days = set(int(a.dayofweek) for a in calendar.attendance_ids) if calendar else {0, 1, 2, 3, 4}
+
+        from datetime import timedelta as td, date as date_type
+        # Convertir en date si nécessaire
+        if hasattr(overlap_start, 'date'):
+            overlap_start = overlap_start.date()
+        if hasattr(overlap_end, 'date'):
+            overlap_end = overlap_end.date()
+
+        days_count = 0
+        current = overlap_start
+        while current <= overlap_end:
+            if current.weekday() in worked_days:
+                days_count += 1
+            current += td(days=1)
+
+        result = round(days_count * hours_per_day, 2)
+        _logger.debug(
+            '[MrpCapacity] Congé %s: %d jours ouvrés × %.2fH/j = %.2fH cette semaine',
+            leave.holiday_status_id.name, days_count, hours_per_day, result
+        )
+        return result
+
+    def _get_hours_per_day(self, calendar):
+        """Calcule les heures moyennes par jour travaillé depuis le calendrier."""
+        if not calendar or not calendar.attendance_ids:
+            return 7.8  # Fallback 39H/5j
+        # Heures par jour de la semaine
+        hours_by_day = {}
+        for att in calendar.attendance_ids:
+            day = int(att.dayofweek)
+            hours_by_day[day] = hours_by_day.get(day, 0) + (att.hour_to - att.hour_from)
+        if not hours_by_day:
+            return 7.8
+        return sum(hours_by_day.values()) / len(hours_by_day)
 
     # ══════════════════════════════════════════════════════════════════════════
     # ACTIONS
