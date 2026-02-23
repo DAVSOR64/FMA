@@ -1498,22 +1498,22 @@ class SqliteConnector(models.Model):
             #                name = 'Débit'  + ' ' + eticom													  
             #            else :
             #                name = rowOpe[2].strip() + ' ' + eticom
-            if rowOpe[6] is not None and rowOpe[2] == '0' :
+            if rowOpe[6] is not None and rowOpe[6] == '0' :
                 name = 'Débit'  + ' ' + eticom
             else:
-                if rowOpe[6] is not None and rowOpe[2] == '4' :
+                if rowOpe[6] is not None and rowOpe[6] == '4' :
                     name = 'Usinage'  + ' ' + eticom
                 else:
-                    if rowOpe[6] is not None and rowOpe[2] == '5' :
+                    if rowOpe[6] is not None and rowOpe[6] == '5' :
                         name = 'CU (banc)'  + ' ' + eticom
                     else:
-                        if rowOpe[6] is not None and rowOpe[2] == '6' :
+                        if rowOpe[6] is not None and rowOpe[6] == '6' :
                             name = 'Montage'  + ' ' + eticom
                         else:
-                            if rowOpe[6] is not None and rowOpe[2] == '10' :
+                            if rowOpe[6] is not None and rowOpe[6] == '10' :
                                 name = 'Vitrage'  + ' ' + eticom
                             else:
-                                if rowOpe[6] is not None and rowOpe[2] == '11' :
+                                if rowOpe[6] is not None and rowOpe[6] == '11' :
                                     name = 'Emballage'  + ' ' + eticom
             _logger.warning("**********Qty ********* %s " % str(Qty) )
             _logger.warning("**********Name ********* %s " % str(name) )
