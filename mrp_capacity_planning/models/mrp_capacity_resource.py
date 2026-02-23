@@ -9,6 +9,7 @@ par défaut de l'employé (ex: un employé à 35H affecté à un poste 39H).
 Il est modifiable à tout moment : les semaines futures se recalculeront.
 """
 import logging
+from datetime import timedelta
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
@@ -111,10 +112,16 @@ class MrpCapacityResource(models.Model):
                 raise ValidationError('La date de début doit être avant la date de fin.')
 
     # ── Recalcul automatique quand le calendrier change ────────────────────────
+    # ── Génération automatique des semaines à la sauvegarde ───────────────────
+    @api.model
+    def create(self, vals):
+        rec = super().create(vals)
+        rec._auto_generate_weeks()
+        return rec
+
     def write(self, vals):
         res = super().write(vals)
         if 'resource_calendar_id' in vals or 'allocation_rate' in vals:
-            # Recalcule toutes les semaines futures de cette affectation
             today = fields.Date.today()
             weeks = self.env['mrp.capacity.week'].search([
                 ('capacity_resource_id', 'in', self.ids),
@@ -126,7 +133,56 @@ class MrpCapacityResource(models.Model):
                 _logger.info(
                     '[MrpCapacity] Recalcul %d semaines après changement calendrier', len(weeks)
                 )
+        # Si les dates changent, regénère les semaines manquantes
+        if any(k in vals for k in ('date_start', 'date_end', 'active')):
+            self._auto_generate_weeks()
         return res
+
+    def _auto_generate_weeks(self):
+        """
+        Génère automatiquement les semaines manquantes pour cette affectation.
+        - Si date_start et date_end sont définies → génère sur cette plage
+        - Sinon → génère sur les 12 prochaines semaines par défaut
+        """
+        today = fields.Date.today()
+        for rec in self:
+            if not rec.active:
+                continue
+            # Déterminer la plage
+            if rec.date_start and rec.date_end:
+                date_from = rec.date_start
+                date_end = rec.date_end
+            elif rec.date_start:
+                date_from = rec.date_start
+                date_end = date_from + timedelta(weeks=52)
+            else:
+                date_from = today
+                date_end = today + timedelta(weeks=12)
+
+            # Force lundi
+            date_from = date_from - timedelta(days=date_from.weekday())
+            date_end = date_end - timedelta(days=date_end.weekday())
+
+            current = date_from
+            created = 0
+            while current <= date_end:
+                existing = self.env['mrp.capacity.week'].search([
+                    ('capacity_resource_id', '=', rec.id),
+                    ('week_date', '=', current),
+                ], limit=1)
+                if not existing:
+                    self.env['mrp.capacity.week'].create({
+                        'capacity_resource_id': rec.id,
+                        'week_date': current,
+                    })
+                    created += 1
+                current += timedelta(weeks=1)
+
+            if created:
+                _logger.info(
+                    '[MrpCapacity] Auto-génération : %d semaines créées pour %s',
+                    created, rec.display_name
+                )
 
     # ── Actions ────────────────────────────────────────────────────────────────
     def action_view_capacity_weeks(self):
