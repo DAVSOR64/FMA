@@ -190,31 +190,47 @@ class MrpCapacityWeek(models.Model):
                 for h in holidays:
                     h_holiday += self._overlap_hours(h.date_from, h.date_to, dt_start, dt_end)
 
-            # 2. Congés validés
+            # 2. Congés validés (tous types sauf maladie)
             h_leave = 0.0
             if employee:
                 leaves = self.env['hr.leave'].search([
                     ('employee_id', '=', employee.id),
                     ('state', '=', 'validate'),
-                    ('holiday_status_id.time_type', 'in', ['leave', 'other']),
+                    ('holiday_status_id.time_type', 'not in', ['sick']),
                     ('date_from', '<=', fields.Datetime.to_string(dt_end)),
                     ('date_to', '>=', fields.Datetime.to_string(dt_start)),
                 ])
                 for l in leaves:
-                    h_leave += self._overlap_hours(l.date_from, l.date_to, dt_start, dt_end)
+                    overlap = self._overlap_hours(l.date_from, l.date_to, dt_start, dt_end)
+                    _logger.info('[MrpCapacity] Congé %s: %s → %s, overlap=%.2fH (semaine %s → %s)',
+                                 l.holiday_status_id.name, l.date_from, l.date_to,
+                                 overlap, dt_start, dt_end)
+                    h_leave += overlap
 
-            # 3. Arrêts maladie
+            # 3. Arrêts maladie (time_type = sick OU catégorie contient 'maladie')
             h_sick = 0.0
             if employee:
-                sick_leaves = self.env['hr.leave'].search([
+                sick_types = self.env['hr.leave.type'].search([
+                    '|',
+                    ('time_type', '=', 'sick'),
+                    ('name', 'ilike', 'maladie'),
+                ])
+                _logger.info('[MrpCapacity] Types maladie trouvés: %s', sick_types.mapped('name'))
+                sick_domain = [
                     ('employee_id', '=', employee.id),
                     ('state', '=', 'validate'),
-                    ('holiday_status_id.time_type', '=', 'sick'),
                     ('date_from', '<=', fields.Datetime.to_string(dt_end)),
                     ('date_to', '>=', fields.Datetime.to_string(dt_start)),
-                ])
-                for s in sick_leaves:
-                    h_sick += self._overlap_hours(s.date_from, s.date_to, dt_start, dt_end)
+                ]
+                if sick_types:
+                    sick_domain.append(('holiday_status_id', 'in', sick_types.ids))
+                    sick_leaves = self.env['hr.leave'].search(sick_domain)
+                    for s in sick_leaves:
+                        overlap = self._overlap_hours(s.date_from, s.date_to, dt_start, dt_end)
+                        _logger.info('[MrpCapacity] Maladie %s: %s → %s, overlap=%.2fH',
+                                     s.holiday_status_id.name, s.date_from, s.date_to, overlap)
+                        h_sick += overlap
+                    h_leave = max(0.0, h_leave - h_sick)
 
             rec.hours_public_holiday = round(h_holiday * rate, 2)
             rec.hours_leaves = round(h_leave * rate, 2)
