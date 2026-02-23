@@ -1473,7 +1473,7 @@ class SqliteConnector(models.Model):
         aggregated_data = {}
         # Modif 
         
-        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount FROM LabourTimes LEFT JOIN Elevations ON Elevations.ElevationID = LabourTimes.ElevationId order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
+        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount, LabourTimes.ElevationId FROM LabourTimes LEFT JOIN Elevations ON Elevations.ElevationID = LabourTimes.ElevationId order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
         
     
         name = ''
@@ -1498,7 +1498,9 @@ class SqliteConnector(models.Model):
                             name = 'Débit'  + ' ' + eticom													  
                         else :
                             name = rowOpe[2].strip() + ' ' + eticom
-        
+            _logger.warning("**********Qty ********* %s " % str(Qty) )
+            _logger.warning("**********Name ********* %s " % str(name) )
+            _logger.warning("**********Elevation******** %s " % str(rowOpe[5]) )
             if rowOpe[1] is not None and rowOpe[1] != '' : 	  
                 ope = name
                 if ope in aggregated_data:
