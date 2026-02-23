@@ -1472,7 +1472,7 @@ class SqliteConnector(models.Model):
         # Étape 1: Lire la table SQL et agréger les données
         aggregated_data = {}
         
-        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount FROM LabourTimes LEFT JOIN Elevations where Elevations.ElevationID = LabourTime.ElevationID order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
+        resuOpe = cursor.execute("SELECT LabourTimes.TotalMinutes, LabourTimes.WhatName, LabourTimes.Name, LabourTimes.LabourTimeId, Elevations.Amount FROM LabourTimes LEFT JOIN Elevations where Elevations.ElevationID = LabourTime.ElevationId order by CAST(LabourTimes.LabourTimeId AS INTEGER)").fetchall()
         
         name = ''
         ope = ''
