@@ -49,13 +49,13 @@ class MrpCapacityGenerateWizard(models.TransientModel):
     def _onchange_date_from(self):
         if self.date_from:
             d = self.date_from
-            self.date_from = d - timedelta(days=d.weekday())  # force lundi
+            self.date_from = d - timedelta(days=d.weekday())
 
     @api.onchange('date_to')
     def _onchange_date_to(self):
         if self.date_to:
             d = self.date_to
-            self.date_to = d - timedelta(days=d.weekday())  # force lundi
+            self.date_to = d - timedelta(days=d.weekday())
 
     def action_generate(self):
         self.ensure_one()
@@ -64,7 +64,6 @@ class MrpCapacityGenerateWizard(models.TransientModel):
         if self.date_from > self.date_to:
             raise UserError('La date de début doit être avant la date de fin.')
 
-        # Affectations cibles
         if self.capacity_resource_ids:
             resources = self.capacity_resource_ids
         else:
@@ -76,7 +75,6 @@ class MrpCapacityGenerateWizard(models.TransientModel):
                 'Créez d\'abord des affectations dans "Ressources & Postes".'
             )
 
-        # Force lundi
         current = self.date_from - timedelta(days=self.date_from.weekday())
         end_monday = self.date_to - timedelta(days=self.date_to.weekday())
 
@@ -84,14 +82,11 @@ class MrpCapacityGenerateWizard(models.TransientModel):
         updated = 0
 
         while current <= end_monday:
+            week_end = current + timedelta(days=6)
             for res in resources:
-                # Vérifier si l'affectation est active sur cette semaine
-                week_end = current + timedelta(days=6)
                 if res.date_start and res.date_start > week_end:
-                    current += timedelta(weeks=1)
                     continue
                 if res.date_end and res.date_end < current:
-                    current += timedelta(weeks=1)
                     continue
 
                 existing = self.env['mrp.capacity.week'].search([
@@ -114,20 +109,13 @@ class MrpCapacityGenerateWizard(models.TransientModel):
 
             current += timedelta(weeks=1)
 
+        # Retourne directement la vue planning — pas de display_notification imbriqué
         return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': 'Génération terminée',
-                'message': f'{created} semaine(s) créée(s), {updated} recalculée(s).',
-                'type': 'success',
-                'sticky': False,
-                'next': {
-                    'type': 'ir.actions.act_window',
-                    'name': 'Capacité hebdomadaire',
-                    'res_model': 'mrp.capacity.week',
-                    'view_mode': 'gantt,list,form',
-                    'context': {'search_default_future': 1},
-                },
-            },
+            'type': 'ir.actions.act_window',
+            'name': 'Capacité hebdomadaire',
+            'res_model': 'mrp.capacity.week',
+            'view_mode': 'gantt,list,form',
+            'views': [(False, 'gantt'), (False, 'list'), (False, 'form')],
+            'context': {'search_default_future': 1},
+            'target': 'current',
         }
