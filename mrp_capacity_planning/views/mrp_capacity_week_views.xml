@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VUE LISTE — Semaines de capacité
+         ═══════════════════════════════════════════════════════════ -->
+    <record id="view_mrp_capacity_week_list" model="ir.ui.view">
+        <field name="name">mrp.capacity.week.list</field>
+        <field name="model">mrp.capacity.week</field>
+        <field name="arch" type="xml">
+            <list
+                string="Capacité hebdomadaire"
+                editable="bottom"
+                decoration-danger="delta &lt; 0"
+                decoration-warning="is_overridden and delta >= 0"
+                decoration-muted="hours_absence_total > 0 and delta >= 0 and not is_overridden"
+            >
+                <field name="employee_id" optional="show" readonly="1"/>
+                <field name="workcenter_id" optional="show" readonly="1"/>
+                <field name="week_date" optional="show"/>
+                <field name="week_label" optional="show" readonly="1" string="Semaine"/>
+                <field name="resource_calendar_id" optional="hide" readonly="1"/>
+                <field name="allocation_rate" optional="hide" readonly="1" string="Taux (%)"/>
+                <field name="capacity_standard" optional="show" readonly="1" string="Standard (H)"/>
+                <field name="capacity_override" optional="show" string="Manuel (H)"/>
+                <field name="hours_public_holiday" optional="show" readonly="1" string="Fériés (H)"/>
+                <field name="hours_leaves" optional="show" readonly="1" string="Congés (H)"/>
+                <field name="hours_sick" optional="show" readonly="1" string="Maladie (H)"/>
+                <field name="hours_absence_total" optional="show" readonly="1" string="Absences (H)"/>
+                <field name="capacity_net" optional="show" readonly="1" string="Nette (H)"/>
+                <field name="hours_planned" optional="show" string="Charge (H)"/>
+                <field name="delta" optional="show" readonly="1" string="Delta (H)"/>
+                <field name="note" optional="show"/>
+                <field name="is_overridden" column_invisible="1"/>
+                <field name="color" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VUE FORMULAIRE — Semaine de capacité
+         ═══════════════════════════════════════════════════════════ -->
+    <record id="view_mrp_capacity_week_form" model="ir.ui.view">
+        <field name="name">mrp.capacity.week.form</field>
+        <field name="model">mrp.capacity.week</field>
+        <field name="arch" type="xml">
+            <form string="Semaine de capacité">
+                <header>
+                    <button name="action_reset_override"
+                            string="Revenir au standard"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="not is_overridden"/>
+                    <button name="action_recompute"
+                            string="Recalculer"
+                            type="object"
+                            class="btn-secondary"/>
+                </header>
+                <sheet>
+                    <!-- Badge override -->
+                    <widget name="web_ribbon"
+                            title="Capacité manuelle"
+                            bg_color="bg-warning"
+                            invisible="not is_overridden"/>
+
+                    <div class="oe_title">
+                        <h1><field name="display_name" readonly="1"/></h1>
+                        <h3><field name="week_label" readonly="1"/></h3>
+                    </div>
+
+                    <group>
+                        <group string="Affectation">
+                            <field name="capacity_resource_id" readonly="1"/>
+                            <field name="employee_id" readonly="1"/>
+                            <field name="workcenter_id" readonly="1"/>
+                            <field name="resource_calendar_id" readonly="1"/>
+                            <field name="allocation_rate" readonly="1" widget="percentage"/>
+                        </group>
+                        <group string="Période">
+                            <field name="week_date"/>
+                            <field name="week_end_date" readonly="1"/>
+                            <field name="week_number" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <!-- Bloc capacité avec mise en évidence -->
+                    <group string="Capacité">
+                        <group>
+                            <field name="capacity_standard" readonly="1"
+                                   help="Calculé depuis le calendrier de travail"/>
+                            <field name="capacity_override"
+                                   help="Saisissez une valeur pour surcharger le standard cette semaine uniquement. Remettez à 0 pour revenir au standard."/>
+                            <field name="is_overridden" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="capacity_net" readonly="1"
+                                   class="o_field_highlight"
+                                   help="= (Override ou Standard) − Total absences"/>
+                            <field name="hours_planned"
+                                   help="Charge en heures planifiée sur ce poste cette semaine"/>
+                            <field name="delta" readonly="1"
+                                   decoration-danger="delta &lt; 0"
+                                   decoration-success="delta &gt;= 0"/>
+                        </group>
+                    </group>
+
+                    <!-- Détail absences -->
+                    <group string="Détail des absences (déduit automatiquement)">
+                        <group>
+                            <field name="hours_public_holiday" readonly="1"
+                                   help="Jours fériés de la société sur cette semaine"/>
+                            <field name="hours_leaves" readonly="1"
+                                   help="Congés validés de l'employé sur cette semaine"/>
+                        </group>
+                        <group>
+                            <field name="hours_sick" readonly="1"
+                                   help="Arrêts maladie validés sur cette semaine"/>
+                            <field name="hours_absence_total" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Note">
+                        <field name="note" nolabel="1"
+                               placeholder="Commentaire libre (ex: formation, déplacement...)"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VUE RECHERCHE
+         ═══════════════════════════════════════════════════════════ -->
+    <record id="view_mrp_capacity_week_search" model="ir.ui.view">
+        <field name="name">mrp.capacity.week.search</field>
+        <field name="model">mrp.capacity.week</field>
+        <field name="arch" type="xml">
+            <search string="Capacité hebdomadaire">
+                <field name="employee_id"/>
+                <field name="workcenter_id"/>
+                <field name="week_label" string="Semaine"/>
+
+                <!-- Filtres rapides -->
+                <filter string="Semaine courante" name="current_week"
+                    domain="[
+                        ('week_date', '&lt;=', context_today().strftime('%Y-%m-%d')),
+                        ('week_end_date', '&gt;=', context_today().strftime('%Y-%m-%d'))
+                    ]"/>
+                <filter string="Semaines à venir" name="future"
+                    domain="[('week_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter string="Override manuel actif" name="overridden"
+                    domain="[('capacity_override', '&gt;', 0)]"/>
+                <filter string="Avec absences" name="has_absences"
+                    domain="[('hours_absence_total', '&gt;', 0)]"/>
+                <filter string="En surcharge" name="overloaded"
+                    domain="[('delta', '&lt;', 0)]"/>
+
+                <separator/>
+                <group string="Grouper par">
+                    <filter string="Ressource" name="by_emp"
+                        context="{'group_by': 'employee_id'}"/>
+                    <filter string="Poste de travail" name="by_wc"
+                        context="{'group_by': 'workcenter_id'}"/>
+                    <filter string="Semaine" name="by_week"
+                        context="{'group_by': 'week_date:week'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action principale -->
+    <record id="action_mrp_capacity_week" model="ir.actions.act_window">
+        <field name="name">Planning capacité</field>
+        <field name="res_model">mrp.capacity.week</field>
+        <field name="view_mode">gantt,list,form</field>
+        <field name="context">{
+            'search_default_future': 1,
+            'search_default_by_emp': 1
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucune semaine de capacité configurée
+            </p>
+            <p>
+                Commencez par créer des <b>affectations</b> (Ressources &amp; Postes),
+                puis utilisez <b>Générer les semaines</b> pour initialiser le planning.
+            </p>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,39 @@
+/* ═══════════════════════════════════════════════════
+   MRP Capacity Planning — styles backend
+   ═══════════════════════════════════════════════════ */
+
+/* Mise en évidence de la capacité nette dans le formulaire */
+.o_form_view .o_field_highlight input {
+    font-weight: 700;
+    font-size: 1.15em;
+    color: #017e84;
+}
+
+/* Coloration delta négatif dans la liste */
+.o_list_view td.o_field_float[name="delta"] .o_field_negative {
+    color: #d9534f;
+    font-weight: 600;
+}
+
+/* Badge override dans la liste */
+.o_list_view tr.o_data_row.o_row_handle td[name="capacity_override"] {
+    font-style: italic;
+}
+
+/* Gantt : légende couleurs (info visuelle) */
+.o_gantt_view .o_gantt_pill[data-color="1"] {
+    background-color: #f8d7da !important;
+    border-left: 3px solid #dc3545 !important;
+}
+.o_gantt_view .o_gantt_pill[data-color="3"] {
+    background-color: #fff3cd !important;
+    border-left: 3px solid #ffc107 !important;
+}
+.o_gantt_view .o_gantt_pill[data-color="4"] {
+    background-color: #fff9e6 !important;
+    border-left: 3px solid #fd7e14 !important;
+}
+.o_gantt_view .o_gantt_pill[data-color="10"] {
+    background-color: #d4edda !important;
+    border-left: 3px solid #28a745 !important;
+}

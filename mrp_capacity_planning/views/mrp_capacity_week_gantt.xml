@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         VUE GANTT — 1 ligne par ressource (employé)
+         Chaque barre = 1 semaine de capacité
+         Échelle par défaut : mois (vue 4-5 semaines)
+
+         Codes couleur :
+           Vert  (10) = capacité normale
+           Jaune  (4) = absences cette semaine (congés ou fériés)
+           Orange (3) = override manuel actif
+           Rouge  (1) = surcharge (delta < 0)
+         ═══════════════════════════════════════════════════════════ -->
+    <record id="view_mrp_capacity_week_gantt" model="ir.ui.view">
+        <field name="name">mrp.capacity.week.gantt</field>
+        <field name="model">mrp.capacity.week</field>
+        <field name="arch" type="xml">
+            <gantt
+                date_start="week_date"
+                date_stop="week_end_date"
+                default_scale="month"
+                scales="week,month,year"
+                string="Planning Capacité"
+                color="color"
+                default_group_by="employee_id"
+                thumbnails="{'employee_id': 'image_128'}"
+                pill_label="True"
+                plan="False"
+                consolidation="capacity_net"
+                consolidation_max="{'employee_id': 40}"
+                consolidation_exclude="false"
+                progress="capacity_net"
+            >
+                <!-- Champs chargés pour l'affichage dans la pill et le popover -->
+                <field name="employee_id"/>
+                <field name="workcenter_id"/>
+                <field name="week_label"/>
+                <field name="week_number"/>
+                <field name="week_date"/>
+                <field name="week_end_date"/>
+                <field name="capacity_standard"/>
+                <field name="capacity_override"/>
+                <field name="is_overridden"/>
+                <field name="hours_public_holiday"/>
+                <field name="hours_leaves"/>
+                <field name="hours_sick"/>
+                <field name="hours_absence_total"/>
+                <field name="capacity_net"/>
+                <field name="hours_planned"/>
+                <field name="delta"/>
+                <field name="allocation_rate"/>
+                <field name="resource_calendar_id"/>
+                <field name="color"/>
+                <field name="note"/>
+            </gantt>
+        </field>
+    </record>
+
+</odoo>

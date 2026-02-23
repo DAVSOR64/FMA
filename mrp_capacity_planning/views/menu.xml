@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Racine sous Fabrication -->
+    <menuitem
+        id="menu_mrp_capacity_root"
+        name="Capacité ressources"
+        parent="mrp.menu_mrp_production_action"
+        sequence="30"
+    />
+
+    <!-- Sous-menus -->
+    <menuitem
+        id="menu_mrp_capacity_week"
+        name="Planning capacité"
+        parent="menu_mrp_capacity_root"
+        action="action_mrp_capacity_week"
+        sequence="10"
+    />
+
+    <menuitem
+        id="menu_mrp_capacity_resource"
+        name="Ressources &amp; Postes"
+        parent="menu_mrp_capacity_root"
+        action="action_mrp_capacity_resource"
+        sequence="20"
+    />
+
+    <menuitem
+        id="menu_mrp_capacity_generate"
+        name="Générer les semaines"
+        parent="menu_mrp_capacity_root"
+        action="action_mrp_capacity_generate_wizard"
+        sequence="30"
+    />
+
+</odoo>
