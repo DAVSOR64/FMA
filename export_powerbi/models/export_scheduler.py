@@ -859,16 +859,17 @@ class ExportSFTPScheduler(models.Model):
             try:
                 invoice_ids = invoices.ids  # les factures déjà récupérées plus haut
             
-                messages = self.env["mail.message"].search(
-                    [
-                        ("model", "=", "account.move"),
-                        ("res_id", "in", invoice_ids),
-                        ("message_type", "=", "comment"),        # pas email, pas notification
-                        ("subtype_id.internal", "=", True),      # uniquement "Note" interne
-                    ],
-                    order="date asc",
-                )
-            
+                note_subtype = self.env.ref("mail.mt_note", raise_if_not_found=False)
+                domain = [
+                    ("model", "=", "account.move"),
+                    ("res_id", "in", invoice_ids),
+                    ("message_type", "=", "comment"),
+                    ("subtype_id", "=", note_subtype.id if note_subtype else False),
+                    ("subtype_id.internal", "=", True),
+                    ("tracking_value_ids", "=", False),
+                ]
+                messages = self.env["mail.message"].search(domain, order="date asc")
+                            
                 notes_data = [
                     (
                         str(m.id),
