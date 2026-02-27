@@ -674,6 +674,7 @@ class ExportSFTPScheduler(models.Model):
                         getattr(i, "x_studio_projet_vente", 0.0) or 0.0,
                         getattr(i, "inv_activite", None) or 'COMMUN',
                         len(getattr(i, "invoice_line_ids", [])),
+                        getattr(i, "x_studio_motif_impay", 0.0) or 0.0,
                     )
                     for i in invoices
                 ]
@@ -701,6 +702,7 @@ class ExportSFTPScheduler(models.Model):
                         "Affaire",
                         "Activite",
                         "Nb_lignes",
+                        "Motif Impaye",
                     ],
                     invoice_data,
                 )
