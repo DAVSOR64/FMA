@@ -852,7 +852,47 @@ class ExportSFTPScheduler(models.Model):
                 _logger.exception(
                     "[Export Power BI] ERREUR section Lignes de factures: %s", e
                 )
-
+            # =========================================================
+            # Notes factures (mail.message)
+            #   - Notes du chatter liées aux factures (account.move)
+            # =========================================================
+            try:
+                invoice_ids = invoices.ids  # les factures déjà récupérées plus haut
+            
+                messages = self.env["mail.message"].search(
+                    [
+                        ("model", "=", "account.move"),
+                        ("res_id", "in", invoice_ids),
+                        ("message_type", "=", "comment"),  # chatter "commentaires"
+                        # Optionnel: si tu veux uniquement les "Notes internes"
+                        # ("subtype_id.internal", "=", True),
+                    ],
+                    order="date asc",
+                )
+            
+                notes_data = [
+                    (
+                        str(m.id),
+                        str(m.res_id),  # ID facture
+                        m.date.strftime("%Y-%m-%d %H:%M:%S") if m.date else "",
+                        (m.author_id.name if m.author_id else ""),
+                        # body est HTML -> on peut le laisser tel quel ou nettoyer
+                        (m.body or "").replace("\n", " ").strip(),
+                    )
+                    for m in messages
+                ]
+            
+                notes_file = write_csv(
+                    "factures_notes.csv",
+                    ["ID Message", "ID Facture", "Date", "Auteur", "Note (HTML)"],
+                    notes_data,
+                )
+                create_attachment(notes_file, os.path.basename(notes_file))
+                _logger.info("[Export Power BI] Notes factures: %s lignes", len(notes_data))
+            
+            except Exception as e:
+                _logger.exception("[Export Power BI] ERREUR section Notes factures: %s", e)
+                
             # ========================================
             # Commande Appro (purchase.order)
             # ==========================================
