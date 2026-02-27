@@ -9,40 +9,26 @@ class StockMove(models.Model):
     _inherit = "stock.move"
 
     def _action_done(self, cancel_backorder=False):
-        """
-        Hook fiable : appelé lors de la validation (réception/livraison/OF etc.)
-        On laisse Odoo terminer, puis on recalcule qty_before/after pour les move lines done.
-        """
         res = super()._action_done(cancel_backorder=cancel_backorder)
 
-        # Après _action_done, les move lines sont normalement en done
         mls = self.mapped("move_line_ids").filtered(lambda l: l.state == "done")
+        _logger.info(
+            "[StockMoveQty] _action_done moves=%s done_move_lines=%s",
+            self.ids, len(mls),
+        )
         if mls:
-            _logger.info(
-                "[StockMoveQty] _action_done: %s move lines done à recalculer (moves=%s)",
-                len(mls),
-                ",".join(map(str, self.ids)),
-            )
-            # petite trace de quelques lignes
             for l in mls[:10]:
                 _logger.info(
-                    "[StockMoveQty] DONE ML id=%s product=%s qty_done=%s src=%s dst=%s date=%s picking=%s",
+                    "[StockMoveQty] DONE ML id=%s product=%s quantity=%s src=%s dst=%s date=%s picking=%s",
                     l.id,
                     l.product_id.display_name,
-                    l.qty_done,
+                    l.quantity,
                     l.location_id.display_name,
                     l.location_dest_id.display_name,
                     l.date,
                     l.picking_id.name if l.picking_id else "",
                 )
-
             mls._recompute_qty_for_lines()
-        else:
-            _logger.info(
-                "[StockMoveQty] _action_done: aucune move line done trouvée (moves=%s). "
-                "Vérifie si move_line_ids est rempli ou si state est bien done.",
-                ",".join(map(str, self.ids)),
-            )
 
         return res
 
@@ -68,15 +54,11 @@ class StockMoveLine(models.Model):
     )
 
     def write(self, vals):
-        """
-        On garde le write (utile si modifications manuelles), mais le hook principal
-        est désormais _action_done sur stock.move.
-        """
         res = super().write(vals)
 
         trigger = (
             vals.get("state") == "done"
-            or "qty_done" in vals
+            or "quantity" in vals
             or "location_id" in vals
             or "location_dest_id" in vals
             or "lot_id" in vals
@@ -86,92 +68,102 @@ class StockMoveLine(models.Model):
             done_lines = self.filtered(lambda l: l.state == "done")
             if done_lines:
                 _logger.debug(
-                    "[StockMoveQty] write trigger: recompute sur %s lignes done (ids=%s)",
-                    len(done_lines),
-                    done_lines.ids,
+                    "[StockMoveQty] write trigger: recompute %s lignes done (ids=%s)",
+                    len(done_lines), done_lines.ids
                 )
                 done_lines._recompute_qty_for_lines()
 
         return res
 
+    # ----------------------------
+    # Helpers: déterminer la colonne SQL réelle
+    # ----------------------------
+    @api.model
+    def _get_quantity_sql_column(self):
+        """
+        Retourne le NOM DE COLONNE SQL qui correspond au champ 'quantity'
+        (celui que tu affiches dans tes vues).
+        Ça évite de supposer 'qty_done' / 'quantity' etc.
+        """
+        fld = self._fields.get("quantity")
+        if not fld:
+            raise ValueError("Le champ 'quantity' n'existe pas sur stock.move.line dans cette base.")
+
+        # column peut être None si computed non stocké => dans ce cas, pas exploitable en SQL
+        column = getattr(fld, "column", None)
+        if not column or not getattr(column, "name", None):
+            raise ValueError(
+                "Le champ 'quantity' n'est pas stocké en base (pas de colonne SQL). "
+                "Il faut alors lire un autre champ stocké (ex: qty_done) OU abandonner le SQL."
+            )
+
+        return column.name
+
     def _recompute_qty_for_lines(self):
-        """
-        Recalcule x_qty_before/x_qty_after pour tous les emplacements impactés
-        par les lignes de self.
-        """
         affected = set()
         for line in self:
             affected.add((line.product_id.id, line.lot_id.id, line.location_id.id))
             affected.add((line.product_id.id, line.lot_id.id, line.location_dest_id.id))
 
         _logger.info(
-            "[StockMoveQty] _recompute_qty_for_lines: %s combinaisons (product,lot,location) à recalculer",
+            "[StockMoveQty] _recompute_qty_for_lines: %s combinaisons impactées",
             len(affected),
         )
 
         for product_id, lot_id, location_id in affected:
             self._recompute_location(product_id, lot_id, location_id)
 
-        # Invalide cache après UPDATE SQL
         self.invalidate_model(["x_qty_before", "x_qty_after"])
 
     @api.model
     def _recompute_location(self, product_id, lot_id, location_id):
-        """
-        Pour un triplet (produit, lot, emplacement), recalcule x_qty_before/x_qty_after
-        sur toutes les move.line done qui touchent cet emplacement.
-        Odoo 17 : qty_done.
-        """
         lot_clause = "AND lot_id = %s" if lot_id else "AND lot_id IS NULL"
         lot_param = (lot_id,) if lot_id else ()
 
-        sql = """
-            SELECT id, location_id, location_dest_id, qty_done, date
+        qty_col = self._get_quantity_sql_column()
+        _logger.info(
+            "[StockMoveQty] Utilisation colonne SQL quantité = %s (champ Odoo = quantity)",
+            qty_col
+        )
+
+        sql = f"""
+            SELECT id, location_id, location_dest_id, {qty_col}, date
             FROM stock_move_line
             WHERE state = 'done'
               AND product_id = %s
               AND (location_id = %s OR location_dest_id = %s)
               {lot_clause}
             ORDER BY date ASC, id ASC
-        """.format(lot_clause=lot_clause)
+        """
 
         params = (product_id, location_id, location_id) + lot_param
         self.env.cr.execute(sql, params)
         rows = self.env.cr.fetchall()
 
-        # TRACE SQL
         _logger.info(
-            "[StockMoveQty] _recompute_location: product_id=%s lot_id=%s location_id=%s -> %s lignes SQL",
-            product_id,
-            lot_id or "NULL",
-            location_id,
-            len(rows),
+            "[StockMoveQty] _recompute_location product_id=%s lot_id=%s location_id=%s -> %s lignes",
+            product_id, lot_id or "NULL", location_id, len(rows)
         )
-
         if not rows:
-            # C'est une info super importante : si 0 lignes, c'est ton WHERE qui ne match pas
-            # (state pas done, product_id différent, location_id pas celui attendu, etc.)
             return
 
         running_qty = 0.0
-        for (ml_id, loc_src, loc_dst, qty_done, dt) in rows:
+        for (ml_id, loc_src, loc_dst, qty, dt) in rows:
             qty_before = running_qty
 
             if loc_src == location_id and loc_dst == location_id:
                 delta = 0.0
             elif loc_dst == location_id:
-                delta = qty_done
+                delta = qty
             else:
-                delta = -qty_done
+                delta = -qty
 
             running_qty += delta
             qty_after = running_qty
 
-            # TRACE DETAILLEE (tu peux passer en debug si trop bavard)
             _logger.debug(
-                "[StockMoveQty] ML=%s dt=%s src=%s dst=%s qty_done=%s | before=%s delta=%s after=%s (loc_ctx=%s)",
-                ml_id, dt, loc_src, loc_dst, qty_done,
-                qty_before, delta, qty_after, location_id
+                "[StockMoveQty] ML=%s dt=%s src=%s dst=%s qty=%s | before=%s delta=%s after=%s (loc_ctx=%s)",
+                ml_id, dt, loc_src, loc_dst, qty, qty_before, delta, qty_after, location_id
             )
 
             self.env.cr.execute(
