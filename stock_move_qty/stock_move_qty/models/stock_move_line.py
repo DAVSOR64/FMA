@@ -13,28 +13,51 @@ class StockMoveLine(models.Model):
         string='Qté avant',
         digits='Product Unit of Measure',
         default=0.0,
-        help='Quantité en stock sur l\'emplacement avant ce mouvement',
+        help="Quantité en stock sur l'emplacement avant ce mouvement",
+        readonly=True,
+        copy=False,
     )
     x_qty_after = fields.Float(
         string='Qté après',
         digits='Product Unit of Measure',
         default=0.0,
-        help='Quantité en stock sur l\'emplacement après ce mouvement',
+        help="Quantité en stock sur l'emplacement après ce mouvement",
+        readonly=True,
+        copy=False,
     )
 
     def write(self, vals):
+        """
+        Odoo 17 : la quantité faite est portée par `qty_done` (pas par `quantity`).
+        On déclenche le recalcul quand :
+          - la ligne passe à done
+          - qty_done change
+          - ou quand des champs impactant le calcul changent (lot/emplacements/produit)
+        """
         res = super().write(vals)
-        if vals.get('state') == 'done' or vals.get('quantity'):
+
+        trigger = (
+            vals.get('state') == 'done'
+            or 'qty_done' in vals
+            or 'location_id' in vals
+            or 'location_dest_id' in vals
+            or 'lot_id' in vals
+            or 'product_id' in vals
+        )
+        if trigger:
             done_lines = self.filtered(lambda l: l.state == 'done')
             if done_lines:
                 done_lines._recompute_qty_for_lines()
+
         return res
 
     def _recompute_qty_for_lines(self):
         """
-        Recalcule qty_before/after pour tous les emplacements impactés
-        par les lignes de self. Un mouvement impacte deux emplacements :
-        l'emplacement source (sortie) et l'emplacement destination (entrée).
+        Recalcule x_qty_before/x_qty_after pour tous les emplacements impactés
+        par les lignes de self.
+        Un mouvement impacte deux emplacements :
+          - location_id (source = sortie)
+          - location_dest_id (destination = entrée)
         """
         affected = set()
         for line in self:
@@ -44,26 +67,29 @@ class StockMoveLine(models.Model):
         for product_id, lot_id, location_id in affected:
             self._recompute_location(product_id, lot_id, location_id)
 
+        # Important : si on a fait des UPDATE SQL, on invalide le cache ORM
+        self.invalidate_model(['x_qty_before', 'x_qty_after'])
+
     @api.model
     def _recompute_location(self, product_id, lot_id, location_id):
         """
-        Pour un triplet (produit, lot, emplacement), recalcule qty_before/after
+        Pour un triplet (produit, lot, emplacement), recalcule x_qty_before/x_qty_after
         sur toutes les move.line done qui touchent cet emplacement.
 
-        Règles :
-          - location_dest_id == location_id  → ENTREE  → +quantity
-          - location_id      == location_id  → SORTIE  → -quantity
+        Règles (par rapport à location_id) :
+          - location_dest_id == location_id  → ENTREE  → +qty_done
+          - location_id      == location_id  → SORTIE  → -qty_done
           - même emplacement source et dest  → neutre (delta = 0)
 
         Les lignes sont triées par date puis id pour garantir l'ordre chronologique.
-        On écrit directement en SQL pour la performance.
+        On écrit en SQL pour la performance.
         """
         lot_clause = 'AND lot_id = %s' if lot_id else 'AND lot_id IS NULL'
         lot_param = (lot_id,) if lot_id else ()
 
-        # Récupérer toutes les lignes qui touchent cet emplacement (entrée OU sortie)
+        # Odoo 17 : quantité faite = qty_done
         sql = """
-            SELECT id, location_id, location_dest_id, quantity, date
+            SELECT id, location_id, location_dest_id, qty_done, date
             FROM stock_move_line
             WHERE state = 'done'
               AND product_id = %s
@@ -77,7 +103,7 @@ class StockMoveLine(models.Model):
         rows = self.env.cr.fetchall()
 
         running_qty = 0.0
-        for (ml_id, loc_src, loc_dst, qty, date) in rows:
+        for (ml_id, loc_src, loc_dst, qty, _date) in rows:
             qty_before = running_qty
 
             if loc_src == location_id and loc_dst == location_id:
@@ -92,15 +118,16 @@ class StockMoveLine(models.Model):
 
             self.env.cr.execute("""
                 UPDATE stock_move_line
-                SET x_qty_before = %s, x_qty_after = %s
+                SET x_qty_before = %s,
+                    x_qty_after = %s
                 WHERE id = %s
             """, (qty_before, qty_after, ml_id))
 
     @api.model
     def recompute_all_history(self):
         """
-        Recalcule qty_before/after sur TOUT l'historique existant.
-        Appelé depuis le wizard de recalcul.
+        Recalcule x_qty_before/x_qty_after sur TOUT l'historique existant.
+        À appeler via wizard / action serveur / shell.
         """
         _logger.info('[StockMoveQty] Début recalcul historique complet')
 
@@ -128,4 +155,7 @@ class StockMoveLine(models.Model):
 
         self.env.cr.commit()
         _logger.info('[StockMoveQty] Recalcul historique terminé')
+
+        # Invalidation cache après mise à jour SQL massive
+        self.invalidate_model(['x_qty_before', 'x_qty_after'])
         return True
