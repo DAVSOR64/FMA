@@ -863,9 +863,8 @@ class ExportSFTPScheduler(models.Model):
                     [
                         ("model", "=", "account.move"),
                         ("res_id", "in", invoice_ids),
-                        ("message_type", "=", "comment"),  # chatter "commentaires"
-                        # Optionnel: si tu veux uniquement les "Notes internes"
-                        # ("subtype_id.internal", "=", True),
+                        ("message_type", "=", "comment"),        # pas email, pas notification
+                        ("subtype_id.internal", "=", True),      # uniquement "Note" interne
                     ],
                     order="date asc",
                 )
