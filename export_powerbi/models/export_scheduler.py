@@ -5,6 +5,8 @@ import base64
 import paramiko
 import csv
 import posixpath
+import re
+import unicodedata
 from pathlib import Path
 from datetime import datetime, date
 from odoo import models, fields, api
@@ -82,7 +84,26 @@ class ExportSFTPScheduler(models.Model):
                 return name or ""
             except Exception:
                 return ""
-
+        def clean_note(body):
+            if not body:
+                return ""
+            
+            # 1) Convertir HTML -> texte
+            text = html2plaintext(body)
+        
+            # 2) Supprimer retours ligne et tabulations
+            text = re.sub(r'[\n\r\t]+', ' ', text)
+        
+            # 3) Supprimer accents (é -> e, à -> a, etc.)
+            text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+        
+            # 4) Supprimer caractères spéciaux restants (garde lettres, chiffres, ponctuation simple)
+            text = re.sub(r'[^a-zA-Z0-9 .,;:!?/_-]', '', text)
+        
+            # 5) Nettoyage espaces multiples
+            text = re.sub(r'\s+', ' ', text).strip()
+        
+            return text
         # Sanitize universel: convertit toute valeur en type "écrivible" par xlsxwriter
         def _to_cell(v):
             try:
@@ -870,17 +891,20 @@ class ExportSFTPScheduler(models.Model):
                     order="date asc",
                 )
                             
-                notes_data = [
-                    (
+                notes_data = []
+                for m in messages:
+                    body_clean = clean_note(m.body)
+                
+                    if not body_clean:
+                        continue
+                
+                    notes_data.append((
                         str(m.id),
-                        str(m.res_id),  # ID facture
+                        str(m.res_id),
                         m.date.strftime("%Y-%m-%d %H:%M:%S") if m.date else "",
-                        (m.author_id.name if m.author_id else ""),
-                        # body est HTML -> on peut le laisser tel quel ou nettoyer
-                        (m.body or "").replace("\n", " ").strip(),
-                    )
-                    for m in messages
-                ]
+                        m.author_id.name if m.author_id else "",
+                        body_clean,
+                    ))
             
                 notes_file = write_csv(
                     "factures_notes.csv",
