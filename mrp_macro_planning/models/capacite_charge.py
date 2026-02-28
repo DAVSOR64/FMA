@@ -570,6 +570,7 @@ class CapaciteCharge(models.Model):
     nb_personnes = fields.Integer(string='Personnes', readonly=True)
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2), readonly=True)
     nb_operations = fields.Integer(string='Nb opérations', readonly=True)
+    nb_resources = fields.Integer(string='Nb ressources', readonly=True)
     
     charge_prevue_jour = fields.Float(string='Charge prévue ce jour (h)', digits=(10, 2), readonly=True)
     charge_effectuee_jour = fields.Float(string='Charge effectuée ce jour (h)', digits=(10, 2), readonly=True)
@@ -616,8 +617,10 @@ class CapaciteCharge(models.Model):
                     wcc.date,
                     COUNT(DISTINCT wcc.workorder_id)                AS nb_operations,
                     SUM(wcc.charge_prevue_heures)                   AS charge_prevue_jour,
-                    COALESCE(epj.effectue_heures, 0)                AS charge_effectuee_jour
+                    COALESCE(epj.effectue_heures, 0)                AS charge_effectuee_jour,
+                    SUM(COALESCE(wo.x_nb_resources, 1))             AS nb_resources
                 FROM mrp_workorder_charge_cache wcc
+                JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
                 LEFT JOIN effectue_par_jour epj 
                     ON epj.workcenter_id = wcc.workcenter_id 
                     AND epj.date = wcc.date
@@ -644,6 +647,7 @@ class CapaciteCharge(models.Model):
                     COALESCE(cap.capacite_heures, 0)            AS capacite_heures,
                     COALESCE(cap.nb_personnes, 0)               AS nb_personnes,
                     COALESCE(ch.nb_operations, 0)               AS nb_operations,
+                    COALESCE(ch.nb_resources, 0)                AS nb_resources,
                     COALESCE(ch.charge_prevue_jour, 0)          AS charge_prevue_jour,
                     COALESCE(ch.charge_effectuee_jour, 0)       AS charge_effectuee_jour,
                     SUM(COALESCE(ch.charge_prevue_jour, 0)) OVER (
@@ -668,6 +672,7 @@ class CapaciteCharge(models.Model):
                 nb_personnes,
                 capacite_heures,
                 nb_operations,
+                nb_resources,
                 charge_prevue_jour,
                 charge_effectuee_jour,
                 cumul_prevu,

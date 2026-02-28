@@ -171,6 +171,7 @@
                        decoration-bf="date == context_today().strftime('%Y-%m-%d')"/>
                 <field name="workcenter_name" string="Poste de travail"/>
                 <field name="nb_personnes" string="👤 Pers."/>
+                <field name="nb_resources" string="🔧 Ressources" optional="show"/>
                 <field name="capacite_heures" string="⏱️ Capacité (h)" sum="Total capacité"/>
                 
                 <!-- Charge du jour -->
