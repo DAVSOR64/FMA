@@ -431,11 +431,11 @@ class MrpProduction(models.Model):
         duration_hours = duration_minutes / 60.0
 
         wc = wo.workcenter_id
-        if not wc or 'x_studio_capacite_par_poste' not in self.env:
+        if not wc or 'x_capacite_par_poste' not in self.env:
             return duration_hours, 1
 
         # Chercher la règle correspondante
-        rules = self.env['x_studio_capacite_par_poste'].search([
+        rules = self.env['x_capacite_par_poste'].search([
             ('x_studio_poste', '=', wc.id),
         ])
 
