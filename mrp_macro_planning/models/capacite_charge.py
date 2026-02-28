@@ -229,8 +229,8 @@ class WorkorderChargeCache(models.Model):
             if not date_start_operation:
                 continue
             
-            # OPTIMISATION : Si pas de calendrier OU durée > 80h → tout sur date_start
-            if not calendar or charge_restante_totale > 80:
+            # OPTIMISATION : Si pas de calendrier → tout sur date_start
+            if not calendar:
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
