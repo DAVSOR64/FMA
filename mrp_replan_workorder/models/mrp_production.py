@@ -619,7 +619,9 @@ class MrpProduction(models.Model):
         if (date_start_changed or date_finished_changed or x_end_changed) \
            and not self.env.context.get('skip_macro_recalc') \
            and not self.env.context.get('from_macro_update') \
-           and not self.env.context.get('in_button_plan'):
+           and not self.env.context.get('in_button_plan') \
+           and not self.env.context.get('bypass_duration_calculation') \
+           and not self.env.context.get('do_finish'):
             for production in self:
                 try:
                     # 0) Si l'utilisateur modifie la date de fin métier (x_studio_date_de_fin)
@@ -681,26 +683,24 @@ class MrpProduction(models.Model):
         # Tri par séquence
         workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
         
-        # Vérifier si des opérations sont terminées
+        # Opérations terminées : on les ignore sans erreur
         done_wos = [wo.name for wo in self.workorder_ids if wo.state == 'done']
         if done_wos:
-            raise UserError(_(
-                "Impossible de modifier les dates : certaines opérations sont terminées.\n"
-                "Opérations terminées : %s"
-            ) % ', '.join(done_wos))
+            _logger.info("Opérations terminées ignorées pour recalcul : %s", ', '.join(done_wos))
+            if not workorders:
+                return
         
         # CAS 1 : Changement date DÉBUT
         if date_start_changed and not date_finished_changed:
             _logger.info("=== CAS 1 : Changement date DÉBUT ===")
             
-            # Vérifier qu'aucune opération n'a démarré
+            # Si des opérations ont déjà démarré, on bascule en mode backward
             started_wos = [wo.name for wo in workorders if wo.state not in ('pending', 'waiting', 'ready')]
             if started_wos:
-                raise UserError(_(
-                    "Impossible de modifier la date de début : certaines opérations ont déjà démarré.\n"
-                    "Opérations démarrées : %s\n"
-                    "Vous ne pouvez modifier que la date de fin."
-                ) % ', '.join(started_wos))
+                _logger.info("Opérations démarrées, recalcul backward : %s", ', '.join(started_wos))
+                self._recalculate_macro_backward(workorders)
+                self._refresh_charge_cache_for_production()
+                return
             
             self._recalculate_macro_forward(workorders)
         
