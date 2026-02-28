@@ -12,7 +12,7 @@
             <form string="Recalculer capacité et charge">
                 <group>
                     <group>
-                        <field name="nb_slots" string="Slots planning publiés"/>
+                        <field name="nb_slots" string="Semaines capacité planifiées"/>
                         <field name="nb_workorders" string="Workorders actifs"/>
                     </group>
                     <group invisible="not message">

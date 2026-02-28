@@ -41,74 +41,116 @@ class CapaciteCache(models.Model):
         return dt.astimezone(pytz.utc)
 
     def refresh(self):
-        """Recalcule la capacité depuis les slots Planning publiés"""
+        """
+        Recalcule la capacité depuis mrp.capacity.week (module mrp_capacity_planning).
+
+        Logique :
+        - Une ligne mrp.capacity.week = 1 ressource × 1 semaine × 1 poste
+        - On ventile la capacité nette hebdomadaire sur les jours ouvrés
+          du calendrier de l'affectation (même logique que le calcul standard)
+        - capacity_net tient déjà compte des absences, fériés et overrides
+        """
         self.search([]).unlink()
-        slots = self.env['planning.slot'].search([('state', '=', 'published')])
-        _logger.info('REFRESH CAPACITE : %d slots publiés', len(slots))
-        if not slots:
+
+        # Vérifie que le module mrp_capacity_planning est installé
+        if 'mrp.capacity.week' not in self.env:
+            _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — capacité vide')
             return
-        
-        capacite_par_jour = {}
-        
-        for slot in slots:
-            if not slot.resource_id or not slot.role_id:
-                continue
-            workcenter = slot.role_id.workcenter_id
-            if not workcenter:
-                continue
-            
-            calendar = slot.resource_id.calendar_id
-            if not calendar:
-                delta = (slot.end_datetime - slot.start_datetime).total_seconds() / 3600.0
-                jour = slot.start_datetime.date()
-                key = (workcenter.id, jour)
-                if key not in capacite_par_jour:
-                    capacite_par_jour[key] = {'workcenter_id': workcenter.id, 
-                                              'workcenter_name': workcenter.name,
-                                              'date': jour,
-                                              'heures': []}
-                capacite_par_jour[key]['heures'].append(delta)
-                continue
-            
-            try:
-                date_start = self._to_utc(slot.start_datetime)
-                date_stop = self._to_utc(slot.end_datetime)
-                intervals = calendar._work_intervals_batch(date_start, date_stop, resources=slot.resource_id)
-                resource_intervals = intervals.get(slot.resource_id.id, [])
-                
-                heures_par_jour = {}
-                for start, stop, _meta in resource_intervals:
-                    jour = start.date()
-                    duree = (stop - start).total_seconds() / 3600.0
-                    heures_par_jour[jour] = heures_par_jour.get(jour, 0) + duree
-                
-                for jour, heures in heures_par_jour.items():
-                    if heures > 0:
-                        key = (workcenter.id, jour)
-                        if key not in capacite_par_jour:
-                            capacite_par_jour[key] = {'workcenter_id': workcenter.id,
-                                                      'workcenter_name': workcenter.name,
-                                                      'date': jour,
-                                                      'heures': []}
-                        capacite_par_jour[key]['heures'].append(heures)
-            except Exception as e:
-                _logger.error('Erreur slot %s : %s\n%s', slot.id, e, traceback.format_exc())
-        
+
+        # Toutes les semaines avec une capacité nette > 0
+        weeks = self.env['mrp.capacity.week'].search([
+            ('capacity_net', '>', 0),
+        ])
+
+        _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines trouvées', len(weeks))
+
+        if not weeks:
+            return
+
         vals_list = []
-        for key, data in capacite_par_jour.items():
-            nb_personnes = len(data['heures'])
-            capacite_totale = sum(data['heures'])
-            vals_list.append({
-                'workcenter_id': data['workcenter_id'],
-                'workcenter_name': data['workcenter_name'],
-                'date': data['date'],
-                'capacite_heures': capacite_totale,
-                'nb_personnes': nb_personnes,
-            })
-        
-        if vals_list:
-            self.create(vals_list)
-        _logger.info('REFRESH CAPACITE TERMINÉ : %d entrées', len(vals_list))
+
+        for week in weeks:
+            if not week.workcenter_id or not week.week_date:
+                continue
+
+            calendar = week.resource_calendar_id
+            capacity_net = week.capacity_net  # heures nettes de la semaine
+
+            # Jours ouvrés de la semaine selon le calendrier
+            jours_ouvres = self._get_working_days(calendar, week.week_date)
+
+            if not jours_ouvres:
+                # Fallback : 5 jours si pas de calendrier
+                from datetime import timedelta
+                jours_ouvres = {
+                    week.week_date + timedelta(days=i): 1.0
+                    for i in range(5)
+                }
+
+            # Heures totales calendrier de la semaine (pour pondération)
+            total_cal_hours = sum(jours_ouvres.values())
+            if total_cal_hours <= 0:
+                continue
+
+            for jour, heures_jour_cal in jours_ouvres.items():
+                # Proportion de la capacité nette pour ce jour
+                ratio = heures_jour_cal / total_cal_hours
+                capacite_jour = round(capacity_net * ratio, 2)
+
+                if capacite_jour <= 0:
+                    continue
+
+                vals_list.append({
+                    'workcenter_id': week.workcenter_id.id,
+                    'workcenter_name': week.workcenter_id.name,
+                    'date': jour,
+                    'capacite_heures': capacite_jour,
+                    'nb_personnes': 1,  # 1 ressource par ligne capacity.week
+                })
+
+        # Agrège les lignes du même poste/jour (plusieurs ressources sur même poste)
+        aggregated = {}
+        for v in vals_list:
+            key = (v['workcenter_id'], v['date'])
+            if key not in aggregated:
+                aggregated[key] = {
+                    'workcenter_id': v['workcenter_id'],
+                    'workcenter_name': v['workcenter_name'],
+                    'date': v['date'],
+                    'capacite_heures': 0.0,
+                    'nb_personnes': 0,
+                }
+            aggregated[key]['capacite_heures'] += v['capacite_heures']
+            aggregated[key]['nb_personnes'] += 1
+
+        if aggregated:
+            self.create(list(aggregated.values()))
+
+        _logger.info(
+            '[MacroPlanning] REFRESH CAPACITE TERMINÉ : %d entrées poste/jour créées',
+            len(aggregated)
+        )
+
+    def _get_working_days(self, calendar, week_date):
+        """
+        Retourne un dict {date: heures} pour chaque jour ouvré de la semaine.
+        Basé sur les attendance_ids du calendrier.
+        """
+        from datetime import timedelta
+        if not calendar or not calendar.attendance_ids:
+            return {}
+
+        result = {}
+        for att in calendar.attendance_ids:
+            day_num = int(att.dayofweek)  # 0=lundi, 6=dimanche
+            day_date = week_date + timedelta(days=day_num)
+            # S'assure qu'on reste dans la semaine (lundi → dimanche)
+            if day_date > week_date + timedelta(days=6):
+                continue
+            heures = att.hour_to - att.hour_from
+            result[day_date] = result.get(day_date, 0) + heures
+
+        return result
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -305,7 +347,7 @@ class CapaciteRefreshWizard(models.TransientModel):
     _name = 'mrp.capacite.refresh.wizard'
     _description = 'Wizard recalcul capacité et charge'
 
-    nb_slots = fields.Integer(string='Slots publiés', readonly=True)
+    nb_slots = fields.Integer(string='Semaines capacité (mrp_capacity_planning)', readonly=True)
     nb_workorders = fields.Integer(string='Workorders actifs', readonly=True)
     nb_capacite = fields.Integer(string='Entrées capacité', readonly=True)
     nb_charge = fields.Integer(string='Entrées charge', readonly=True)
@@ -313,7 +355,12 @@ class CapaciteRefreshWizard(models.TransientModel):
 
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        res['nb_slots'] = self.env['planning.slot'].search_count([('state', '=', 'published')])
+        if 'mrp.capacity.week' in self.env:
+            res['nb_slots'] = self.env['mrp.capacity.week'].search_count([
+                ('capacity_net', '>', 0),
+            ])
+        else:
+            res['nb_slots'] = 0
         res['nb_workorders'] = self.env['mrp.workorder'].search_count([
             ('state', 'not in', ('done', 'cancel')),
             ('date_start', '!=', False)
