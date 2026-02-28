@@ -160,8 +160,11 @@ class MrpProduction(models.Model):
                     _logger.warning("WO %s (%s) : pas de macro sauvegardé -> skip", wo.name, production.name)
                     continue
 
+                # Durée effective = durée brute / nb_resources
                 duration_min = wo.duration_expected or 0.0
-                end_dt = saved_macro + timedelta(minutes=duration_min)
+                nb_resources = max(1, getattr(wo, 'x_nb_resources', 1) or 1)
+                effective_duration_min = duration_min / nb_resources
+                end_dt = saved_macro + timedelta(minutes=effective_duration_min)
 
                 wo.with_context(
                     skip_shift_chain=True,
@@ -174,17 +177,11 @@ class MrpProduction(models.Model):
                 })
 
                 _logger.info(
-                    "WO %s : macro=%s start=%s end=%s durée=%s min",
-                    wo.name, saved_macro, saved_macro, end_dt, duration_min,
+                    "WO %s : macro=%s start=%s end=%s durée_brute=%s min / %d ressources = %s min effectifs",
+                    wo.name, saved_macro, saved_macro, end_dt, duration_min, nb_resources, effective_duration_min,
                 )
-                # ── 4. Mettre à jour la date de fin métier (x_studio_date_de_fin) depuis la dernière WO ──
-                # IMPORTANT: on ne touche PAS aux champs standard date_finished/date_deadline ici,
-                # sinon Odoo peut déclencher un recalcul/unplan interne et annuler la planification.
-                last_end = max([w.date_finished for w in workorders if w.date_finished], default=False)
-                if last_end and hasattr(production, "x_studio_date_de_fin"):
-                    production.with_context(skip_macro_recalc=True, mail_notrack=True).write({
-                        "x_studio_date_de_fin": last_end.date(),
-                    })
+
+            # ── 4. NE PAS écraser x_studio_date_de_fin : elle est déjà correcte depuis compute_macro_schedule ──
 
         return res
 
