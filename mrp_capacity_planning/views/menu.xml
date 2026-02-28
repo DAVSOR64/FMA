@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Capacité ressources — sous Opérations (même niveau que OFs) -->
+    <!-- Menu "Capacité" dans la barre Fabrication — même niveau que Macro Planning -->
     <menuitem
         id="menu_mrp_capacity_root"
-        name="Capacité ressources"
-        parent="mrp.menu_mrp_production"
-        sequence="25"
+        name="Capacité"
+        parent="mrp.menu_mrp_root"
+        sequence="45"
     />
 
     <menuitem
