@@ -205,11 +205,12 @@ class WorkorderChargeCache(models.Model):
             if not wo.workcenter_id or (not wo.date_start and not getattr(wo, 'macro_planned_start', False)):
                 continue
             
-            # Charge restante TOTALE en heures
+            # Charge restante TOTALE en heures, divisée par le nombre de ressources
+            nb_resources = max(1, getattr(wo, 'x_nb_resources', 1) or 1)
             if wo.state in ('pending', 'ready', 'waiting'):
-                charge_restante_totale = (wo.duration_expected or 0) / 60.0
+                charge_restante_totale = (wo.duration_expected or 0) / 60.0 / nb_resources
             else:
-                charge_restante_totale = max((wo.duration_expected or 0) - (wo.duration or 0), 0) / 60.0
+                charge_restante_totale = max((wo.duration_expected or 0) - (wo.duration or 0), 0) / 60.0 / nb_resources
             
             if charge_restante_totale <= 0:
                 continue
