@@ -82,7 +82,7 @@ class MrpProduction(models.Model):
             hours_per_day = cal.hours_per_day or 7.8
 
             duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
+            duration_hours, nb_resources = self._get_effective_duration_hours(wo)
             required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
 
             # Bloc de required_days se terminant à current_end_day
@@ -95,12 +95,15 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(first_day, wc)
 
             if "macro_planned_start" in wo._fields:
-                wo.with_context(mail_notrack=True).write({"macro_planned_start": macro_dt})
+                write_vals = {"macro_planned_start": macro_dt}
+                if "x_nb_resources" in wo._fields:
+                    write_vals["x_nb_resources"] = nb_resources
+                wo.with_context(mail_notrack=True).write(write_vals)
 
             _logger.info(
-                "WO %s (%s): %s -> %s | %s min (~%s h) => %s j | macro_planned_start=%s",
+                "WO %s (%s): %s -> %s | brut=%.0f min | eff=%.2fh => %d j | %d ressource(s) | macro=%s",
                 wo.name, wc.display_name, first_day, last_day,
-                int(duration_minutes), round(duration_hours, 2), required_days, macro_dt
+                wo.duration_expected or 0, duration_hours, required_days, nb_resources, macro_dt
             )
 
             # Décalage "veille ouvrée" entre opérations
@@ -228,8 +231,7 @@ class MrpProduction(models.Model):
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
             hours_per_day = cal.hours_per_day or 7.8
 
-            duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
+            duration_hours, _nb = self._get_effective_duration_hours(wo)
             required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
 
             start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
@@ -294,8 +296,7 @@ class MrpProduction(models.Model):
                 cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
                 hours_per_day = cal.hours_per_day or 7.8
     
-                duration_minutes = wo.duration_expected or 0.0
-                duration_hours = duration_minutes / 60.0
+                duration_hours, _nb = self._get_effective_duration_hours(wo)
                 required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
     
                 start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
@@ -410,6 +411,60 @@ class MrpProduction(models.Model):
         self.message_post(
             body=f"🧪 DEBUG : pickings MAJ ({len(comp_pickings)}) scheduled={scheduled_dt} deadline={deadline_dt}"
         )
+
+    # ============================================================
+    # CAPACITY RULES HELPER
+    # ============================================================
+    def _get_effective_duration_hours(self, wo):
+        """
+        Retourne (duration_hours_effective, nb_resources) pour un workorder,
+        en appliquant les règles de capacité par poste (x_capacite_par_poste).
+
+        Logique :
+        - On récupère la durée brute du WO en heures
+        - On cherche une règle active sur le workcenter :
+            duration_min <= duration_hours < duration_max  (duration_max=0 => illimité)
+        - Si trouvée : duration_effective = duration_hours / nb_resources
+        - Sinon : durée brute, 1 ressource
+        """
+        duration_minutes = wo.duration_expected or 0.0
+        duration_hours = duration_minutes / 60.0
+
+        wc = wo.workcenter_id
+        if not wc or 'x_studio_capacite_par_poste' not in self.env:
+            return duration_hours, 1
+
+        # Chercher la règle correspondante
+        rules = self.env['x_studio_capacite_par_poste'].search([
+            ('x_studio_poste', '=', wc.id),
+        ])
+
+        matched_rule = None
+        for rule in rules:
+            d_min = rule.x_studio_dure_min or 0.0
+            d_max = rule.x_studio_dure_max or 0.0
+            nb_res = rule.x_studio_nbre_ressources or 1
+
+            if duration_hours >= d_min:
+                if d_max == 0.0 or duration_hours < d_max:
+                    matched_rule = rule
+                    break
+
+        if not matched_rule:
+            return duration_hours, 1
+
+        nb_resources = max(1, matched_rule.x_studio_nbre_ressources or 1)
+        effective_hours = duration_hours / nb_resources
+
+        _logger.info(
+            "WO %s (%s) | durée brute=%.2fh | règle: %.0f-%.0fh => %d ressources | durée effective=%.2fh",
+            wo.name, wc.display_name,
+            duration_hours,
+            matched_rule.x_studio_dure_min, matched_rule.x_studio_dure_max,
+            nb_resources, effective_hours
+        )
+
+        return effective_hours, nb_resources
 
     # ============================================================
     # WORKING DAYS / CALENDAR HELPERS
@@ -684,7 +739,7 @@ class MrpProduction(models.Model):
             hours_per_day = cal.hours_per_day or 7.8
             
             duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
+            duration_hours, nb_resources = self._get_effective_duration_hours(wo)
             required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
             
             # Début = current_day (matin)
@@ -692,12 +747,13 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(start_day, wc)
             
             # Mettre à jour macro_planned_start
-            wo.with_context(skip_macro_recalc=True, mail_notrack=True).write({
-                'macro_planned_start': macro_dt
-            })
+            write_vals = {'macro_planned_start': macro_dt}
+            if "x_nb_resources" in wo._fields:
+                write_vals["x_nb_resources"] = nb_resources
+            wo.with_context(skip_macro_recalc=True, mail_notrack=True).write(write_vals)
             
-            _logger.info("WO %s : macro=%s | durée=%s min (~%s j)", 
-                        wo.name, macro_dt, duration_minutes, required_days)
+            _logger.info("WO %s : macro=%s | brut=%.0f min | eff=%.2fh | %d j | %d ressource(s)",
+                        wo.name, macro_dt, duration_minutes, duration_hours, required_days, nb_resources)
             
             # Prochaine opération commence le lendemain ouvré de la fin de celle-ci
             # Fin = start_day + (required_days - 1) jours ouvrés
@@ -759,7 +815,7 @@ class MrpProduction(models.Model):
             hours_per_day = cal.hours_per_day or 7.8
             
             duration_minutes = wo.duration_expected or 0.0
-            duration_hours = duration_minutes / 60.0
+            duration_hours, nb_resources = self._get_effective_duration_hours(wo)
             required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
             
             # Fin = current_end_day
@@ -772,12 +828,13 @@ class MrpProduction(models.Model):
             
             macro_dt = self._morning_dt(first_day, wc)
             
-            wo.with_context(skip_macro_recalc=True, mail_notrack=True).write({
-                'macro_planned_start': macro_dt
-            })
+            write_vals = {'macro_planned_start': macro_dt}
+            if "x_nb_resources" in wo._fields:
+                write_vals["x_nb_resources"] = nb_resources
+            wo.with_context(skip_macro_recalc=True, mail_notrack=True).write(write_vals)
             
-            _logger.info("WO %s : macro=%s | %s -> %s | durée=%s min", 
-                        wo.name, macro_dt, first_day, last_day, duration_minutes)
+            _logger.info("WO %s : macro=%s | %s -> %s | brut=%.0f min | eff=%.2fh | %d j | %d ressource(s)",
+                        wo.name, macro_dt, first_day, last_day, duration_minutes, duration_hours, required_days, nb_resources)
             
             # Opération précédente se termine AVANT first_day.
             # On impose un jour calendaire de "trou" entre opérations,
