@@ -121,6 +121,7 @@
                 <field name="projet" string="Projet" optional="hide"/>
                 <field name="operation_name" string="Opération"/>
                 <field name="operateurs" string="👤 Opérateur(s)" optional="show"/>
+                <field name="nb_resources" string="👥 Ressources" optional="show"/>
                 <field name="state" string="Statut" optional="hide"/>
                 
                 <!-- Charge du jour -->

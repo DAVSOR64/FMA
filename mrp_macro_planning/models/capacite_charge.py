@@ -186,7 +186,9 @@ class WorkorderChargeCache(models.Model):
         
         workorders = self.env['mrp.workorder'].search([
             ('state', 'not in', ('done', 'cancel')),
-            ('date_start', '!=', False)
+            '|',
+            ('date_start', '!=', False),
+            ('macro_planned_start', '!=', False),
         ])
         
         _logger.info('REFRESH CHARGE : %d workorders actifs', len(workorders))
@@ -200,7 +202,7 @@ class WorkorderChargeCache(models.Model):
         for wo in workorders:
             count += 1
             
-            if not wo.workcenter_id or not wo.date_start:
+            if not wo.workcenter_id or (not wo.date_start and not getattr(wo, 'macro_planned_start', False)):
                 continue
             
             # Charge restante TOTALE en heures
@@ -221,8 +223,8 @@ class WorkorderChargeCache(models.Model):
             # Calendrier du workcenter
             calendar = wo.workcenter_id.resource_calendar_id
             
-            # Date de début de l'opération (macro_date_planned ou date_start)
-            date_start_operation = wo.macro_date_planned if hasattr(wo, 'macro_date_planned') and wo.macro_date_planned else wo.date_start
+            # Date de début de l'opération : macro_planned_start en priorité, sinon date_start
+            date_start_operation = getattr(wo, 'macro_planned_start', False) or wo.date_start
             
             if not date_start_operation:
                 continue
@@ -363,7 +365,9 @@ class CapaciteRefreshWizard(models.TransientModel):
             res['nb_slots'] = 0
         res['nb_workorders'] = self.env['mrp.workorder'].search_count([
             ('state', 'not in', ('done', 'cancel')),
-            ('date_start', '!=', False)
+            '|',
+            ('date_start', '!=', False),
+            ('macro_planned_start', '!=', False),
         ])
         return res
 
@@ -453,6 +457,7 @@ class CapaciteChargeDetail(models.Model):
     projet = fields.Char(string='Projet', readonly=True)
     operation_name = fields.Char(string='Opération', readonly=True)
     operateurs = fields.Char(string='Opérateur(s)', readonly=True)
+    nb_resources = fields.Integer(string='Nb ressources', readonly=True)
     prevu_jour = fields.Float(string='Prévu ce jour (h)', digits=(10, 2), readonly=True)
     effectue_jour = fields.Float(string='Effectué ce jour (h)', digits=(10, 2), readonly=True)
     cumul_prevu = fields.Float(string='Cumul prévu (h)', digits=(10, 2), readonly=True)
@@ -530,6 +535,7 @@ class CapaciteChargeDetail(models.Model):
                     WHERE wop.workorder_id = wo.id
                       AND wop.employee_id IS NOT NULL
                 )                                           AS operateurs,
+                COALESCE(wo.x_nb_resources, 1)              AS nb_resources,
                 cum.charge_prevue_heures                    AS prevu_jour,
                 cum.effectue_jour                           AS effectue_jour,
                 cum.cumul_prevu                             AS cumul_prevu,
