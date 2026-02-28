@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<!--<?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
     <!-- Rend date_start (Date début) en lecture seule dans la vue workorder
@@ -26,4 +26,4 @@
         </field>
     </record>
 
-</odoo>
+</odoo>-->
