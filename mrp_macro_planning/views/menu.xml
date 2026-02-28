@@ -6,6 +6,7 @@
               parent="mrp.menu_mrp_root"
               sequence="50"/>
 
+    <!-- Capacité vs Charge -->
     <menuitem id="menu_capacite_charge"
               name="Capacité vs Charge"
               parent="menu_capacite_charge_root"
@@ -24,17 +25,42 @@
               action="action_refresh_wizard"
               sequence="30"/>
 
+    <!-- Capacité ressources intégrée ici -->
+    <menuitem id="menu_capacite_ressources_root"
+              name="Capacité ressources"
+              parent="menu_capacite_charge_root"
+              sequence="40"/>
+
+    <menuitem id="menu_macro_capacity_week"
+              name="Planning capacité"
+              parent="menu_capacite_ressources_root"
+              action="mrp_capacity_planning.action_mrp_capacity_week"
+              sequence="10"/>
+
+    <menuitem id="menu_macro_capacity_resource"
+              name="Ressources &amp; Postes"
+              parent="menu_capacite_ressources_root"
+              action="mrp_capacity_planning.action_mrp_capacity_resource"
+              sequence="20"/>
+
+    <menuitem id="menu_macro_capacity_generate"
+              name="Générer les semaines"
+              parent="menu_capacite_ressources_root"
+              action="mrp_capacity_planning.action_mrp_capacity_generate_wizard"
+              sequence="30"/>
+
+    <!-- Config -->
     <menuitem id="menu_planning_role_workcenter"
               name="Lier Rôles → Postes"
               parent="menu_capacite_charge_root"
               action="action_planning_role_workcenter"
-              sequence="40"/>
+              sequence="50"/>
 
     <menuitem id="menu_debug_cache_charge"
               name="🔍 Debug cache charge"
               parent="menu_capacite_charge_root"
               action="action_workorder_charge_cache"
-              sequence="50"
+              sequence="60"
               groups="base.group_no_one"/>
 
 </odoo>

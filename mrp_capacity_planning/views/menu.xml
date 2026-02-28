@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Racine sous Fabrication -->
+    <!-- Capacité ressources — sous Opérations (même niveau que OFs) -->
     <menuitem
         id="menu_mrp_capacity_root"
         name="Capacité ressources"
-        parent="mrp.menu_mrp_production_action"
-        sequence="30"
+        parent="mrp.menu_mrp_production"
+        sequence="25"
     />
 
-    <!-- Sous-menus -->
     <menuitem
         id="menu_mrp_capacity_week"
         name="Planning capacité"

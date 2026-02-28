@@ -10,6 +10,7 @@
         'security/ir.model.access.csv',
         'views/capacite_charge_views.xml',
         'views/capacite_operateur_views.xml',
+        'views/mrp_workorder_views.xml',
         'views/menu.xml',
     ],
     'installable': True,

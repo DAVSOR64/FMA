@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Rend date_start (Date début) en lecture seule dans la vue workorder
+         pour éviter les modifications manuelles qui cassent la charge planifiée -->
+    <record id="view_mrp_workorder_form_readonly_date" model="ir.ui.view">
+        <field name="name">mrp.workorder.form.readonly.date_start</field>
+        <field name="model">mrp.workorder</field>
+        <field name="inherit_id" ref="mrp.mrp_workorder_view_form"/>
+        <field name="arch" type="xml">
+            <field name="date_start" position="attributes">
+                <attribute name="readonly">1</attribute>
+            </field>
+        </field>
+    </record>
+
+    <!-- Même chose dans la vue liste des workorders -->
+    <record id="view_mrp_workorder_list_readonly_date" model="ir.ui.view">
+        <field name="name">mrp.workorder.list.readonly.date_start</field>
+        <field name="model">mrp.workorder</field>
+        <field name="inherit_id" ref="mrp.mrp_workorder_view_list"/>
+        <field name="arch" type="xml">
+            <field name="date_start" position="attributes">
+                <attribute name="readonly">1</attribute>
+            </field>
+        </field>
+    </record>
+
+</odoo>
