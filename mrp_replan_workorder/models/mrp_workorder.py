@@ -86,11 +86,6 @@ class MrpWorkorder(models.Model):
                     wo.name, wo.id, old_start, new_start, delta
                 )
 
-                if not delta:
-                    continue
-
-                wo._shift_following_workorders(delta)
-
         return res
 
     def _shift_workorders_after(self, cutoff_start, delta):
