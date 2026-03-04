@@ -70,6 +70,7 @@
             </tree>
         </field>
     </record>
+    
 
     <!-- Action dédiée pour l'historique -->
     <record id="action_stock_move_line_history_qty" model="ir.actions.act_window">
