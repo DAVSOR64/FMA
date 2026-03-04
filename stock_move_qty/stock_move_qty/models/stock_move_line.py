@@ -9,6 +9,10 @@ class StockMove(models.Model):
     _inherit = "stock.move"
 
     def _action_done(self, cancel_backorder=False):
+        """
+        Hook fiable à la validation (réception/livraison/transfert).
+        On recalculera ensuite les Qté avant/après sur les move lines done.
+        """
         res = super()._action_done(cancel_backorder=cancel_backorder)
 
         mls = self.mapped("move_line_ids").filtered(lambda l: l.state == "done")
@@ -38,6 +42,7 @@ class StockMoveLine(models.Model):
         default=0.0,
         readonly=True,
         copy=False,
+        help="Quantité en stock sur l'emplacement contexte avant ce mouvement",
     )
     x_qty_after = fields.Float(
         string="Qté après",
@@ -45,10 +50,40 @@ class StockMoveLine(models.Model):
         default=0.0,
         readonly=True,
         copy=False,
+        help="Quantité en stock sur l'emplacement contexte après ce mouvement",
     )
 
+    # Nouveau champ : Type mouvement (E/S)
+    x_move_type = fields.Selection(
+        selection=[("E", "Entrée"), ("S", "Sortie")],
+        string="Type",
+        compute="_compute_x_move_type",
+        store=True,
+        readonly=True,
+        copy=False,
+        help="E = Entrée (destination internal), S = Sortie (source internal)",
+    )
+
+    @api.depends("location_id.usage", "location_dest_id.usage")
+    def _compute_x_move_type(self):
+        """
+        E : non-internal -> internal
+        S : internal -> non-internal
+        sinon : vide (transferts internes, inventaires, cas atypiques)
+        """
+        for ml in self:
+            src_usage = ml.location_id.usage
+            dst_usage = ml.location_dest_id.usage
+
+            if dst_usage == "internal" and src_usage != "internal":
+                ml.x_move_type = "E"
+            elif src_usage == "internal" and dst_usage != "internal":
+                ml.x_move_type = "S"
+            else:
+                ml.x_move_type = False
+
     # -------------------------------------------------------------------------
-    # Règle métier demandée :
+    # Règle métier :
     # - mouvement d'entrée : Qté avant/après sur emplacement de destination
     # - mouvement de sortie : Qté avant/après sur emplacement source
     # - interne -> interne : destination
@@ -163,27 +198,19 @@ class StockMoveLine(models.Model):
             ctx_loc.display_name, current_qty, ctx_op, ctx_val
         )
 
-        # Pour décider "include" quand ctx_loc est view :
-        # on considère qu'une ligne est "dans le contexte" si la location choisie (src/dst selon règle)
-        # est soit exactement ctx_loc, soit dans child_of(ctx_loc).
-        def _is_in_ctx(loc):
-            if ctx_loc.usage == "view":
-                return loc.id in self.env["stock.location"].search([("id", "child_of", ctx_loc.id)]).ids
-            return loc.id == ctx_loc.id
-
-        # ⚠️ optimisation simple : si ctx_loc.view, précharger l'ensemble child_of une fois
+        # Précharger les ids children si ctx_loc est view (perf + fiabilité)
         ctx_child_ids = None
         if ctx_loc.usage == "view":
             ctx_child_ids = set(self.env["stock.location"].search([("id", "child_of", ctx_loc.id)]).ids)
 
             def _is_in_ctx(loc):
                 return loc.id in ctx_child_ids
+        else:
+            def _is_in_ctx(loc):
+                return loc.id == ctx_loc.id
 
         for ml in lines:
             # delta sur le périmètre ctx :
-            # - si destination dans ctx => entrée (+)
-            # - si source dans ctx => sortie (-)
-            # - si les deux dans ctx => delta 0 (transfert interne dans même périmètre)
             src_in = _is_in_ctx(ml.location_id)
             dst_in = _is_in_ctx(ml.location_dest_id)
 
@@ -198,24 +225,12 @@ class StockMoveLine(models.Model):
             qty_before = running_qty - delta
             running_qty = qty_before
 
-            # Décider si cette move line doit recevoir x_qty_before/after selon ta règle
+            # Mise à jour uniquement si le contexte de la ligne appartient au périmètre ctx
             ctx_for_line = self._ctx_location_for_line(ml)
             include = _is_in_ctx(ctx_for_line)
 
             if not include:
-                _logger.debug(
-                    "[StockMoveQty] SKIP ML=%s dt=%s qty=%s src=%s(%s) dst=%s(%s) ctx_for_line=%s ctx=%s",
-                    ml.id, ml.date, ml.quantity,
-                    ml.location_id.display_name, ml.location_id.usage,
-                    ml.location_dest_id.display_name, ml.location_dest_id.usage,
-                    ctx_for_line.display_name, ctx_loc.display_name
-                )
                 continue
-
-            _logger.debug(
-                "[StockMoveQty] UPDATE ML=%s dt=%s qty=%s before=%s after=%s ctx=%s",
-                ml.id, ml.date, ml.quantity, qty_before, qty_after, ctx_loc.display_name
-            )
 
             ml.sudo().write({"x_qty_before": qty_before, "x_qty_after": qty_after})
 
@@ -227,7 +242,6 @@ class StockMoveLine(models.Model):
         _logger.info("[StockMoveQty] recompute_all_history START")
         done_lines = self.search([("state", "=", "done")])
 
-        # construire les groupes (product, lot, ctx_location)
         groups = {}
         for ml in done_lines:
             ctx_loc = self._ctx_location_for_line(ml)
