@@ -225,10 +225,10 @@ class KpiDeliveryBilling(models.Model):
         has_svl = bool(self._cr.fetchone()[0])
 
         if has_svl:
-            value_expr = "ABS(COALESCE(svl.value, sm.product_qty * pp.standard_price))"
+            value_expr = "ABS(COALESCE(svl.value, sm.product_qty * pt.standard_price))"
             svl_join = "LEFT JOIN stock_valuation_layer svl ON svl.stock_move_id = sm.id"
         else:
-            value_expr = "sm.product_qty * pp.standard_price"
+            value_expr = "sm.product_qty * pt.standard_price"
             svl_join = ""
 
         return f"""
@@ -240,7 +240,8 @@ class KpiDeliveryBilling(models.Model):
                 ON  sm.production_id = mp.id
                 AND sm.state         = 'done'
                 AND sm.scrapped      = false
-            JOIN product_product pp ON pp.id = sm.product_id
+            JOIN product_product pp  ON pp.id  = sm.product_id
+            JOIN product_template pt ON pt.id  = pp.product_tmpl_id
             {svl_join}
             WHERE mp.state IN ('done','progress')
               AND {so_where}
