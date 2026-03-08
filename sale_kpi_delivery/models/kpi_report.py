@@ -224,12 +224,19 @@ class KpiDeliveryBilling(models.Model):
         self._cr.execute("SELECT to_regclass('public.stock_valuation_layer')")
         has_svl = bool(self._cr.fetchone()[0])
 
+        # En Odoo 17+, standard_price n'est plus une colonne SQL directe
+        # (stockée via ir.property / product.price.history).
+        # On utilise stock_valuation_layer.value quand disponible,
+        # sinon on valorise à 0 (la SVL est toujours présente en Odoo 17+).
         if has_svl:
-            value_expr = "ABS(COALESCE(svl.value, sm.product_qty * pt.standard_price))"
+            value_expr = "ABS(COALESCE(svl.value, 0))"
             svl_join = "LEFT JOIN stock_valuation_layer svl ON svl.stock_move_id = sm.id"
+            pt_join = ""
         else:
-            value_expr = "sm.product_qty * pt.standard_price"
+            # Fallback Odoo < 16 : pas de SVL, on met 0 (pas d'accès SQL au coût standard)
+            value_expr = "0"
             svl_join = ""
+            pt_join = ""
 
         return f"""
             SELECT
@@ -240,9 +247,9 @@ class KpiDeliveryBilling(models.Model):
                 ON  sm.production_id = mp.id
                 AND sm.state         = 'done'
                 AND sm.scrapped      = false
-            JOIN product_product pp  ON pp.id  = sm.product_id
-            JOIN product_template pt ON pt.id  = pp.product_tmpl_id
+            JOIN product_product pp ON pp.id = sm.product_id
             {svl_join}
+            {pt_join}
             WHERE mp.state IN ('done','progress')
               AND {so_where}
             GROUP BY {so_col}
