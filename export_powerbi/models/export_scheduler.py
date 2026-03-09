@@ -375,7 +375,7 @@ class ExportSFTPScheduler(models.Model):
                         getattr(o, "so_mtt_facturer_be", 0.0) or 0.0,
                         getattr(o, "so_marge_brute_be", 0.0) or 0.0,
                         getattr(o, "so_mcv_be", 0.0) or 0.0,
-                         getattr(o, "so_achat_matiere_reel", 0.0) or 0.0,
+                        getattr(o, "so_achat_matiere_reel", 0.0) or 0.0,
                         getattr(o, "so_achat_vitrage_reel", 0.0) or 0.0,
                         getattr(o, "so_cout_mod_reel", 0.0) or 0.0,
                         getattr(o, "so_mtt_facturer_reel", 0.0) or 0.0,
@@ -383,6 +383,10 @@ class ExportSFTPScheduler(models.Model):
                         getattr(o, "so_mcv_reel", 0.0) or 0.0,
                         getattr(o, "x_studio_so_cout_appro_affaire", 0.0) or 0.0,
                         getattr(o, "x_studio_so_cout_appro_stock", 0.0) or 0.0,
+                        getattr(o, "x_studio_montant_total_appro", 0.0) or 0.0,
+                        getattr(o, "x_studio_montant_non_lvr_non_factur", 0.0) or 0.0,
+                        getattr(o, "x_studio_montant_livr_non_factur", 0.0) or 0.0,
+                        getattr(o, "x_studio_montant_livr_factur", 0.0) or 0.0,
                     )
                     for o in orders
                 ]
@@ -445,6 +449,10 @@ class ExportSFTPScheduler(models.Model):
                         "MCV Reel",
                         "Achat affaire Reel",
                         "Achat stock Reel",
+                        "Montant total appro",
+                        "Montant non livre non facture",
+                        "Montant livre non facture",
+                        "Montant livre facturé",
                     ],
                     order_data,
                 )
