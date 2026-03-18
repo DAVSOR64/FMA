@@ -163,26 +163,22 @@ class MrpCapacityWeek(models.Model):
         for rec in self:
             rec.is_overridden = bool(rec.capacity_override > 0 or rec.override_calendar_id)
 
-    
-    @api.depends('capacity_resource_id', 'week_date', 'allocation_rate', 'override_calendar_id')
+    @api.depends('capacity_resource_id', 'week_date', 'allocation_rate')
     def _compute_absences(self):
         for rec in self:
-            rec.hours_public_holiday = 0.0
-            rec.hours_leaves = 0.0
-            rec.hours_sick = 0.0
-            rec.hours_absence_total = 0.0
-    
             if not rec.capacity_resource_id or not rec.week_date:
+                rec.hours_public_holiday = 0.0
+                rec.hours_leaves = 0.0
+                rec.hours_sick = 0.0
+                rec.hours_absence_total = 0.0
                 continue
-    
+
             calendar = rec.override_calendar_id or rec.resource_calendar_id
-            employee = rec.employee_id
-            rate = (rec.allocation_rate or 100.0) / 100.0
             dt_start, dt_end = rec._get_week_utc(calendar)
-    
-            # 1) Jours fériés: information seulement.
-            # On calcule les heures ouvrées perdues sur le calendrier,
-            # et non pas la plage brute du leave (ex. 07:30 -> 23:59:59).
+            rate = (rec.allocation_rate or 100.0) / 100.0
+            employee = rec.employee_id
+
+            # 1. Jours fériés société
             h_holiday = 0.0
             if calendar:
                 holidays = self.env['resource.calendar.leaves'].search([
@@ -191,16 +187,10 @@ class MrpCapacityWeek(models.Model):
                     ('date_from', '<=', fields.Datetime.to_string(dt_end)),
                     ('date_to', '>=', fields.Datetime.to_string(dt_start)),
                 ])
-                for holiday in holidays:
-                    h_holiday += rec._calendar_overlap_hours(
-                        calendar,
-                        holiday.date_from,
-                        holiday.date_to,
-                        dt_start,
-                        dt_end,
-                    )
-    
-            # 2) Congés validés hors maladie.
+                for h in holidays:
+                    h_holiday += self._overlap_hours(h.date_from, h.date_to, dt_start, dt_end)
+
+            # 2. Congés validés (tous types sauf maladie)
             h_leave = 0.0
             if employee:
                 leaves = self.env['hr.leave'].search([
@@ -210,10 +200,10 @@ class MrpCapacityWeek(models.Model):
                     ('date_from', '<=', fields.Datetime.to_string(dt_end)),
                     ('date_to', '>=', fields.Datetime.to_string(dt_start)),
                 ])
-                for leave in leaves:
-                    h_leave += rec._leave_hours_in_week(leave, dt_start, dt_end)
-    
-            # 3) Arrêts maladie.
+                for l in leaves:
+                    h_leave += self._leave_hours_in_week(l, dt_start, dt_end)
+
+            # 3. Arrêts maladie
             h_sick = 0.0
             if employee:
                 sick_types = self.env['hr.leave.type'].search([
@@ -221,30 +211,30 @@ class MrpCapacityWeek(models.Model):
                     ('time_type', '=', 'sick'),
                     ('name', 'ilike', 'maladie'),
                 ])
+                sick_domain = [
+                    ('employee_id', '=', employee.id),
+                    ('state', '=', 'validate'),
+                    ('date_from', '<=', fields.Datetime.to_string(dt_end)),
+                    ('date_to', '>=', fields.Datetime.to_string(dt_start)),
+                ]
                 if sick_types:
-                    sick_leaves = self.env['hr.leave'].search([
-                        ('employee_id', '=', employee.id),
-                        ('state', '=', 'validate'),
-                        ('holiday_status_id', 'in', sick_types.ids),
-                        ('date_from', '<=', fields.Datetime.to_string(dt_end)),
-                        ('date_to', '>=', fields.Datetime.to_string(dt_start)),
-                    ])
-                    for leave in sick_leaves:
-                        h_sick += rec._leave_hours_in_week(leave, dt_start, dt_end)
-                    h_leave = max(0.0, h_leave - h_sick)
-    
+                    sick_domain.append(('holiday_status_id', 'in', sick_types.ids))
+                    for s in self.env['hr.leave'].search(sick_domain):
+                        h_sick += self._leave_hours_in_week(s, dt_start, dt_end)
+                h_leave = max(0.0, h_leave - h_sick)
+
             rec.hours_public_holiday = round(h_holiday * rate, 2)
             rec.hours_leaves = round(h_leave * rate, 2)
             rec.hours_sick = round(h_sick * rate, 2)
-            # Important: les jours fériés sont déjà retirés par capacity_standard.
-            rec.hours_absence_total = round((h_leave + h_sick) * rate, 2)
-    
-    @api.depends('capacity_standard', 'capacity_override', 'hours_leaves', 'hours_sick')
+            rec.hours_absence_total = round((h_holiday + h_leave + h_sick) * rate, 2)
+
+    @api.depends('capacity_standard', 'capacity_override', 'hours_absence_total')
     def _compute_capacity_net(self):
         for rec in self:
-            base = rec.capacity_override if rec.capacity_override > 0.0 else rec.capacity_standard
-            rec.capacity_net = round(max(0.0, base - rec.hours_leaves - rec.hours_sick), 2)
-    
+            base = rec.capacity_override if rec.capacity_override > 0.0 \
+                else rec.capacity_standard
+            rec.capacity_net = round(max(0.0, base - rec.hours_absence_total), 2)
+
     @api.depends('capacity_net', 'hours_planned')
     def _compute_delta(self):
         for rec in self:
@@ -416,93 +406,35 @@ class MrpCapacityWeek(models.Model):
             return 7.8
         return sum(hours_by_day.values()) / len(hours_by_day)
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACTIONS
+    # ══════════════════════════════════════════════════════════════════════════
 
-    def _calendar_overlap_hours(self, calendar, leave_start, leave_end, period_start, period_end):
-        if not calendar or not leave_start or not leave_end:
-            return 0.0
-        overlap_start = max(leave_start, period_start)
-        overlap_end = min(leave_end, period_end)
-        if overlap_end <= overlap_start:
-            return 0.0
-        try:
-            tz = pytz.timezone(calendar.tz or 'UTC')
-            start_tz = pytz.utc.localize(overlap_start).astimezone(tz)
-            end_tz = pytz.utc.localize(overlap_end).astimezone(tz)
-            intervals = calendar._work_intervals_batch(start_tz, end_tz)
-            total = 0.0
-            for _key, interval_list in intervals.items():
-                for start, stop, _meta in interval_list:
-                    total += (stop - start).total_seconds() / 3600.0
-            return total
-        except Exception as exc:
-            _logger.warning('[MrpCapacity] overlap calendrier fallback: %s', exc)
-            return self._overlap_hours(overlap_start, overlap_end, period_start, period_end)
-    
+    def action_reset_override(self):
+        self.ensure_one()
+        self.capacity_override = 0.0
+        self.override_calendar_id = False
+
+    def action_recompute(self):
+        self.ensure_one()
+        self._compute_capacity_standard()
+        self._compute_absences()
+        self._compute_capacity_net()
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'message': 'Semaine recalculée avec succès.',
+                'type': 'success',
+                'sticky': False,
+            },
+        }
+
     @api.model
-    def recompute_range(self, date_from=False, date_to=False, resource_ids=False):
-        date_from = fields.Date.to_date(date_from or fields.Date.today())
-        date_to = fields.Date.to_date(date_to or (date_from + timedelta(weeks=52)))
-        date_from = date_from - timedelta(days=date_from.weekday())
-        date_to = date_to - timedelta(days=date_to.weekday())
-    
-        resources = resource_ids or self.env['mrp.capacity.resource'].search([('active', '=', True)])
-        created = 0
-        updated = 0
-        current = date_from
-        while current <= date_to:
-            for resource in resources:
-                if resource.date_start and resource.date_start > current + timedelta(days=6):
-                    continue
-                if resource.date_end and resource.date_end < current:
-                    continue
-                week = self.search([
-                    ('capacity_resource_id', '=', resource.id),
-                    ('week_date', '=', current),
-                ], limit=1)
-                if not week:
-                    week = self.create({
-                        'capacity_resource_id': resource.id,
-                        'week_date': current,
-                    })
-                    created += 1
-                else:
-                    week._compute_capacity_standard()
-                    week._compute_absences()
-                    week._compute_capacity_net()
-                    week._compute_delta()
-                    updated += 1
-            current += timedelta(weeks=1)
-        return {'created': created, 'updated': updated}
-    
-        # ══════════════════════════════════════════════════════════════════════════
-        # ACTIONS
-        # ══════════════════════════════════════════════════════════════════════════
-    
-        def action_reset_override(self):
-            self.ensure_one()
-            self.capacity_override = 0.0
-            self.override_calendar_id = False
-    
-        def action_recompute(self):
-            self.ensure_one()
-            self._compute_capacity_standard()
-            self._compute_absences()
-            self._compute_capacity_net()
-            return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'message': 'Semaine recalculée avec succès.',
-                    'type': 'success',
-                    'sticky': False,
-                },
-            }
-    
-        @api.model
-        def cron_recompute_absences(self):
-            today = fields.Date.today()
-            records = self.search([('week_date', '>=', today)])
-            if records:
-                records._compute_absences()
-                records._compute_capacity_net()
-                _logger.info('[MrpCapacity] Cron recalcul : %d lignes mises à jour', len(records))
+    def cron_recompute_absences(self):
+        today = fields.Date.today()
+        records = self.search([('week_date', '>=', today)])
+        if records:
+            records._compute_absences()
+            records._compute_capacity_net()
+            _logger.info('[MrpCapacity] Cron recalcul : %d lignes mises à jour', len(records))

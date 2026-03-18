@@ -131,36 +131,28 @@ class CapaciteCache(models.Model):
             len(aggregated)
         )
 
-
-    def refresh_all(self, date_from=False, date_to=False):
-        if 'mrp.capacity.week' in self.env:
-            self.env['mrp.capacity.week'].sudo().recompute_range(date_from=date_from, date_to=date_to)
-        self.refresh()
-        self.env['mrp.workorder.charge.cache'].refresh()
-        return True
-    
     def _get_working_days(self, calendar, week_date):
-            """
-            Retourne un dict {date: heures} pour chaque jour ouvré de la semaine.
-            Basé sur les attendance_ids du calendrier.
-            """
-            from datetime import timedelta
-            if not calendar or not calendar.attendance_ids:
-                return {}
-    
-            result = {}
-            for att in calendar.attendance_ids:
-                day_num = int(att.dayofweek)  # 0=lundi, 6=dimanche
-                day_date = week_date + timedelta(days=day_num)
-                # S'assure qu'on reste dans la semaine (lundi → dimanche)
-                if day_date > week_date + timedelta(days=6):
-                    continue
-                heures = att.hour_to - att.hour_from
-                result[day_date] = result.get(day_date, 0) + heures
-    
-            return result
-    
-    
+        """
+        Retourne un dict {date: heures} pour chaque jour ouvré de la semaine.
+        Basé sur les attendance_ids du calendrier.
+        """
+        from datetime import timedelta
+        if not calendar or not calendar.attendance_ids:
+            return {}
+
+        result = {}
+        for att in calendar.attendance_ids:
+            day_num = int(att.dayofweek)  # 0=lundi, 6=dimanche
+            day_date = week_date + timedelta(days=day_num)
+            # S'assure qu'on reste dans la semaine (lundi → dimanche)
+            if day_date > week_date + timedelta(days=6):
+                continue
+            heures = att.hour_to - att.hour_from
+            result[day_date] = result.get(day_date, 0) + heures
+
+        return result
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Cache CHARGE (depuis Workorders) - VERSION FINALE
 # Stocke la charge PRÉVUE par OF/poste/date
@@ -381,11 +373,9 @@ class CapaciteRefreshWizard(models.TransientModel):
         return res
 
     def action_refresh(self):
-        """Recalcule capacité ressources + macro planning + charge"""
-        date_from = fields.Date.today()
-        date_from = date_from - timedelta(days=date_from.weekday())
-        date_to = date_from + timedelta(weeks=52)
-        self.env['mrp.capacite.cache'].refresh_all(date_from=date_from, date_to=date_to)
+        """Recalcule capacité + charge"""
+        self.env['mrp.capacite.cache'].refresh()
+        self.env['mrp.workorder.charge.cache'].refresh()
         
         nb_capa = self.env['mrp.capacite.cache'].search_count([])
         nb_chrg = self.env['mrp.workorder.charge.cache'].search_count([])

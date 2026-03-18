@@ -7,21 +7,9 @@ class MrpReplanPreviewWizard(models.TransientModel):
     _name = 'mrp.replan.preview.wizard'
     _description = 'Prévisualisation du recalcul OF'
 
-    production_id = fields.Many2one(
-        'mrp.production',
-        string='Ordre de fabrication',
-        required=True,
-        readonly=True,
-    )
-    summary_html = fields.Html(
-        string='Résumé',
-        sanitize=False,
-        readonly=True,
-    )
-    preview_json = fields.Text(
-        string='Données techniques',
-        readonly=True,
-    )
+    production_id = fields.Many2one('mrp.production', string='Ordre de fabrication', required=True, readonly=True)
+    summary_html = fields.Html(string='Résumé', sanitize=False, readonly=True)
+    preview_json = fields.Text(string='Données techniques', readonly=True)
 
     def action_confirm(self):
         self.ensure_one()
