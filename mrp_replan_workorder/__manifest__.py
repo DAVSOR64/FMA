@@ -20,8 +20,10 @@
     ],
     
     'data': [
+        'security/ir.model.access.csv',
         'views/sale_order_views.xml',
         'views/mrp_workorder_views.xml',
+        'views/mrp_replan_preview_wizard_views.xml',
     ],
     'installable': True,
     'application': True,
