@@ -126,7 +126,7 @@ class CapaciteCache(models.Model):
         return result
 
     def _get_working_days(self, calendar, week_date):
-        """Retourne un dict {date: heures} pour chaque jour ouvré de la semaine."""
+        """Retourne un dict {date: heures} pour chaque jour ouvré de la semaine (SANS pauses)."""
         if not calendar or not calendar.attendance_ids:
             return {}
 
@@ -135,10 +135,26 @@ class CapaciteCache(models.Model):
             day_date = week_date + timedelta(days=i)
             weekday = str(day_date.weekday())
             day_hours = 0.0
-            for att in calendar.attendance_ids.filtered(lambda a: a.dayofweek == weekday and a.display_type != 'line_section'):
+
+            for att in calendar.attendance_ids.filtered(
+                lambda a: a.dayofweek == weekday and a.display_type != 'line_section'
+            ):
+                # 🔥 EXCLUSION DES PAUSES
+                name = (att.name or '').lower()
+
+                # Cas 1 : pause nommée
+                if 'pause' in name:
+                    continue
+
+                # Cas 2 : pause technique (si utilisé par Odoo)
+                if getattr(att, 'day_period', '') == 'break':
+                    continue
+
                 day_hours += max(0.0, (att.hour_to - att.hour_from))
+
             if day_hours > 0:
                 result[day_date] = round(day_hours, 2)
+
         return result
 
     def _get_calendar_leave_hours_by_day(self, calendar, week_start, week_end):
