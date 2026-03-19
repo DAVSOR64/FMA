@@ -44,22 +44,21 @@ class CapaciteCache(models.Model):
         """
         Recalcule la capacité depuis mrp.capacity.week (module mrp_capacity_planning).
 
-        Logique :
+        Nouvelle logique :
         - Une ligne mrp.capacity.week = 1 ressource × 1 semaine × 1 poste
-        - On ventile la capacité nette hebdomadaire sur les jours ouvrés
-          du calendrier de l'affectation (même logique que le calcul standard)
-        - capacity_net tient déjà compte des absences, fériés et overrides
+        - On calcule la capacité JOUR PAR JOUR à partir du calendrier réel
+        - Les jours fériés et absences restent sur leur(s) jour(s)
+        - On ne lisse plus la capacité nette sur toute la semaine
         """
         self.search([]).unlink()
 
-        # Vérifie que le module mrp_capacity_planning est installé
         if 'mrp.capacity.week' not in self.env:
             _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — capacité vide')
             return
 
-        # Toutes les semaines avec une capacité nette > 0
         weeks = self.env['mrp.capacity.week'].search([
-            ('capacity_net', '>', 0),
+            ('workcenter_id', '!=', False),
+            ('week_date', '!=', False),
         ])
 
         _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines trouvées', len(weeks))
@@ -70,33 +69,17 @@ class CapaciteCache(models.Model):
         vals_list = []
 
         for week in weeks:
-            if not week.workcenter_id or not week.week_date:
-                continue
-
             calendar = week.resource_calendar_id
-            capacity_net = week.capacity_net  # heures nettes de la semaine
+            resource = getattr(week, 'resource_id', False)
 
-            # Jours ouvrés de la semaine selon le calendrier
-            jours_ouvres = self._get_working_days(calendar, week.week_date)
+            # Capacité réelle par jour de la semaine, issue du calendrier Odoo.
+            jours_capacite = self._get_daily_capacity(calendar, week.week_date, resource=resource)
 
-            if not jours_ouvres:
-                # Fallback : 5 jours si pas de calendrier
-                from datetime import timedelta
-                jours_ouvres = {
-                    week.week_date + timedelta(days=i): 1.0
-                    for i in range(5)
-                }
-
-            # Heures totales calendrier de la semaine (pour pondération)
-            total_cal_hours = sum(jours_ouvres.values())
-            if total_cal_hours <= 0:
+            if not jours_capacite:
                 continue
 
-            for jour, heures_jour_cal in jours_ouvres.items():
-                # Proportion de la capacité nette pour ce jour
-                ratio = heures_jour_cal / total_cal_hours
-                capacite_jour = round(capacity_net * ratio, 2)
-
+            for jour, capacite_jour in jours_capacite.items():
+                capacite_jour = round(capacite_jour, 2)
                 if capacite_jour <= 0:
                     continue
 
@@ -105,10 +88,9 @@ class CapaciteCache(models.Model):
                     'workcenter_name': week.workcenter_id.name,
                     'date': jour,
                     'capacite_heures': capacite_jour,
-                    'nb_personnes': 1,  # 1 ressource par ligne capacity.week
+                    'nb_personnes': 1,
                 })
 
-        # Agrège les lignes du même poste/jour (plusieurs ressources sur même poste)
         aggregated = {}
         for v in vals_list:
             key = (v['workcenter_id'], v['date'])
@@ -131,26 +113,59 @@ class CapaciteCache(models.Model):
             len(aggregated)
         )
 
-    def _get_working_days(self, calendar, week_date):
+    def _get_daily_capacity(self, calendar, week_date, resource=False):
         """
-        Retourne un dict {date: heures} pour chaque jour ouvré de la semaine.
-        Basé sur les attendance_ids du calendrier.
+        Retourne un dict {date: heures} pour chaque jour de la semaine.
+
+        On s'appuie sur _work_intervals_batch pour récupérer les vraies heures
+        travaillées du calendrier sur chaque jour, en tenant compte des jours
+        fériés et des absences lorsqu'une ressource est fournie.
         """
-        from datetime import timedelta
-        if not calendar or not calendar.attendance_ids:
+        if not calendar or not week_date:
             return {}
 
-        result = {}
-        for att in calendar.attendance_ids:
-            day_num = int(att.dayofweek)  # 0=lundi, 6=dimanche
-            day_date = week_date + timedelta(days=day_num)
-            # S'assure qu'on reste dans la semaine (lundi → dimanche)
-            if day_date > week_date + timedelta(days=6):
-                continue
-            heures = att.hour_to - att.hour_from
-            result[day_date] = result.get(day_date, 0) + heures
+        week_start = datetime.combine(week_date, datetime.min.time())
+        week_end = week_start + timedelta(days=7)
 
-        return result
+        try:
+            start_utc = self._to_utc(week_start)
+            end_utc = self._to_utc(week_end)
+
+            resources = resource if resource else None
+            intervals_by_resource = calendar._work_intervals_batch(
+                start_utc,
+                end_utc,
+                resources=resources,
+            )
+
+            intervals = intervals_by_resource.get(resource or False, [])
+            result = {}
+            for day_offset in range(7):
+                current_day = week_date + timedelta(days=day_offset)
+                result[current_day] = 0.0
+
+            for start, end, _meta in intervals:
+                current_start = start
+                while current_start < end:
+                    current_day = current_start.date()
+                    next_midnight = datetime.combine(
+                        current_day + timedelta(days=1),
+                        datetime.min.time(),
+                        tzinfo=current_start.tzinfo,
+                    )
+                    slice_end = min(end, next_midnight)
+                    hours = (slice_end - current_start).total_seconds() / 3600.0
+                    result[current_day] = result.get(current_day, 0.0) + hours
+                    current_start = slice_end
+
+            return result
+        except Exception:
+            _logger.exception(
+                '[MacroPlanning] Erreur calcul capacité journalière calendrier=%s semaine=%s',
+                calendar.display_name,
+                week_date,
+            )
+            return {}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
