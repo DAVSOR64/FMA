@@ -126,36 +126,35 @@ class CapaciteCache(models.Model):
         return result
 
     def _get_working_days(self, calendar, week_date):
-        """Retourne un dict {date: heures} pour chaque jour ouvré de la semaine (SANS pauses)."""
-        if not calendar or not calendar.attendance_ids:
+        """Capacité réelle par jour via _work_intervals_batch (fiable, sans pauses)."""
+        if not calendar:
             return {}
 
         result = {}
-        for i in range(7):
-            day_date = week_date + timedelta(days=i)
-            weekday = str(day_date.weekday())
-            day_hours = 0.0
 
-            for att in calendar.attendance_ids.filtered(
-                lambda a: a.dayofweek == weekday and a.display_type != 'line_section'
-            ):
-                # 🔥 EXCLUSION DES PAUSES
-                name = (att.name or '').lower()
+        # Fenêtre semaine
+        start_dt = datetime.combine(week_date, datetime.min.time())
+        end_dt = start_dt + timedelta(days=7)
 
-                # Cas 1 : pause nommée
-                if 'pause' in name:
-                    continue
+        try:
+            start_dt = self._to_utc(start_dt)
+            end_dt = self._to_utc(end_dt)
 
-                # Cas 2 : pause technique (si utilisé par Odoo)
-                if getattr(att, 'day_period', '') == 'break':
-                    continue
+            intervals = calendar._work_intervals_batch(start_dt, end_dt)
+            work_intervals = intervals.get(False, [])
 
-                day_hours += max(0.0, (att.hour_to - att.hour_from))
+            for start, stop, _meta in work_intervals:
+                day = start.date()
+                hours = (stop - start).total_seconds() / 3600.0
 
-            if day_hours > 0:
-                result[day_date] = round(day_hours, 2)
+                result[day] = result.get(day, 0.0) + hours
 
-        return result
+        except Exception as e:
+            _logger.error("Erreur calcul calendrier : %s", str(e))
+            return {}
+
+        # arrondi final
+        return {d: round(h, 2) for d, h in result.items()}
 
     def _get_calendar_leave_hours_by_day(self, calendar, week_start, week_end):
         res = {}
