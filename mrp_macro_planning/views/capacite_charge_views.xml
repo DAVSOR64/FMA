@@ -236,22 +236,15 @@
                         domain="[('taux_charge', '&gt;=', 80), ('taux_charge', '&lt;=', 100)]"/>
                 <filter string="En retard" name="retard"
                         domain="[('ecart', '&lt;', 0)]"/>
-                <separator/>
-                <filter string="3 prochaines semaines" name="trois_semaines"
-                        domain="[('date', '&gt;=', context_today().strftime('%Y-%m-%d')),
-                                 ('date', '&lt;=', (context_today() + relativedelta(weeks=3)).strftime('%Y-%m-%d'))]"/>
-                <separator/>
                 <field name="workcenter_id" string="Poste de travail"/>
                 <field name="date" string="Date"/>
                 <group expand="1" string="Regrouper par">
-                    <filter string="Mois" name="group_mois"
+                    <filter string="Mois" name="group_month"
                             context="{'group_by': 'date:month'}"/>
-                    <filter string="Semaine" name="group_semaine"
+                    <filter string="Semaine" name="group_week"
                             context="{'group_by': 'date:week'}"/>
                     <filter string="Poste de travail" name="group_workcenter"
                             context="{'group_by': 'workcenter_name'}"/>
-                    <filter string="Date" name="group_date"
-                            context="{'group_by': 'date'}"/>
                 </group>
             </search>
         </field>
@@ -262,7 +255,7 @@
         <field name="res_model">mrp.capacite.charge</field>
         <field name="view_mode">tree,pivot</field>
         <field name="search_view_id" ref="view_capacite_charge_search"/>
-<field name="context">{}</field>
+        <field name="context">{}</field>
     </record>
 
 </odoo>

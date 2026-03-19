@@ -3,7 +3,7 @@ from odoo import models, fields, tools, api
 import logging
 import traceback
 import pytz
-from datetime import timedelta, datetime, time
+from datetime import timedelta, datetime
 
 _logger = logging.getLogger(__name__)
 
@@ -44,81 +44,48 @@ class CapaciteCache(models.Model):
         """
         Recalcule la capacité depuis mrp.capacity.week (module mrp_capacity_planning).
 
-        Logique :
-        - Une ligne mrp.capacity.week = 1 ressource × 1 semaine × 1 poste
-        - On calcule la capacité JOUR PAR JOUR à partir du calendrier réel
-        - Les absences / congés / jours fériés doivent retirer la capacité
-          sur le(s) jour(s) concerné(s), sans lisser sur la semaine
+        Nouvelle logique :
+        - on ne lisse plus la capacité nette sur la semaine ;
+        - on calcule la capacité JOUR PAR JOUR à partir du calendrier ;
+        - on enlève sur le jour concerné :
+            * les jours fériés / calendar leaves,
+            * les congés validés,
+            * les maladies validées.
         """
         self.search([]).unlink()
 
-        # Vérifie que le module mrp_capacity_planning est installé
         if 'mrp.capacity.week' not in self.env:
             _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — capacité vide')
             return
 
-        # Toutes les semaines avec une capacité nette > 0
-        weeks = self.env['mrp.capacity.week'].search([
-            ('capacity_net', '>', 0),
-        ])
-
+        weeks = self.env['mrp.capacity.week'].search([])
         _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines trouvées', len(weeks))
-
         if not weeks:
             return
 
-        vals_list = []
+        aggregated = {}
 
         for week in weeks:
             if not week.workcenter_id or not week.week_date:
                 continue
 
-            calendar = week.resource_calendar_id
-            resource = getattr(week, 'resource_id', False)
-
-            # Capacité réelle JOUR PAR JOUR (non lissée)
-            jours_ouvres = self._get_net_working_days(calendar, week.week_date, resource)
-
-            if not jours_ouvres:
-                # Fallback : calendrier brut puis déduction des absences par jour
-                jours_ouvres = self._get_working_days(calendar, week.week_date)
-                if jours_ouvres and resource:
-                    jours_ouvres = {
-                        jour: max(heures - self._get_absence_hours(resource, calendar, jour), 0.0)
-                        for jour, heures in jours_ouvres.items()
-                    }
-
-            if not jours_ouvres:
+            daily_hours = self._get_daily_capacity_map(week)
+            if not daily_hours:
                 continue
 
-            for jour, capacite_jour in jours_ouvres.items():
-                capacite_jour = round(capacite_jour or 0.0, 2)
-
-                if capacite_jour <= 0:
-                    continue
-
-                vals_list.append({
-                    'workcenter_id': week.workcenter_id.id,
-                    'workcenter_name': week.workcenter_id.name,
-                    'date': jour,
-                    'capacite_heures': capacite_jour,
-                    'nb_personnes': 1,  # 1 ressource par ligne capacity.week
-                })
-
-        # Agrège les lignes du même poste/jour (plusieurs ressources sur même poste)
-        aggregated = {}
-        for v in vals_list:
-            key = (v['workcenter_id'], v['date'])
-            if key not in aggregated:
-                aggregated[key] = {
-                    'workcenter_id': v['workcenter_id'],
-                    'workcenter_name': v['workcenter_name'],
-                    'date': v['date'],
-                    'capacite_heures': 0.0,
-                    'nb_personnes': 0,
-                }
-            aggregated[key]['capacite_heures'] += v['capacite_heures']
-            aggregated[key]['nb_personnes'] += 1
+            for jour, capacite_jour in daily_hours.items():
+                # garder la ligne même à 0 pour voir le jour d'absence
+                key = (week.workcenter_id.id, jour)
+                if key not in aggregated:
+                    aggregated[key] = {
+                        'workcenter_id': week.workcenter_id.id,
+                        'workcenter_name': week.workcenter_id.name,
+                        'date': jour,
+                        'capacite_heures': 0.0,
+                        'nb_personnes': 0,
+                    }
+                aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
+                aggregated[key]['nb_personnes'] += 1
 
         if aggregated:
             self.create(list(aggregated.values()))
@@ -128,132 +95,126 @@ class CapaciteCache(models.Model):
             len(aggregated)
         )
 
+    def _get_daily_capacity_map(self, week):
+        """Retourne {date: heures_nettes} pour une semaine de capacité."""
+        calendar = week.override_calendar_id or week.resource_calendar_id
+        if not calendar:
+            return {}
+
+        employee = week.employee_id
+        rate = (week.allocation_rate or 100.0) / 100.0
+        week_start = week.week_date
+        week_end = week.week_end_date or (week.week_date + timedelta(days=6))
+
+        # 1) capacité brute du calendrier par jour (sans absences)
+        base_map = self._get_working_days(calendar, week_start)
+        # inclure tous les jours ouvrés de la semaine même si capacité finale = 0
+        result = {d: round(h * rate, 2) for d, h in base_map.items()}
+
+        if not result:
+            return {}
+
+        # 2) jours fériés / calendar leaves : on retire sur le jour concerné
+        holiday_map = self._get_calendar_leave_hours_by_day(calendar, week_start, week_end)
+
+        # 3) congés et maladies validés de l'employé : on retire sur le jour concerné
+        leave_map = self._get_employee_leave_hours_by_day(employee, calendar, week_start, week_end)
+
+        for day in list(result.keys()):
+            result[day] = max(0.0, round(result[day] - (holiday_map.get(day, 0.0) * rate) - (leave_map.get(day, 0.0) * rate), 2))
+
+        return result
+
     def _get_working_days(self, calendar, week_date):
-        """
-        Retourne un dict {date: heures} pour chaque jour ouvré de la semaine.
-        Basé sur les attendance_ids du calendrier.
-        """
-        from datetime import timedelta
+        """Retourne un dict {date: heures} pour chaque jour ouvré de la semaine."""
         if not calendar or not calendar.attendance_ids:
             return {}
 
         result = {}
-        for att in calendar.attendance_ids:
-            day_num = int(att.dayofweek)  # 0=lundi, 6=dimanche
-            day_date = week_date + timedelta(days=day_num)
-            # S'assure qu'on reste dans la semaine (lundi → dimanche)
-            if day_date > week_date + timedelta(days=6):
-                continue
-            heures = att.hour_to - att.hour_from
-            result[day_date] = result.get(day_date, 0) + heures
-
+        for i in range(7):
+            day_date = week_date + timedelta(days=i)
+            weekday = str(day_date.weekday())
+            day_hours = 0.0
+            for att in calendar.attendance_ids.filtered(lambda a: a.dayofweek == weekday and a.display_type != 'line_section'):
+                day_hours += max(0.0, (att.hour_to - att.hour_from))
+            if day_hours > 0:
+                result[day_date] = round(day_hours, 2)
         return result
 
-    def _get_net_working_days(self, calendar, week_date, resource=False):
-        """
-        Retourne la capacité réelle par jour pour la semaine :
-        - heures du calendrier
-        - moins jours fériés / congés / absences sur le jour concerné
-        Sans lissage sur la semaine.
-        """
-        if not calendar or not week_date:
-            return {}
+    def _get_calendar_leave_hours_by_day(self, calendar, week_start, week_end):
+        res = {}
+        if not calendar:
+            return res
 
+        leaves = self.env['resource.calendar.leaves'].search([
+            ('calendar_id', '=', calendar.id),
+            ('date_from', '<=', fields.Datetime.to_string(datetime.combine(week_end, datetime.max.time()))),
+            ('date_to', '>=', fields.Datetime.to_string(datetime.combine(week_start, datetime.min.time()))),
+        ])
+        for leave in leaves:
+            self._accumulate_overlap_by_day(res, calendar, leave.date_from, leave.date_to, week_start, week_end)
+        return res
+
+    def _get_employee_leave_hours_by_day(self, employee, calendar, week_start, week_end):
+        res = {}
+        if not employee:
+            return res
+
+        leaves = self.env['hr.leave'].search([
+            ('employee_id', '=', employee.id),
+            ('state', '=', 'validate'),
+            ('date_from', '<=', fields.Datetime.to_string(datetime.combine(week_end, datetime.max.time()))),
+            ('date_to', '>=', fields.Datetime.to_string(datetime.combine(week_start, datetime.min.time()))),
+        ])
+        for leave in leaves:
+            self._accumulate_overlap_by_day(res, calendar, leave.date_from, leave.date_to, week_start, week_end)
+        return res
+
+    def _accumulate_overlap_by_day(self, bucket, calendar, leave_start, leave_end, week_start, week_end):
+        """Ajoute dans bucket les heures d'absence recouvrant le calendrier, par jour."""
+        if not leave_start or not leave_end or not calendar:
+            return
+
+        cal_tz_name = calendar.tz or 'UTC'
         try:
-            date_start = datetime.combine(week_date, time.min)
-            date_end = date_start + timedelta(days=7)
-
-            tz_name = self.env.user.tz or 'UTC'
-            local_tz = pytz.timezone(tz_name)
-            date_start_utc = self._to_utc(date_start)
-            date_end_utc = self._to_utc(date_end)
-
-            kwargs = {}
-            if resource:
-                kwargs['resources'] = resource
-
-            intervals = calendar._work_intervals_batch(date_start_utc, date_end_utc, **kwargs)
-
-            work_intervals = []
-            if resource and hasattr(intervals, 'get'):
-                work_intervals = intervals.get(resource, []) or intervals.get(getattr(resource, 'id', None), [])
-            if not work_intervals and hasattr(intervals, 'get'):
-                work_intervals = intervals.get(False, [])
-
-            result = {}
-            for start, stop, _meta in work_intervals:
-                start_local = start.astimezone(local_tz) if getattr(start, 'tzinfo', None) else pytz.utc.localize(start).astimezone(local_tz)
-                stop_local = stop.astimezone(local_tz) if getattr(stop, 'tzinfo', None) else pytz.utc.localize(stop).astimezone(local_tz)
-                jour = start_local.date()
-                heures = (stop_local - start_local).total_seconds() / 3600.0
-                if heures > 0:
-                    result[jour] = result.get(jour, 0.0) + heures
-
-            # Sécurise l'affichage des jours de la semaine avec capacité nulle si absence totale
-            raw_days = self._get_working_days(calendar, week_date)
-            for jour in raw_days:
-                result.setdefault(jour, 0.0)
-
-            return result
+            tz = pytz.timezone(cal_tz_name)
         except Exception:
-            _logger.exception('[MacroPlanning] erreur _get_net_working_days, fallback sur calendrier brut')
-            result = self._get_working_days(calendar, week_date)
-            if resource:
-                result = {
-                    jour: max(heures - self._get_absence_hours(resource, calendar, jour), 0.0)
-                    for jour, heures in result.items()
-                }
-            return result
+            tz = pytz.UTC
 
-    def _get_absence_hours(self, resource, calendar, jour):
-        """
-        Fallback si _work_intervals_batch ne retire pas correctement les absences.
-        On calcule les absences du jour en coupant sur les heures prévues du calendrier.
-        """
-        if not resource or not calendar or not jour:
-            return 0.0
+        # normalise en UTC aware
+        if leave_start.tzinfo is None:
+            leave_start = pytz.UTC.localize(leave_start)
+        else:
+            leave_start = leave_start.astimezone(pytz.UTC)
+        if leave_end.tzinfo is None:
+            leave_end = pytz.UTC.localize(leave_end)
+        else:
+            leave_end = leave_end.astimezone(pytz.UTC)
 
-        day_start = datetime.combine(jour, time.min)
-        day_end = day_start + timedelta(days=1)
-        day_start_utc = self._to_utc(day_start)
-        day_end_utc = self._to_utc(day_end)
+        for i in range(7):
+            day = week_start + timedelta(days=i)
+            if day > week_end:
+                break
 
-        # Intervalles théoriques du jour (sans tenir compte des absences)
-        attendances = self._get_working_days(calendar, jour)
-        theoretical_hours = attendances.get(jour, 0.0)
-        if theoretical_hours <= 0:
-            return 0.0
+            weekday = str(day.weekday())
+            attendances = calendar.attendance_ids.filtered(lambda a: a.dayofweek == weekday and a.display_type != 'line_section')
+            if not attendances:
+                continue
 
-        total_absence = 0.0
+            hours = 0.0
+            for att in attendances:
+                local_start = tz.localize(datetime.combine(day, datetime.min.time()) + timedelta(hours=att.hour_from))
+                local_end = tz.localize(datetime.combine(day, datetime.min.time()) + timedelta(hours=att.hour_to))
+                att_start = local_start.astimezone(pytz.UTC)
+                att_end = local_end.astimezone(pytz.UTC)
 
-        # 1) resource.calendar.leaves (jours fériés + indisponibilités ressources)
-        leave_domain = [
-            ('date_from', '<', day_end_utc),
-            ('date_to', '>', day_start_utc),
-            '|',
-            ('resource_id', '=', resource.id),
-            '&', ('resource_id', '=', False), ('calendar_id', '=', calendar.id),
-        ]
-        for leave in self.env['resource.calendar.leaves'].sudo().search(leave_domain):
-            start = max(leave.date_from, day_start_utc.replace(tzinfo=None) if getattr(leave.date_from, 'tzinfo', None) is None else day_start_utc)
-            stop = min(leave.date_to, day_end_utc.replace(tzinfo=None) if getattr(leave.date_to, 'tzinfo', None) is None else day_end_utc)
-            hours = (stop - start).total_seconds() / 3600.0
+                overlap_start = max(att_start, leave_start)
+                overlap_end = min(att_end, leave_end)
+                if overlap_end > overlap_start:
+                    hours += (overlap_end - overlap_start).total_seconds() / 3600.0
+
             if hours > 0:
-                total_absence += hours
-
-        # 2) hr.leave validés si la resource est liée à un employé
-        employee = getattr(resource, 'employee_id', False)
-        if employee:
-            hr_domain = [
-                ('employee_id', '=', employee.id),
-                ('state', 'in', ['validate', 'validate1']),
-                ('request_date_from', '<=', jour),
-                ('request_date_to', '>=', jour),
-            ]
-            if self.env['hr.leave'].sudo().search_count(hr_domain):
-                total_absence = max(total_absence, theoretical_hours)
-
-        return min(total_absence, theoretical_hours)
+                bucket[day] = round(bucket.get(day, 0.0) + hours, 2)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
