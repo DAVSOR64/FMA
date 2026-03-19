@@ -930,3 +930,68 @@ class MrpProduction(models.Model):
                         pass
         except Exception as e:
             _logger.warning("Impossible de rafraîchir cache charge : %s", str(e))
+
+
+    def action_replan_operations(self):
+        """Action appelée depuis un bouton Studio sur l'OF.
+
+        Usage Studio :
+        - Type de bouton : Objet
+        - Nom de la méthode : action_replan_operations
+
+        Effet :
+        - Recalcule les macro_planned_start des WO à partir des durées actuelles
+        - Recale les dates de l'OF
+        - Rafraîchit le cache de charge
+        - Affiche une notification avec les nouvelles dates
+        """
+        self.ensure_one()
+
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
+        if not workorders:
+            raise UserError(_("Aucune opération active à recalculer sur cet OF."))
+
+        # Si une date de fin existe, on garde la logique métier actuelle : rétroplanning depuis la fin.
+        # Sinon, on replannifie en avant depuis la date de début.
+        if self.date_deadline or self.date_finished or getattr(self, 'x_studio_date_de_fin', False):
+            end_dt = self.date_deadline or self.date_finished
+            if not end_dt and getattr(self, 'x_studio_date_de_fin', False):
+                last_wc = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))[-1].workcenter_id
+                end_dt = self._evening_dt(self.x_studio_date_de_fin, last_wc) if last_wc else datetime.combine(self.x_studio_date_de_fin, time(17, 0))
+            self._recalculate_macro_backward(workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)), end_dt=end_dt)
+        else:
+            if not self.date_start and not self.date_planned_start:
+                raise UserError(_("Aucune date de début n'est définie sur l'OF."))
+            start_dt = self.date_start or self.date_planned_start
+            # sécurise la date de départ avant recalcul forward
+            self.with_context(skip_macro_recalc=True, from_macro_update=True, mail_notrack=True).write({
+                'date_start': start_dt,
+                'date_planned_start': start_dt,
+            })
+            self._recalculate_macro_forward(workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)))
+
+        # Si l'OF est déjà planifié, on pousse aussi les macros sur les dates WO pour le gantt
+        try:
+            self.with_context(skip_macro_recalc=True).apply_macro_to_workorders_dates()
+        except Exception:
+            _logger.exception("Erreur pendant apply_macro_to_workorders_dates sur %s", self.name)
+
+        self._refresh_charge_cache_for_production()
+
+        start_label = fields.Datetime.to_string(self.date_start) if self.date_start else '-'
+        end_label = fields.Datetime.to_string(self.date_finished or self.date_deadline) if (self.date_finished or self.date_deadline) else '-'
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Planning recalculé'),
+                'message': _('OF %(mo)s replanifié. Début : %(start)s | Fin : %(end)s') % {
+                    'mo': self.name,
+                    'start': start_label,
+                    'end': end_label,
+                },
+                'type': 'success',
+                'sticky': False,
+            }
+        }
