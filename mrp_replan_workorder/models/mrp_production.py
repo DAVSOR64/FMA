@@ -990,8 +990,7 @@ class MrpProduction(models.Model):
                 po_lines.append(f"{po.name} : {delivery_txt}")
             lines.append(_("PO liés : %s") % " | ".join(po_lines))
 
-        return "
-".join(lines)
+        return "".join(lines)
 
     def action_replan_operations(self):
         """
