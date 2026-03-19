@@ -990,7 +990,7 @@ class MrpProduction(models.Model):
                 po_lines.append(f"{po.name} : {delivery_txt}")
             lines.append(_("PO liés : %s") % " | ".join(po_lines))
 
-        return "".join(lines)
+        return "\n".join(lines)
 
     def action_replan_operations(self):
         """
@@ -1030,9 +1030,7 @@ class MrpProduction(models.Model):
             production._update_components_picking_dates()
             production._refresh_charge_cache_for_production()
 
-        message = "
-
-".join(self.mapped('_format_replan_notification_message'))
+        message = "\n\n".join(self.mapped('_format_replan_notification_message'))
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
