@@ -932,66 +932,115 @@ class MrpProduction(models.Model):
             _logger.warning("Impossible de rafraîchir cache charge : %s", str(e))
 
 
-    def action_replan_operations(self):
-        """Action appelée depuis un bouton Studio sur l'OF.
-
-        Usage Studio :
-        - Type de bouton : Objet
-        - Nom de la méthode : action_replan_operations
-
-        Effet :
-        - Recalcule les macro_planned_start des WO à partir des durées actuelles
-        - Recale les dates de l'OF
-        - Rafraîchit le cache de charge
-        - Affiche une notification avec les nouvelles dates
-        """
+    def _get_related_sale_order(self):
         self.ensure_one()
+        so = False
+        if hasattr(self, 'x_studio_mtn_mrp_sale_order') and self.x_studio_mtn_mrp_sale_order:
+            so = self.x_studio_mtn_mrp_sale_order
+        elif getattr(self, 'sale_id', False):
+            so = self.sale_id
+        elif self.procurement_group_id and self.procurement_group_id.sale_id:
+            so = self.procurement_group_id.sale_id
+        elif self.origin:
+            so = self.env['sale.order'].search([('name', '=', self.origin)], limit=1)
+        return so
 
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
-        if not workorders:
-            raise UserError(_("Aucune opération active à recalculer sur cet OF."))
+    def _get_related_purchase_orders(self):
+        self.ensure_one()
+        PurchaseOrder = self.env['purchase.order']
+        pos = PurchaseOrder.browse()
 
-        # Si une date de fin existe, on garde la logique métier actuelle : rétroplanning depuis la fin.
-        # Sinon, on replannifie en avant depuis la date de début.
-        if self.date_deadline or self.date_finished or getattr(self, 'x_studio_date_de_fin', False):
-            end_dt = self.date_deadline or self.date_finished
-            if not end_dt and getattr(self, 'x_studio_date_de_fin', False):
-                last_wc = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))[-1].workcenter_id
-                end_dt = self._evening_dt(self.x_studio_date_de_fin, last_wc) if last_wc else datetime.combine(self.x_studio_date_de_fin, time(17, 0))
-            self._recalculate_macro_backward(workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)), end_dt=end_dt)
-        else:
-            if not self.date_start and not self.date_planned_start:
-                raise UserError(_("Aucune date de début n'est définie sur l'OF."))
-            start_dt = self.date_start or self.date_planned_start
-            # sécurise la date de départ avant recalcul forward
-            self.with_context(skip_macro_recalc=True, from_macro_update=True, mail_notrack=True).write({
-                'date_start': start_dt,
-                'date_planned_start': start_dt,
-            })
-            self._recalculate_macro_forward(workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)))
+        if 'group_id' in PurchaseOrder._fields and self.procurement_group_id:
+            pos |= PurchaseOrder.search([
+                ('group_id', '=', self.procurement_group_id.id),
+                ('state', 'not in', ('cancel',)),
+            ])
 
-        # Si l'OF est déjà planifié, on pousse aussi les macros sur les dates WO pour le gantt
-        try:
-            self.with_context(skip_macro_recalc=True).apply_macro_to_workorders_dates()
-        except Exception:
-            _logger.exception("Erreur pendant apply_macro_to_workorders_dates sur %s", self.name)
+        if not pos and self.origin:
+            pos |= PurchaseOrder.search([
+                ('origin', 'ilike', self.origin),
+                ('state', 'not in', ('cancel',)),
+            ])
 
-        self._refresh_charge_cache_for_production()
+        so = self._get_related_sale_order()
+        if not pos and so:
+            pos |= PurchaseOrder.search([
+                ('origin', 'ilike', so.name),
+                ('state', 'not in', ('cancel',)),
+            ])
 
-        start_label = fields.Datetime.to_string(self.date_start) if self.date_start else '-'
-        end_label = fields.Datetime.to_string(self.date_finished or self.date_deadline) if (self.date_finished or self.date_deadline) else '-'
+        return pos.sorted(lambda p: (p.date_planned or fields.Datetime.now(), p.name or ''))
 
+    def _format_replan_notification_message(self):
+        self.ensure_one()
+        start_txt = fields.Datetime.to_string(self.date_start) if self.date_start else '-'
+        end_txt = fields.Datetime.to_string(self.date_finished or self.date_deadline) if (self.date_finished or self.date_deadline) else '-'
+
+        lines = [
+            _("Début fab : %s") % start_txt,
+            _("Fin fab : %s") % end_txt,
+        ]
+
+        pos = self._get_related_purchase_orders()
+        if pos:
+            po_lines = []
+            for po in pos[:5]:
+                delivery = po.date_planned or po.date_approve or po.create_date
+                delivery_txt = fields.Datetime.to_string(delivery) if delivery else '-'
+                po_lines.append(f"{po.name} : {delivery_txt}")
+            lines.append(_("PO liés : %s") % " | ".join(po_lines))
+
+        return "
+".join(lines)
+
+    def action_replan_operations(self):
+        """
+        Recalcule l'OF en repassant dans la logique initiale de rétroplanning :
+        - on repart de la date de livraison de la commande,
+        - on recalcule les macro_planned_start des WO depuis les durées actuelles,
+        - on met à jour la date de début/fin OF,
+        - on met à jour la date de transfert composants,
+        - on réapplique les dates sur les WO pour le Gantt.
+        """
+        for production in self:
+            so = production._get_related_sale_order()
+            if not so:
+                raise UserError(_(
+                    "Impossible de recalculer : aucune commande de vente liée n'a été trouvée pour l'OF %s."
+                ) % production.name)
+
+            if not so.commitment_date:
+                raise UserError(_(
+                    "Impossible de recalculer : la commande %s n'a pas de date de livraison promise."
+                ) % so.name)
+
+            # Même logique que le calcul initial : on repart de la livraison.
+            production.with_context(
+                skip_macro_recalc=True,
+                mail_notrack=True,
+            ).compute_macro_schedule_from_sale(so, security_days=6)
+
+            # Réappliquer les macros sur les dates réelles des WO pour le gantt / planning.
+            production.with_context(
+                skip_macro_recalc=True,
+                mail_notrack=True,
+            ).apply_macro_to_workorders_dates()
+
+            # Recaler l'OF après réécriture des WO et rafraîchir les caches.
+            production._update_mo_dates_from_macro(forced_end_dt=production.macro_forced_end or False)
+            production._update_components_picking_dates()
+            production._refresh_charge_cache_for_production()
+
+        message = "
+
+".join(self.mapped('_format_replan_notification_message'))
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
                 'title': _('Planning recalculé'),
-                'message': _('OF %(mo)s replanifié. Début : %(start)s | Fin : %(end)s') % {
-                    'mo': self.name,
-                    'start': start_label,
-                    'end': end_label,
-                },
+                'message': message,
                 'type': 'success',
-                'sticky': False,
+                'sticky': True,
             }
         }
