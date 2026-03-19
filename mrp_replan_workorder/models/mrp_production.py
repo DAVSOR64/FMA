@@ -932,112 +932,69 @@ class MrpProduction(models.Model):
             _logger.warning("Impossible de rafraîchir cache charge : %s", str(e))
 
 
-    def _get_related_sale_order(self):
+    def _get_replan_sale_order(self):
         self.ensure_one()
-        so = False
         if hasattr(self, 'x_studio_mtn_mrp_sale_order') and self.x_studio_mtn_mrp_sale_order:
-            so = self.x_studio_mtn_mrp_sale_order
-        elif getattr(self, 'sale_id', False):
-            so = self.sale_id
-        elif self.procurement_group_id and self.procurement_group_id.sale_id:
-            so = self.procurement_group_id.sale_id
-        elif self.origin:
-            so = self.env['sale.order'].search([('name', '=', self.origin)], limit=1)
-        return so
+            return self.x_studio_mtn_mrp_sale_order
+        if getattr(self, 'sale_id', False):
+            return self.sale_id
+        if self.procurement_group_id and self.procurement_group_id.sale_id:
+            return self.procurement_group_id.sale_id
+        return False
 
-    def _get_related_purchase_orders(self):
+    def _build_replan_notification_message(self):
         self.ensure_one()
-        PurchaseOrder = self.env['purchase.order']
-        pos = PurchaseOrder.browse()
-
-        if 'group_id' in PurchaseOrder._fields and self.procurement_group_id:
-            pos |= PurchaseOrder.search([
-                ('group_id', '=', self.procurement_group_id.id),
-                ('state', 'not in', ('cancel',)),
-            ])
-
-        if not pos and self.origin:
-            pos |= PurchaseOrder.search([
-                ('origin', 'ilike', self.origin),
-                ('state', 'not in', ('cancel',)),
-            ])
-
-        so = self._get_related_sale_order()
-        if not pos and so:
-            pos |= PurchaseOrder.search([
-                ('origin', 'ilike', so.name),
-                ('state', 'not in', ('cancel',)),
-            ])
-
-        return pos.sorted(lambda p: (p.date_planned or fields.Datetime.now(), p.name or ''))
-
-    def _format_replan_notification_message(self):
-        self.ensure_one()
-        start_txt = fields.Datetime.to_string(self.date_start) if self.date_start else '-'
-        end_txt = fields.Datetime.to_string(self.date_finished or self.date_deadline) if (self.date_finished or self.date_deadline) else '-'
+        po_lines = []
+        try:
+            moves = (self.move_raw_ids | self.move_finished_ids)
+            po_lines = moves.mapped('move_orig_ids.purchase_line_id.order_id')
+            po_lines |= moves.mapped('purchase_line_id.order_id')
+            po_lines = po_lines.filtered(lambda p: p)
+        except Exception:
+            po_lines = self.env['purchase.order']
 
         lines = [
-            _("Début fab : %s") % start_txt,
-            _("Fin fab : %s") % end_txt,
+            "Replanification effectuée",
+            "",
+            "Début fabrication : %s" % (fields.Datetime.to_string(self.date_start) if self.date_start else "-"),
+            "Fin fabrication : %s" % (fields.Datetime.to_string(self.date_finished) if self.date_finished else "-"),
         ]
 
-        pos = self._get_related_purchase_orders()
-        if pos:
-            po_lines = []
-            for po in pos[:5]:
-                delivery = po.date_planned or po.date_approve or po.create_date
-                delivery_txt = fields.Datetime.to_string(delivery) if delivery else '-'
-                po_lines.append(f"{po.name} : {delivery_txt}")
-            lines.append(_("PO liés : %s") % " | ".join(po_lines))
+        if po_lines:
+            lines.append("")
+            lines.append("PO liés :")
+            for po in po_lines.sorted(lambda p: p.name or ''):
+                delivery = po.date_planned or po.date_order
+                delivery_str = fields.Datetime.to_string(delivery) if delivery else "-"
+                lines.append("- %s | livraison : %s" % (po.name, delivery_str))
 
         return "\n".join(lines)
 
     def action_replan_operations(self):
-        """
-        Recalcule l'OF en repassant dans la logique initiale de rétroplanning :
-        - on repart de la date de livraison de la commande,
-        - on recalcule les macro_planned_start des WO depuis les durées actuelles,
-        - on met à jour la date de début/fin OF,
-        - on met à jour la date de transfert composants,
-        - on réapplique les dates sur les WO pour le Gantt.
-        """
+        messages = []
         for production in self:
-            so = production._get_related_sale_order()
-            if not so:
-                raise UserError(_(
-                    "Impossible de recalculer : aucune commande de vente liée n'a été trouvée pour l'OF %s."
-                ) % production.name)
+            sale_order = production._get_replan_sale_order()
+            if not sale_order:
+                raise UserError(_("Aucune commande de vente liée à cet OF."))
 
-            if not so.commitment_date:
-                raise UserError(_(
-                    "Impossible de recalculer : la commande %s n'a pas de date de livraison promise."
-                ) % so.name)
+            if not sale_order.commitment_date:
+                raise UserError(_("La commande liée n'a pas de date de livraison renseignée."))
 
-            # Même logique que le calcul initial : on repart de la livraison.
-            production.with_context(
-                skip_macro_recalc=True,
-                mail_notrack=True,
-            ).compute_macro_schedule_from_sale(so, security_days=6)
-
-            # Réappliquer les macros sur les dates réelles des WO pour le gantt / planning.
-            production.with_context(
-                skip_macro_recalc=True,
-                mail_notrack=True,
-            ).apply_macro_to_workorders_dates()
-
-            # Recaler l'OF après réécriture des WO et rafraîchir les caches.
-            production._update_mo_dates_from_macro(forced_end_dt=production.macro_forced_end or False)
+            # On repasse volontairement par la logique initiale existante du module.
+            production.compute_macro_schedule_from_sale(sale_order, security_days=6)
+            production.apply_macro_to_workorders_dates()
             production._update_components_picking_dates()
             production._refresh_charge_cache_for_production()
 
-        message = "\n\n".join(self.mapped('_format_replan_notification_message'))
+            messages.append(production._build_replan_notification_message())
+
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
                 'title': _('Planning recalculé'),
-                'message': message,
-                'type': 'success',
+                'message': "\n\n".join(messages),
                 'sticky': True,
+                'type': 'success',
             }
         }
