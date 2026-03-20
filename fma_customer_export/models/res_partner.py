@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
 import io
@@ -15,15 +14,21 @@ class ResPartner(models.Model):
     _inherit = "res.partner"
 
     is_included_in_customers_export_file = fields.Boolean()
-    attachment_ids = fields.Many2many(
-        "ir.attachment", "partner_attachment_rel", string="Attachments"
-    )
+
+    # ⚠️ TEMPORAIRE : commenter si problème persiste
+    # attachment_ids = fields.Many2many(
+    #     "ir.attachment", "partner_attachment_rel", string="Attachments"
+    # )
+
     encours_max = fields.Char()
 
     def write(self, vals):
-        if not vals.get("is_included_in_customers_export_file"):
-            vals["is_included_in_customers_export_file"] = False
-        return super(ResPartner, self).write(vals)
+        # ✅ FIX : ne toucher au champ QUE s’il est dans vals
+        if "is_included_in_customers_export_file" in vals:
+            if not vals.get("is_included_in_customers_export_file"):
+                vals["is_included_in_customers_export_file"] = False
+
+        return super().write(vals)
 
     def _get_file_content(self, partners):
         content_lines = []
@@ -145,6 +150,7 @@ class ResPartner(models.Model):
 
     def _log_file_for_each_partner(self, partners, file):
         attachment_url = f"/web/content/{file.id}?download=true"
+
         for partner in partners:
             partner.message_post(
                 body=Markup(
@@ -154,9 +160,11 @@ class ResPartner(models.Model):
                 )
                 % (attachment_url, file.name)
             )
-            # FIX sudo ici
-            partner.sudo().attachment_ids = [(4, file.id)]
-            partner.is_included_in_customers_export_file = True
+
+            # ✅ FIX sudo
+            partner.sudo().write({
+                "is_included_in_customers_export_file": True
+            })
 
     def cron_generate_generate_customer_files(self):
         partners = self.search(
@@ -168,11 +176,12 @@ class ResPartner(models.Model):
 
         try:
             file_content = self._get_file_content(partners)
+
             file_name = (
                 f"Customer_Details_{fields.Datetime.now().strftime('%Y-%m-%d')}.txt"
             )
 
-            # FIX sudo ici
+            # ✅ FIX sudo
             file = self.env["ir.attachment"].sudo().create(
                 {
                     "name": file_name,
@@ -187,12 +196,10 @@ class ResPartner(models.Model):
             self._log_file_for_each_partner(partners, file)
 
         except Exception as e:
-            _logger.exception(
-                "Failed to create customer file for %s: %s", self.name, e
-            )
+            _logger.exception("Erreur export clients: %s", e)
 
     def cron_send_customers_file_to_sftp_server(self):
-        # FIX sudo ici
+        # ✅ FIX sudo
         attachments = self.env["ir.attachment"].sudo().search(
             [
                 ("res_model", "=", "res.partner"),
@@ -202,20 +209,19 @@ class ResPartner(models.Model):
         )
 
         get_param = self.env["ir.config_parameter"].sudo().get_param
+
         sftp_server_host = get_param("fma_customer_export.sftp_server_host")
         sftp_server_username = get_param("fma_customer_export.sftp_server_username")
         sftp_server_password = get_param("fma_customer_export.sftp_server_password")
         sftp_server_file_path = get_param("fma_customer_export.sftp_server_file_path")
 
-        if not all(
-            [
-                sftp_server_host,
-                sftp_server_username,
-                sftp_server_password,
-                sftp_server_file_path,
-            ]
-        ):
-            _logger.error("Missing one or more SFTP server credentials.")
+        if not all([
+            sftp_server_host,
+            sftp_server_username,
+            sftp_server_password,
+            sftp_server_file_path,
+        ]):
+            _logger.error("Paramètres SFTP manquants")
             return
 
         for attachment in attachments:
@@ -228,11 +234,13 @@ class ResPartner(models.Model):
                         sftp_server_password,
                         sftp_server_file_path,
                     )
-                    attachment.is_synced_to_sftp = True
+
+                    attachment.sudo().write({
+                        "is_synced_to_sftp": True
+                    })
+
             except Exception as e:
-                _logger.error(
-                    f"Failed to sync customer file {attachment.name}.txt to SFTP server: {e}"
-                )
+                _logger.error("Erreur SFTP: %s", e)
 
     def _sync_file(
         self,
@@ -243,33 +251,20 @@ class ResPartner(models.Model):
         sftp_server_file_path,
     ):
         attachment_content = base64.b64decode(attachment.datas)
+
         try:
             transport = paramiko.Transport((sftp_server_host, 22))
             transport.connect(
-                username=sftp_server_username, password=sftp_server_password
+                username=sftp_server_username,
+                password=sftp_server_password
             )
+
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp.chdir(sftp_server_file_path)
 
             with io.BytesIO(attachment_content) as file_obj:
                 sftp.putfo(file_obj, attachment.name)
 
-            _logger.info(
-                "File %s uploaded successfully to SFTP server.", attachment.name
-            )
-
-        except paramiko.SSHException as sftp_error:
-            _logger.error(
-                "SFTP error while uploading file %s: %s",
-                attachment.name,
-                sftp_error,
-            )
-        except Exception as upload_error:
-            _logger.error(
-                "Unexpected error while uploading file %s: %s",
-                attachment.name,
-                upload_error,
-            )
         finally:
             if "sftp" in locals():
                 sftp.close()
