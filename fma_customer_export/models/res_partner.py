@@ -18,7 +18,6 @@ class ResPartner(models.Model):
     attachment_ids = fields.Many2many(
         "ir.attachment", "partner_attachment_rel", string="Attachments"
     )
-    # Below field is yet to be used, for now considered as ''
     encours_max = fields.Char()
 
     def write(self, vals):
@@ -27,16 +26,13 @@ class ResPartner(models.Model):
         return super(ResPartner, self).write(vals)
 
     def _get_file_content(self, partners):
-        """Get customer details for the .txt file based on given fields."""
         content_lines = []
         for partner in partners:
             line = [
                 "PCC",
                 "I",
-                str(partner.property_account_receivable_id.code or "").ljust(
-                    9
-                ),  # Code tiers
-                str(partner.name or "").ljust(35),  # Nom
+                str(partner.property_account_receivable_id.code or "").ljust(9),
+                str(partner.name or "").ljust(35),
                 "0NNNN0",
                 "     ",
                 "ODNNON",
@@ -50,7 +46,7 @@ class ResPartner(models.Model):
                 (
                     str(partner.x_studio_civilit_1 or "").ljust(4)
                     + str(partner.name or "").ljust(89)
-                ),  # Civilité + nom
+                ),
                 "0",
                 "                             ",
                 "FRA",
@@ -148,10 +144,8 @@ class ResPartner(models.Model):
         return "\n".join(content_lines)
 
     def _log_file_for_each_partner(self, partners, file):
-        """Log the generated file content for each partner."""
         attachment_url = f"/web/content/{file.id}?download=true"
         for partner in partners:
-            # Acknowledge in the chatter
             partner.message_post(
                 body=Markup(
                     _(
@@ -160,13 +154,11 @@ class ResPartner(models.Model):
                 )
                 % (attachment_url, file.name)
             )
-            # Add the file to attachments as well
-            partner.attachment_ids = [(4, file.id)]
-            # Mark the record as included
+            # FIX sudo ici
+            partner.sudo().attachment_ids = [(4, file.id)]
             partner.is_included_in_customers_export_file = True
 
     def cron_generate_generate_customer_files(self):
-        """Cron to generate customer details .txt file."""
         partners = self.search(
             [
                 ("is_included_in_customers_export_file", "=", False),
@@ -179,7 +171,9 @@ class ResPartner(models.Model):
             file_name = (
                 f"Customer_Details_{fields.Datetime.now().strftime('%Y-%m-%d')}.txt"
             )
-            file = self.env["ir.attachment"].create(
+
+            # FIX sudo ici
+            file = self.env["ir.attachment"].sudo().create(
                 {
                     "name": file_name,
                     "type": "binary",
@@ -191,12 +185,15 @@ class ResPartner(models.Model):
             )
 
             self._log_file_for_each_partner(partners, file)
+
         except Exception as e:
-            _logger.exception("Failed to create customer file for %s: %s", self.name, e)
+            _logger.exception(
+                "Failed to create customer file for %s: %s", self.name, e
+            )
 
     def cron_send_customers_file_to_sftp_server(self):
-        """Sync the unsynced customer files to SFTP server."""
-        attachments = self.env["ir.attachment"].search(
+        # FIX sudo ici
+        attachments = self.env["ir.attachment"].sudo().search(
             [
                 ("res_model", "=", "res.partner"),
                 ("is_customer_txt", "=", True),
@@ -204,12 +201,12 @@ class ResPartner(models.Model):
             ]
         )
 
-        # Fetch the SFTP credentials
         get_param = self.env["ir.config_parameter"].sudo().get_param
         sftp_server_host = get_param("fma_customer_export.sftp_server_host")
         sftp_server_username = get_param("fma_customer_export.sftp_server_username")
         sftp_server_password = get_param("fma_customer_export.sftp_server_password")
         sftp_server_file_path = get_param("fma_customer_export.sftp_server_file_path")
+
         if not all(
             [
                 sftp_server_host,
@@ -245,10 +242,8 @@ class ResPartner(models.Model):
         sftp_server_password,
         sftp_server_file_path,
     ):
-        """Upload the customers file to the SFTP server."""
         attachment_content = base64.b64decode(attachment.datas)
         try:
-            # Create an SFTP connection
             transport = paramiko.Transport((sftp_server_host, 22))
             transport.connect(
                 username=sftp_server_username, password=sftp_server_password
@@ -256,16 +251,18 @@ class ResPartner(models.Model):
             sftp = paramiko.SFTPClient.from_transport(transport)
             sftp.chdir(sftp_server_file_path)
 
-            # Upload the file
             with io.BytesIO(attachment_content) as file_obj:
                 sftp.putfo(file_obj, attachment.name)
+
             _logger.info(
                 "File %s uploaded successfully to SFTP server.", attachment.name
             )
 
         except paramiko.SSHException as sftp_error:
             _logger.error(
-                "SFTP error while uploading file %s: %s", attachment.name, sftp_error
+                "SFTP error while uploading file %s: %s",
+                attachment.name,
+                sftp_error,
             )
         except Exception as upload_error:
             _logger.error(
