@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import math
+import json
 from datetime import datetime, timedelta, time, date
 
 import pytz
@@ -405,9 +406,10 @@ class MrpProduction(models.Model):
         if vals:
             comp_pickings.with_context(mail_notrack=True).write(vals)
 
-        self.message_post(
-            body=f"🧪 DEBUG : pickings MAJ ({len(comp_pickings)}) scheduled={scheduled_dt} deadline={deadline_dt}"
-        )
+        if not self.env.context.get("skip_replan_preview"):
+            self.message_post(
+                body=f"🧪 DEBUG : pickings MAJ ({len(comp_pickings)}) scheduled={scheduled_dt} deadline={deadline_dt}"
+            )
 
     # ============================================================
     # CAPACITY RULES HELPER
@@ -915,134 +917,6 @@ class MrpProduction(models.Model):
                 days_late
             ))
 
-
-    def _get_replan_fixed_end_dt(self):
-        """
-        Retourne la date de fin fixe utilisée pour le rétroplanning manuel.
-        Priorité au champ métier de fin si renseigné, sinon date_deadline/date_finished.
-        """
-        self.ensure_one()
-
-        wos = self.workorder_ids.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-        last_wc = wos[-1].workcenter_id if wos else False
-
-        x_end = getattr(self, 'x_studio_date_fin', False) or getattr(self, 'x_studio_date_de_fin', False)
-        if x_end:
-            if isinstance(x_end, datetime):
-                return x_end
-            if last_wc:
-                return self._evening_dt(x_end, last_wc)
-            return datetime.combine(x_end, time(17, 0))
-
-        return self.macro_forced_end or self.date_deadline or self.date_finished or self.date_planned_finished or False
-
-    def _get_linked_purchase_orders(self):
-        """
-        Remonte les PO liés à l'OF via le procurement group et/ou les mouvements destination.
-        """
-        self.ensure_one()
-        PurchaseOrder = self.env['purchase.order']
-        po_set = PurchaseOrder.browse()
-
-        if self.procurement_group_id:
-            po_lines = self.env['purchase.order.line'].search([
-                ('move_dest_ids.group_id', '=', self.procurement_group_id.id),
-            ])
-            po_set |= po_lines.mapped('order_id')
-
-        # fallback standard MTO / composants OF
-        po_lines2 = self.env['purchase.order.line'].search([
-            ('move_dest_ids.raw_material_production_id', '=', self.id),
-        ])
-        po_set |= po_lines2.mapped('order_id')
-
-        return po_set.sorted(lambda p: (p.date_planned or datetime.min, p.name or ''))
-
-    def action_replan_operations(self):
-        """
-        Recalcule le planning de l'OF en repartant d'une fin FIXE :
-        - conserve la logique métier existante (_recalculate_macro_backward)
-        - conserve le calcul du nombre de personnes / durée effective
-        - conserve le jour de décalage entre opérations
-        - ne bouge PAS la date de fin métier
-        - met à jour les WO, l'OF et le transfert composants
-        """
-        for production in self:
-            active_wos = production.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
-            active_wos = active_wos.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-
-            if not active_wos:
-                raise UserError(_("Aucune opération à recalculer."))
-
-            fixed_end_dt = production._get_replan_fixed_end_dt()
-            if not fixed_end_dt:
-                raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
-
-            # On synchronise les champs standards de fin sans déclencher de boucle.
-            production.with_context(
-                skip_macro_recalc=True,
-                from_macro_update=True,
-                mail_notrack=True,
-            ).write({
-                'date_deadline': fixed_end_dt,
-                'date_finished': fixed_end_dt,
-            })
-
-            # 1) Rétroplanning avec le moteur métier existant
-            production.with_context(skip_macro_recalc=True)._recalculate_macro_backward(
-                active_wos,
-                end_dt=fixed_end_dt,
-            )
-
-            # 2) Application des macros sur les WO pour le gantt / planning
-            production.with_context(skip_macro_recalc=True).apply_macro_to_workorders_dates()
-
-            # 3) Recaler l'OF en gardant explicitement la fin fixe
-            production.with_context(skip_macro_recalc=True)._update_mo_dates_from_macro(
-                forced_end_dt=fixed_end_dt,
-            )
-
-            # 4) Mise à jour du transfert composants
-            production.with_context(skip_macro_recalc=True)._update_components_picking_dates()
-
-            # 5) Contrôle de dépassement de livraison
-            production._check_delivery_date_exceeded()
-
-            # 6) Rafraîchir le cache charge
-            production._refresh_charge_cache_for_production()
-
-            # 7) Message avec PO liés
-            purchase_orders = production._get_linked_purchase_orders()
-            po_text = ", ".join(
-                "%s (%s)" % (
-                    po.name,
-                    fields.Datetime.to_datetime(po.date_planned).strftime('%Y-%m-%d') if po.date_planned else '-'
-                )
-                for po in purchase_orders
-            ) or _("Aucun PO lié")
-
-            message = _(
-                "Replanification effectuée\n"
-                "Début fabrication : %s\n"
-                "Fin fabrication : %s\n"
-                "PO liés : %s"
-            ) % (
-                fields.Datetime.to_datetime(production.date_start).strftime('%Y-%m-%d %H:%M:%S') if production.date_start else '-',
-                fields.Datetime.to_datetime(fixed_end_dt).strftime('%Y-%m-%d %H:%M:%S') if fixed_end_dt else '-',
-                po_text,
-            )
-
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': _('Planning recalculé'),
-                'message': message,
-                'type': 'success',
-                'sticky': True,
-            }
-        }
-
     def _refresh_charge_cache_for_production(self):
         """Rafraîchit le cache charge pour cet OF"""
         try:
@@ -1058,3 +932,219 @@ class MrpProduction(models.Model):
                         pass
         except Exception as e:
             _logger.warning("Impossible de rafraîchir cache charge : %s", str(e))
+
+
+def _snapshot_replan_state(self):
+    self.ensure_one()
+    return {
+        "mo": {
+            "date_start": self.date_start,
+            "date_planned_start": self.date_planned_start if "date_planned_start" in self._fields else False,
+            "date_finished": self.date_finished if "date_finished" in self._fields else False,
+            "date_planned_finished": self.date_planned_finished if "date_planned_finished" in self._fields else False,
+            "date_deadline": self.date_deadline if "date_deadline" in self._fields else False,
+            "macro_forced_end": self.macro_forced_end if "macro_forced_end" in self._fields else False,
+            "x_studio_date_de_fin": self.x_studio_date_de_fin if "x_studio_date_de_fin" in self._fields else False,
+        },
+        "workorders": {
+            wo.id: {
+                "macro_planned_start": wo.macro_planned_start if "macro_planned_start" in wo._fields else False,
+                "date_start": wo.date_start if "date_start" in wo._fields else False,
+                "date_finished": wo.date_finished if "date_finished" in wo._fields else False,
+                "date_planned_start": wo.date_planned_start if "date_planned_start" in wo._fields else False,
+                "date_planned_finished": wo.date_planned_finished if "date_planned_finished" in wo._fields else False,
+                "x_nb_resources": wo.x_nb_resources if "x_nb_resources" in wo._fields else False,
+            }
+            for wo in self.workorder_ids
+        },
+        "pickings": {
+            p.id: {
+                "scheduled_date": p.scheduled_date if "scheduled_date" in p._fields else False,
+                "date_deadline": p.date_deadline if "date_deadline" in p._fields else False,
+            }
+            for p in self.env["stock.picking"].search([
+                ("group_id", "=", self.procurement_group_id.id),
+                ("state", "not in", ("done", "cancel")),
+            ]) if self.procurement_group_id
+        }
+    }
+
+def _restore_replan_state(self, snapshot):
+    self.ensure_one()
+    mo_vals = {}
+    for fname, val in snapshot.get("mo", {}).items():
+        if fname in self._fields:
+            mo_vals[fname] = val
+    if mo_vals:
+        self.with_context(skip_macro_recalc=True, from_macro_update=True, mail_notrack=True).write(mo_vals)
+
+    for wo in self.workorder_ids:
+        wo_snap = snapshot.get("workorders", {}).get(wo.id)
+        if not wo_snap:
+            continue
+        vals = {fname: val for fname, val in wo_snap.items() if fname in wo._fields}
+        if vals:
+            wo.with_context(skip_macro_recalc=True, skip_shift_chain=True, mail_notrack=True).write(vals)
+
+    if snapshot.get("pickings"):
+        picks = self.env["stock.picking"].browse(list(snapshot["pickings"].keys())).exists()
+        for p in picks:
+            vals = {fname: val for fname, val in snapshot["pickings"][p.id].items() if fname in p._fields}
+            if vals:
+                p.with_context(mail_notrack=True).write(vals)
+
+def _get_replan_fixed_end_dt(self):
+    self.ensure_one()
+    fixed_end_dt = self.macro_forced_end or self.date_deadline or self.date_finished or self.date_planned_finished
+    if not fixed_end_dt:
+        raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
+    return fields.Datetime.to_datetime(fixed_end_dt)
+
+def _get_replan_purchase_orders(self):
+    self.ensure_one()
+    pos = self.env["purchase.order"]
+    if self.procurement_group_id:
+        po_lines = self.env["purchase.order.line"].search([
+            ("move_dest_ids.group_id", "=", self.procurement_group_id.id),
+        ])
+        pos |= po_lines.mapped("order_id")
+
+    if not pos:
+        po_lines = self.env["purchase.order.line"].search([
+            ("move_dest_ids.raw_material_production_id", "=", self.id)
+        ])
+        pos |= po_lines.mapped("order_id")
+
+    return pos.sorted(lambda p: (p.date_planned or fields.Datetime.now(), p.name or ""))
+
+def _render_replan_preview_html(self, payload):
+    po_rows = payload.get("purchase_orders") or []
+    rows = "".join(
+        f"<tr><td>{po.get('name','')}</td><td>{po.get('supplier','')}</td><td>{po.get('date_planned','-')}</td></tr>"
+        for po in po_rows
+    )
+    if not rows:
+        rows = "<tr><td colspan='3'>Aucun PO lié</td></tr>"
+
+    return f"""
+        <div>
+            <p><b>Début fabrication :</b> {payload.get('date_start','-')}</p>
+            <p><b>Fin fabrication :</b> {payload.get('date_end','-')}</p>
+            <p><b>Date de transfert :</b> {payload.get('transfer_date','-')}</p>
+            <br/>
+            <table class='table table-sm table-bordered'>
+                <thead>
+                    <tr><th>PO</th><th>Fournisseur</th><th>Date prévue</th></tr>
+                </thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>
+    """
+
+def _build_replan_preview_payload(self):
+    self.ensure_one()
+    fixed_end_dt = self._get_replan_fixed_end_dt()
+    snapshot = self._snapshot_replan_state()
+    try:
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        if not workorders:
+            raise UserError(_("Aucune opération à recalculer."))
+
+        self.with_context(skip_macro_recalc=True, skip_replan_preview=True)._recalculate_macro_backward(
+            workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)),
+            end_dt=fixed_end_dt,
+        )
+        self.with_context(skip_macro_recalc=True, skip_replan_preview=True).apply_macro_to_workorders_dates()
+        self.with_context(skip_macro_recalc=True, skip_replan_preview=True)._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
+        self.with_context(skip_macro_recalc=True, skip_replan_preview=True)._update_components_picking_dates()
+
+        pickings = self.env["stock.picking"].search([
+            ("group_id", "=", self.procurement_group_id.id),
+            ("state", "not in", ("done", "cancel")),
+        ]) if self.procurement_group_id else self.env["stock.picking"]
+        transfer_date = False
+        if pickings:
+            transfer_date = min(pickings.mapped("scheduled_date")) if pickings.mapped("scheduled_date") else False
+
+        purchase_orders = self._get_replan_purchase_orders()
+        payload = {
+            "date_start": fields.Datetime.to_string(self.date_start) if self.date_start else "-",
+            "date_end": fields.Datetime.to_string(fixed_end_dt) if fixed_end_dt else "-",
+            "transfer_date": fields.Datetime.to_string(transfer_date) if transfer_date else "-",
+            "purchase_orders": [
+                {
+                    "name": po.name or "",
+                    "supplier": po.partner_id.display_name or "",
+                    "date_planned": fields.Datetime.to_string(po.date_planned) if po.date_planned else "-",
+                }
+                for po in purchase_orders
+            ],
+        }
+    finally:
+        self._restore_replan_state(snapshot)
+
+    return payload
+
+def action_open_replan_preview(self):
+    self.ensure_one()
+    payload = self._build_replan_preview_payload()
+    wizard = self.env["mrp.replan.preview.wizard"].create({
+        "production_id": self.id,
+        "preview_json": json.dumps(payload),
+        "summary_html": self._render_replan_preview_html(payload),
+    })
+    return {
+        "type": "ir.actions.act_window",
+        "res_model": "mrp.replan.preview.wizard",
+        "res_id": wizard.id,
+        "view_mode": "form",
+        "target": "new",
+    }
+
+def action_apply_replan_preview(self, payload=None):
+    self.ensure_one()
+    fixed_end_dt = self._get_replan_fixed_end_dt()
+    workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+    if not workorders:
+        raise UserError(_("Aucune opération à recalculer."))
+
+    self.with_context(skip_macro_recalc=True)._recalculate_macro_backward(
+        workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)),
+        end_dt=fixed_end_dt,
+    )
+    self.with_context(skip_macro_recalc=True).apply_macro_to_workorders_dates()
+    self.with_context(skip_macro_recalc=True)._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
+    self.with_context(skip_macro_recalc=True)._update_components_picking_dates()
+    self._check_delivery_date_exceeded()
+
+    purchase_orders = self._get_replan_purchase_orders()
+    po_txt = ", ".join(
+        "%s - %s (%s)" % (
+            po.name,
+            po.partner_id.display_name or "-",
+            fields.Datetime.to_string(po.date_planned) if po.date_planned else "-"
+        )
+        for po in purchase_orders
+    ) or "Aucun PO lié"
+
+    message = (
+        "Replanification effectuée\n"
+        "Début fabrication : %s\n"
+        "Fin fabrication : %s\n"
+        "PO liés : %s"
+    ) % (
+        fields.Datetime.to_string(self.date_start) if self.date_start else "-",
+        fields.Datetime.to_string(fixed_end_dt) if fixed_end_dt else "-",
+        po_txt,
+    )
+    return {
+        "type": "ir.actions.client",
+        "tag": "display_notification",
+        "params": {
+            "title": _("Planning recalculé"),
+            "message": message,
+            "type": "success",
+            "sticky": True,
+        }
+    }
+

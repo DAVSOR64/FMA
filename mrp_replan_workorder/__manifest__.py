@@ -22,6 +22,8 @@
     'data': [
         'views/sale_order_views.xml',
         'views/mrp_workorder_views.xml',
+        'views/mrp_replan_preview_wizard_views.xml',
+        'security/ir.model.access.csv',
     ],
     'installable': True,
     'application': True,
