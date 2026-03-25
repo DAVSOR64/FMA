@@ -1,18 +1,16 @@
-# -*- coding: utf-8 -*-
+from odoo import models, fields
 import json
-
-from odoo import fields, models
 
 
 class MrpReplanPreviewWizard(models.TransientModel):
     _name = "mrp.replan.preview.wizard"
-    _description = "Prévisualisation replanification OF"
+    _description = "Preview Replan"
 
-    production_id = fields.Many2one("mrp.production", required=True, readonly=True)
-    summary_html = fields.Html(readonly=True, sanitize=False)
-    preview_json = fields.Text(readonly=True)
+    production_id = fields.Many2one("mrp.production")
+    preview_json = fields.Text()
+    summary_html = fields.Html()
 
     def action_confirm(self):
-        self.ensure_one()
         payload = json.loads(self.preview_json or "{}")
-        return self.production_id.action_apply_replan_preview(payload)
+        self.production_id._apply_replan_real(payload)
+        return {"type": "ir.actions.act_window_close"}
