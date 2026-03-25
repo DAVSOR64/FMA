@@ -1,96 +1,98 @@
-import json
-from odoo import models, fields, _
-from odoo.exceptions import UserError
+def action_open_replan_preview(self):
+    self.ensure_one()
 
+    workorders = self.workorder_ids.filtered(
+        lambda w: w.state not in ("done", "cancel")
+    )
 
-class MrpProduction(models.Model):
-    _inherit = "mrp.production"
+    if not workorders:
+        raise UserError(_("Aucune opération à recalculer"))
 
-    def action_open_replan_preview(self):
-        self.ensure_one()
-
-        workorders = self.workorder_ids.filtered(
-            lambda w: w.state not in ("done", "cancel")
+    def _wo_start(wo):
+        return (
+            getattr(wo, "macro_planned_start", False)
+            or getattr(wo, "date_start", False)
+            or False
         )
 
-        if not workorders:
-            raise UserError(_("Aucune opération à recalculer"))
+    def _wo_end(wo):
+        return (
+            getattr(wo, "macro_planned_end", False)
+            or getattr(wo, "date_finished", False)
+            or False
+        )
 
-        # 🔥 SNAPSHOT
-        snapshot = {
-            "wo": {
-                wo.id: {
-                    "start": wo.date_planned_start,
-                    "end": wo.date_planned_finished,
-                }
-                for wo in workorders
-            },
-            "mo_start": self.date_start,
-        }
-
-        fixed_end = (
-            getattr(self, "macro_forced_end", False)
+    # SNAPSHOT compatible Odoo 17 / custom
+    snapshot = {
+        "wo": {
+            wo.id: {
+                "start": _wo_start(wo),
+                "end": _wo_end(wo),
+            }
+            for wo in workorders
+        },
+        "mo_start": self.date_start,
+        "mo_end": (
+            getattr(self, "date_planned_finished", False)
+            or getattr(self, "date_finished", False)
             or self.date_deadline
-            or self.date_finished
-            or self.date_planned_finished
-        )
+            or getattr(self, "macro_forced_end", False)
+        ),
+    }
 
-        # 🔥 CALCUL RÉEL (simulation)
-        self._run_real_replan(fixed_end)
+    fixed_end = (
+        getattr(self, "macro_forced_end", False)
+        or self.date_deadline
+        or getattr(self, "date_finished", False)
+        or getattr(self, "date_planned_finished", False)
+    )
 
-        # 🔥 LECTURE RESULTAT
-        new_start = self.date_start
+    if not fixed_end:
+        raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
 
-        # 🔥 RESTORE
-        for wo in workorders:
-            data = snapshot["wo"][wo.id]
-            wo.date_planned_start = data["start"]
-            wo.date_planned_finished = data["end"]
+    # calcul réel en simulation
+    self._run_real_replan(fixed_end)
 
-        self.date_start = snapshot["mo_start"]
+    new_start = self.date_start
+    new_end = (
+        getattr(self, "date_planned_finished", False)
+        or getattr(self, "date_finished", False)
+        or fixed_end
+    )
 
-        html = f"""
-            <p><b>Début :</b> {new_start}</p>
-            <p><b>Fin :</b> {fixed_end}</p>
-        """
+    # restore snapshot
+    for wo in workorders:
+        data = snapshot["wo"][wo.id]
 
-        wiz = self.env["mrp.replan.preview.wizard"].create({
-            "production_id": self.id,
-            "preview_json": json.dumps({"end": str(fixed_end)}),
-            "summary_html": html,
-        })
+        if hasattr(wo, "macro_planned_start"):
+            wo.macro_planned_start = data["start"]
+        elif hasattr(wo, "date_start"):
+            wo.date_start = data["start"]
 
-        return {
-            "type": "ir.actions.act_window",
-            "res_model": "mrp.replan.preview.wizard",
-            "res_id": wiz.id,
-            "view_mode": "form",
-            "target": "new",
-        }
+        if hasattr(wo, "macro_planned_end"):
+            wo.macro_planned_end = data["end"]
+        elif hasattr(wo, "date_finished"):
+            wo.date_finished = data["end"]
 
-    # 🔥 TON MOTEUR EXISTANT
-    def _run_real_replan(self, fixed_end):
-        workorders = self.workorder_ids.filtered(
-            lambda w: w.state not in ("done", "cancel")
-        )
+    self.date_start = snapshot["mo_start"]
+    if hasattr(self, "date_finished"):
+        self.date_finished = snapshot["mo_end"]
 
-        ctx = self.with_context(skip_macro_recalc=True)
+    html = f"""
+        <p><b>Début :</b> {new_start or '-'}</p>
+        <p><b>Fin :</b> {new_end or '-'}</p>
+    """
 
-        ctx._recalculate_macro_backward(workorders, end_dt=fixed_end)
-        ctx.apply_macro_to_workorders_dates()
-        ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end)
-        ctx._update_components_picking_dates()
+    wiz = self.env["mrp.replan.preview.wizard"].create({
+        "production_id": self.id,
+        "preview_json": json.dumps({"end": str(fixed_end)}),
+        "summary_html": html,
+    })
 
-    def _apply_replan_real(self, payload):
-        fixed_end = (
-            getattr(self, "macro_forced_end", False)
-            or self.date_deadline
-            or self.date_finished
-            or self.date_planned_finished
-        )
-
-        self._run_real_replan(fixed_end)
-
-    # alias studio
-    def action_replan_operations(self):
-        return self.action_open_replan_preview()
+    return {
+        "type": "ir.actions.act_window",
+        "res_model": "mrp.replan.preview.wizard",
+        "res_id": wiz.id,
+        "view_mode": "form",
+        "target": "new",
+    }
