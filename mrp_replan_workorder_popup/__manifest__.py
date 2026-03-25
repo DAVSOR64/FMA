@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MRP Replan Workorder Popup',
-    'version': '18.0.1.0.0',
+    'version': '17.0.1.0.0',
     'summary': 'Popup de prévisualisation pour la replanification OF',
     'depends': ['mrp', 'purchase_stock', 'mrp_replan_workorder'],
     'data': [
@@ -10,5 +10,5 @@
     ],
     'license': 'LGPL-3',
     'installable': True,
-    'application': False,
+    'application': True,
 }
