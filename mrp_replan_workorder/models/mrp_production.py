@@ -124,64 +124,78 @@ class MrpProduction(models.Model):
         """
         Phase 2 (clic sur Planifier) :
         - Sauvegarde les macro_planned_start AVANT super().button_plan()
-        - Exécute la planif standard (change les états WO, supprime les congés ressource, etc.)
-        - APRÈS le super (qui remet les WO à False), restaure les dates depuis les macros
-        - Recale les dates de l'OF
+        - Exécute la planif standard Odoo
+        - APRÈS le super, restaure les macros
+        - Réapplique les vraies dates via apply_macro_to_workorders_dates()
+        - Recale OF + transfert composants
         """
-        _logger.warning("********** dans le module (macro only) **********")
+        _logger.warning("********** button_plan avec restauration macro **********")
 
-        # ── 1. Sauvegarder les macro_planned_start AVANT le super() ──
         macro_backup = {}
+        end_backup = {}
+
         for production in self:
+            end_backup[production.id] = (
+                production.date_deadline
+                or production.date_finished
+                or getattr(production, "date_planned_finished", False)
+            )
+
             for wo in production.workorder_ids:
                 if wo.macro_planned_start:
-                    macro_backup[wo.id] = fields.Datetime.to_datetime(wo.macro_planned_start)
+                    macro_backup[wo.id] = {
+                        "macro_planned_start": fields.Datetime.to_datetime(wo.macro_planned_start),
+                        "x_nb_resources": getattr(wo, "x_nb_resources", 1) or 1,
+                    }
 
-        _logger.info("BUTTON_PLAN : sauvegarde %d macro_planned_start", len(macro_backup))
+        _logger.info("BUTTON_PLAN : sauvegarde %d macros", len(macro_backup))
 
-        # ── 2. Planif standard Odoo avec tous les guards activés ──
-        # skip_macro_recalc : bloque _recalculate_macro_on_date_change pendant le super()
-        # in_button_plan : guard supplémentaire
         res = super(MrpProduction, self.with_context(
             skip_macro_recalc=True,
             in_button_plan=True,
         )).button_plan()
 
-        # ── 3. Restaurer les dates depuis les macros sauvegardés ──
-        # Le super() a remis date_start/date_finished des WO à False — on les réapplique ici
         for production in self:
-            workorders = production.workorder_ids.sorted(
-                lambda wo: (wo.operation_id.sequence if wo.operation_id else 0, wo.id)
+            workorders = production.workorder_ids.filtered(
+                lambda w: w.state not in ("done", "cancel")
             )
 
+            # 1) restauration des macros uniquement
             for wo in workorders:
-                saved_macro = macro_backup.get(wo.id)
-                if not saved_macro:
-                    _logger.warning("WO %s (%s) : pas de macro sauvegardé -> skip", wo.name, production.name)
+                saved = macro_backup.get(wo.id)
+                if not saved:
                     continue
 
-                # Durée effective = durée brute / nb_resources
-                duration_min = wo.duration_expected or 0.0
-                nb_resources = max(1, getattr(wo, 'x_nb_resources', 1) or 1)
-                effective_duration_min = duration_min / nb_resources
-                end_dt = saved_macro + timedelta(minutes=effective_duration_min)
+                vals = {
+                    "macro_planned_start": saved["macro_planned_start"],
+                }
+                if "x_nb_resources" in wo._fields:
+                    vals["x_nb_resources"] = saved["x_nb_resources"]
 
                 wo.with_context(
                     skip_shift_chain=True,
                     skip_macro_recalc=True,
                     mail_notrack=True,
-                ).write({
-                    "macro_planned_start": saved_macro,
-                    "date_start": saved_macro,
-                    "date_finished": end_dt,
-                })
+                ).write(vals)
 
-                _logger.info(
-                    "WO %s : macro=%s start=%s end=%s durée_brute=%s min / %d ressources = %s min effectifs",
-                    wo.name, saved_macro, saved_macro, end_dt, duration_min, nb_resources, effective_duration_min,
-                )
+            # 2) réappliquer les vraies dates depuis les macros
+            production.with_context(
+                skip_macro_recalc=True,
+                mail_notrack=True,
+            ).apply_macro_to_workorders_dates()
 
-            # ── 4. NE PAS écraser x_studio_date_de_fin : elle est déjà correcte depuis compute_macro_schedule ──
+            # 3) recaler l'OF sur les macros, avec fin forcée identique
+            forced_end_dt = end_backup.get(production.id)
+            production.with_context(
+                skip_macro_recalc=True,
+                mail_notrack=True,
+            )._update_mo_dates_from_macro(forced_end_dt=forced_end_dt)
+
+            # 4) recaler les transferts composants
+            production.with_context(
+                skip_macro_recalc=True,
+                mail_notrack=True,
+            )._update_components_picking_dates()
 
         return res
 
