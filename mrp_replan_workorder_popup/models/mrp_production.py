@@ -201,22 +201,24 @@ class MrpProduction(models.Model):
         if not fixed_end_dt:
             raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
 
-        # important : on synchronise la durée utilisée par le moteur
+        # Synchroniser la durée réellement utilisée par ton moteur
         for wo in workorders:
-            if hasattr(wo, "duration_expected") and hasattr(wo, "duration"):
+            if "duration_expected" in wo._fields and "duration" in wo._fields:
                 if wo.duration and wo.duration_expected != wo.duration:
                     wo.duration_expected = wo.duration
 
+        # APPLIQUER LE VRAI MOTEUR
         ctx = self.with_context(skip_macro_recalc=True)
-
         ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
         ctx.apply_macro_to_workorders_dates()
         ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
         ctx._update_components_picking_dates()
 
-        # sécurité : flush pour être sûr que l'UI relise les vraies valeurs
-        self.flush_recordset()
+        # Flush / invalidate pour que l'UI relise bien les nouvelles macros
         workorders.flush_recordset()
+        self.flush_recordset()
+        workorders.invalidate_recordset(["macro_planned_start", "date_start", "date_finished"])
+        self.invalidate_recordset(["date_start", "date_finished", "date_deadline"])
 
         return True
 
