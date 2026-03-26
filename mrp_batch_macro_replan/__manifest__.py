@@ -14,6 +14,7 @@
         'security/ir.model.access.csv',
         'views/mrp_batch_macro_replan_views.xml',
     ],
+    
     'installable': True,
     'application': False,
 }

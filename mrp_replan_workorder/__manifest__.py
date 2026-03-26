@@ -18,7 +18,6 @@
         'sale_mrp',
         'resource',
     ],
-    
     'data': [
         'views/sale_order_views.xml',
         'views/mrp_workorder_views.xml',
