@@ -1,98 +1,128 @@
-def action_open_replan_preview(self):
-    self.ensure_one()
+# -*- coding: utf-8 -*-
+import json
+from odoo import models, fields, _
+from odoo.exceptions import UserError
 
-    workorders = self.workorder_ids.filtered(
-        lambda w: w.state not in ("done", "cancel")
-    )
 
-    if not workorders:
-        raise UserError(_("Aucune opération à recalculer"))
+class MrpProduction(models.Model):
+    _inherit = "mrp.production"
 
-    def _wo_start(wo):
-        return (
-            getattr(wo, "macro_planned_start", False)
-            or getattr(wo, "date_start", False)
-            or False
-        )
+    def action_open_replan_preview(self):
+        self.ensure_one()
 
-    def _wo_end(wo):
-        return (
-            getattr(wo, "macro_planned_end", False)
-            or getattr(wo, "date_finished", False)
-            or False
-        )
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        if not workorders:
+            raise UserError(_("Aucune opération à recalculer."))
 
-    # SNAPSHOT compatible Odoo 17 / custom
-    snapshot = {
-        "wo": {
-            wo.id: {
-                "start": _wo_start(wo),
-                "end": _wo_end(wo),
-            }
-            for wo in workorders
-        },
-        "mo_start": self.date_start,
-        "mo_end": (
-            getattr(self, "date_planned_finished", False)
-            or getattr(self, "date_finished", False)
+        payload = self._build_replan_preview_payload()
+
+        wiz = self.env["mrp.replan.preview.wizard"].create({
+            "production_id": self.id,
+            "preview_json": json.dumps(payload, default=str),
+            "summary_html": self._render_replan_preview_html(payload),
+        })
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Prévisualisation replanification"),
+            "res_model": "mrp.replan.preview.wizard",
+            "res_id": wiz.id,
+            "view_mode": "form",
+            "target": "new",
+        }
+
+    def action_replan_operations(self):
+        return self.action_open_replan_preview()
+
+    def _build_replan_preview_payload(self):
+        self.ensure_one()
+
+        fixed_end_dt = (
+            getattr(self, "macro_forced_end", False)
             or self.date_deadline
-            or getattr(self, "macro_forced_end", False)
-        ),
-    }
+            or getattr(self, "date_finished", False)
+            or getattr(self, "date_planned_finished", False)
+        )
+        if not fixed_end_dt:
+            raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
 
-    fixed_end = (
-        getattr(self, "macro_forced_end", False)
-        or self.date_deadline
-        or getattr(self, "date_finished", False)
-        or getattr(self, "date_planned_finished", False)
-    )
+        current_start = self.date_start or getattr(self, "date_planned_start", False)
 
-    if not fixed_end:
-        raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
+        transfer_date = False
+        picking = self.picking_ids.filtered(lambda p: p.state not in ("done", "cancel"))[:1]
+        if picking:
+            transfer_date = picking.scheduled_date
 
-    # calcul réel en simulation
-    self._run_real_replan(fixed_end)
+        purchase_orders = self.env["purchase.order"]
+        if self.procurement_group_id:
+            po_lines = self.env["purchase.order.line"].search([
+                ("move_dest_ids.group_id", "=", self.procurement_group_id.id),
+            ])
+            purchase_orders = po_lines.mapped("order_id")
 
-    new_start = self.date_start
-    new_end = (
-        getattr(self, "date_planned_finished", False)
-        or getattr(self, "date_finished", False)
-        or fixed_end
-    )
+        po_data = []
+        for po in purchase_orders:
+            po_data.append({
+                "name": po.name or "",
+                "partner": po.partner_id.display_name or "",
+                "date_planned": fields.Datetime.to_string(po.date_planned) if po.date_planned else "",
+            })
 
-    # restore snapshot
-    for wo in workorders:
-        data = snapshot["wo"][wo.id]
+        return {
+            "production_name": self.display_name or self.name or "",
+            "date_start": fields.Datetime.to_string(current_start) if current_start else "",
+            "date_end": fields.Datetime.to_string(fixed_end_dt) if fixed_end_dt else "",
+            "transfer_date": fields.Datetime.to_string(transfer_date) if transfer_date else "",
+            "purchase_orders": po_data,
+        }
 
-        if hasattr(wo, "macro_planned_start"):
-            wo.macro_planned_start = data["start"]
-        elif hasattr(wo, "date_start"):
-            wo.date_start = data["start"]
+    def _render_replan_preview_html(self, payload):
+        po_rows = ""
+        for po in payload.get("purchase_orders", []):
+            po_rows += """
+                <tr>
+                    <td>{name}</td>
+                    <td>{partner}</td>
+                    <td>{date_planned}</td>
+                </tr>
+            """.format(
+                name=po.get("name", "") or "",
+                partner=po.get("partner", "") or "",
+                date_planned=po.get("date_planned", "") or "",
+            )
 
-        if hasattr(wo, "macro_planned_end"):
-            wo.macro_planned_end = data["end"]
-        elif hasattr(wo, "date_finished"):
-            wo.date_finished = data["end"]
+        if not po_rows:
+            po_rows = '<tr><td colspan="3">Aucun PO lié</td></tr>'
 
-    self.date_start = snapshot["mo_start"]
-    if hasattr(self, "date_finished"):
-        self.date_finished = snapshot["mo_end"]
+        return """
+            <div>
+                <p><b>OF :</b> {production_name}</p>
+                <p><b>Début fabrication :</b> {date_start}</p>
+                <p><b>Fin fabrication :</b> {date_end}</p>
+                <p><b>Date de transfert :</b> {transfer_date}</p>
+                <br/>
+                <b>PO liés</b>
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th>PO</th>
+                            <th>Fournisseur</th>
+                            <th>Date prévue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {po_rows}
+                    </tbody>
+                </table>
+            </div>
+        """.format(
+            production_name=payload.get("production_name", "-") or "-",
+            date_start=payload.get("date_start", "-") or "-",
+            date_end=payload.get("date_end", "-") or "-",
+            transfer_date=payload.get("transfer_date", "-") or "-",
+            po_rows=po_rows,
+        )
 
-    html = f"""
-        <p><b>Début :</b> {new_start or '-'}</p>
-        <p><b>Fin :</b> {new_end or '-'}</p>
-    """
-
-    wiz = self.env["mrp.replan.preview.wizard"].create({
-        "production_id": self.id,
-        "preview_json": json.dumps({"end": str(fixed_end)}),
-        "summary_html": html,
-    })
-
-    return {
-        "type": "ir.actions.act_window",
-        "res_model": "mrp.replan.preview.wizard",
-        "res_id": wiz.id,
-        "view_mode": "form",
-        "target": "new",
-    }
+    def action_apply_replan_preview(self, payload=None):
+        self.ensure_one()
+        return True
