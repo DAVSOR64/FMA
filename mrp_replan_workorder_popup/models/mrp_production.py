@@ -33,6 +33,9 @@ class MrpProduction(models.Model):
 
     def action_replan_operations(self):
         return self.action_open_replan_preview()
+    
+    def _apply_replan_real(self, payload=None):
+        return self.action_apply_replan_preview(payload)
 
     def _build_replan_preview_payload(self):
         self.ensure_one()
