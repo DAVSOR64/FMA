@@ -40,9 +40,9 @@ class MrpProduction(models.Model):
     def _build_replan_preview_payload(self):
         self.ensure_one()
 
-        workorders = self.workorder_ids.filtered(
-            lambda w: w.state not in ("done", "cancel")
-        )
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        if not workorders:
+            raise UserError(_("Aucune opération à recalculer."))
 
         fixed_end_dt = (
             getattr(self, "macro_forced_end", False)
@@ -50,58 +50,43 @@ class MrpProduction(models.Model):
             or getattr(self, "date_finished", False)
             or getattr(self, "date_planned_finished", False)
         )
-
         if not fixed_end_dt:
             raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
 
-        # 🔥 SNAPSHOT
+        # SNAPSHOT COMPLET : macro + dates Odoo
         snapshot = {}
         for wo in workorders:
             snapshot[wo.id] = {
-                "start": getattr(wo, "macro_planned_start", False) or wo.date_start,
-                "end": getattr(wo, "macro_planned_end", False) or wo.date_finished,
+                "macro_start": getattr(wo, "macro_planned_start", False),
+                "date_start": getattr(wo, "date_start", False),
+                "date_finished": getattr(wo, "date_finished", False),
             }
 
         mo_start_snapshot = self.date_start
+        mo_finished_snapshot = getattr(self, "date_finished", False)
+        mo_deadline_snapshot = getattr(self, "date_deadline", False)
 
-        # 🔥 IMPORTANT : synchro durée
+        picking = self.picking_ids.filtered(lambda p: p.state not in ("done", "cancel"))[:1]
+        picking_sched_snapshot = picking.scheduled_date if picking else False
+        picking_deadline_snapshot = picking.date_deadline if picking else False
+
+        # Important : on pousse la durée utilisée par ton moteur
         for wo in workorders:
-            if hasattr(wo, "duration_expected") and hasattr(wo, "duration"):
+            if "duration_expected" in wo._fields and "duration" in wo._fields:
                 if wo.duration and wo.duration_expected != wo.duration:
                     wo.duration_expected = wo.duration
 
-        # 🔥 CALCUL RÉEL
+        # CALCUL RÉEL via ton moteur historique
         ctx = self.with_context(skip_macro_recalc=True)
-
         ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
         ctx.apply_macro_to_workorders_dates()
         ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
         ctx._update_components_picking_dates()
 
+        # Lecture du résultat simulé
         new_start = self.date_start
+        transfer_date = picking.scheduled_date if picking else False
 
-        transfer_date = False
-        picking = self.picking_ids.filtered(lambda p: p.state not in ("done", "cancel"))[:1]
-        if picking:
-            transfer_date = picking.scheduled_date
-
-        # 🔥 RESTORE
-        for wo in workorders:
-            data = snapshot[wo.id]
-
-            if hasattr(wo, "macro_planned_start"):
-                wo.macro_planned_start = data["start"]
-            else:
-                wo.date_start = data["start"]
-
-            if hasattr(wo, "macro_planned_end"):
-                wo.macro_planned_end = data["end"]
-            else:
-                wo.date_finished = data["end"]
-
-        self.date_start = mo_start_snapshot
-
-        # 🔥 PO
         purchase_orders = self.env["purchase.order"]
         if self.procurement_group_id:
             po_lines = self.env["purchase.order.line"].search([
@@ -112,15 +97,44 @@ class MrpProduction(models.Model):
         po_data = []
         for po in purchase_orders:
             po_data.append({
-                "name": po.name,
-                "partner": po.partner_id.display_name,
+                "name": po.name or "",
+                "partner": po.partner_id.display_name or "",
                 "date_planned": fields.Datetime.to_string(po.date_planned) if po.date_planned else "",
             })
 
+        # RESTORE COMPLET : on remet aussi les macros
+        for wo in workorders:
+            data = snapshot[wo.id]
+            vals = {}
+            if "macro_planned_start" in wo._fields:
+                vals["macro_planned_start"] = data["macro_start"]
+            if "date_start" in wo._fields:
+                vals["date_start"] = data["date_start"]
+            if "date_finished" in wo._fields:
+                vals["date_finished"] = data["date_finished"]
+            if vals:
+                wo.with_context(skip_macro_recalc=True, skip_shift_chain=True, mail_notrack=True).write(vals)
+
+        vals_mo = {}
+        if "date_start" in self._fields:
+            vals_mo["date_start"] = mo_start_snapshot
+        if "date_finished" in self._fields:
+            vals_mo["date_finished"] = mo_finished_snapshot
+        if "date_deadline" in self._fields:
+            vals_mo["date_deadline"] = mo_deadline_snapshot
+        if vals_mo:
+            self.with_context(skip_macro_recalc=True, mail_notrack=True).write(vals_mo)
+
+        if picking:
+            picking.with_context(mail_notrack=True).write({
+                "scheduled_date": picking_sched_snapshot,
+                "date_deadline": picking_deadline_snapshot,
+            })
+
         return {
-            "production_name": self.display_name,
-            "date_start": fields.Datetime.to_string(new_start),
-            "date_end": fields.Datetime.to_string(fixed_end_dt),
+            "production_name": self.display_name or self.name or "",
+            "date_start": fields.Datetime.to_string(new_start) if new_start else "",
+            "date_end": fields.Datetime.to_string(fixed_end_dt) if fixed_end_dt else "",
             "transfer_date": fields.Datetime.to_string(transfer_date) if transfer_date else "",
             "purchase_orders": po_data,
         }
