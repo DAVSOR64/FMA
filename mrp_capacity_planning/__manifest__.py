@@ -23,6 +23,7 @@
         'hr_holidays',
         'web_gantt',
     ],
+    
     'data': [
         'security/ir.model.access.csv',
         'data/mrp_capacity_cron.xml',

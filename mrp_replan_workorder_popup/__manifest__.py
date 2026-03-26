@@ -8,6 +8,7 @@
         'security/ir.model.access.csv',
         'views/mrp_replan_preview_wizard_views.xml',
     ],
+    
     'license': 'LGPL-3',
     'installable': True,
     'application': True,
