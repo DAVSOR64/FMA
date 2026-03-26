@@ -173,4 +173,39 @@ class MrpProduction(models.Model):
 
     def action_apply_replan_preview(self, payload=None):
         self.ensure_one()
+
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        if not workorders:
+            raise UserError(_("Aucune opération à recalculer."))
+
+        fixed_end_dt = (
+            getattr(self, "macro_forced_end", False)
+            or self.date_deadline
+            or getattr(self, "date_finished", False)
+            or getattr(self, "date_planned_finished", False)
+        )
+        if not fixed_end_dt:
+            raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
+
+        # important : on synchronise la durée utilisée par le moteur
+        for wo in workorders:
+            if hasattr(wo, "duration_expected") and hasattr(wo, "duration"):
+                if wo.duration and wo.duration_expected != wo.duration:
+                    wo.duration_expected = wo.duration
+
+        ctx = self.with_context(skip_macro_recalc=True)
+
+        ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
+        ctx.apply_macro_to_workorders_dates()
+        ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
+        ctx._update_components_picking_dates()
+
+        # sécurité : flush pour être sûr que l'UI relise les vraies valeurs
+        self.flush_recordset()
+        workorders.flush_recordset()
+
         return True
+
+
+    def _apply_replan_real(self, payload=None):
+        return self.action_apply_replan_preview(payload)

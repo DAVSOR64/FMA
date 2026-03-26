@@ -14,4 +14,7 @@ class MrpReplanPreviewWizard(models.TransientModel):
         self.ensure_one()
         payload = json.loads(self.preview_json or "{}")
         self.production_id.action_apply_replan_preview(payload)
-        return {"type": "ir.actions.act_window_close"}
+        return {
+            "type": "ir.actions.client",
+            "tag": "reload",
+        }
