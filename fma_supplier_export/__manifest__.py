@@ -17,6 +17,7 @@
         "view/res_config_settings_views.xml",
         "view/res_partner_views.xml",
     ],
+    
     "license": "LGPL-3",
     "installable": True,
     "application": True,
