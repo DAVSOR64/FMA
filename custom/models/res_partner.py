@@ -121,6 +121,14 @@ class ResPartner(models.Model):
     part_decision = fields.Char(string="ASSURANCE-CREDIT")
     part_code_tiers = fields.Integer(string="Code Tiers")
 
+    attachment_ids = fields.Many2many(
+        "ir.attachment",
+        "res_partner_ir_attachment_rel",
+        "partner_id",
+        "attachment_id",
+        string="Attachments",
+    )
+
     @api.model
     def create(self, vals):
         # Vérifie si le booléen est coché
