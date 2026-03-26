@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//group[@name='misc']" position="after">
                 <group name="attachments" string="Attachments">
-                    <field name="attachment_ids" widget="many2many_tags"/>
+                    <!-- <field name="attachment_ids" widget="many2many_tags"/> -->
                 </group>
             </xpath>
         </field>
