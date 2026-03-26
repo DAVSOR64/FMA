@@ -14,6 +14,12 @@ class MrpWorkorder(models.Model):
         copy=False,
         help="Date deb calculée."
     )
+    x_nb_resources = fields.Integer(
+        string="Nb ressources",
+        default=1,
+        copy=False,
+        help="Nombre de ressources appliquées sur cette opération (calculé depuis les règles de capacité par poste)."
+    )
     def write(self, values):
         # Eviter récursion quand on met à jour nous-mêmes les autres WO
         if self.env.context.get("skip_shift_chain"):
@@ -79,11 +85,6 @@ class MrpWorkorder(models.Model):
                     "GANTT MOVE (AFTER super.write) | WO %s(id=%s) | old_start=%s -> new_start=%s | delta=%s",
                     wo.name, wo.id, old_start, new_start, delta
                 )
-
-                if not delta:
-                    continue
-
-                wo._shift_following_workorders(delta)
 
         return res
 

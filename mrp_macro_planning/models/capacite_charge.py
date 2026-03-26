@@ -41,74 +41,195 @@ class CapaciteCache(models.Model):
         return dt.astimezone(pytz.utc)
 
     def refresh(self):
-        """Recalcule la capacité depuis les slots Planning publiés"""
+        """
+        Recalcule la capacité depuis mrp.capacity.week (module mrp_capacity_planning).
+
+        Nouvelle logique :
+        - on ne lisse plus la capacité nette sur la semaine ;
+        - on calcule la capacité JOUR PAR JOUR à partir du calendrier ;
+        - on enlève sur le jour concerné :
+            * les jours fériés / calendar leaves,
+            * les congés validés,
+            * les maladies validées.
+        """
         self.search([]).unlink()
-        slots = self.env['planning.slot'].search([('state', '=', 'published')])
-        _logger.info('REFRESH CAPACITE : %d slots publiés', len(slots))
-        if not slots:
+
+        if 'mrp.capacity.week' not in self.env:
+            _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — capacité vide')
             return
-        
-        capacite_par_jour = {}
-        
-        for slot in slots:
-            if not slot.resource_id or not slot.role_id:
+
+        weeks = self.env['mrp.capacity.week'].search([])
+        _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines trouvées', len(weeks))
+        if not weeks:
+            return
+
+        aggregated = {}
+
+        for week in weeks:
+            if not week.workcenter_id or not week.week_date:
                 continue
-            workcenter = slot.role_id.workcenter_id
-            if not workcenter:
+
+            daily_hours = self._get_daily_capacity_map(week)
+            if not daily_hours:
                 continue
-            
-            calendar = slot.resource_id.calendar_id
-            if not calendar:
-                delta = (slot.end_datetime - slot.start_datetime).total_seconds() / 3600.0
-                jour = slot.start_datetime.date()
-                key = (workcenter.id, jour)
-                if key not in capacite_par_jour:
-                    capacite_par_jour[key] = {'workcenter_id': workcenter.id, 
-                                              'workcenter_name': workcenter.name,
-                                              'date': jour,
-                                              'heures': []}
-                capacite_par_jour[key]['heures'].append(delta)
+
+            for jour, capacite_jour in daily_hours.items():
+                # garder la ligne même à 0 pour voir le jour d'absence
+                key = (week.workcenter_id.id, jour)
+                if key not in aggregated:
+                    aggregated[key] = {
+                        'workcenter_id': week.workcenter_id.id,
+                        'workcenter_name': week.workcenter_id.name,
+                        'date': jour,
+                        'capacite_heures': 0.0,
+                        'nb_personnes': 0,
+                    }
+                aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
+                aggregated[key]['nb_personnes'] += 1
+
+        if aggregated:
+            self.create(list(aggregated.values()))
+
+        _logger.info(
+            '[MacroPlanning] REFRESH CAPACITE TERMINÉ : %d entrées poste/jour créées',
+            len(aggregated)
+        )
+
+    def _get_daily_capacity_map(self, week):
+        """Retourne {date: heures_nettes} pour une semaine de capacité."""
+        calendar = week.override_calendar_id or week.resource_calendar_id
+        if not calendar:
+            return {}
+
+        employee = week.employee_id
+        rate = (week.allocation_rate or 100.0) / 100.0
+        week_start = week.week_date
+        week_end = week.week_end_date or (week.week_date + timedelta(days=6))
+
+        # 1) capacité brute du calendrier par jour (sans absences)
+        base_map = self._get_working_days(calendar, week_start)
+        # inclure tous les jours ouvrés de la semaine même si capacité finale = 0
+        result = {d: round(h * rate, 2) for d, h in base_map.items()}
+
+        if not result:
+            return {}
+
+        # 2) jours fériés / calendar leaves : on retire sur le jour concerné
+        holiday_map = self._get_calendar_leave_hours_by_day(calendar, week_start, week_end)
+
+        # 3) congés et maladies validés de l'employé : on retire sur le jour concerné
+        leave_map = self._get_employee_leave_hours_by_day(employee, calendar, week_start, week_end)
+
+        for day in list(result.keys()):
+            result[day] = max(0.0, round(result[day] - (holiday_map.get(day, 0.0) * rate) - (leave_map.get(day, 0.0) * rate), 2))
+
+        return result
+
+    def _get_working_days(self, calendar, week_date):
+        """Capacité réelle par jour via _work_intervals_batch (fiable, sans pauses)."""
+        if not calendar:
+            return {}
+
+        result = {}
+
+        # Fenêtre semaine
+        start_dt = datetime.combine(week_date, datetime.min.time())
+        end_dt = start_dt + timedelta(days=7)
+
+        try:
+            start_dt = self._to_utc(start_dt)
+            end_dt = self._to_utc(end_dt)
+
+            intervals = calendar._work_intervals_batch(start_dt, end_dt)
+            work_intervals = intervals.get(False, [])
+
+            for start, stop, _meta in work_intervals:
+                day = start.date()
+                hours = (stop - start).total_seconds() / 3600.0
+
+                result[day] = result.get(day, 0.0) + hours
+
+        except Exception as e:
+            _logger.error("Erreur calcul calendrier : %s", str(e))
+            return {}
+
+        # arrondi final
+        return {d: round(h, 2) for d, h in result.items()}
+
+    def _get_calendar_leave_hours_by_day(self, calendar, week_start, week_end):
+        res = {}
+        if not calendar:
+            return res
+
+        leaves = self.env['resource.calendar.leaves'].search([
+            ('calendar_id', '=', calendar.id),
+            ('date_from', '<=', fields.Datetime.to_string(datetime.combine(week_end, datetime.max.time()))),
+            ('date_to', '>=', fields.Datetime.to_string(datetime.combine(week_start, datetime.min.time()))),
+        ])
+        for leave in leaves:
+            self._accumulate_overlap_by_day(res, calendar, leave.date_from, leave.date_to, week_start, week_end)
+        return res
+
+    def _get_employee_leave_hours_by_day(self, employee, calendar, week_start, week_end):
+        res = {}
+        if not employee:
+            return res
+
+        leaves = self.env['hr.leave'].search([
+            ('employee_id', '=', employee.id),
+            ('state', '=', 'validate'),
+            ('date_from', '<=', fields.Datetime.to_string(datetime.combine(week_end, datetime.max.time()))),
+            ('date_to', '>=', fields.Datetime.to_string(datetime.combine(week_start, datetime.min.time()))),
+        ])
+        for leave in leaves:
+            self._accumulate_overlap_by_day(res, calendar, leave.date_from, leave.date_to, week_start, week_end)
+        return res
+
+    def _accumulate_overlap_by_day(self, bucket, calendar, leave_start, leave_end, week_start, week_end):
+        """Ajoute dans bucket les heures d'absence recouvrant le calendrier, par jour."""
+        if not leave_start or not leave_end or not calendar:
+            return
+
+        cal_tz_name = calendar.tz or 'UTC'
+        try:
+            tz = pytz.timezone(cal_tz_name)
+        except Exception:
+            tz = pytz.UTC
+
+        # normalise en UTC aware
+        if leave_start.tzinfo is None:
+            leave_start = pytz.UTC.localize(leave_start)
+        else:
+            leave_start = leave_start.astimezone(pytz.UTC)
+        if leave_end.tzinfo is None:
+            leave_end = pytz.UTC.localize(leave_end)
+        else:
+            leave_end = leave_end.astimezone(pytz.UTC)
+
+        for i in range(7):
+            day = week_start + timedelta(days=i)
+            if day > week_end:
+                break
+
+            weekday = str(day.weekday())
+            attendances = calendar.attendance_ids.filtered(lambda a: a.dayofweek == weekday and a.display_type != 'line_section')
+            if not attendances:
                 continue
-            
-            try:
-                date_start = self._to_utc(slot.start_datetime)
-                date_stop = self._to_utc(slot.end_datetime)
-                intervals = calendar._work_intervals_batch(date_start, date_stop, resources=slot.resource_id)
-                resource_intervals = intervals.get(slot.resource_id.id, [])
-                
-                heures_par_jour = {}
-                for start, stop, _meta in resource_intervals:
-                    jour = start.date()
-                    duree = (stop - start).total_seconds() / 3600.0
-                    heures_par_jour[jour] = heures_par_jour.get(jour, 0) + duree
-                
-                for jour, heures in heures_par_jour.items():
-                    if heures > 0:
-                        key = (workcenter.id, jour)
-                        if key not in capacite_par_jour:
-                            capacite_par_jour[key] = {'workcenter_id': workcenter.id,
-                                                      'workcenter_name': workcenter.name,
-                                                      'date': jour,
-                                                      'heures': []}
-                        capacite_par_jour[key]['heures'].append(heures)
-            except Exception as e:
-                _logger.error('Erreur slot %s : %s\n%s', slot.id, e, traceback.format_exc())
-        
-        vals_list = []
-        for key, data in capacite_par_jour.items():
-            nb_personnes = len(data['heures'])
-            capacite_totale = sum(data['heures'])
-            vals_list.append({
-                'workcenter_id': data['workcenter_id'],
-                'workcenter_name': data['workcenter_name'],
-                'date': data['date'],
-                'capacite_heures': capacite_totale,
-                'nb_personnes': nb_personnes,
-            })
-        
-        if vals_list:
-            self.create(vals_list)
-        _logger.info('REFRESH CAPACITE TERMINÉ : %d entrées', len(vals_list))
+
+            hours = 0.0
+            for att in attendances:
+                local_start = tz.localize(datetime.combine(day, datetime.min.time()) + timedelta(hours=att.hour_from))
+                local_end = tz.localize(datetime.combine(day, datetime.min.time()) + timedelta(hours=att.hour_to))
+                att_start = local_start.astimezone(pytz.UTC)
+                att_end = local_end.astimezone(pytz.UTC)
+
+                overlap_start = max(att_start, leave_start)
+                overlap_end = min(att_end, leave_end)
+                if overlap_end > overlap_start:
+                    hours += (overlap_end - overlap_start).total_seconds() / 3600.0
+
+            if hours > 0:
+                bucket[day] = round(bucket.get(day, 0.0) + hours, 2)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -144,7 +265,9 @@ class WorkorderChargeCache(models.Model):
         
         workorders = self.env['mrp.workorder'].search([
             ('state', 'not in', ('done', 'cancel')),
-            ('date_start', '!=', False)
+            '|',
+            ('date_start', '!=', False),
+            ('macro_planned_start', '!=', False),
         ])
         
         _logger.info('REFRESH CHARGE : %d workorders actifs', len(workorders))
@@ -158,14 +281,15 @@ class WorkorderChargeCache(models.Model):
         for wo in workorders:
             count += 1
             
-            if not wo.workcenter_id or not wo.date_start:
+            if not wo.workcenter_id or (not wo.date_start and not getattr(wo, 'macro_planned_start', False)):
                 continue
             
-            # Charge restante TOTALE en heures
+            # Charge restante TOTALE en heures, divisée par le nombre de ressources
+            nb_resources = max(1, getattr(wo, 'x_nb_resources', 1) or 1)
             if wo.state in ('pending', 'ready', 'waiting'):
-                charge_restante_totale = (wo.duration_expected or 0) / 60.0
+                charge_restante_totale = (wo.duration_expected or 0) / 60.0 / nb_resources
             else:
-                charge_restante_totale = max((wo.duration_expected or 0) - (wo.duration or 0), 0) / 60.0
+                charge_restante_totale = max((wo.duration_expected or 0) - (wo.duration or 0), 0) / 60.0 / nb_resources
             
             if charge_restante_totale <= 0:
                 continue
@@ -179,14 +303,14 @@ class WorkorderChargeCache(models.Model):
             # Calendrier du workcenter
             calendar = wo.workcenter_id.resource_calendar_id
             
-            # Date de début de l'opération (macro_date_planned ou date_start)
-            date_start_operation = wo.macro_date_planned if hasattr(wo, 'macro_date_planned') and wo.macro_date_planned else wo.date_start
+            # Date de début de l'opération : macro_planned_start en priorité, sinon date_start
+            date_start_operation = getattr(wo, 'macro_planned_start', False) or wo.date_start
             
             if not date_start_operation:
                 continue
             
-            # OPTIMISATION : Si pas de calendrier OU durée > 80h → tout sur date_start
-            if not calendar or charge_restante_totale > 80:
+            # OPTIMISATION : Si pas de calendrier → tout sur date_start
+            if not calendar:
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
@@ -305,7 +429,7 @@ class CapaciteRefreshWizard(models.TransientModel):
     _name = 'mrp.capacite.refresh.wizard'
     _description = 'Wizard recalcul capacité et charge'
 
-    nb_slots = fields.Integer(string='Slots publiés', readonly=True)
+    nb_slots = fields.Integer(string='Semaines capacité (mrp_capacity_planning)', readonly=True)
     nb_workorders = fields.Integer(string='Workorders actifs', readonly=True)
     nb_capacite = fields.Integer(string='Entrées capacité', readonly=True)
     nb_charge = fields.Integer(string='Entrées charge', readonly=True)
@@ -313,10 +437,17 @@ class CapaciteRefreshWizard(models.TransientModel):
 
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        res['nb_slots'] = self.env['planning.slot'].search_count([('state', '=', 'published')])
+        if 'mrp.capacity.week' in self.env:
+            res['nb_slots'] = self.env['mrp.capacity.week'].search_count([
+                ('capacity_net', '>', 0),
+            ])
+        else:
+            res['nb_slots'] = 0
         res['nb_workorders'] = self.env['mrp.workorder'].search_count([
             ('state', 'not in', ('done', 'cancel')),
-            ('date_start', '!=', False)
+            '|',
+            ('date_start', '!=', False),
+            ('macro_planned_start', '!=', False),
         ])
         return res
 
@@ -406,6 +537,7 @@ class CapaciteChargeDetail(models.Model):
     projet = fields.Char(string='Projet', readonly=True)
     operation_name = fields.Char(string='Opération', readonly=True)
     operateurs = fields.Char(string='Opérateur(s)', readonly=True)
+    nb_resources = fields.Integer(string='Nb ressources', readonly=True)
     prevu_jour = fields.Float(string='Prévu ce jour (h)', digits=(10, 2), readonly=True)
     effectue_jour = fields.Float(string='Effectué ce jour (h)', digits=(10, 2), readonly=True)
     cumul_prevu = fields.Float(string='Cumul prévu (h)', digits=(10, 2), readonly=True)
@@ -483,6 +615,7 @@ class CapaciteChargeDetail(models.Model):
                     WHERE wop.workorder_id = wo.id
                       AND wop.employee_id IS NOT NULL
                 )                                           AS operateurs,
+                COALESCE(wo.x_nb_resources, 1)              AS nb_resources,
                 cum.charge_prevue_heures                    AS prevu_jour,
                 cum.effectue_jour                           AS effectue_jour,
                 cum.cumul_prevu                             AS cumul_prevu,
@@ -517,6 +650,7 @@ class CapaciteCharge(models.Model):
     nb_personnes = fields.Integer(string='Personnes', readonly=True)
     capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2), readonly=True)
     nb_operations = fields.Integer(string='Nb opérations', readonly=True)
+    nb_resources = fields.Integer(string='Nb ressources', readonly=True)
     
     charge_prevue_jour = fields.Float(string='Charge prévue ce jour (h)', digits=(10, 2), readonly=True)
     charge_effectuee_jour = fields.Float(string='Charge effectuée ce jour (h)', digits=(10, 2), readonly=True)
@@ -563,8 +697,10 @@ class CapaciteCharge(models.Model):
                     wcc.date,
                     COUNT(DISTINCT wcc.workorder_id)                AS nb_operations,
                     SUM(wcc.charge_prevue_heures)                   AS charge_prevue_jour,
-                    COALESCE(epj.effectue_heures, 0)                AS charge_effectuee_jour
+                    COALESCE(epj.effectue_heures, 0)                AS charge_effectuee_jour,
+                    SUM(COALESCE(wo.x_nb_resources, 1))             AS nb_resources
                 FROM mrp_workorder_charge_cache wcc
+                JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
                 LEFT JOIN effectue_par_jour epj 
                     ON epj.workcenter_id = wcc.workcenter_id 
                     AND epj.date = wcc.date
@@ -591,6 +727,7 @@ class CapaciteCharge(models.Model):
                     COALESCE(cap.capacite_heures, 0)            AS capacite_heures,
                     COALESCE(cap.nb_personnes, 0)               AS nb_personnes,
                     COALESCE(ch.nb_operations, 0)               AS nb_operations,
+                    COALESCE(ch.nb_resources, 0)                AS nb_resources,
                     COALESCE(ch.charge_prevue_jour, 0)          AS charge_prevue_jour,
                     COALESCE(ch.charge_effectuee_jour, 0)       AS charge_effectuee_jour,
                     SUM(COALESCE(ch.charge_prevue_jour, 0)) OVER (
@@ -615,6 +752,7 @@ class CapaciteCharge(models.Model):
                 nb_personnes,
                 capacite_heures,
                 nb_operations,
+                nb_resources,
                 charge_prevue_jour,
                 charge_effectuee_jour,
                 cumul_prevu,

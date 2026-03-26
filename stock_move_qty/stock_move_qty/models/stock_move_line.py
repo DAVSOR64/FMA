@@ -1,131 +1,261 @@
 # -*- coding: utf-8 -*-
-
 import logging
 from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
 
 
-class StockMoveLine(models.Model):
-    _inherit = 'stock.move.line'
+class StockMove(models.Model):
+    _inherit = "stock.move"
 
-    x_qty_before = fields.Float(
-        string='Qté avant',
-        digits='Product Unit of Measure',
-        default=0.0,
-        help='Quantité en stock sur l\'emplacement avant ce mouvement',
-    )
-    x_qty_after = fields.Float(
-        string='Qté après',
-        digits='Product Unit of Measure',
-        default=0.0,
-        help='Quantité en stock sur l\'emplacement après ce mouvement',
-    )
+    def _action_done(self, cancel_backorder=False):
+        """
+        Hook fiable à la validation (réception/livraison/transfert).
+        On recalculera ensuite les Qté avant/après sur les move lines done.
+        """
+        res = super()._action_done(cancel_backorder=cancel_backorder)
 
-    def write(self, vals):
-        res = super().write(vals)
-        if vals.get('state') == 'done' or vals.get('quantity'):
-            done_lines = self.filtered(lambda l: l.state == 'done')
-            if done_lines:
-                done_lines._recompute_qty_for_lines()
+        mls = self.mapped("move_line_ids").filtered(lambda l: l.state == "done")
+        _logger.info("[StockMoveQty] _action_done moves=%s done_move_lines=%s", self.ids, len(mls))
+        if mls:
+            for l in mls[:10]:
+                _logger.info(
+                    "[StockMoveQty] DONE ML id=%s product=%s qty(UI)=%s src=%s(%s) dst=%s(%s) date=%s picking=%s",
+                    l.id,
+                    l.product_id.display_name,
+                    l.quantity,
+                    l.location_id.display_name, l.location_id.usage,
+                    l.location_dest_id.display_name, l.location_dest_id.usage,
+                    l.date,
+                    l.picking_id.name if l.picking_id else "",
+                )
+            mls._recompute_qty_before_after_one_context()
         return res
 
-    def _recompute_qty_for_lines(self):
-        """
-        Recalcule qty_before/after pour tous les emplacements impactés
-        par les lignes de self. Un mouvement impacte deux emplacements :
-        l'emplacement source (sortie) et l'emplacement destination (entrée).
-        """
-        affected = set()
-        for line in self:
-            affected.add((line.product_id.id, line.lot_id.id, line.location_id.id))
-            affected.add((line.product_id.id, line.lot_id.id, line.location_dest_id.id))
 
-        for product_id, lot_id, location_id in affected:
-            self._recompute_location(product_id, lot_id, location_id)
+class StockMoveLine(models.Model):
+    _inherit = "stock.move.line"
+
+    x_qty_before = fields.Float(
+        string="Qté avant",
+        digits="Product Unit of Measure",
+        default=0.0,
+        readonly=True,
+        copy=False,
+        help="Quantité en stock sur l'emplacement contexte avant ce mouvement",
+    )
+    x_qty_after = fields.Float(
+        string="Qté après",
+        digits="Product Unit of Measure",
+        default=0.0,
+        readonly=True,
+        copy=False,
+        help="Quantité en stock sur l'emplacement contexte après ce mouvement",
+    )
+
+    # Nouveau champ : Type mouvement (E/S)
+    x_move_type = fields.Selection(
+        selection=[("E", "Entrée"), ("S", "Sortie")],
+        string="Type",
+        compute="_compute_x_move_type",
+        store=True,
+        readonly=True,
+        copy=False,
+        help="E = Entrée (destination internal), S = Sortie (source internal)",
+    )
+
+    @api.depends("location_id.usage", "location_dest_id.usage")
+    def _compute_x_move_type(self):
+        """
+        E : non-internal -> internal
+        S : internal -> non-internal
+        sinon : vide (transferts internes, inventaires, cas atypiques)
+        """
+        for ml in self:
+            src_usage = ml.location_id.usage
+            dst_usage = ml.location_dest_id.usage
+
+            if dst_usage == "internal" and src_usage != "internal":
+                ml.x_move_type = "E"
+            elif src_usage == "internal" and dst_usage != "internal":
+                ml.x_move_type = "S"
+            else:
+                ml.x_move_type = False
+
+    # -------------------------------------------------------------------------
+    # Règle métier :
+    # - mouvement d'entrée : Qté avant/après sur emplacement de destination
+    # - mouvement de sortie : Qté avant/après sur emplacement source
+    # - interne -> interne : destination
+    #
+    # Et SI l'emplacement contexte est "view", on raisonne sur le périmètre child_of.
+    # -------------------------------------------------------------------------
 
     @api.model
-    def _recompute_location(self, product_id, lot_id, location_id):
+    def _ctx_location_for_line(self, line):
+        """Retourne la location 'contexte' (record) selon ta règle."""
+        src = line.location_id
+        dst = line.location_dest_id
+
+        src_usage = src.usage
+        dst_usage = dst.usage
+
+        # Entrée (supplier/customer/...) -> internal : contexte = destination
+        if dst_usage == "internal" and src_usage != "internal":
+            return dst
+
+        # Sortie internal -> autre : contexte = source
+        if src_usage == "internal" and dst_usage != "internal":
+            return src
+
+        # Transfert internal -> internal : contexte = destination
+        if src_usage == "internal" and dst_usage == "internal":
+            return dst
+
+        # Fallback : on prend l'internal s'il existe, sinon destination
+        if dst_usage == "internal":
+            return dst
+        if src_usage == "internal":
+            return src
+        return dst
+
+    @api.model
+    def _ctx_domain_for_location(self, ctx_location):
         """
-        Pour un triplet (produit, lot, emplacement), recalcule qty_before/after
-        sur toutes les move.line done qui touchent cet emplacement.
-
-        Règles :
-          - location_dest_id == location_id  → ENTREE  → +quantity
-          - location_id      == location_id  → SORTIE  → -quantity
-          - même emplacement source et dest  → neutre (delta = 0)
-
-        Les lignes sont triées par date puis id pour garantir l'ordre chronologique.
-        On écrit directement en SQL pour la performance.
+        Domaine "périmètre" pour une location contexte :
+        - si usage=view : child_of (location + enfants)
+        - sinon : location exacte
         """
-        lot_clause = 'AND lot_id = %s' if lot_id else 'AND lot_id IS NULL'
-        lot_param = (lot_id,) if lot_id else ()
+        if ctx_location.usage == "view":
+            return ("child_of", ctx_location.id)
+        return ("=", ctx_location.id)
 
-        # Récupérer toutes les lignes qui touchent cet emplacement (entrée OU sortie)
-        sql = """
-            SELECT id, location_id, location_dest_id, quantity, date
-            FROM stock_move_line
-            WHERE state = 'done'
-              AND product_id = %s
-              AND (location_id = %s OR location_dest_id = %s)
-              {lot_clause}
-            ORDER BY date ASC, id ASC
-        """.format(lot_clause=lot_clause)
+    def _recompute_qty_before_after_one_context(self):
+        """
+        Recalcule x_qty_before/x_qty_after pour les lignes done de self,
+        en groupant par (product, lot, ctx_location) et en recalculant l'historique
+        depuis le stock actuel (stock.quant) sur le périmètre ctx (location ou child_of).
+        """
+        groups = {}
+        for line in self.filtered(lambda l: l.state == "done"):
+            ctx_loc = self._ctx_location_for_line(line)
+            key = (line.product_id.id, line.lot_id.id or False, ctx_loc.id)
+            groups.setdefault(key, ctx_loc)
 
-        params = (product_id, location_id, location_id) + lot_param
-        self.env.cr.execute(sql, params)
-        rows = self.env.cr.fetchall()
+        _logger.info("[StockMoveQty] Recompute groups=%s", len(groups))
 
-        running_qty = 0.0
-        for (ml_id, loc_src, loc_dst, qty, date) in rows:
-            qty_before = running_qty
+        for (product_id, lot_id, ctx_loc_id), ctx_loc in groups.items():
+            self._recompute_group(product_id, lot_id, ctx_loc)
 
-            if loc_src == location_id and loc_dst == location_id:
-                delta = 0.0          # transfert interne sur le même emplacement
-            elif loc_dst == location_id:
-                delta = qty          # ENTREE
+        self.invalidate_model(["x_qty_before", "x_qty_after"])
+
+    @api.model
+    def _recompute_group(self, product_id, lot_id, ctx_loc):
+        """
+        Recalcule l'historique (avant/après) pour un triplet (product, lot, ctx_location).
+        On récupère toutes les move lines done qui "touchent" le périmètre ctx (source OU destination),
+        puis on remonte le temps depuis le stock actuel (stock.quant).
+
+        IMPORTANT : on ne met à jour que les lignes dont le contexte (entrée=dest / sortie=src) retombe sur ctx_loc.
+        Et si ctx_loc est view, on accepte que le contexte retombe sur un enfant internal (child_of).
+        """
+        ctx_op, ctx_val = self._ctx_domain_for_location(ctx_loc)
+
+        domain = [
+            ("state", "=", "done"),
+            ("product_id", "=", product_id),
+            "|",
+            ("location_id", ctx_op, ctx_val),
+            ("location_dest_id", ctx_op, ctx_val),
+        ]
+        if lot_id:
+            domain.append(("lot_id", "=", lot_id))
+        else:
+            domain.append(("lot_id", "=", False))
+
+        # Trier du plus récent au plus ancien (remontée du temps)
+        lines = self.search(domain, order="date desc, id desc")
+
+        _logger.info(
+            "[StockMoveQty] Group product=%s lot=%s ctx=%s(%s) lines=%s",
+            product_id, lot_id or "NULL", ctx_loc.display_name, ctx_loc.usage, len(lines)
+        )
+        if not lines:
+            return
+
+        # Stock actuel sur le périmètre ctx (quant sur location ou child_of)
+        Quant = self.env["stock.quant"].sudo()
+        q_domain = [("product_id", "=", product_id), ("location_id", ctx_op, ctx_val)]
+        if lot_id:
+            q_domain.append(("lot_id", "=", lot_id))
+        else:
+            q_domain.append(("lot_id", "=", False))
+        current_qty = sum(Quant.search(q_domain).mapped("quantity")) or 0.0
+        running_qty = current_qty
+
+        _logger.info(
+            "[StockMoveQty] ctx=%s stock_actuel=%s (quant domain=%s %s)",
+            ctx_loc.display_name, current_qty, ctx_op, ctx_val
+        )
+
+        # Précharger les ids children si ctx_loc est view (perf + fiabilité)
+        ctx_child_ids = None
+        if ctx_loc.usage == "view":
+            ctx_child_ids = set(self.env["stock.location"].search([("id", "child_of", ctx_loc.id)]).ids)
+
+            def _is_in_ctx(loc):
+                return loc.id in ctx_child_ids
+        else:
+            def _is_in_ctx(loc):
+                return loc.id == ctx_loc.id
+
+        for ml in lines:
+            # delta sur le périmètre ctx :
+            src_in = _is_in_ctx(ml.location_id)
+            dst_in = _is_in_ctx(ml.location_dest_id)
+
+            if src_in and dst_in:
+                delta = 0.0
+            elif dst_in:
+                delta = ml.quantity
             else:
-                delta = -qty         # SORTIE
+                delta = -ml.quantity
 
-            running_qty += delta
             qty_after = running_qty
+            qty_before = running_qty - delta
+            running_qty = qty_before
 
-            self.env.cr.execute("""
-                UPDATE stock_move_line
-                SET x_qty_before = %s, x_qty_after = %s
-                WHERE id = %s
-            """, (qty_before, qty_after, ml_id))
+            # Mise à jour uniquement si le contexte de la ligne appartient au périmètre ctx
+            ctx_for_line = self._ctx_location_for_line(ml)
+            include = _is_in_ctx(ctx_for_line)
+
+            if not include:
+                continue
+
+            ml.sudo().write({"x_qty_before": qty_before, "x_qty_after": qty_after})
 
     @api.model
     def recompute_all_history(self):
         """
-        Recalcule qty_before/after sur TOUT l'historique existant.
-        Appelé depuis le wizard de recalcul.
+        Recalcul complet historique (à lancer via action serveur / shell).
         """
-        _logger.info('[StockMoveQty] Début recalcul historique complet')
+        _logger.info("[StockMoveQty] recompute_all_history START")
+        done_lines = self.search([("state", "=", "done")])
 
-        # Collecter toutes les combinaisons distinctes (produit, lot, emplacement)
-        # en tenant compte des deux côtés du mouvement
-        self.env.cr.execute("""
-            SELECT DISTINCT product_id, COALESCE(lot_id, 0), location_id
-            FROM stock_move_line WHERE state = 'done'
-            UNION
-            SELECT DISTINCT product_id, COALESCE(lot_id, 0), location_dest_id
-            FROM stock_move_line WHERE state = 'done'
-            ORDER BY 1, 2, 3
-        """)
-        combos = self.env.cr.fetchall()
-        total = len(combos)
-        _logger.info('[StockMoveQty] %d combinaisons à traiter', total)
+        groups = {}
+        for ml in done_lines:
+            ctx_loc = self._ctx_location_for_line(ml)
+            key = (ml.product_id.id, ml.lot_id.id or False, ctx_loc.id)
+            groups.setdefault(key, ctx_loc)
 
-        for i, (product_id, lot_id, location_id) in enumerate(combos):
+        _logger.info("[StockMoveQty] recompute_all_history groups=%s", len(groups))
+
+        for i, ((product_id, lot_id, _ctx_id), ctx_loc) in enumerate(groups.items()):
             if i % 200 == 0:
-                _logger.info('[StockMoveQty] Progression : %d/%d', i, total)
+                _logger.info("[StockMoveQty] progress %s/%s", i, len(groups))
                 self.env.cr.commit()
-
-            real_lot_id = lot_id if lot_id != 0 else False
-            self._recompute_location(product_id, real_lot_id, location_id)
+            self._recompute_group(product_id, lot_id, ctx_loc)
 
         self.env.cr.commit()
-        _logger.info('[StockMoveQty] Recalcul historique terminé')
+        _logger.info("[StockMoveQty] recompute_all_history DONE")
         return True
