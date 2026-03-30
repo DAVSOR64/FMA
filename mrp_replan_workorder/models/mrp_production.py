@@ -45,11 +45,15 @@ class MrpProduction(models.Model):
         - NE TOUCHE PAS aux dates standard des WO (date_start/date_finished)
         """
         self.ensure_one()
+        raw_delivery = getattr(sale_order, "so_date_de_livraison_prevu", False) \
+            or getattr(sale_order, "x_studio_date_de_livraison_prevu", False) \
+            or sale_order.commitment_date
 
-        delivery_dt = fields.Datetime.to_datetime(sale_order.commitment_date)
+        delivery_dt = fields.Datetime.to_datetime(raw_delivery)
         if not delivery_dt:
-            _logger.info("SO %s : pas de commitment_date -> pas de macro planning", sale_order.name)
+            _logger.info("SO %s : pas de date prévue de livraison -> pas de macro planning", sale_order.name)
             return False
+
 
         self.message_post(body="🧪 DEBUG : macro planning (SO confirm) exécuté")
 
@@ -894,7 +898,10 @@ class MrpProduction(models.Model):
         if not so:
             return
 
-        raw_delivery = so.commitment_date or so.expected_date
+        raw_delivery = getattr(so, "so_date_de_livraison_prevu", False) \
+            or getattr(so, "x_studio_date_de_livraison_prevu", False) \
+            or so.commitment_date \
+            or so.expected_date
         delivery_date = self._to_date(raw_delivery)
 
         x_end = self._to_date(self.x_studio_date_de_fin)

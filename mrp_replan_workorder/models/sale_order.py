@@ -23,7 +23,9 @@ class SaleOrder(models.Model):
         for order in self:
             # 1) Déterminer une date "cible" de livraison
             # Priorité: commitment_date du SO (vraie promesse)
-            commitment_dt = order.commitment_date
+            delivery_dt = getattr(order, "so_date_de_livraison_prevu", False) \
+                or getattr(order, "x_studio_date_de_livraison_prevu", False) \
+                or order.commitment_date
 
             # Fallback: si pas de commitment_date, construire une date via délai max des lignes
             if not commitment_dt:
