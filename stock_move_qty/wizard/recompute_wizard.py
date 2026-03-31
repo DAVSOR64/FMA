@@ -22,7 +22,7 @@ class RecomputeQtyWizard(models.TransientModel):
             'tag': 'display_notification',
             'params': {
                 'title': 'Recalcul terminé',
-                'message': 'Les quantités avant/après ont été recalculées sur tout l'historique.',
+                'message': 'Les quantités avant/après ont été recalculées sur tout l historique.',
                 'type': 'success',
                 'sticky': False,
             },
