@@ -1,4 +1,3 @@
-
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="view_move_line_tree_inherit_qty_before_after" model="ir.ui.view">
