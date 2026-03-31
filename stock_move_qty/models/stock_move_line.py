@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 
 from collections import defaultdict
@@ -8,115 +9,82 @@ from odoo import api, fields, models
 class StockMoveLine(models.Model):
     _inherit = 'stock.move.line'
 
-    qty_before_move = fields.Float(
-        string='Qté avant mouvement',
-        digits='Product Unit of Measure',
-        readonly=True,
-        copy=False,
-    )
-    qty_after_move = fields.Float(
-        string='Qté après mouvement',
-        digits='Product Unit of Measure',
-        readonly=True,
-        copy=False,
+    x_move_type = fields.Selection(
+        [('EN', 'Entrée'), ('SO', 'Sortie'), ('AU', 'Autre')],
+        string='Type mouvement',
+        compute='_compute_qty_move_metadata',
+        store=True,
     )
     qty_tracked_location_id = fields.Many2one(
         'stock.location',
-        string='Emplacement pris en compte',
-        readonly=True,
-        copy=False,
+        string='Emplacement suivi',
+        compute='_compute_qty_move_metadata',
+        store=True,
     )
-    qty_move_direction = fields.Selection(
-        [
-            ('in', 'Entrée'),
-            ('out', 'Sortie'),
-            ('other', 'Autre'),
-        ],
-        string='Sens calcul',
-        readonly=True,
-        copy=False,
-    )
+    qty_before_move = fields.Float(string='Qté avant', default=0.0, readonly=True, copy=False)
+    qty_after_move = fields.Float(string='Qté après', default=0.0, readonly=True, copy=False)
 
-    def _get_done_qty_in_product_uom(self):
+    @api.depends('location_id', 'location_dest_id')
+    def _compute_qty_move_metadata(self):
+        for line in self:
+            move_type, tracked_location = line._get_tracked_location_and_type()
+            line.x_move_type = move_type
+            line.qty_tracked_location_id = tracked_location
+
+    def _get_tracked_location_and_type(self):
         self.ensure_one()
-        qty = 0.0
-        if 'qty_done' in self._fields:
-            qty = self.qty_done or 0.0
-        elif 'quantity' in self._fields:
-            qty = self.quantity or 0.0
-
-        uom = False
-        if 'product_uom_id' in self._fields:
-            uom = self.product_uom_id
-        if not uom and self.move_id:
-            uom = self.move_id.product_uom
-
-        if uom and self.product_id.uom_id and uom != self.product_id.uom_id:
-            qty = uom._compute_quantity(qty, self.product_id.uom_id)
-        return qty
-
-    def _get_tracked_location_and_delta(self):
-        """Retourne l'emplacement à suivre et l'impact stock.
-
-        Règles métier demandées :
-        - entrée vers un emplacement interne => on suit l'emplacement de destination
-        - sortie depuis un emplacement interne => on suit l'emplacement source
-        - transfert interne/interne => non calculé ici (une seule paire avant/après)
-        """
-        self.ensure_one()
-
         src = self.location_id
         dest = self.location_dest_id
-        qty = self._get_done_qty_in_product_uom()
-
-        if not self.product_id or not qty:
-            return False, 0.0, 'other'
-
-        src_internal = src.usage == 'internal' if src else False
-        dest_internal = dest.usage == 'internal' if dest else False
+        src_internal = bool(src and src.usage == 'internal')
+        dest_internal = bool(dest and dest.usage == 'internal')
 
         if dest_internal and not src_internal:
-            return dest, qty, 'in'
-
+            return 'EN', dest.id
         if src_internal and not dest_internal:
-            return src, -qty, 'out'
-
-        return False, 0.0, 'other'
+            return 'SO', src.id
+        if src_internal and dest_internal:
+            # Pour les transferts internes, on suit le stock de la source.
+            return 'SO', src.id
+        return 'AU', False
 
     @api.model
     def recompute_all_history(self):
-        lines = self.search(
-            [('state', '=', 'done'), ('product_id', '!=', False)],
-            order='date,id'
-        )
+        MoveLine = self.sudo().with_context(active_test=False)
 
-        running_qty = defaultdict(float)
-        to_write = []
-
-        for line in lines:
-            location, delta, direction = line._get_tracked_location_and_delta()
-            vals = {
+        # Reset global pour éviter les reliquats.
+        all_lines = MoveLine.search([])
+        if all_lines:
+            all_lines.write({
                 'qty_before_move': 0.0,
                 'qty_after_move': 0.0,
-                'qty_tracked_location_id': False,
-                'qty_move_direction': direction,
-            }
+            })
+            all_lines._compute_qty_move_metadata()
 
-            if location:
-                key = (line.product_id.id, location.id)
-                before = running_qty[key]
-                after = before + delta
-                running_qty[key] = after
+        done_lines = MoveLine.search([
+            ('state', '=', 'done'),
+            ('product_id', '!=', False),
+        ], order='date, id')
 
-                vals.update({
-                    'qty_before_move': before,
-                    'qty_after_move': after,
-                    'qty_tracked_location_id': location.id,
-                })
+        balances = defaultdict(float)
+        batch_updates = []
 
-            to_write.append((line, vals))
+        for line in done_lines:
+            move_type, tracked_location_id = line._get_tracked_location_and_type()
+            qty = abs(line.quantity or 0.0)
 
-        for line, vals in to_write:
-            line.sudo().write(vals)
+            if move_type == 'AU' or not tracked_location_id or not qty:
+                batch_updates.append((line.id, 0.0, 0.0))
+                continue
 
+            key = (line.product_id.id, tracked_location_id)
+            before_qty = balances[key]
+            after_qty = before_qty + qty if move_type == 'EN' else before_qty - qty
+            balances[key] = after_qty
+            batch_updates.append((line.id, before_qty, after_qty))
+
+        for line_id, before_qty, after_qty in batch_updates:
+            MoveLine.browse(line_id).write({
+                'qty_before_move': before_qty,
+                'qty_after_move': after_qty,
+            })
         return True

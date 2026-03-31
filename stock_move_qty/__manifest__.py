@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 {
     'name': 'Stock Move Quantity Before/After',
@@ -5,15 +6,13 @@
     'category': 'Inventory',
     'summary': 'Affiche la quantité avant et après sur les mouvements de stock',
     'description': """
-        Ajoute deux champs sur les lignes de mouvements de stock :
+        Ajoute des champs calculés sur stock.move.line :
+        - Type de mouvement (EN/SO/AU)
+        - Emplacement suivi
         - Quantité avant le mouvement
         - Quantité après le mouvement
 
-        Le calcul est fait sur l'emplacement pertinent :
-        - entrée : emplacement de destination interne
-        - sortie : emplacement source interne
-
-        Un assistant permet de recalculer tout l'historique.
+        Un assistant permet de recalculer l'historique existant.
     """,
     'author': 'Paxo Consulting',
     'depends': ['stock'],
