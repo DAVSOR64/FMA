@@ -10,7 +10,7 @@ class RecomputeQtyWizard(models.TransientModel):
 
     info = fields.Char(
         string='Information',
-        default='Ce traitement va recalculer les quantités avant/après sur tout l historique des mouvements de stock. Cela peut prendre plusieurs minutes selon le volume de données.',
+        default="Ce traitement va recalculer les quantités avant/après sur tout l'historique des mouvements de stock. Cela peut prendre plusieurs minutes selon le volume de données.",
         readonly=True,
     )
 
@@ -22,7 +22,7 @@ class RecomputeQtyWizard(models.TransientModel):
             'tag': 'display_notification',
             'params': {
                 'title': 'Recalcul terminé',
-                'message': 'Les quantités avant/après ont été recalculées sur tout l historique.',
+                "message": "Les quantités avant/après ont été recalculées sur tout l'historique.",
                 'type': 'success',
                 'sticky': False,
             },
