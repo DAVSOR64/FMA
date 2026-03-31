@@ -9,13 +9,8 @@
                     <field name="info" nolabel="1" colspan="2"/>
                 </group>
                 <footer>
-                    <button name="action_recompute"
-                            string="Lancer le recalcul"
-                            type="object"
-                            class="btn-primary"/>
-                    <button string="Annuler"
-                            class="btn-secondary"
-                            special="cancel"/>
+                    <button name="action_recompute" string="Lancer le recalcul" type="object" class="btn-primary"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
         </field>
@@ -28,7 +23,6 @@
         <field name="target">new</field>
     </record>
 
-    <!-- Menu dans Inventaire > Configuration -->
     <menuitem id="menu_recompute_qty_wizard"
               name="Recalculer qté avant/après"
               parent="stock.menu_stock_config_settings"

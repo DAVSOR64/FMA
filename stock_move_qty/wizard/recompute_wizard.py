@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import models, fields, api
+from odoo import fields, models
 
 
 class RecomputeQtyWizard(models.TransientModel):
@@ -9,9 +9,7 @@ class RecomputeQtyWizard(models.TransientModel):
 
     info = fields.Char(
         string='Information',
-        default='Ce traitement va recalculer les quantités avant/après sur tout '
-                'l\'historique des mouvements de stock. Cela peut prendre plusieurs '
-                'minutes selon le volume de données.',
+        default='Ce traitement va recalculer les quantités avant/après sur tout l\'historique des mouvements de stock. Cela peut prendre plusieurs minutes selon le volume de données.',
         readonly=True,
     )
 

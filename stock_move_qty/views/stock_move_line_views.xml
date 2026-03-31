@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_move_line_tree_inherit_qty_before_after" model="ir.ui.view">
+        <field name="name">stock.move.line.tree.qty.before.after</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_move_line_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='qty_done']" position="after">
+                <field name="qty_before_move" optional="show"/>
+                <field name="qty_after_move" optional="show"/>
+                <field name="qty_tracked_location_id" optional="hide"/>
+                <field name="qty_move_direction" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_move_line_form_inherit_qty_before_after" model="ir.ui.view">
+        <field name="name">stock.move.line.form.qty.before.after</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_move_line_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group" position="inside">
+                <field name="qty_before_move"/>
+                <field name="qty_after_move"/>
+                <field name="qty_tracked_location_id"/>
+                <field name="qty_move_direction"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
