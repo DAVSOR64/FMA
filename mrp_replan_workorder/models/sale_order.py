@@ -28,10 +28,10 @@ class SaleOrder(models.Model):
                 or order.commitment_date
 
             # Fallback: si pas de commitment_date, construire une date via délai max des lignes
-            if not commitment_dt:
+            if not delivery_dt:
                 leads = order.order_line.mapped('customer_lead')
                 lead_days = int(max(leads)) if leads else 0
-                commitment_dt = fields.Datetime.to_datetime(order.date_order) + timedelta(days=lead_days)
+                delivery_dt = fields.Datetime.to_datetime(order.date_order) + timedelta(days=lead_days)
                 _logger.info("SO %s sans commitment_date -> fallback (date_order + %s j) = %s",
                              order.name, lead_days, commitment_dt)
 
