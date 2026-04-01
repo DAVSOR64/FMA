@@ -1501,12 +1501,12 @@ class SqliteConnector(models.Model):
             if rowOpe[6] is not None and rowOpe[6] == 0 :
                 name = 'Débit'  + ' ' + eticom
             else:
-                if rowOpe[6] is not None and rowOpe[6] == 4 :
-                    name = 'Usinage'  + ' ' + eticom
-                else:
-                    if rowOpe[6] is not None and rowOpe[6] == 5 :
+                if rowOpe[6] is not None and rowOpe[6] == 5 :
                         name = 'CU (banc)'  + ' ' + eticom
-                    else :
+                else :
+                    if rowOpe[6] is not None and rowOpe[6] == 4 :
+                        name = 'Usinage'  + ' ' + eticom
+                    else:
                         if rowOpe[6] is not None and rowOpe[6] == 6 :
                             name = 'Montage'  + ' ' + eticom
                         else:
