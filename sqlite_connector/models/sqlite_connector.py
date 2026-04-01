@@ -1527,14 +1527,28 @@ class SqliteConnector(models.Model):
                 aggregated_data[ope] = {'temps': temps * Qty, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
+        operation_order = {
+            'Débit': 10,
+            'CU (banc)': 20,
+            'Usinage': 30,
+            'Montage': 40,
+            'Vitrage': 50,
+            'Emballage': 60,
+        }
+        
         for ope, data in aggregated_data.items():
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
                 continue
+        
+            base_name = data['name'].replace(' FMA', '').replace(' F2M', '').strip()
+            sequence = operation_order.get(base_name, 999)
+        
             operation_data = {
                 'name': ope,
+                'sequence': sequence,
                 'time_cycle_manual': data['temps'],
-                'workcenter_id': workcenter.id
+                'workcenter_id': workcenter.id,
             }
         
             if nomenclatures_data:
