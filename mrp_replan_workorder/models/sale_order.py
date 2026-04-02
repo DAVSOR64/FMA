@@ -33,7 +33,7 @@ class SaleOrder(models.Model):
                 lead_days = int(max(leads)) if leads else 0
                 delivery_dt = fields.Datetime.to_datetime(order.date_order) + timedelta(days=lead_days)
                 _logger.info("SO %s sans commitment_date -> fallback (date_order + %s j) = %s",
-                             order.name, lead_days, commitment_dt)
+                             order.name, lead_days, delivery_dt)
 
             # 2) Récupérer les OF liés à la commande
             # Méthode plus robuste que origin=self.name : procurement_group_id
