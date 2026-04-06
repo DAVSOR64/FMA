@@ -1,0 +1,27 @@
+
+<odoo>
+    <record id="view_mrp_production_form_fma_button" model="ir.ui.view">
+        <field name="name">mrp.production.form.fma.button</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_resequence_fma"
+                        type="object"
+                        string="Réordonner FMA"
+                        class="btn-primary"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_production_form_sort" model="ir.ui.view">
+        <field name="name">mrp.production.form.sort</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='workorder_ids']" position="attributes">
+                <attribute name="context">{'default_order': 'op_sequence asc, id asc'}</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

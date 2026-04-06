@@ -10,6 +10,9 @@ ORDER = [
     "Emballage FMA",
 ]
 
+def _norm(v):
+    return (v or "").lower()
+
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
@@ -17,7 +20,7 @@ class MrpProduction(models.Model):
         for production in self:
             for wo in production.workorder_ids:
                 for idx, label in enumerate(ORDER):
-                    if label.lower() in (wo.name or "").lower():
+                    if _norm(label) in _norm(wo.name):
                         if wo.operation_id:
                             wo.operation_id.sequence = (idx + 1) * 10
             production.workorder_ids._compute_op_sequence()
