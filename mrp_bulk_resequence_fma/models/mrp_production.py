@@ -1,127 +1,121 @@
-# -*- coding: utf-8 -*-
-import logging
-import unicodedata
+from datetime import timedelta
 
-from odoo import api, models, _
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
-
-_logger = logging.getLogger(__name__)
 
 
 class MrpProduction(models.Model):
-    _inherit = "mrp.production"
+    _inherit = 'mrp.production'
 
-    @api.model
-    def _fma_operation_order_map(self):
-        return {
-            "debit fma": 10,
-            "cu (banc) fma": 20,
-            "usinage fma": 30,
-            "montage fma": 40,
-            "vitrage fma": 50,
-            "emballage fma": 60,
-        }
+    FMA_OPERATION_ORDER = [
+        'Débit FMA',
+        'CU (Banc) FMA',
+        'Usinage FMA',
+        'Montage FMA',
+        'Vitrage FMA',
+        'Emballage FMA',
+    ]
 
-    @api.model
-    def _normalize_fma_label(self, value):
-        value = value or ""
-        value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-        return " ".join(value.lower().strip().split())
-
-    def _get_fma_rank_for_workorder(self, wo):
-        order_map = self._fma_operation_order_map()
-        candidates = [
-            wo.workcenter_id.display_name,
-            wo.workcenter_id.name,
-            wo.operation_id.name if wo.operation_id else False,
-            wo.name,
-        ]
-        for candidate in candidates:
-            key = self._normalize_fma_label(candidate)
-            if key in order_map:
-                return order_map[key]
-        return 999
-
-    def _is_not_started_for_bulk_resequence(self):
+    def _is_not_started_for_resequence(self):
         self.ensure_one()
-        if self.state in ("progress", "to_close", "done", "cancel"):
+        if self.state in ('done', 'cancel'):
             return False
-        started_wos = self.workorder_ids.filtered(lambda w: w.state in ("progress", "done"))
-        return not started_wos
+        started_states = {'progress', 'done', 'cancel'}
+        for wo in self.workorder_ids:
+            if wo.state in started_states:
+                return False
+            if wo.date_start:
+                return False
+            if getattr(wo, 'qty_produced', 0):
+                return False
+        return True
 
-    def action_open_bulk_resequence_wizard(self):
-        productions = self
-        if not productions:
-            raise UserError(_("Sélectionnez au moins un OF."))
-        return {
-            "type": "ir.actions.act_window",
-            "name": _("Réordonner opérations FMA"),
-            "res_model": "mrp.bulk.resequence.wizard",
-            "view_mode": "form",
-            "target": "new",
-            "context": {
-                "default_production_ids": [(6, 0, productions.ids)],
-            },
-        }
+    def _get_fma_workorder_rank(self, workorder):
+        wc_name = (workorder.workcenter_id.name or '').strip()
+        try:
+            return self.FMA_OPERATION_ORDER.index(wc_name)
+        except ValueError:
+            return len(self.FMA_OPERATION_ORDER) + ((workorder.sequence or 0) / 1000.0)
 
-    def action_bulk_resequence_fma(self):
-        updated = 0
-        skipped = []
-        details = []
-
-        for mo in self:
-            if not mo._is_not_started_for_bulk_resequence():
-                skipped.append(mo.name)
-                continue
-
-            workorders = mo.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-            if not workorders:
-                skipped.append(mo.name)
-                continue
-
-            ranked_wos = workorders.sorted(lambda w: (mo._get_fma_rank_for_workorder(w), w.id))
+    def _apply_fma_operation_order(self):
+        for production in self:
+            ordered_wos = production.workorder_ids.sorted(
+                key=lambda wo: (production._get_fma_workorder_rank(wo), wo.sequence or 0, wo.id)
+            )
             seq = 10
-            for wo in ranked_wos:
-                vals = {}
-                if "sequence" in wo._fields:
-                    vals["sequence"] = seq
-                if wo.operation_id:
-                    try:
-                        wo.operation_id.with_context(mail_notrack=True).write({"sequence": seq})
-                    except Exception:
-                        _logger.exception("Impossible de mettre à jour la séquence opération pour %s", wo.display_name)
-                if vals:
-                    wo.with_context(skip_shift_chain=True, skip_macro_recalc=True, mail_notrack=True).write(vals)
-                details.append("%s -> %s" % (wo.display_name, seq))
+            for wo in ordered_wos:
+                wo.sequence = seq
                 seq += 10
 
-            # Replanification locale uniquement pour cet OF
-            fixed_end_dt = (
-                getattr(mo, 'macro_forced_end', False)
-                or mo.date_deadline
-                or getattr(mo, 'date_finished', False)
-            )
-            if fixed_end_dt:
-                ctx = mo.with_context(skip_macro_recalc=True, mail_notrack=True)
-                try:
-                    ctx._recalculate_macro_backward(ranked_wos, end_dt=fixed_end_dt)
-                    ctx.apply_macro_to_workorders_dates()
-                    ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
-                    ctx._update_components_picking_dates()
-                except Exception:
-                    _logger.exception("Erreur de replanification locale sur %s", mo.name)
-            updated += 1
+    def _get_local_replan_start(self):
+        self.ensure_one()
+        return (
+            self.date_planned_start
+            or self.date_start
+            or fields.Datetime.now()
+        )
 
-        message = _("OF mis à jour : %s") % updated
+    def _duration_delta_for_workorder(self, workorder):
+        minutes = workorder.duration_expected or 0.0
+        if minutes < 0:
+            minutes = 0.0
+        return timedelta(minutes=minutes)
+
+    def _replan_workorders_locally(self):
+        """Replanifie uniquement les OT de l'OF courant, sans recalcul global."""
+        for production in self:
+            current_dt = production._get_local_replan_start()
+            workorders = production.workorder_ids.sorted(lambda wo: (wo.sequence or 0, wo.id))
+            if not workorders:
+                continue
+
+            for wo in workorders:
+                delta = production._duration_delta_for_workorder(wo)
+                wo.write({
+                    'date_start': current_dt,
+                    'date_finished': current_dt + delta,
+                })
+                current_dt = current_dt + delta
+
+            production.write({
+                'date_planned_start': workorders[0].date_start,
+                'date_deadline': workorders[-1].date_finished,
+            })
+
+    def action_resequence_fma(self):
+        skipped = self.browse()
+        processed = self.browse()
+
+        for production in self:
+            if production._is_not_started_for_resequence():
+                production._apply_fma_operation_order()
+                production._replan_workorders_locally()
+                processed |= production
+            else:
+                skipped |= production
+
+        message_parts = []
+        if processed:
+            message_parts.append(_('%s OF réordonnés et replanifiés.') % len(processed))
         if skipped:
-            message += "\n" + _("OF ignorés (déjà lancés / terminés) : %s") % ", ".join(skipped)
+            message_parts.append(_('%s OF ignorés (déjà lancés, terminés ou annulés).') % len(skipped))
+        if not message_parts:
+            message_parts.append(_('Aucun OF éligible.'))
+
         return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": _("Réordonnancement FMA"),
-                "message": message,
-                "type": "success" if updated else "warning",
-                "sticky": True,
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Réordonnancement FMA'),
+                'message': ' '.join(message_parts),
+                'type': 'success' if processed else 'warning',
+                'sticky': False,
             }
         }
+
+    @api.model
+    def action_resequence_fma_from_context(self):
+        active_ids = self.env.context.get('active_ids') or []
+        if not active_ids:
+            raise UserError(_('Aucun OF sélectionné.'))
+        return self.browse(active_ids).action_resequence_fma()
