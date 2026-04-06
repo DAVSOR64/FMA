@@ -5,7 +5,7 @@
     'category': 'Manufacturing',
     'summary': 'Tableau de bord capacité vs charge avec suivi prévu/effectué/cumul',
     'author': 'Paxo Consulting',
-    'depends': ['mrp', 'planning', 'hr', 'mrp_capacity_planning', 'mrp_replan_workorder'],
+    'depends': ['mrp_replan_workorder', 'mrp', 'planning', 'hr', 'mrp_capacity_planning'],
     'data': [
         'security/ir.model.access.csv',
         'views/capacite_charge_views.xml',

@@ -53,13 +53,9 @@
                 <field name="date_finished"         string="Fin"            widget="date" optional="show"/>
                 <field name="workcenter_id"         string="Poste"/>
                 <field name="production_id"         string="N° OF"/>
-                <!-- N° MTN : champ sur mrp.production accédé via production_id -->
-                <field name="production_id.x_studio_mtn_mrp_sale_order"
-                       string="N° MTN"
-                       optional="show"/>
                 <field name="name"                  string="Opération"/>
                 <field name="duration_expected"     string="Durée prévue (min)" optional="show"/>
-                                <field name="state"                 string="État"
+                <field name="state"                 string="État"
                        widget="badge"
                        decoration-success="state == 'done'"
                        decoration-warning="state == 'progress'"
