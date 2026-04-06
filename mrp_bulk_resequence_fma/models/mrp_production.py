@@ -30,22 +30,31 @@ class MrpProduction(models.Model):
                 return False
         return True
 
+    def _get_current_workorder_order(self, workorder):
+        operation = getattr(workorder, 'operation_id', False)
+        if operation and 'sequence' in operation._fields:
+            return operation.sequence or 0
+        return 0
+
     def _get_fma_workorder_rank(self, workorder):
         wc_name = (workorder.workcenter_id.name or '').strip()
         try:
             return self.FMA_OPERATION_ORDER.index(wc_name)
         except ValueError:
-            return len(self.FMA_OPERATION_ORDER) + ((workorder.sequence or 0) / 1000.0)
+            return len(self.FMA_OPERATION_ORDER) + (self._get_current_workorder_order(workorder) / 1000.0)
 
     def _apply_fma_operation_order(self):
         for production in self:
             ordered_wos = production.workorder_ids.sorted(
-                key=lambda wo: (production._get_fma_workorder_rank(wo), wo.sequence or 0, wo.id)
+                key=lambda wo: (
+                    production._get_fma_workorder_rank(wo),
+                    production._get_current_workorder_order(wo),
+                    wo.id,
+                )
             )
-            seq = 10
-            for wo in ordered_wos:
-                wo.sequence = seq
-                seq += 10
+            # mrp.workorder n'a pas de champ sequence sur cette base.
+            # On mémorise simplement l'ordre voulu pour la replanification locale.
+            production._fma_ordered_workorder_ids = ordered_wos.ids
 
     def _get_local_replan_start(self):
         self.ensure_one()
@@ -65,7 +74,13 @@ class MrpProduction(models.Model):
         """Replanifie uniquement les OT de l'OF courant, sans recalcul global."""
         for production in self:
             current_dt = production._get_local_replan_start()
-            workorders = production.workorder_ids.sorted(lambda wo: (wo.sequence or 0, wo.id))
+            ordered_ids = getattr(production, '_fma_ordered_workorder_ids', False)
+            if ordered_ids:
+                workorders = self.env['mrp.workorder'].browse(ordered_ids).exists()
+            else:
+                workorders = production.workorder_ids.sorted(
+                    lambda wo: (production._get_current_workorder_order(wo), wo.id)
+                )
             if not workorders:
                 continue
 
