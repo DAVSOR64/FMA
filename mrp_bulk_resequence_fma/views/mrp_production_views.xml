@@ -1,6 +1,6 @@
 <odoo>
-    <record id="view_mrp_production_form_resequence_fma" model="ir.ui.view">
-        <field name="name">mrp.production.form.resequence.fma</field>
+    <record id="view_mrp_production_form_fma_resequence" model="ir.ui.view">
+        <field name="name">mrp.production.form.fma.resequence</field>
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
@@ -8,13 +8,12 @@
                 <button name="action_resequence_fma"
                         type="object"
                         string="Réordonner opérations FMA"
-                        class="oe_highlight"
-                        invisible="state in ('done', 'cancel')"/>
+                        class="btn-secondary"/>
             </xpath>
         </field>
     </record>
 
-    <record id="action_server_resequence_fma_mo" model="ir.actions.server">
+    <record id="server_action_resequence_fma" model="ir.actions.server">
         <field name="name">Réordonner opérations FMA</field>
         <field name="model_id" ref="mrp.model_mrp_production"/>
         <field name="binding_model_id" ref="mrp.model_mrp_production"/>

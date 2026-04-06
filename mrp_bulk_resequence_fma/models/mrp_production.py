@@ -24,7 +24,7 @@ class MrpProduction(models.Model):
         for wo in self.workorder_ids:
             if wo.state in started_states:
                 return False
-            if wo.date_start:
+            if getattr(wo, 'date_start', False):
                 return False
             if getattr(wo, 'qty_produced', 0):
                 return False
@@ -55,20 +55,55 @@ class MrpProduction(models.Model):
 
     def _get_local_replan_start(self):
         self.ensure_one()
-        return (
-            self.date_planned_start
-            or self.date_start
-            or fields.Datetime.now()
-        )
+        for fname in ('date_planned_start', 'date_start', 'date_deadline', 'create_date'):
+            if fname in self._fields:
+                value = self[fname]
+                if value:
+                    return value
+        return fields.Datetime.now()
 
     def _duration_delta_for_workorder(self, workorder):
-        minutes = workorder.duration_expected or 0.0
+        minutes = getattr(workorder, 'duration_expected', 0.0) or 0.0
         if minutes < 0:
             minutes = 0.0
         return timedelta(minutes=minutes)
 
+    def _write_workorder_dates(self, workorder, start_dt, end_dt):
+        vals = {}
+        if 'date_start' in workorder._fields:
+            vals['date_start'] = start_dt
+        if 'date_finished' in workorder._fields:
+            vals['date_finished'] = end_dt
+        elif 'date_end' in workorder._fields:
+            vals['date_end'] = end_dt
+        if vals:
+            workorder.write(vals)
+
+    def _write_production_dates(self, production, first_start, last_end):
+        vals = {}
+        for start_name in ('date_planned_start', 'date_start'):
+            if start_name in production._fields:
+                vals[start_name] = first_start
+                break
+        for end_name in ('date_deadline', 'date_finished', 'date_end'):
+            if end_name in production._fields:
+                vals[end_name] = last_end
+                break
+        if vals:
+            production.write(vals)
+
+    def _resequence_operation_sequences_if_possible(self):
+        """Optionnel: recale les séquences des opérations liées quand le champ existe."""
+        for production in self:
+            ordered_wos = production._get_fma_ordered_workorders()
+            seq = 10
+            for wo in ordered_wos:
+                operation = getattr(wo, 'operation_id', False)
+                if operation and 'sequence' in operation._fields:
+                    operation.sequence = seq
+                    seq += 10
+
     def _replan_workorders_locally(self):
-        """Replanifie uniquement les OT de l'OF courant, sans recalcul global."""
         for production in self:
             current_dt = production._get_local_replan_start()
             workorders = production._get_fma_ordered_workorders()
@@ -77,16 +112,11 @@ class MrpProduction(models.Model):
 
             for wo in workorders:
                 delta = production._duration_delta_for_workorder(wo)
-                wo.write({
-                    'date_start': current_dt,
-                    'date_finished': current_dt + delta,
-                })
-                current_dt = current_dt + delta
+                end_dt = current_dt + delta
+                production._write_workorder_dates(wo, current_dt, end_dt)
+                current_dt = end_dt
 
-            production.write({
-                'date_planned_start': workorders[0].date_start,
-                'date_deadline': workorders[-1].date_finished,
-            })
+            production._write_production_dates(production, workorders[0].date_start or production._get_local_replan_start(), current_dt)
 
     def action_resequence_fma(self):
         skipped = self.browse()
@@ -94,6 +124,7 @@ class MrpProduction(models.Model):
 
         for production in self:
             if production._is_not_started_for_resequence():
+                production._resequence_operation_sequences_if_possible()
                 production._replan_workorders_locally()
                 processed |= production
             else:
