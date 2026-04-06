@@ -43,18 +43,15 @@ class MrpProduction(models.Model):
         except ValueError:
             return len(self.FMA_OPERATION_ORDER) + (self._get_current_workorder_order(workorder) / 1000.0)
 
-    def _apply_fma_operation_order(self):
-        for production in self:
-            ordered_wos = production.workorder_ids.sorted(
-                key=lambda wo: (
-                    production._get_fma_workorder_rank(wo),
-                    production._get_current_workorder_order(wo),
-                    wo.id,
-                )
+    def _get_fma_ordered_workorders(self):
+        self.ensure_one()
+        return self.workorder_ids.sorted(
+            key=lambda wo: (
+                self._get_fma_workorder_rank(wo),
+                self._get_current_workorder_order(wo),
+                wo.id,
             )
-            # mrp.workorder n'a pas de champ sequence sur cette base.
-            # On mémorise simplement l'ordre voulu pour la replanification locale.
-            production._fma_ordered_workorder_ids = ordered_wos.ids
+        )
 
     def _get_local_replan_start(self):
         self.ensure_one()
@@ -74,13 +71,7 @@ class MrpProduction(models.Model):
         """Replanifie uniquement les OT de l'OF courant, sans recalcul global."""
         for production in self:
             current_dt = production._get_local_replan_start()
-            ordered_ids = getattr(production, '_fma_ordered_workorder_ids', False)
-            if ordered_ids:
-                workorders = self.env['mrp.workorder'].browse(ordered_ids).exists()
-            else:
-                workorders = production.workorder_ids.sorted(
-                    lambda wo: (production._get_current_workorder_order(wo), wo.id)
-                )
+            workorders = production._get_fma_ordered_workorders()
             if not workorders:
                 continue
 
@@ -103,7 +94,6 @@ class MrpProduction(models.Model):
 
         for production in self:
             if production._is_not_started_for_resequence():
-                production._apply_fma_operation_order()
                 production._replan_workorders_locally()
                 processed |= production
             else:
