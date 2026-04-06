@@ -23,25 +23,27 @@ class MrpWorkorder(models.Model):
         'production_id',
         'production_id.name',
         'production_id.origin',
-        'production_id.sale_id',
-        'production_id.sale_id.name',
         'production_id.procurement_group_id',
-        'production_id.procurement_group_id.sale_id',
     )
     def _compute_planning_labels(self):
+        SaleOrder = self.env['sale.order']
         for wo in self:
             mo = wo.production_id
-            sale = getattr(mo, 'sale_id', False) or getattr(getattr(mo, 'procurement_group_id', False), 'sale_id', False)
+            sale = False
+            if mo:
+                sale = getattr(getattr(mo, 'procurement_group_id', False), 'sale_id', False)
+                if not sale and getattr(mo, 'origin', False):
+                    sale = SaleOrder.search([('name', '=', mo.origin)], limit=1)
 
             project = False
             for candidate in (
-                getattr(mo, 'x_studio_projet', False),
-                getattr(sale, 'x_studio_projet', False),
-                getattr(sale, 'project_id', False) and sale.project_id.display_name,
-                getattr(sale, 'analytic_account_id', False) and sale.analytic_account_id.display_name,
-                getattr(sale, 'name', False),
-                getattr(mo, 'origin', False),
-                getattr(mo, 'name', False),
+                getattr(mo, 'x_studio_projet', False) if mo else False,
+                getattr(sale, 'x_studio_projet', False) if sale else False,
+                getattr(sale, 'project_id', False).display_name if sale and getattr(sale, 'project_id', False) else False,
+                getattr(sale, 'analytic_account_id', False).display_name if sale and getattr(sale, 'analytic_account_id', False) else False,
+                getattr(sale, 'name', False) if sale else False,
+                getattr(mo, 'origin', False) if mo else False,
+                getattr(mo, 'name', False) if mo else False,
             ):
                 if candidate:
                     project = candidate.display_name if hasattr(candidate, 'display_name') else str(candidate)
@@ -50,9 +52,9 @@ class MrpWorkorder(models.Model):
 
             mtn = False
             for candidate in (
-                getattr(mo, 'x_studio_mtn_mrp_sale_order', False),
-                getattr(sale, 'x_studio_mtn_mrp_sale_order', False),
-                getattr(sale, 'client_order_ref', False),
+                getattr(mo, 'x_studio_mtn_mrp_sale_order', False) if mo else False,
+                getattr(sale, 'x_studio_mtn_mrp_sale_order', False) if sale else False,
+                getattr(sale, 'client_order_ref', False) if sale else False,
             ):
                 if candidate:
                     mtn = candidate.display_name if hasattr(candidate, 'display_name') else str(candidate)
