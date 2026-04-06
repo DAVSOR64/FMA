@@ -1,11 +1,11 @@
 {
     'name': 'MRP Bulk Resequence FMA',
-    'version': '17.0.1.0.1',
-    'summary': 'Réordonne en masse les opérations FMA puis replanifie localement les OF',
+    'version': '17.0.1.0.6',
+    'summary': 'Réordonne les opérations FMA et relance la replanification locale des OF non démarrés',
     'category': 'Manufacturing',
     'author': 'OpenAI',
     'license': 'LGPL-3',
-    'depends': ['mrp'],
+    'depends': ['mrp', 'mrp_replan_workorder'],
     'data': [
         'views/mrp_production_views.xml',
     ],
