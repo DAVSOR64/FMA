@@ -1,0 +1,25 @@
+<odoo>
+    <record id="view_mrp_production_form_bulk_resequence_button" model="ir.ui.view">
+        <field name="name">mrp.production.form.bulk.resequence.button</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_open_bulk_resequence_wizard"
+                        type="object"
+                        string="Réordonner opérations FMA"
+                        class="btn-secondary"
+                        invisible="state in ('progress','done','cancel')"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_mrp_bulk_resequence_wizard" model="ir.actions.server">
+        <field name="name">Réordonner opérations FMA</field>
+        <field name="model_id" ref="mrp.model_mrp_production"/>
+        <field name="binding_model_id" ref="mrp.model_mrp_production"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_open_bulk_resequence_wizard()</field>
+    </record>
+</odoo>
