@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================== -->
+    <!-- Gantt Planning Atelier — mrp.workorder                             -->
+    <!-- Affiche les opérations planifiées par poste avec N° MTN            -->
+    <!-- Option A : construit depuis macro_planned_start (sans créer de     -->
+    <!--            nouveaux modèles, ni toucher mrp.capacity.week)          -->
+    <!-- ================================================================== -->
+
+    <record id="view_mrp_workorder_planning_gantt" model="ir.ui.view">
+        <field name="name">mrp.workorder.planning.gantt</field>
+        <field name="model">mrp.workorder</field>
+        <field name="arch" type="xml">
+            <gantt
+                string="Planning Atelier — Gantt"
+                date_start="date_start"
+                date_stop="date_finished"
+                default_scale="week"
+                scales="day,week,month"
+                default_group_by="workcenter_id"
+                color="state"
+                pill_label="True"
+                thumbnails="{'user_id': '/web/image?model=res.users&amp;field=image_128&amp;id='}"
+                on_create="false"
+            >
+                <!-- Champs disponibles dans la pilule / tooltip -->
+                <field name="name"                  string="Opération"/>
+                <field name="production_id"         string="N° OF"/>
+                <field name="workcenter_id"         string="Poste"/>
+                <field name="state"                 string="État"/>
+                <field name="macro_planned_start"   string="Début macro"/>
+                <field name="date_start"            string="Début"/>
+                <field name="date_finished"         string="Fin"/>
+                <field name="duration_expected"     string="Durée prévue (min)"/>
+                <field name="x_nb_resources"        string="Ressources"/>
+                <!-- Champ MTN via production_id (Many2one → affiché en tooltip) -->
+            </gantt>
+        </field>
+    </record>
+
+    <!-- Vue liste complémentaire (fallback + navigation) -->
+    <record id="view_mrp_workorder_planning_tree" model="ir.ui.view">
+        <field name="name">mrp.workorder.planning.tree</field>
+        <field name="model">mrp.workorder</field>
+        <field name="arch" type="xml">
+            <tree string="Planning Opérations"
+                  create="false" edit="false" delete="false"
+                  decoration-success="state == 'done'"
+                  decoration-warning="state == 'progress'"
+                  decoration-muted="state == 'cancel'"
+                  default_order="macro_planned_start asc">
+
+                <field name="macro_planned_start"   string="Début planifié" widget="date"/>
+                <field name="date_start"            string="Début réel"     widget="date" optional="show"/>
+                <field name="date_finished"         string="Fin"            widget="date" optional="show"/>
+                <field name="workcenter_id"         string="Poste"/>
+                <field name="production_id"         string="N° OF"/>
+                <!-- N° MTN : champ sur mrp.production accédé via production_id -->
+                <field name="production_id.x_studio_mtn_mrp_sale_order"
+                       string="N° MTN"
+                       optional="show"/>
+                <field name="name"                  string="Opération"/>
+                <field name="duration_expected"     string="Durée prévue (min)" optional="show"/>
+                <field name="x_nb_resources"        string="Ressources"          optional="show"/>
+                <field name="state"                 string="État"
+                       widget="badge"
+                       decoration-success="state == 'done'"
+                       decoration-warning="state == 'progress'"
+                       decoration-info="state in ('pending','ready','waiting')"
+                       decoration-muted="state == 'cancel'"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action : planning atelier (Gantt + liste) -->
+    <record id="action_mrp_workorder_planning_gantt" model="ir.actions.act_window">
+        <field name="name">Planning Atelier</field>
+        <field name="res_model">mrp.workorder</field>
+        <field name="view_mode">gantt,tree</field>
+        <field name="domain">[('state', 'not in', ['done', 'cancel']), ('macro_planned_start', '!=', False)]</field>
+        <field name="context">{'search_default_group_workcenter': 1}</field>
+        <field name="view_ids" eval="[
+            (5, 0, 0),
+            (0, 0, {'view_mode': 'gantt', 'view_id': ref('view_mrp_workorder_planning_gantt')}),
+            (0, 0, {'view_mode': 'tree',  'view_id': ref('view_mrp_workorder_planning_tree')}),
+        ]"/>
+    </record>
+
+    <!-- Filtre de recherche -->
+    <record id="view_mrp_workorder_planning_search" model="ir.ui.view">
+        <field name="name">mrp.workorder.planning.search</field>
+        <field name="model">mrp.workorder</field>
+        <field name="arch" type="xml">
+            <search string="Rechercher">
+                <field name="production_id"   string="N° OF"/>
+                <field name="workcenter_id"   string="Poste"/>
+                <field name="name"            string="Opération"/>
+                <filter string="En cours"     name="in_progress"
+                        domain="[('state', '=', 'progress')]"/>
+                <filter string="Planifiés"    name="planned"
+                        domain="[('macro_planned_start', '!=', False), ('state', 'not in', ['done','cancel'])]"/>
+                <filter string="En retard"    name="late"
+                        domain="[('date_finished', '&lt;', context_today().strftime('%Y-%m-%d')),
+                                 ('state', 'not in', ['done','cancel'])]"/>
+                <separator/>
+                <group expand="1" string="Regrouper par">
+                    <filter string="Poste"         name="group_workcenter"
+                            context="{'group_by': 'workcenter_id'}"/>
+                    <filter string="Semaine début" name="group_week"
+                            context="{'group_by': 'macro_planned_start:week'}"/>
+                    <filter string="OF"            name="group_production"
+                            context="{'group_by': 'production_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+</odoo>
