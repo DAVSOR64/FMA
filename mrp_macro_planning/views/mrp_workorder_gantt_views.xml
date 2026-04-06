@@ -29,12 +29,10 @@
                 <field name="production_id"         string="N° OF"/>
                 <field name="workcenter_id"         string="Poste"/>
                 <field name="state"                 string="État"/>
-                <field name="macro_planned_start"   string="Début macro"/>
-                <field name="date_start"            string="Début"/>
+                                <field name="date_start"            string="Début"/>
                 <field name="date_finished"         string="Fin"/>
                 <field name="duration_expected"     string="Durée prévue (min)"/>
-                <field name="x_nb_resources"        string="Ressources"/>
-                <!-- Champ MTN via production_id (Many2one → affiché en tooltip) -->
+                                <!-- Champ MTN via production_id (Many2one → affiché en tooltip) -->
             </gantt>
         </field>
     </record>
@@ -49,10 +47,9 @@
                   decoration-success="state == 'done'"
                   decoration-warning="state == 'progress'"
                   decoration-muted="state == 'cancel'"
-                  default_order="macro_planned_start asc">
+                  default_order="date_start asc">
 
-                <field name="macro_planned_start"   string="Début planifié" widget="date"/>
-                <field name="date_start"            string="Début réel"     widget="date" optional="show"/>
+                                <field name="date_start"            string="Début réel"     widget="date" optional="show"/>
                 <field name="date_finished"         string="Fin"            widget="date" optional="show"/>
                 <field name="workcenter_id"         string="Poste"/>
                 <field name="production_id"         string="N° OF"/>
@@ -62,8 +59,7 @@
                        optional="show"/>
                 <field name="name"                  string="Opération"/>
                 <field name="duration_expected"     string="Durée prévue (min)" optional="show"/>
-                <field name="x_nb_resources"        string="Ressources"          optional="show"/>
-                <field name="state"                 string="État"
+                                <field name="state"                 string="État"
                        widget="badge"
                        decoration-success="state == 'done'"
                        decoration-warning="state == 'progress'"
@@ -78,7 +74,7 @@
         <field name="name">Planning Atelier</field>
         <field name="res_model">mrp.workorder</field>
         <field name="view_mode">gantt,tree</field>
-        <field name="domain">[('state', 'not in', ['done', 'cancel']), ('macro_planned_start', '!=', False)]</field>
+        <field name="domain">[('state', 'not in', ['done', 'cancel']), ('date_start', '!=', False)]</field>
         <field name="context">{'search_default_group_workcenter': 1}</field>
         <field name="view_ids" eval="[
             (5, 0, 0),
@@ -99,7 +95,7 @@
                 <filter string="En cours"     name="in_progress"
                         domain="[('state', '=', 'progress')]"/>
                 <filter string="Planifiés"    name="planned"
-                        domain="[('macro_planned_start', '!=', False), ('state', 'not in', ['done','cancel'])]"/>
+                        domain="[('date_start', '!=', False), ('state', 'not in', ['done','cancel'])]"/>
                 <filter string="En retard"    name="late"
                         domain="[('date_finished', '&lt;', context_today().strftime('%Y-%m-%d')),
                                  ('state', 'not in', ['done','cancel'])]"/>
@@ -108,7 +104,7 @@
                     <filter string="Poste"         name="group_workcenter"
                             context="{'group_by': 'workcenter_id'}"/>
                     <filter string="Semaine début" name="group_week"
-                            context="{'group_by': 'macro_planned_start:week'}"/>
+                            context="{'group_by': 'date_start:week'}"/>
                     <filter string="OF"            name="group_production"
                             context="{'group_by': 'production_id'}"/>
                 </group>

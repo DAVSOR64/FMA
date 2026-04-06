@@ -1024,80 +1024,41 @@ class MrpProduction(models.Model):
         return res
 
     def _validate_output_pickings(self):
-        """Valide uniquement les sorties de stock produit fini de cet OF.
+        """Valide les transferts de produit fini liés à cet OF (state=ready/assigned).
 
-        Cas visé : après l'action « Tout produire », on veut finaliser les
-        livraisons/sorties directement liées à l'OF, sans toucher aux réceptions
-        ni aux transferts internes non liés.
+        Recherche via procurement_group_id pour couvrir tous les cas
+        (backorder, sous-traitance, etc.).
         """
         self.ensure_one()
-        StockPicking = self.env['stock.picking']
+        if not self.procurement_group_id:
+            return
 
-        candidate_pickings = StockPicking.browse()
-
-        # 1) Lien le plus fiable : procurement group de l'OF
-        if self.procurement_group_id:
-            candidate_pickings |= StockPicking.search([
-                ('group_id', '=', self.procurement_group_id.id),
-                ('state', 'not in', ('done', 'cancel')),
-            ])
-
-        # 2) Fallback : origine = nom OF
-        candidate_pickings |= StockPicking.search([
-            ('origin', '=', self.name),
-            ('state', 'not in', ('done', 'cancel')),
+        # Récupérer tous les pickings liés à ce groupe (hors done/cancel)
+        pickings = self.env['stock.picking'].search([
+            ('group_id', '=', self.procurement_group_id.id),
+            ('state', 'in', ('assigned', 'ready', 'confirmed')),
         ])
 
-        # 3) Fallback : pickings portant des mouvements de produits finis de l'OF
-        finished_moves = (self.move_finished_ids | self.move_byproduct_ids).filtered(
-            lambda m: m.picking_id and m.state not in ('done', 'cancel')
-        )
-        candidate_pickings |= finished_moves.mapped('picking_id')
-
-        output_pickings = candidate_pickings.filtered(
-            lambda p: p.state not in ('done', 'cancel')
-            and p.picking_type_id.code == 'outgoing'
-            and (
-                p.group_id == self.procurement_group_id
-                or p.origin == self.name
-                or bool((p.move_ids_without_package | p.move_ids).filtered(lambda m: m.id in finished_moves.ids))
-            )
+        # Filtrer sur les transferts de sortie produit fini (pas les approvisionnements composants)
+        output_pickings = pickings.filtered(
+            lambda p: p.picking_type_id.code == 'outgoing'
+            or (p.picking_type_id.name or '').lower() in ('livraison', 'delivery orders', 'receipts produit fini', 'sortie')
         )
 
         if not output_pickings:
-            _logger.info("OF %s : aucune sortie produit fini à valider", self.name)
+            _logger.info("OF %s : aucun transfert sortie à valider", self.name)
             return
 
         for picking in output_pickings:
             try:
-                # Réserver si nécessaire
-                if picking.state in ('confirmed', 'waiting'):
-                    picking.action_assign()
-
-                # Alimenter les quantités faites à partir du réservé / demandé
-                move_lines = picking.move_line_ids_without_package
-                if not move_lines:
-                    move_lines = (picking.move_ids_without_package | picking.move_ids).mapped('move_line_ids')
-
-                for ml in move_lines.filtered(lambda l: l.state not in ('done', 'cancel')):
-                    qty_done = getattr(ml, 'quantity', None)
-                    if qty_done in (None, False):
-                        qty_done = getattr(ml, 'qty_done', 0.0)
-                    if not qty_done:
-                        reserved = getattr(ml, 'reserved_qty', None)
-                        if reserved in (None, False):
-                            reserved = getattr(ml, 'reserved_uom_qty', None)
-                        if reserved in (None, False):
-                            reserved = getattr(ml, 'product_uom_qty', 0.0)
-                        if 'quantity' in ml._fields:
-                            ml.quantity = reserved or 0.0
-                        elif 'qty_done' in ml._fields:
-                            ml.qty_done = reserved or 0.0
-
-                picking.with_context(skip_sms=True, skip_backorder=True).button_validate()
-                _logger.info("OF %s : sortie %s validée", self.name, picking.name)
+                if picking.state not in ('done', 'cancel'):
+                    # Remplir les quantités faites = quantités demandées si vides
+                    for move in picking.move_ids.filtered(lambda m: m.state not in ('done', 'cancel')):
+                        for ml in move.move_line_ids:
+                            if not ml.qty_done:
+                                ml.qty_done = ml.reserved_qty or ml.product_qty or 0.0
+                    picking.with_context(skip_sms=True, skip_backorder=True).button_validate()
+                    _logger.info("OF %s : transfert %s validé", self.name, picking.name)
             except Exception as e:
-                _logger.error(
-                    "OF %s : impossible de valider la sortie %s : %s",
-                    self.name, picking.name, str(e)
-                )
+                _logger.error("OF %s : impossible de valider le transfert %s : %s",
+                              self.name, picking.name, str(e))
