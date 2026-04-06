@@ -1,12 +1,10 @@
 {
-    "name": "MRP Bulk Resequence FMA (v9 final)",
-    "version": "17.0.1.0.2",
-    "depends": [
-        "mrp"
+    'name': 'MRP Bulk Resequence FMA (v9 final)',
+    'version': '17.0.1.0.2',
+    'depends': ['mrp'],
+    'data': [
+        'views/mrp_production_views.xml',
     ],
-    "data": [
-        "views/mrp_production_views.xml"
-    ],
-    "installable": true,
-    "application": false
+    'installable': True,
+    'application': False,
 }

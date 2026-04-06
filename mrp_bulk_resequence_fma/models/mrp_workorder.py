@@ -1,7 +1,6 @@
 
 from odoo import models, fields
 
-
 class MrpWorkorder(models.Model):
     _inherit = "mrp.workorder"
 
