@@ -1,59 +1,72 @@
 # -*- coding: utf-8 -*-
-from odoo import models, api
+from odoo import models, api, fields
 import logging
 
 _logger = logging.getLogger(__name__)
-
-SEUIL_AUTO_REFRESH = 100
 
 
 class MrpWorkorder(models.Model):
     _inherit = 'mrp.workorder'
 
+    project_display = fields.Char(
+        string='Projet',
+        compute='_compute_planning_labels',
+        store=True,
+    )
+    mtn_display = fields.Char(
+        string='N° MTN',
+        compute='_compute_planning_labels',
+        store=True,
+    )
+
+    @api.depends(
+        'production_id',
+        'production_id.name',
+        'production_id.origin',
+        'production_id.sale_id',
+        'production_id.sale_id.name',
+        'production_id.procurement_group_id',
+        'production_id.procurement_group_id.sale_id',
+    )
+    def _compute_planning_labels(self):
+        for wo in self:
+            mo = wo.production_id
+            sale = getattr(mo, 'sale_id', False) or getattr(getattr(mo, 'procurement_group_id', False), 'sale_id', False)
+
+            project = False
+            for candidate in (
+                getattr(mo, 'x_studio_projet', False),
+                getattr(sale, 'x_studio_projet', False),
+                getattr(sale, 'project_id', False) and sale.project_id.display_name,
+                getattr(sale, 'analytic_account_id', False) and sale.analytic_account_id.display_name,
+                getattr(sale, 'name', False),
+                getattr(mo, 'origin', False),
+                getattr(mo, 'name', False),
+            ):
+                if candidate:
+                    project = candidate.display_name if hasattr(candidate, 'display_name') else str(candidate)
+                    break
+            wo.project_display = project or 'Sans projet'
+
+            mtn = False
+            for candidate in (
+                getattr(mo, 'x_studio_mtn_mrp_sale_order', False),
+                getattr(sale, 'x_studio_mtn_mrp_sale_order', False),
+                getattr(sale, 'client_order_ref', False),
+            ):
+                if candidate:
+                    mtn = candidate.display_name if hasattr(candidate, 'display_name') else str(candidate)
+                    break
+            wo.mtn_display = mtn or False
+
     def write(self, vals):
         """
-        Auto-refresh du cache charge si modification des champs critiques
-        ET si nombre de workorders actifs <= SEUIL_AUTO_REFRESH
+        Pas de recalcul automatique du macro planning ici.
+        Le recalcul global reste manuel ou via cron.
         """
-        res = super().write(vals)
-        
-        # Champs qui impactent la charge
-        critical_fields = {'date_start', 'date_planned_finished', 'duration_expected', 
-                          'duration', 'state', 'workcenter_id'}
-        
-        if any(f in vals for f in critical_fields):
-            nb_active = self.env['mrp.workorder'].search_count([
-                ('state', 'not in', ('done', 'cancel')),
-                ('date_start', '!=', False)
-            ])
-            
-            if nb_active <= SEUIL_AUTO_REFRESH:
-                _logger.info('AUTO-REFRESH charge : %d workorders actifs', nb_active)
-                try:
-                    self.env['mrp.workorder.charge.cache'].refresh()
-                except Exception as e:
-                    _logger.error('Erreur auto-refresh charge : %s', e)
-            else:
-                _logger.info('AUTO-REFRESH désactivé : %d workorders (seuil=%d)', 
-                           nb_active, SEUIL_AUTO_REFRESH)
-        
-        return res
+        return super().write(vals)
 
     @api.model_create_multi
     def create(self, vals_list):
-        """Auto-refresh après création si sous le seuil"""
-        res = super().create(vals_list)
-        
-        nb_active = self.env['mrp.workorder'].search_count([
-            ('state', 'not in', ('done', 'cancel')),
-            ('date_start', '!=', False)
-        ])
-        
-        if nb_active <= SEUIL_AUTO_REFRESH:
-            _logger.info('AUTO-REFRESH charge après création : %d workorders', nb_active)
-            try:
-                self.env['mrp.workorder.charge.cache'].refresh()
-            except Exception as e:
-                _logger.error('Erreur auto-refresh charge : %s', e)
-        
-        return res
+        """Pas de refresh global à la création."""
+        return super().create(vals_list)
