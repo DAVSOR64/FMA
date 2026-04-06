@@ -18,6 +18,11 @@ class MrpWorkorder(models.Model):
         compute='_compute_planning_labels',
         store=True,
     )
+    color_index = fields.Integer(
+        string='Couleur planning',
+        compute='_compute_color_index',
+        store=True,
+    )
 
     @api.depends(
         'production_id',
@@ -60,6 +65,17 @@ class MrpWorkorder(models.Model):
                     mtn = candidate.display_name if hasattr(candidate, 'display_name') else str(candidate)
                     break
             wo.mtn_display = mtn or False
+
+
+    @api.depends('workcenter_id')
+    def _compute_color_index(self):
+        """Couleur stable par poste pour le Gantt.
+        Même poste = même couleur sur tous les projets.
+        On borne sur 1..11 pour rester dans la palette standard Odoo.
+        """
+        for wo in self:
+            wc_id = wo.workcenter_id.id or 0
+            wo.color_index = ((wc_id - 1) % 11) + 1 if wc_id else 0
 
     def write(self, vals):
         """

@@ -12,7 +12,7 @@
                 default_scale="week"
                 scales="day,week,month"
                 default_group_by="project_display"
-                color="workcenter_id"
+                color="color_index"
                 pill_label="True"
                 thumbnails="{'user_id': '/web/image?model=res.users&amp;field=image_128&amp;id='}"
                 on_create="false"
@@ -22,6 +22,7 @@
                 <field name="name"                 string="Opération"/>
                 <field name="production_id"        string="N° OF"/>
                 <field name="workcenter_id"        string="Poste"/>
+                <field name="color_index"         string="Couleur" invisible="1"/>
                 <field name="state"                string="État"/>
                 <field name="date_start"           string="Début"/>
                 <field name="date_finished"        string="Fin"/>
@@ -46,6 +47,7 @@
                 <field name="date_start"           string="Début" widget="datetime"/>
                 <field name="date_finished"        string="Fin" widget="datetime" optional="show"/>
                 <field name="workcenter_id"        string="Poste"/>
+                <field name="color_index"         string="Couleur" invisible="1"/>
                 <field name="production_id"        string="N° OF"/>
                 <field name="name"                 string="Opération"/>
                 <field name="duration_expected"    string="Durée prévue (min)" optional="show"/>
