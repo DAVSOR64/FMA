@@ -11,7 +11,7 @@
         <field name="arch" type="xml">
             <tree string="Planning OF"
                   create="false" edit="true" delete="false"
-                  decoration-danger="date_deadline and date_finished and date_finished &gt; date_deadline"
+                  decoration-danger="date_deadline and date_finished and date_finished > date_deadline"
                   decoration-muted="state in ('done','cancel')">
                 <field name="name" string="N° OF"/>
                 <field name="product_id" string="Produit"/>
@@ -26,16 +26,17 @@
                        decoration-warning="state == 'progress'"
                        decoration-info="state in ('confirmed','planned')"
                        decoration-muted="state == 'cancel'"/>
+                <!-- Odoo 17 : attrs supprimé → invisible direct -->
                 <button name="action_replanifier" type="object"
                         string="⟳ Replanifier" icon="fa-refresh"
                         class="btn-warning btn-sm"
-                        attrs="{'invisible': [('state', 'in', ['done', 'cancel'])]}"/>
+                        invisible="state in ('done', 'cancel')"/>
             </tree>
         </field>
     </record>
 
     <!-- ================================================================== -->
-    <!-- Action Planning OF (Gantt + liste)                                 -->
+    <!-- Action Planning OF (liste)                                         -->
     <!-- ================================================================== -->
 
     <record id="action_mrp_production_planning" model="ir.actions.act_window">

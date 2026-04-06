@@ -2,7 +2,7 @@
 <odoo>
 
     <!-- ================================================================== -->
-    <!-- Ajout du bouton "Replanifier" dans le header du formulaire OF      -->
+    <!-- Bouton "Replanifier" dans le header du formulaire OF               -->
     <!-- ================================================================== -->
 
     <record id="view_mrp_production_inherit_replanifier" model="ir.ui.view">
@@ -10,23 +10,20 @@
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
-
-            <!-- Ajout après le bouton "Planifier" existant -->
             <xpath expr="//button[@name='button_plan']" position="after">
                 <button name="action_replanifier"
                         string="⟳ Replanifier"
                         type="object"
                         class="btn-warning"
                         icon="fa-refresh"
-                        attrs="{'invisible': [('state', 'in', ['draft', 'done', 'cancel'])]}"
-                        help="Recalcule les dates de toutes les opérations en rétroplanning depuis la date de fin fixée. Utiliser après modification des dates ou des durées."/>
+                        invisible="state in ('draft', 'done', 'cancel')"
+                        help="Recalcule les dates de toutes les opérations en rétroplanning depuis la date de fin fixée."/>
             </xpath>
-
         </field>
     </record>
 
     <!-- ================================================================== -->
-    <!-- Vue liste OF avec bouton Replanifier (héritage vue list standard)  -->
+    <!-- Bouton Replanifier dans la vue liste OF standard                   -->
     <!-- ================================================================== -->
 
     <record id="view_mrp_production_inherit_list_replanifier" model="ir.ui.view">
@@ -39,7 +36,7 @@
                         string="⟳" icon="fa-refresh"
                         title="Replanifier cet OF"
                         class="btn-warning btn-sm"
-                        attrs="{'invisible': [('state', 'in', ['draft', 'done', 'cancel'])]}"/>
+                        invisible="state in ('draft', 'done', 'cancel')"/>
             </xpath>
         </field>
     </record>
