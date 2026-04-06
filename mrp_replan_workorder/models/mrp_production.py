@@ -602,16 +602,21 @@ class MrpProduction(models.Model):
     # ============================================================
 
     def write(self, vals):
-        """Intercepte les changements de dates de l'OF pour recalculer les opérations"""
-        
+        """Intercepte les changements de dates de l'OF.
+
+        RECALCUL MACRO DÉSACTIVÉ À L'ENREGISTREMENT (correction perf v2).
+        Le recalcul se fait désormais :
+          - via le bouton « Replanifier » sur le formulaire OF,
+          - via le cron 3×/jour (8h, 12h, 18h) mrp_macro_cron_replan_all.
+
+        Seule la synchronisation date_deadline ← x_studio_date_de_fin reste
+        immédiate (opération légère, pas de calcul de calendrier).
+        """
         # Détecter changement de dates
         date_start_changed = 'date_start' in vals
         date_finished_changed = 'date_finished' in vals or 'date_deadline' in vals
-        # Champ métier Studio : date de fin (type date)
         x_end_changed = ('x_studio_date_fin' in vals or 'x_studio_date_de_fin' in vals)
 
-        # IMPORTANT : si l'utilisateur modifie la date de fin métier, on mémorise la valeur d'entrée
-        # (vals) car d'autres logiques (onchange/computed) peuvent réécrire le champ après le write.
         x_end_input = None
         if x_end_changed:
             x_end_input = vals.get('x_studio_date_fin') or vals.get('x_studio_date_de_fin')
@@ -620,64 +625,102 @@ class MrpProduction(models.Model):
                     x_end_input = x_end_input.date()
                 elif isinstance(x_end_input, str):
                     x_end_input = fields.Date.to_date(x_end_input)
-                # sinon, Studio renvoie déjà un date
             except Exception:
                 x_end_input = None
-        
-        # Log pour debug
+
         if date_start_changed or date_finished_changed or x_end_changed:
-            _logger.info("=== MRP PRODUCTION WRITE === OF: %s, vals: %s", 
-                        self.mapped('name'), vals)
-        
-        # Appel standard
+            _logger.debug("MRP PRODUCTION WRITE — OF: %s dates modifiées (recalcul différé)", self.mapped('name'))
+
+        # ── Appel standard ──────────────────────────────────────────────────
         res = super().write(vals)
-        
-        # Si changement de dates ET que ce n'est pas un appel interne ET pas depuis _update_mo_dates_from_macro ET pas pendant button_plan
-        # + support : changement du champ métier x_studio_date_de_fin
-        if (date_start_changed or date_finished_changed or x_end_changed) \
-           and not self.env.context.get('skip_macro_recalc') \
-           and not self.env.context.get('from_macro_update') \
-           and not self.env.context.get('in_button_plan') \
-           and not self.env.context.get('bypass_duration_calculation') \
-           and not self.env.context.get('do_finish'):
+
+        # ── Sync légère : date_deadline ← x_studio_date_de_fin ─────────────
+        # (pas de recalcul macro ici — sera fait au prochain cron / bouton)
+        if x_end_changed                 and not self.env.context.get('skip_macro_recalc')                 and not self.env.context.get('from_macro_update'):
             for production in self:
                 try:
-                    # 0) Si l'utilisateur modifie la date de fin métier (x_studio_date_de_fin)
-                    #    => on synchro date_deadline/date_finished (fin de journée), puis rétroplanning
-                    if x_end_changed and (x_end_input or getattr(production, 'x_studio_date_de_fin', False) or getattr(production, 'x_studio_date_fin', False)):
-                        wos = production.workorder_ids.sorted(lambda w: (w.operation_id.sequence, w.id))
-                        last_wc = wos[-1].workcenter_id if wos else False
-
-                        x_end = x_end_input or getattr(production, 'x_studio_date_fin', False) or getattr(production, 'x_studio_date_de_fin', False)
-
-                        if last_wc:
-                            end_dt = production._evening_dt(x_end, last_wc)
-                        else:
-                            end_dt = datetime.combine(x_end, time(17, 0))
-
-                        # Ecriture des champs standards sans boucler
-                        production.with_context(skip_macro_recalc=True, from_macro_update=True, mail_notrack=True).write({
-                            'date_deadline': end_dt,
-                            'date_finished': end_dt,
-                        })
-
-                        # Rétroplanning macro en forçant explicitement la date de fin demandée
-                        active_wos = production.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
-                        active_wos = active_wos.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-                        production._recalculate_macro_backward(active_wos, end_dt=end_dt)
-                        production._refresh_charge_cache_for_production()
+                    x_end = x_end_input                         or getattr(production, 'x_studio_date_fin', False)                         or getattr(production, 'x_studio_date_de_fin', False)
+                    if not x_end:
                         continue
-
-                    production._recalculate_macro_on_date_change(
-                        date_start_changed=date_start_changed,
-                        date_finished_changed=date_finished_changed
-                    )
-                except (UserError, ValidationError) as e:
-                    raise
+                    wos = production.workorder_ids.sorted(lambda w: (w.operation_id.sequence, w.id))
+                    last_wc = wos[-1].workcenter_id if wos else False
+                    end_dt = production._evening_dt(x_end, last_wc) if last_wc                         else datetime.combine(x_end, time(17, 0))
+                    production.with_context(
+                        skip_macro_recalc=True,
+                        from_macro_update=True,
+                        mail_notrack=True,
+                    ).write({'date_deadline': end_dt, 'date_finished': end_dt})
                 except Exception as e:
-                    _logger.error("Erreur recalcul macro OF %s : %s", production.name, str(e), exc_info=True)
-        
+                    _logger.error("Synchro date_deadline OF %s : %s", production.name, str(e))
+
         return res
+
+    def action_replanifier(self):
+        """Bouton « Replanifier » sur le formulaire OF.
+
+        Recalcule les dates macro de tous les workorders en rétroplanning
+        et met à jour le cache charge. Ouvre le wizard de prévisualisation
+        si le module mrp_replan_workorder_popup est installé, sinon
+        applique directement.
+        """
+        self.ensure_one()
+        # Déléguer au popup si disponible
+        if hasattr(self, 'action_open_replan_preview'):
+            return self.action_open_replan_preview()
+
+        # Fallback : application directe sans prévisualisation
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
+        if not workorders:
+            raise UserError(_("Aucune opération à replanifier sur cet OF."))
+
+        fixed_end_dt = (
+            getattr(self, 'macro_forced_end', False)
+            or self.date_deadline
+            or getattr(self, 'date_finished', False)
+        )
+        if not fixed_end_dt:
+            raise UserError(_("Aucune date de fin définie sur l'OF."))
+
+        ctx = self.with_context(skip_macro_recalc=True)
+        ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
+        ctx.apply_macro_to_workorders_dates()
+        ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
+        ctx._update_components_picking_dates()
+        self._refresh_charge_cache_for_production()
+        return True
+
+    def action_replan_all_productions(self):
+        """Méthode appelée par le cron 3×/jour pour replanifier tous les OF actifs."""
+        productions = self.search([
+            ('state', 'not in', ('done', 'cancel')),
+        ])
+        _logger.info("CRON REPLAN ALL : %d OF actifs à replanifier", len(productions))
+        for production in productions:
+            try:
+                workorders = production.workorder_ids.filtered(
+                    lambda w: w.state not in ('done', 'cancel') and w.macro_planned_start
+                )
+                if not workorders:
+                    continue
+                fixed_end_dt = (
+                    getattr(production, 'macro_forced_end', False)
+                    or production.date_deadline
+                    or getattr(production, 'date_finished', False)
+                )
+                if not fixed_end_dt:
+                    continue
+                ctx = production.with_context(skip_macro_recalc=True, mail_notrack=True)
+                ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
+                ctx.apply_macro_to_workorders_dates()
+                ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
+            except Exception as e:
+                _logger.error("CRON REPLAN : erreur OF %s : %s", production.name, str(e))
+        # Recalculer le cache charge global en une fois
+        try:
+            self.env['mrp.workorder.charge.cache'].refresh()
+        except Exception as e:
+            _logger.error("CRON REPLAN : erreur refresh cache charge : %s", str(e))
+        _logger.info("CRON REPLAN ALL terminé")
 
     def _recalculate_macro_on_date_change(self, date_start_changed=False, date_finished_changed=False):
         """
@@ -951,3 +994,71 @@ class MrpProduction(models.Model):
                         pass
         except Exception as e:
             _logger.warning("Impossible de rafraîchir cache charge : %s", str(e))
+
+
+    # ============================================================
+    # CORRECTION : "Tous fabriquer" → transferts produit fini
+    # ============================================================
+
+    def button_produce_all(self):
+        """Surcharge du bouton « Tous fabriquer » pour valider aussi les transferts.
+
+        Odoo standard produit l'OF mais ne valide pas automatiquement le transfert
+        de produit fini. On force la validation de tous les pickings de sortie
+        (type_code = 'outgoing' ou picking_type_id.code = 'outgoing') liés à l'OF
+        via le procurement_group.
+        """
+        res = super().button_produce_all() if hasattr(super(), 'button_produce_all') else self._action_generate_backorder_wizard()
+
+        for production in self:
+            try:
+                production._validate_output_pickings()
+            except Exception as e:
+                _logger.error("Erreur validation transferts OF %s : %s", production.name, str(e))
+
+        return res
+
+    def _generate_wo_lines(self):
+        """Surcharge pour propager la validation des transferts après production immédiate."""
+        res = super()._generate_wo_lines() if hasattr(super(), '_generate_wo_lines') else True
+        return res
+
+    def _validate_output_pickings(self):
+        """Valide les transferts de produit fini liés à cet OF (state=ready/assigned).
+
+        Recherche via procurement_group_id pour couvrir tous les cas
+        (backorder, sous-traitance, etc.).
+        """
+        self.ensure_one()
+        if not self.procurement_group_id:
+            return
+
+        # Récupérer tous les pickings liés à ce groupe (hors done/cancel)
+        pickings = self.env['stock.picking'].search([
+            ('group_id', '=', self.procurement_group_id.id),
+            ('state', 'in', ('assigned', 'ready', 'confirmed')),
+        ])
+
+        # Filtrer sur les transferts de sortie produit fini (pas les approvisionnements composants)
+        output_pickings = pickings.filtered(
+            lambda p: p.picking_type_id.code == 'outgoing'
+            or (p.picking_type_id.name or '').lower() in ('livraison', 'delivery orders', 'receipts produit fini', 'sortie')
+        )
+
+        if not output_pickings:
+            _logger.info("OF %s : aucun transfert sortie à valider", self.name)
+            return
+
+        for picking in output_pickings:
+            try:
+                if picking.state not in ('done', 'cancel'):
+                    # Remplir les quantités faites = quantités demandées si vides
+                    for move in picking.move_ids.filtered(lambda m: m.state not in ('done', 'cancel')):
+                        for ml in move.move_line_ids:
+                            if not ml.qty_done:
+                                ml.qty_done = ml.reserved_qty or ml.product_qty or 0.0
+                    picking.with_context(skip_sms=True, skip_backorder=True).button_validate()
+                    _logger.info("OF %s : transfert %s validé", self.name, picking.name)
+            except Exception as e:
+                _logger.error("OF %s : impossible de valider le transfert %s : %s",
+                              self.name, picking.name, str(e))

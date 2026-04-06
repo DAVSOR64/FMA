@@ -37,4 +37,11 @@
               sequence="50"
               groups="base.group_no_one"/>
 
+
+    <menuitem id="menu_mrp_workorder_planning_gantt"
+              name="📅 Planning Atelier (Gantt)"
+              parent="menu_capacite_charge_root"
+              action="action_mrp_workorder_planning_gantt"
+              sequence="5"/>
+
 </odoo>

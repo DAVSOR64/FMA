@@ -1,15 +1,16 @@
-# -*- coding: utf-8 -*-
 {
-    'name': 'MRP Replan Workorder Popup',
-    'version': '17.0.1.0.0',
-    'summary': 'Popup de prévisualisation pour la replanification OF',
-    'depends': ['mrp', 'purchase_stock', 'mrp_replan_workorder'],
+    'name': "Replan WorkOrder — Popup prévisualisation",
+    'version': "17.0.1.1.0",
+    'license': "LGPL-3",
+    'category': 'Manufacturing',
+    'summary': 'Prévisualisation avant replanification + bouton Replanifier sur le formulaire OF',
+    'depends': ['mrp_replan_workorder'],
     'data': [
         'security/ir.model.access.csv',
         'views/mrp_replan_preview_wizard_views.xml',
+        'views/mrp_production_button_views.xml',
     ],
-    
-    'license': 'LGPL-3',
     'installable': True,
-    'application': True,
+    'application': False,
+    'auto_install': False,
 }
