@@ -23,7 +23,7 @@ class SaleOrder(models.Model):
         for order in self:
             # 1) Déterminer une date "cible" de livraison
             # Priorité: commitment_date du SO (vraie promesse)
-            commitment_dt = getattr(order, "so_date_de_livraison_prevu", False) \
+            delivery_dt = getattr(order, "so_date_de_livraison_prevu", False) \
                 or getattr(order, "x_studio_date_de_livraison_prevu", False) \
                 or order.commitment_date
 
