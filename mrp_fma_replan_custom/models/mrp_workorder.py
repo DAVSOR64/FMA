@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 from odoo import fields, models
-
 
 class MrpWorkorder(models.Model):
     _inherit = "mrp.workorder"

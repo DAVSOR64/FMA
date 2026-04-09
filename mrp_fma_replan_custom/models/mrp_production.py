@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from datetime import datetime, time, timedelta
 from math import ceil
 
@@ -12,73 +10,18 @@ class MrpProduction(models.Model):
 
     _FMA_CUSTOM_FINISH_FIELD = "x_studio_date_de_fin"
 
-    # -------------------------------------------------------------------------
-    # Helpers lecture dates
-    # -------------------------------------------------------------------------
-
     def _fma_get_custom_finish_dt(self):
         self.ensure_one()
         field_name = self._FMA_CUSTOM_FINISH_FIELD
         if field_name not in self._fields:
             return False
-
         value = self[field_name]
         if not value:
             return False
-
         if isinstance(value, datetime):
             return value
-
         if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
             return datetime.combine(value, time(11, 0, 0))
-
-        return False
-
-    def _fma_get_delivery_dt(self):
-        self.ensure_one()
-
-        for method_name in [
-            "_get_promised_delivery_date",
-            "_get_delivery_date",
-            "_get_planned_delivery_date",
-        ]:
-            if hasattr(self, method_name):
-                try:
-                    value = getattr(self, method_name)()
-                    if value:
-                        if isinstance(value, datetime):
-                            return value
-                        if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
-                            return datetime.combine(value, time(0, 0, 0))
-                except Exception:
-                    pass
-
-        sale = False
-        for field_name in ["sale_id", "x_sale_id"]:
-            if field_name in self._fields and self[field_name]:
-                sale = self[field_name]
-                break
-
-        if not sale and "x_studio_mtn_mrp_sale_order" in self._fields and self.x_studio_mtn_mrp_sale_order:
-            sale = self.env["sale.order"].search(
-                [("name", "=", self.x_studio_mtn_mrp_sale_order)],
-                limit=1,
-            )
-
-        if sale:
-            for field_name in [
-                "commitment_date",
-                "delivery_date",
-                "x_studio_date_livraison",
-                "x_studio_delivery_date",
-            ]:
-                if field_name in sale._fields and sale[field_name]:
-                    value = sale[field_name]
-                    if isinstance(value, datetime):
-                        return value
-                    if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
-                        return datetime.combine(value, time(0, 0, 0))
-
         return False
 
     def _fma_format_date(self, value):
@@ -90,9 +33,54 @@ class MrpProduction(models.Model):
             return value.strftime("%d/%m/%Y")
         return str(value)
 
-    # -------------------------------------------------------------------------
-    # Helpers PO
-    # -------------------------------------------------------------------------
+    def _fma_get_sale_record(self):
+        self.ensure_one()
+        sale = False
+
+        for field_name in ["sale_id", "x_sale_id"]:
+            if field_name in self._fields and self[field_name]:
+                sale = self[field_name]
+                break
+
+        if not sale and "x_studio_mtn_mrp_sale_order" in self._fields and self.x_studio_mtn_mrp_sale_order:
+            raw = self.x_studio_mtn_mrp_sale_order
+            if hasattr(raw, "_name") and raw._name == "sale.order":
+                sale = raw
+            else:
+                sale_name = raw.display_name if hasattr(raw, "display_name") else str(raw)
+                sale = self.env["sale.order"].search([("name", "=", sale_name)], limit=1)
+
+        if not sale and getattr(self, "origin", False):
+            sale = self.env["sale.order"].search([("name", "=", self.origin)], limit=1)
+
+        return sale
+
+    def _fma_get_delivery_dt(self):
+        self.ensure_one()
+
+        for method_name in ["_get_promised_delivery_date", "_get_delivery_date", "_get_planned_delivery_date"]:
+            if hasattr(self, method_name):
+                try:
+                    value = getattr(self, method_name)()
+                    if value:
+                        if isinstance(value, datetime):
+                            return value
+                        if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
+                            return datetime.combine(value, time(0, 0, 0))
+                except Exception:
+                    pass
+
+        sale = self._fma_get_sale_record()
+        if sale:
+            for field_name in ["x_studio_date_livraison", "commitment_date", "delivery_date", "expected_date"]:
+                if field_name in sale._fields and sale[field_name]:
+                    value = sale[field_name]
+                    if isinstance(value, datetime):
+                        return value
+                    if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
+                        return datetime.combine(value, time(0, 0, 0))
+
+        return False
 
     def _find_related_purchase_orders(self):
         self.ensure_one()
@@ -108,72 +96,36 @@ class MrpProduction(models.Model):
         if procurement_group and "group_id" in PurchaseOrder._fields:
             pos |= PurchaseOrder.search([("group_id", "=", procurement_group.id)])
 
-        candidates = []
-        for candidate in [
-            self.name,
-            getattr(self, "origin", False),
-            getattr(self, "x_studio_mtn_mrp_sale_order", False),
-        ]:
-            if candidate:
-                candidates.append(str(candidate))
+        sale = self._fma_get_sale_record()
+        candidates = [self.name, getattr(self, "origin", False)]
+        if sale:
+            candidates.append(sale.name)
+        if "x_studio_mtn_mrp_sale_order" in self._fields and self.x_studio_mtn_mrp_sale_order:
+            raw = self.x_studio_mtn_mrp_sale_order
+            candidates.append(raw.display_name if hasattr(raw, "display_name") else str(raw))
 
         for candidate in candidates:
-            pos |= PurchaseOrder.search([("origin", "ilike", candidate)])
+            if candidate:
+                pos |= PurchaseOrder.search([("origin", "ilike", str(candidate))])
 
-        return pos.sorted(lambda p: (p.date_planned or fields.Datetime.now(), p.name or ""))
-
-    # -------------------------------------------------------------------------
-    # Helpers calcul backward simplifié
-    # -------------------------------------------------------------------------
+        return pos.sorted(lambda p: (p.date_planned or p.date_order or fields.Datetime.now(), p.name or ""))
 
     def _fma_get_workorders_for_replan(self):
         self.ensure_one()
         return self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")).sorted(
             key=lambda w: (
-                getattr(w, "sequence", 0) or 0,
-                getattr(w.operation_id, "sequence", 0) or 0,
+                getattr(w, "op_sequence", 0) or getattr(w.operation_id, "sequence", 0) or 0,
                 w.id,
             )
         )
 
     def _fma_get_effective_hours(self, workorder):
-        for method_name in [
-            "_get_effective_duration_hours_for_macro",
-            "_get_effective_duration_hours",
-            "_get_effective_workorder_duration_hours",
-        ]:
-            if hasattr(self, method_name):
-                try:
-                    value = getattr(self, method_name)(workorder)
-                    if value is not None:
-                        return max(float(value), 0.0)
-                except Exception:
-                    pass
-
-        duration_minutes = (
-            getattr(workorder, "duration_expected", 0.0)
-            or getattr(workorder, "duration", 0.0)
-            or 0.0
-        )
+        duration_minutes = getattr(workorder, "duration_expected", 0.0) or getattr(workorder, "duration", 0.0) or 0.0
         return max(float(duration_minutes) / 60.0, 0.0)
 
     def _fma_get_resources_count(self, workorder):
-        for method_name in [
-            "_get_number_of_resources_for_workorder",
-            "_get_resource_count_for_workorder",
-            "_get_workorder_resource_count",
-        ]:
-            if hasattr(self, method_name):
-                try:
-                    value = getattr(self, method_name)(workorder)
-                    if value:
-                        return max(int(value), 1)
-                except Exception:
-                    pass
-
         if "nb_resource" in workorder._fields and workorder.nb_resource:
             return max(int(workorder.nb_resource), 1)
-
         return 1
 
     def _fma_get_hours_per_day(self):
@@ -203,13 +155,8 @@ class MrpProduction(models.Model):
         delivery_dt = self._fma_get_delivery_dt()
         if delivery_dt and custom_finish_dt.date() > delivery_dt.date():
             raise UserError(
-                _(
-                    "Impossible : la date de fin de fabrication (%s) est postérieure à la date de livraison promise (%s)."
-                )
-                % (
-                    self._fma_format_date(custom_finish_dt),
-                    self._fma_format_date(delivery_dt),
-                )
+                _("Impossible : la date de fin de fabrication (%s) est postérieure à la date de livraison promise (%s).")
+                % (self._fma_format_date(custom_finish_dt), self._fma_format_date(delivery_dt))
             )
 
         workorders = self._fma_get_workorders_for_replan()
@@ -278,20 +225,14 @@ class MrpProduction(models.Model):
         for line in simulation.get("lines", []):
             wo = line["workorder"]
             wo_vals = {}
-
             if "macro_planned_start" in wo._fields:
                 wo_vals["macro_planned_start"] = line["macro_start_dt"]
             if "date_start" in wo._fields:
                 wo_vals["date_start"] = line["macro_start_dt"]
             if "date_finished" in wo._fields:
                 wo_vals["date_finished"] = line["macro_finish_dt"]
-
             if wo_vals:
                 wo.write(wo_vals)
-
-    # -------------------------------------------------------------------------
-    # Bouton wizard manuel
-    # -------------------------------------------------------------------------
 
     def action_open_recalc_planif_wizard(self):
         self.ensure_one()
@@ -301,35 +242,21 @@ class MrpProduction(models.Model):
             "res_model": "mrp.recalc.planif.wizard",
             "view_mode": "form",
             "target": "new",
-            "context": {
-                "default_production_id": self.id,
-            },
+            "context": {"default_production_id": self.id},
         }
-
-    # -------------------------------------------------------------------------
-    # Cron / batch
-    # -------------------------------------------------------------------------
 
     @api.model
     def action_batch_resequence_and_recompute_non_started(self):
-        domain = [("state", "in", ["draft", "confirmed", "planned", "progress"])]
-        productions = self.search(domain)
-
+        productions = self.search([("state", "in", ["draft", "confirmed", "planned", "progress"])])
         for production in productions:
             try:
-                active_wos = production.workorder_ids.filtered(
-                    lambda w: w.state not in ("done", "progress", "cancel")
-                )
+                active_wos = production.workorder_ids.filtered(lambda w: w.state not in ("done", "progress", "cancel"))
                 if not active_wos:
                     continue
-
                 simulation = production._fma_simulate_from_custom_finish_date()
                 production._fma_apply_simulation(simulation)
-            except UserError:
-                continue
             except Exception:
                 continue
-
         return True
 
     @api.model
