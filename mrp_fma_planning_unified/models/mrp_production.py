@@ -1,7 +1,5 @@
-import logging
 from odoo import api, models
-
-_logger = logging.getLogger(__name__)
+from odoo.exceptions import ValidationError
 
 FMA_ORDER = [
     "Débit FMA",
@@ -12,23 +10,21 @@ FMA_ORDER = [
     "Emballage FMA",
 ]
 
-
 def _norm(value):
     return (value or "").strip().lower()
-
 
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
-    # --------------------------
-    # Eligibility / target dates
-    # --------------------------
+    def _post_planif_message(self, message):
+        for rec in self:
+            if hasattr(rec, "message_post"):
+                rec.message_post(body=message)
+
     def _is_non_started_for_fma_batch(self):
         self.ensure_one()
-
         if self.state in ("done", "cancel"):
             return False
-
         for wo in self.workorder_ids:
             if wo.state in ("progress", "done", "cancel"):
                 return False
@@ -40,56 +36,62 @@ class MrpProduction(models.Model):
 
     def _get_sale_for_macro(self):
         self.ensure_one()
-        sale = None
-
+        sale = False
         if "sale_id" in self._fields and self.sale_id:
             sale = self.sale_id
-
         if not sale and "procurement_group_id" in self._fields and self.procurement_group_id:
-            sale = self.env["sale.order"].search(
-                [("procurement_group_id", "=", self.procurement_group_id.id)],
-                limit=1,
-            )
-
+            sale = self.env["sale.order"].search([("procurement_group_id", "=", self.procurement_group_id.id)], limit=1)
         if not sale and self.origin:
             sale = self.env["sale.order"].search([("name", "=", self.origin)], limit=1)
-
         if not sale and "x_studio_mtn_mrp_sale_order" in self._fields:
             mtn = self.x_studio_mtn_mrp_sale_order
             if mtn:
                 sale = self.env["sale.order"].search([("name", "=", mtn)], limit=1)
-
         return sale
 
-    def _get_macro_target_date(self):
+    def _get_delivery_date(self):
         self.ensure_one()
+        sale = self._get_sale_for_macro()
+        if sale:
+            for field_name in ("x_studio_date_livraison", "commitment_date", "expected_date", "effective_date"):
+                if field_name in sale._fields and getattr(sale, field_name):
+                    return getattr(sale, field_name)
+        return False
 
-        # OF custom finish dates first
-        for field_name in (
-            "x_de_fin",
-            "macro_forced_end",
-            "date_deadline",
-            "date_finished",
-        ):
+    def _get_of_finish_date(self):
+        self.ensure_one()
+        for field_name in ("x_de_fin", "macro_forced_end", "date_deadline", "date_finished"):
             if field_name in self._fields and getattr(self, field_name):
                 return getattr(self, field_name)
+        return False
+
+    def _find_related_purchase_orders(self):
+        self.ensure_one()
+        PurchaseOrder = self.env["purchase.order"]
+        POL = self.env["purchase.order.line"]
+        pos = PurchaseOrder.browse()
+
+        group = getattr(self, "procurement_group_id", False)
+        if group:
+            pos |= POL.search([("move_dest_ids.group_id", "=", group.id)]).mapped("order_id")
+            if "group_id" in PurchaseOrder._fields:
+                pos |= PurchaseOrder.search([("group_id", "=", group.id)])
 
         sale = self._get_sale_for_macro()
         if sale:
-            for field_name in (
-                "x_studio_date_livraison",
-                "commitment_date",
-                "expected_date",
-                "effective_date",
-            ):
-                if field_name in sale._fields and getattr(sale, field_name):
-                    return getattr(sale, field_name)
+            if "origin" in PurchaseOrder._fields:
+                pos |= PurchaseOrder.search([("origin", "ilike", sale.name)])
+            if "partner_ref" in PurchaseOrder._fields:
+                pos |= PurchaseOrder.search([("partner_ref", "ilike", sale.name)])
 
-        return False
+        if self.origin and "origin" in PurchaseOrder._fields:
+            pos |= PurchaseOrder.search([("origin", "ilike", self.origin)])
 
-    # --------------------------
-    # FMA resequencing
-    # --------------------------
+        if "x_studio_mtn_mrp_sale_order" in self._fields and self.x_studio_mtn_mrp_sale_order and "origin" in PurchaseOrder._fields:
+            pos |= PurchaseOrder.search([("origin", "ilike", self.x_studio_mtn_mrp_sale_order)])
+
+        return pos.sorted(lambda po: (po.date_order or po.create_date or po.id))
+
     def _fma_rank(self, wo):
         values = [
             _norm(wo.name),
@@ -109,9 +111,7 @@ class MrpProduction(models.Model):
     def _reset_workorder_dependencies(self, ordered_wos):
         if not ordered_wos:
             return
-
         fields_map = self.env["mrp.workorder"]._fields
-
         reset_vals = {}
         if "blocked_by_workorder_ids" in fields_map:
             reset_vals["blocked_by_workorder_ids"] = [(5, 0, 0)]
@@ -121,7 +121,6 @@ class MrpProduction(models.Model):
             reset_vals["next_work_order_id"] = False
         if reset_vals:
             ordered_wos.write(reset_vals)
-
         previous = False
         for wo in ordered_wos:
             vals = {}
@@ -138,67 +137,72 @@ class MrpProduction(models.Model):
 
     def _resequence_fma_workorders(self):
         self.ensure_one()
-
-        changed = False
         active_wos = self._get_fma_workorders()
-
         for wo in active_wos:
             rank = self._fma_rank(wo)
             if rank < 999 and wo.operation_id:
-                new_seq = rank * 10
-                if wo.operation_id.sequence != new_seq:
-                    wo.operation_id.sequence = new_seq
-                    changed = True
-
+                wo.operation_id.sequence = rank * 10
         ordered_wos = active_wos.sorted(key=lambda wo: ((wo.op_sequence or 0), wo.id))
         self._reset_workorder_dependencies(ordered_wos)
-
-        _logger.info(
-            "FMA unified | MO=%s | changed=%s | ordered=%s",
-            self.name,
-            changed,
-            [(wo.id, wo.name, wo.op_sequence) for wo in ordered_wos],
-        )
-        return changed
-
-    # --------------------------
-    # Macro recompute
-    # --------------------------
-    def _recompute_single_macro_planning(self):
-        self.ensure_one()
-
-        sale = self._get_sale_for_macro()
-        target_dt = self._get_macro_target_date()
-
-        # Delegate to the business logic already present in mrp_replan_workorder.
-        if hasattr(self, "compute_macro_schedule_from_sale") and sale:
-            _logger.info(
-                "FMA unified | MO=%s | compute_macro_schedule_from_sale | sale=%s | target=%s",
-                self.name, sale.name, target_dt
-            )
-            return self.compute_macro_schedule_from_sale(sale)
-
-        # Fallbacks to preserve existing business logic if sale linkage is missing.
-        for method_name in (
-            "action_apply_replan_preview",
-            "_apply_replan_real",
-            "action_replan_workorders_backward",
-            "action_replanifier",
-            "action_replan_workorders",
-            "button_replan",
-        ):
-            if hasattr(self, method_name):
-                _logger.info("FMA unified | MO=%s | fallback macro replan via %s", self.name, method_name)
-                return getattr(self, method_name)()
-
         return True
 
-    # --------------------------
-    # Actions
-    # --------------------------
+    def _check_delivery_vs_finish(self):
+        self.ensure_one()
+        delivery_dt = self._get_delivery_date()
+        finish_dt = self._get_of_finish_date()
+        if delivery_dt and finish_dt and finish_dt > delivery_dt:
+            return False, "Impossible : la date de fin de fabrication est postérieure à la date de livraison promise."
+        return True, False
+
+    def _recompute_single_macro_planning(self):
+        self.ensure_one()
+        ok, error = self._check_delivery_vs_finish()
+        if not ok:
+            raise ValidationError(error)
+
+        sale = self._get_sale_for_macro()
+        if hasattr(self, "compute_macro_schedule_from_sale") and sale:
+            result = self.compute_macro_schedule_from_sale(sale)
+        else:
+            result = True
+            for method_name in (
+                "action_apply_replan_preview",
+                "_apply_replan_real",
+                "action_replan_workorders_backward",
+                "action_replanifier",
+                "action_replan_workorders",
+                "button_replan",
+            ):
+                if hasattr(self, method_name):
+                    result = getattr(self, method_name)()
+                    break
+
+        delivery = self._get_delivery_date()
+        finish = self._get_of_finish_date()
+        po_count = len(self._find_related_purchase_orders())
+        self._post_planif_message(
+            "<b>Recalcul planification FMA</b><br/>"
+            "Date livraison : %s<br/>"
+            "Date fin OF : %s<br/>"
+            "PO liées trouvées : %s" % (delivery or "-", finish or "-", po_count)
+        )
+        return result
+
+    def action_open_recalc_planif_popup(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Recalcul planification",
+            "res_model": "mrp.recalc.planif.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_production_id": self.id},
+        }
+
     def action_resequence_fma(self):
         for production in self:
             production._resequence_fma_workorders()
+            production._post_planif_message("<b>Réordonnancement FMA appliqué</b>")
         return True
 
     def action_resequence_and_recompute_macro(self):
@@ -209,39 +213,32 @@ class MrpProduction(models.Model):
 
     @api.model
     def action_batch_resequence_and_recompute_non_started(self):
-        domain = [("state", "not in", ("done", "cancel"))]
-        mos = self.search(domain)
-
-        treated = 0
-        skipped = 0
-
+        mos = self.search([("state", "not in", ("done", "cancel"))])
+        treated = skipped = errors = 0
         for mo in mos:
             if not mo._is_non_started_for_fma_batch():
                 skipped += 1
                 continue
-            mo._resequence_fma_workorders()
-            mo._recompute_single_macro_planning()
-            treated += 1
-
-        _logger.info(
-            "FMA unified batch | treated=%s | skipped=%s",
-            treated, skipped
-        )
-
+            try:
+                mo._resequence_fma_workorders()
+                mo._recompute_single_macro_planning()
+                mo._post_planif_message("<b>Traitement batch FMA</b><br/>Succès.")
+                treated += 1
+            except Exception as e:
+                mo._post_planif_message("<b>Traitement batch FMA</b><br/>Erreur : %s" % e)
+                errors += 1
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "title": "Recalcul FMA terminé",
-                "message": "OF traités : %s | OF ignorés : %s" % (treated, skipped),
-                "type": "success",
+                "message": "OF traités : %s | ignorés : %s | erreurs : %s" % (treated, skipped, errors),
+                "type": "success" if not errors else "warning",
                 "sticky": False,
             },
         }
 
     @api.model
     def cron_batch_resequence_and_recompute_non_started(self):
-        _logger.info("FMA unified cron | start")
         self.action_batch_resequence_and_recompute_non_started()
-        _logger.info("FMA unified cron | done")
         return True
