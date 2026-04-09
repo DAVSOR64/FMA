@@ -205,12 +205,6 @@ class MrpProduction(models.Model):
             production._post_planif_message("<b>Réordonnancement FMA appliqué</b>")
         return True
 
-    def action_resequence_and_recompute_macro(self):
-        for production in self:
-            production._resequence_fma_workorders()
-            production._recompute_single_macro_planning()
-        return True
-
     @api.model
     def action_batch_resequence_and_recompute_non_started(self):
         mos = self.search([("state", "not in", ("done", "cancel"))])
