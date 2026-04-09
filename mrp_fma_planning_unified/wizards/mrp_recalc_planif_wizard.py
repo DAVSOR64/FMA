@@ -25,11 +25,11 @@ class MrpRecalcPlanifWizard(models.TransientModel):
             start = preview.get("of_start_date") or ""
 
             preview_html = (
-                "<div style='width:100%;'>"
-                "<table style='width:100%; border-collapse:collapse;'>"
+                "<div style='width:100%%;'>"
+                "<table style='width:100%%; border-collapse:collapse;'>"
                 "<tr>"
-                "<td style='width:38%; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Date livraison</td>"
-                "<td style='width:62%; padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                "<td style='width:38%%; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Date livraison</td>"
+                "<td style='width:62%%; padding:8px; border:1px solid #d9d9d9;'>%s</td>"
                 "</tr>"
                 "<tr>"
                 "<td style='padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Nouvelle date début OF</td>"
@@ -54,9 +54,9 @@ class MrpRecalcPlanifWizard(models.TransientModel):
                 )
 
             po_html = (
-                "<div style='width:100%; margin-top:10px;'>"
+                "<div style='width:100%%; margin-top:10px;'>"
                 "<div style='font-weight:600; margin-bottom:8px;'>PO associées</div>"
-                "<table style='width:100%; border-collapse:collapse;'>"
+                "<table style='width:100%%; border-collapse:collapse;'>"
                 "<thead>"
                 "<tr>"
                 "<th style='text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>PO</th>"
