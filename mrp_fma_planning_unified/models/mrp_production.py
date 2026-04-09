@@ -1,5 +1,8 @@
 from odoo import api, models
 from odoo.exceptions import ValidationError
+import logging
+
+_logger = logging.getLogger(__name__)
 
 FMA_ORDER = [
     "Débit FMA",
@@ -9,6 +12,8 @@ FMA_ORDER = [
     "Vitrage FMA",
     "Emballage FMA",
 ]
+
+CRON_LOCK_KEY = 947251
 
 def _norm(value):
     return (value or "").strip().lower()
@@ -51,8 +56,7 @@ class MrpProduction(models.Model):
         if not sale and self.origin:
             sale = self.env["sale.order"].search([("name", "=", self.origin)], limit=1)
         if not sale and "x_studio_mtn_mrp_sale_order" in self._fields:
-            mtn = self.x_studio_mtn_mrp_sale_order
-            mtn_text = _as_text(mtn)
+            mtn_text = _as_text(self.x_studio_mtn_mrp_sale_order)
             if mtn_text:
                 sale = self.env["sale.order"].search([("name", "=", mtn_text)], limit=1)
         return sale
@@ -133,6 +137,7 @@ class MrpProduction(models.Model):
             reset_vals["next_work_order_id"] = False
         if reset_vals:
             ordered_wos.write(reset_vals)
+
         previous = False
         for wo in ordered_wos:
             vals = {}
@@ -202,6 +207,9 @@ class MrpProduction(models.Model):
 
     def action_open_recalc_planif_popup(self):
         self.ensure_one()
+        ok, error = self._check_delivery_vs_finish()
+        if not ok:
+            raise ValidationError(error)
         return {
             "type": "ir.actions.act_window",
             "name": "Recalcul planification",
@@ -217,22 +225,38 @@ class MrpProduction(models.Model):
             production._post_planif_message("<b>Réordonnancement FMA appliqué</b>")
         return True
 
+    def _acquire_cron_lock(self):
+        self.env.cr.execute("SELECT pg_try_advisory_lock(%s)", (CRON_LOCK_KEY,))
+        return bool(self.env.cr.fetchone()[0])
+
+    def _release_cron_lock(self):
+        self.env.cr.execute("SELECT pg_advisory_unlock(%s)", (CRON_LOCK_KEY,))
+
     @api.model
     def action_batch_resequence_and_recompute_non_started(self):
         mos = self.search([("state", "not in", ("done", "cancel"))])
         treated = skipped = errors = 0
+
         for mo in mos:
             if not mo._is_non_started_for_fma_batch():
                 skipped += 1
                 continue
+
             try:
-                mo._resequence_fma_workorders()
-                mo._recompute_single_macro_planning()
-                mo._post_planif_message("<b>Traitement batch FMA</b><br/>Succès.")
-                treated += 1
+                with self.env.cr.savepoint():
+                    mo._resequence_fma_workorders()
+                    mo._recompute_single_macro_planning()
+                    mo._post_planif_message("<b>Traitement batch FMA</b><br/>Succès.")
+                    treated += 1
             except Exception as e:
-                mo._post_planif_message("<b>Traitement batch FMA</b><br/>Erreur : %s" % e)
                 errors += 1
+                _logger.warning("FMA batch error on %s: %s", mo.display_name, e)
+                try:
+                    with self.env.cr.savepoint():
+                        mo._post_planif_message("<b>Traitement batch FMA</b><br/>Erreur : %s" % e)
+                except Exception:
+                    _logger.warning("Impossible d'écrire le message chatter sur %s", mo.display_name)
+
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
@@ -246,5 +270,10 @@ class MrpProduction(models.Model):
 
     @api.model
     def cron_batch_resequence_and_recompute_non_started(self):
-        self.action_batch_resequence_and_recompute_non_started()
-        return True
+        if not self._acquire_cron_lock():
+            _logger.info("FMA cron skipped: another run is active.")
+            return True
+        try:
+            return self.action_batch_resequence_and_recompute_non_started()
+        finally:
+            self._release_cron_lock()

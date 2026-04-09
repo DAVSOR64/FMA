@@ -8,28 +8,60 @@ class MrpRecalcPlanifWizard(models.TransientModel):
     production_id = fields.Many2one("mrp.production", required=True)
     delivery_date = fields.Datetime(string="Date livraison", readonly=True)
     of_finish_date = fields.Datetime(string="Date fin OF", readonly=True)
-    po_info = fields.Text(string="PO liées", readonly=True)
-    warning_message = fields.Text(string="Avertissement", readonly=True)
+    computed_start_date = fields.Datetime(string="Début fabrication recalculé", readonly=True)
+    po_html = fields.Html(string="PO associées", sanitize=False, readonly=True)
+    info_html = fields.Html(string="Synthèse", sanitize=False, readonly=True)
 
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
         prod = self.env["mrp.production"].browse(self.env.context.get("default_production_id"))
         if prod:
-            delivery = prod._get_delivery_date()
-            finish = prod._get_of_finish_date()
-            pos = prod._find_related_purchase_orders()
-            lines = []
-            for po in pos:
-                supplier = getattr(po.partner_id, "display_name", "") or ""
-                planned = getattr(po, "date_planned", False) or getattr(po, "date_order", False) or ""
-                lines.append("%s | %s | %s" % (po.name or "", supplier, planned))
             ok, error = prod._check_delivery_vs_finish()
+            if not ok:
+                raise ValidationError(error)
+
+            # Use currently saved values on the OF
+            finish = prod._get_of_finish_date()
+            delivery = prod._get_delivery_date()
+            pos = prod._find_related_purchase_orders()
+
+            # We compute a preview by reading existing workorders after last saved plan.
+            wos = prod.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")).sorted(key=lambda w: ((w.op_sequence or 0), w.id))
+            start_dt = wos[:1].macro_planned_start if wos[:1] and "macro_planned_start" in wos._fields else False
+
+            rows = []
+            for po in pos:
+                supplier = po.partner_id.display_name if po.partner_id else ""
+                planned = getattr(po, "date_planned", False) or getattr(po, "date_order", False) or ""
+                rows.append(
+                    "<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (
+                        po.name or "",
+                        supplier,
+                        planned or "",
+                    )
+                )
+            po_html = (
+                "<table class='table table-sm table-bordered'>"
+                "<thead><tr><th>PO</th><th>Fournisseur</th><th>Date prévue</th></tr></thead>"
+                "<tbody>%s</tbody></table>" % ("".join(rows) or "<tr><td colspan='3'>Aucune PO liée trouvée.</td></tr>")
+            )
+
+            info_html = (
+                "<table class='table table-sm table-bordered'>"
+                "<tbody>"
+                "<tr><th>Date livraison</th><td>%s</td></tr>"
+                "<tr><th>Date fin OF</th><td>%s</td></tr>"
+                "<tr><th>Début fabrication recalculé</th><td>%s</td></tr>"
+                "</tbody></table>"
+            ) % (delivery or "", finish or "", start_dt or "")
+
             res.update({
                 "delivery_date": delivery,
                 "of_finish_date": finish,
-                "po_info": "\n".join(lines) if lines else "Aucune PO liée trouvée.",
-                "warning_message": error or "",
+                "computed_start_date": start_dt,
+                "po_html": po_html,
+                "info_html": info_html,
             })
         return res
 

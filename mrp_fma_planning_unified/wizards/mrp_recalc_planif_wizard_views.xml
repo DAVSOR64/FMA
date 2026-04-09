@@ -4,13 +4,13 @@
         <field name="model">mrp.recalc.planif.wizard</field>
         <field name="arch" type="xml">
             <form string="Recalcul planification">
-                <group>
-                    <field name="production_id" invisible="1"/>
-                    <field name="delivery_date"/>
-                    <field name="of_finish_date"/>
-                    <field name="warning_message" readonly="1" invisible="not warning_message"/>
-                    <field name="po_info" nolabel="1" readonly="1" widget="text"/>
-                </group>
+                <sheet>
+                    <group>
+                        <field name="production_id" invisible="1"/>
+                        <field name="info_html" nolabel="1" widget="html" readonly="1"/>
+                        <field name="po_html" nolabel="1" widget="html" readonly="1"/>
+                    </group>
+                </sheet>
                 <footer>
                     <button name="action_apply" type="object" string="Appliquer" class="btn-primary"/>
                     <button string="Fermer" special="cancel" class="btn-secondary"/>
