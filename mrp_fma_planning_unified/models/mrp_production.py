@@ -13,6 +13,13 @@ FMA_ORDER = [
 def _norm(value):
     return (value or "").strip().lower()
 
+def _as_text(value):
+    if not value:
+        return ""
+    if hasattr(value, "display_name"):
+        return value.display_name or ""
+    return str(value)
+
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
@@ -45,8 +52,9 @@ class MrpProduction(models.Model):
             sale = self.env["sale.order"].search([("name", "=", self.origin)], limit=1)
         if not sale and "x_studio_mtn_mrp_sale_order" in self._fields:
             mtn = self.x_studio_mtn_mrp_sale_order
-            if mtn:
-                sale = self.env["sale.order"].search([("name", "=", mtn)], limit=1)
+            mtn_text = _as_text(mtn)
+            if mtn_text:
+                sale = self.env["sale.order"].search([("name", "=", mtn_text)], limit=1)
         return sale
 
     def _get_delivery_date(self):
@@ -78,17 +86,21 @@ class MrpProduction(models.Model):
                 pos |= PurchaseOrder.search([("group_id", "=", group.id)])
 
         sale = self._get_sale_for_macro()
-        if sale:
+        sale_name = sale.name if sale else ""
+        if sale_name:
             if "origin" in PurchaseOrder._fields:
-                pos |= PurchaseOrder.search([("origin", "ilike", sale.name)])
+                pos |= PurchaseOrder.search([("origin", "ilike", sale_name)])
             if "partner_ref" in PurchaseOrder._fields:
-                pos |= PurchaseOrder.search([("partner_ref", "ilike", sale.name)])
+                pos |= PurchaseOrder.search([("partner_ref", "ilike", sale_name)])
 
-        if self.origin and "origin" in PurchaseOrder._fields:
-            pos |= PurchaseOrder.search([("origin", "ilike", self.origin)])
+        origin_text = _as_text(self.origin)
+        if origin_text and "origin" in PurchaseOrder._fields:
+            pos |= PurchaseOrder.search([("origin", "ilike", origin_text)])
 
-        if "x_studio_mtn_mrp_sale_order" in self._fields and self.x_studio_mtn_mrp_sale_order and "origin" in PurchaseOrder._fields:
-            pos |= PurchaseOrder.search([("origin", "ilike", self.x_studio_mtn_mrp_sale_order)])
+        if "x_studio_mtn_mrp_sale_order" in self._fields and "origin" in PurchaseOrder._fields:
+            mtn_text = _as_text(self.x_studio_mtn_mrp_sale_order)
+            if mtn_text:
+                pos |= PurchaseOrder.search([("origin", "ilike", mtn_text)])
 
         return pos.sorted(lambda po: (po.date_order or po.create_date or po.id))
 
