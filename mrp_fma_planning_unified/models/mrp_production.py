@@ -1,3 +1,4 @@
+
 from odoo import api, models
 from odoo.exceptions import ValidationError
 import logging
@@ -76,6 +77,16 @@ class MrpProduction(models.Model):
             if field_name in self._fields and getattr(self, field_name):
                 return getattr(self, field_name)
         return False
+
+    def _get_preview_start_date(self):
+        self.ensure_one()
+        starts = []
+        for wo in self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")):
+            for fname in ("macro_planned_start", "date_start"):
+                if fname in wo._fields and getattr(wo, fname):
+                    starts.append(getattr(wo, fname))
+                    break
+        return min(starts) if starts else False
 
     def _find_related_purchase_orders(self):
         self.ensure_one()
@@ -196,14 +207,44 @@ class MrpProduction(models.Model):
 
         delivery = self._get_delivery_date()
         finish = self._get_of_finish_date()
+        start = self._get_preview_start_date()
         po_count = len(self._find_related_purchase_orders())
         self._post_planif_message(
             "<b>Recalcul planification FMA</b><br/>"
             "Date livraison : %s<br/>"
-            "Date fin OF : %s<br/>"
-            "PO liées trouvées : %s" % (delivery or "-", finish or "-", po_count)
+            "Date début OF recalculée : %s<br/>"
+            "Date fin OF recalculée : %s<br/>"
+            "PO liées trouvées : %s" % (delivery or "-", start or "-", finish or "-", po_count)
         )
         return result
+
+    def _preview_recompute_values(self):
+        self.ensure_one()
+        ok, error = self._check_delivery_vs_finish()
+        if not ok:
+            raise ValidationError(error)
+
+        registry = self.env.registry
+        with registry.cursor() as cr:
+            env2 = api.Environment(cr, self.env.uid, dict(self.env.context))
+            prod2 = env2[self._name].browse(self.id)
+            prod2._resequence_fma_workorders()
+            prod2._recompute_single_macro_planning()
+
+            preview = {
+                "delivery_date": prod2._get_delivery_date(),
+                "of_finish_date": prod2._get_of_finish_date(),
+                "of_start_date": prod2._get_preview_start_date(),
+                "purchase_orders": [],
+            }
+            for po in prod2._find_related_purchase_orders():
+                preview["purchase_orders"].append({
+                    "name": po.name or "",
+                    "supplier": po.partner_id.display_name if po.partner_id else "",
+                    "planned": getattr(po, "date_planned", False) or getattr(po, "date_order", False) or "",
+                })
+            cr.rollback()
+        return preview
 
     def action_open_recalc_planif_popup(self):
         self.ensure_one()
@@ -236,12 +277,10 @@ class MrpProduction(models.Model):
     def action_batch_resequence_and_recompute_non_started(self):
         mos = self.search([("state", "not in", ("done", "cancel"))])
         treated = skipped = errors = 0
-
         for mo in mos:
             if not mo._is_non_started_for_fma_batch():
                 skipped += 1
                 continue
-
             try:
                 with self.env.cr.savepoint():
                     mo._resequence_fma_workorders()

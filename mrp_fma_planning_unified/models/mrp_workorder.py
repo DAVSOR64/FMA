@@ -1,3 +1,4 @@
+
 from odoo import fields, models
 
 class MrpWorkorder(models.Model):

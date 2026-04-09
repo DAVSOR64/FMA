@@ -1,3 +1,4 @@
+
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
@@ -6,11 +7,8 @@ class MrpRecalcPlanifWizard(models.TransientModel):
     _description = "Wizard recalcul planification"
 
     production_id = fields.Many2one("mrp.production", required=True)
-    delivery_date = fields.Datetime(string="Date livraison", readonly=True)
-    of_finish_date = fields.Datetime(string="Date fin OF", readonly=True)
-    computed_start_date = fields.Datetime(string="Début fabrication recalculé", readonly=True)
+    preview_html = fields.Html(string="Prévisualisation", sanitize=False, readonly=True)
     po_html = fields.Html(string="PO associées", sanitize=False, readonly=True)
-    info_html = fields.Html(string="Synthèse", sanitize=False, readonly=True)
 
     @api.model
     def default_get(self, fields_list):
@@ -21,47 +19,57 @@ class MrpRecalcPlanifWizard(models.TransientModel):
             if not ok:
                 raise ValidationError(error)
 
-            # Use currently saved values on the OF
-            finish = prod._get_of_finish_date()
-            delivery = prod._get_delivery_date()
-            pos = prod._find_related_purchase_orders()
+            preview = prod._preview_recompute_values()
+            delivery = preview.get("delivery_date") or ""
+            finish = preview.get("of_finish_date") or ""
+            start = preview.get("of_start_date") or ""
 
-            # We compute a preview by reading existing workorders after last saved plan.
-            wos = prod.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel")).sorted(key=lambda w: ((w.op_sequence or 0), w.id))
-            start_dt = wos[:1].macro_planned_start if wos[:1] and "macro_planned_start" in wos._fields else False
+            preview_html = (
+                "<div style='width:100%;'>"
+                "<table style='width:100%; border-collapse:collapse;'>"
+                "<tr>"
+                "<td style='width:38%; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Date livraison</td>"
+                "<td style='width:62%; padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                "</tr>"
+                "<tr>"
+                "<td style='padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Nouvelle date début OF</td>"
+                "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                "</tr>"
+                "<tr>"
+                "<td style='padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Nouvelle date fin OF</td>"
+                "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                "</tr>"
+                "</table>"
+                "</div>"
+            ) % (delivery, start, finish)
 
             rows = []
-            for po in pos:
-                supplier = po.partner_id.display_name if po.partner_id else ""
-                planned = getattr(po, "date_planned", False) or getattr(po, "date_order", False) or ""
+            for po in preview.get("purchase_orders", []):
                 rows.append(
-                    "<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (
-                        po.name or "",
-                        supplier,
-                        planned or "",
-                    )
+                    "<tr>"
+                    "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                    "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                    "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                    "</tr>" % (po["name"], po["supplier"], po["planned"])
                 )
-            po_html = (
-                "<table class='table table-sm table-bordered'>"
-                "<thead><tr><th>PO</th><th>Fournisseur</th><th>Date prévue</th></tr></thead>"
-                "<tbody>%s</tbody></table>" % ("".join(rows) or "<tr><td colspan='3'>Aucune PO liée trouvée.</td></tr>")
-            )
 
-            info_html = (
-                "<table class='table table-sm table-bordered'>"
-                "<tbody>"
-                "<tr><th>Date livraison</th><td>%s</td></tr>"
-                "<tr><th>Date fin OF</th><td>%s</td></tr>"
-                "<tr><th>Début fabrication recalculé</th><td>%s</td></tr>"
-                "</tbody></table>"
-            ) % (delivery or "", finish or "", start_dt or "")
+            po_html = (
+                "<div style='width:100%; margin-top:10px;'>"
+                "<div style='font-weight:600; margin-bottom:8px;'>PO associées</div>"
+                "<table style='width:100%; border-collapse:collapse;'>"
+                "<thead>"
+                "<tr>"
+                "<th style='text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>PO</th>"
+                "<th style='text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>Fournisseur</th>"
+                "<th style='text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>Date prévue</th>"
+                "</tr>"
+                "</thead>"
+                "<tbody>%s</tbody></table></div>"
+            ) % ("".join(rows) or "<tr><td colspan='3' style='padding:8px; border:1px solid #d9d9d9;'>Aucune PO liée trouvée.</td></tr>")
 
             res.update({
-                "delivery_date": delivery,
-                "of_finish_date": finish,
-                "computed_start_date": start_dt,
+                "preview_html": preview_html,
                 "po_html": po_html,
-                "info_html": info_html,
             })
         return res
 
