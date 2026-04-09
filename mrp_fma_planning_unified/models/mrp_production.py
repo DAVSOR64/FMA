@@ -1,5 +1,5 @@
 
-from odoo import api, models
+from odoo import api, models, fields as odoo_fields
 from odoo.exceptions import ValidationError
 import logging
 
@@ -16,8 +16,10 @@ FMA_ORDER = [
 
 CRON_LOCK_KEY = 947251
 
+
 def _norm(value):
     return (value or "").strip().lower()
+
 
 def _as_text(value):
     if not value:
@@ -26,6 +28,7 @@ def _as_text(value):
         return value.display_name or ""
     return str(value)
 
+
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
@@ -33,6 +36,64 @@ class MrpProduction(models.Model):
         for rec in self:
             if hasattr(rec, "message_post"):
                 rec.message_post(body=message)
+
+    def _find_finish_custom_field(self):
+        self.ensure_one()
+        candidates = [
+            "x_studio_date_de_fin",
+            "x_studio_date_de_Fin",
+            "x_studio_date_de_fin_1",
+            "x_de_fin",
+        ]
+        for name in candidates:
+            if name in self._fields:
+                return name
+        for name in self._fields:
+            lowered = name.lower()
+            if lowered.startswith("x_studio") and "date" in lowered and "fin" in lowered:
+                return name
+        return False
+
+    def _read_custom_finish_value(self):
+        self.ensure_one()
+        field_name = self._find_finish_custom_field()
+        return getattr(self, field_name) if field_name else False
+
+    def _sync_finish_date_to_engine_fields(self):
+        """Push custom finish date into fields already used by older planning modules."""
+        for rec in self:
+            finish_value = rec._read_custom_finish_value()
+            if not finish_value:
+                continue
+            vals = {}
+            if "x_de_fin" in rec._fields:
+                vals["x_de_fin"] = finish_value
+            if "macro_forced_end" in rec._fields:
+                vals["macro_forced_end"] = finish_value
+            if vals:
+                super(MrpProduction, rec).write(vals)
+
+    def write(self, vals):
+        finish_field = False
+        for rec in self[:1]:
+            finish_field = rec._find_finish_custom_field()
+            break
+
+        finish_in_vals = finish_field and finish_field in vals
+        finish_val = vals.get(finish_field) if finish_in_vals else None
+
+        # Save the custom finish date without triggering the historical auto-replan chain.
+        if finish_in_vals:
+            other_vals = dict(vals)
+            other_vals.pop(finish_field, None)
+            res = super().write(other_vals) if other_vals else True
+            column = self._fields[finish_field].column_type and finish_field or finish_field
+            query = 'UPDATE mrp_production SET "%s" = %%s WHERE id IN %%s' % finish_field
+            self.env.cr.execute(query, [finish_val, tuple(self.ids)])
+            self.invalidate_recordset([finish_field])
+            return res
+
+        return super().write(vals)
 
     def _is_non_started_for_fma_batch(self):
         self.ensure_one()
@@ -71,12 +132,23 @@ class MrpProduction(models.Model):
                     return getattr(sale, field_name)
         return False
 
-    def _get_of_finish_date(self):
+    def _get_effective_finish_source(self):
         self.ensure_one()
+        custom = self._read_custom_finish_value()
+        if custom:
+            return custom
         for field_name in ("x_de_fin", "macro_forced_end", "date_deadline", "date_finished"):
             if field_name in self._fields and getattr(self, field_name):
                 return getattr(self, field_name)
         return False
+
+    def _get_of_finish_date(self):
+        self.ensure_one()
+        if "date_finished" in self._fields and self.date_finished:
+            return self.date_finished
+        if "date_deadline" in self._fields and self.date_deadline:
+            return self.date_deadline
+        return self._get_effective_finish_source()
 
     def _get_preview_start_date(self):
         self.ensure_one()
@@ -87,6 +159,11 @@ class MrpProduction(models.Model):
                     starts.append(getattr(wo, fname))
                     break
         return min(starts) if starts else False
+
+    def _to_date_only(self, value):
+        if not value:
+            return False
+        return odoo_fields.Date.to_date(value)
 
     def _find_related_purchase_orders(self):
         self.ensure_one()
@@ -177,16 +254,23 @@ class MrpProduction(models.Model):
     def _check_delivery_vs_finish(self):
         self.ensure_one()
         delivery_dt = self._get_delivery_date()
-        finish_dt = self._get_of_finish_date()
-        if delivery_dt and finish_dt and finish_dt > delivery_dt:
-            return False, "Impossible : la date de fin de fabrication est postérieure à la date de livraison promise."
-        return True, False
+        finish_dt = self._get_effective_finish_source()
+        delivery_date = self._to_date_only(delivery_dt)
+        finish_date = self._to_date_only(finish_dt)
+        if delivery_date and finish_date and finish_date > delivery_date:
+            raise ValidationError(
+                "Impossible : la date de fin de fabrication (%s) est postérieure à la date de livraison promise (%s)."
+                % (
+                    odoo_fields.Date.to_string(finish_date),
+                    odoo_fields.Date.to_string(delivery_date),
+                )
+            )
+        return True
 
     def _recompute_single_macro_planning(self):
         self.ensure_one()
-        ok, error = self._check_delivery_vs_finish()
-        if not ok:
-            raise ValidationError(error)
+        self._check_delivery_vs_finish()
+        self._sync_finish_date_to_engine_fields()
 
         sale = self._get_sale_for_macro()
         if hasattr(self, "compute_macro_schedule_from_sale") and sale:
@@ -220,14 +304,13 @@ class MrpProduction(models.Model):
 
     def _preview_recompute_values(self):
         self.ensure_one()
-        ok, error = self._check_delivery_vs_finish()
-        if not ok:
-            raise ValidationError(error)
+        self._check_delivery_vs_finish()
 
         registry = self.env.registry
         with registry.cursor() as cr:
             env2 = api.Environment(cr, self.env.uid, dict(self.env.context))
             prod2 = env2[self._name].browse(self.id)
+            prod2._sync_finish_date_to_engine_fields()
             prod2._resequence_fma_workorders()
             prod2._recompute_single_macro_planning()
 
@@ -248,9 +331,7 @@ class MrpProduction(models.Model):
 
     def action_open_recalc_planif_popup(self):
         self.ensure_one()
-        ok, error = self._check_delivery_vs_finish()
-        if not ok:
-            raise ValidationError(error)
+        self._check_delivery_vs_finish()
         return {
             "type": "ir.actions.act_window",
             "name": "Recalcul planification",
@@ -283,6 +364,8 @@ class MrpProduction(models.Model):
                 continue
             try:
                 with self.env.cr.savepoint():
+                    mo._check_delivery_vs_finish()
+                    mo._sync_finish_date_to_engine_fields()
                     mo._resequence_fma_workorders()
                     mo._recompute_single_macro_planning()
                     mo._post_planif_message("<b>Traitement batch FMA</b><br/>Succès.")

@@ -1,6 +1,6 @@
 {
-    'name': 'MRP FMA Planning Unified V5',
-    'version': '17.0.1.3.0',
+    'name': 'MRP FMA Planning Unified V5.2',
+    'version': '17.0.1.3.2',
     'summary': 'Réordonnancement FMA + preview réel + recalcul macro batch',
     'depends': ['mrp', 'mail', 'mrp_replan_workorder', 'mrp_replan_workorder_popup', 'purchase'],
     'data': [

@@ -1,6 +1,6 @@
 
 from odoo import api, fields, models
-from odoo.exceptions import ValidationError
+
 
 class MrpRecalcPlanifWizard(models.TransientModel):
     _name = "mrp.recalc.planif.wizard"
@@ -10,34 +10,38 @@ class MrpRecalcPlanifWizard(models.TransientModel):
     preview_html = fields.Html(string="Prévisualisation", sanitize=False, readonly=True)
     po_html = fields.Html(string="PO associées", sanitize=False, readonly=True)
 
+    def _fmt(self, value):
+        if not value:
+            return ""
+        if hasattr(value, "strftime"):
+            return value.strftime("%d/%m/%Y")
+        return str(value)
+
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
         prod = self.env["mrp.production"].browse(self.env.context.get("default_production_id"))
         if prod:
-            ok, error = prod._check_delivery_vs_finish()
-            if not ok:
-                raise ValidationError(error)
-
+            prod._check_delivery_vs_finish()
             preview = prod._preview_recompute_values()
-            delivery = preview.get("delivery_date") or ""
-            finish = preview.get("of_finish_date") or ""
-            start = preview.get("of_start_date") or ""
+            delivery = self._fmt(preview.get("delivery_date"))
+            finish = self._fmt(preview.get("of_finish_date"))
+            start = self._fmt(preview.get("of_start_date"))
 
             preview_html = (
                 "<div style='width:100%%;'>"
-                "<table style='width:100%%; border-collapse:collapse;'>"
+                "<table style='width:100%%; border-collapse:collapse; table-layout:fixed;'>"
                 "<tr>"
-                "<td style='width:38%%; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Date livraison</td>"
-                "<td style='width:62%%; padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                "<td style='width:35%%; padding:10px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Date livraison</td>"
+                "<td style='width:65%%; padding:10px; border:1px solid #d9d9d9;'>%s</td>"
                 "</tr>"
                 "<tr>"
-                "<td style='padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Nouvelle date début OF</td>"
-                "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                "<td style='padding:10px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Nouvelle date début OF</td>"
+                "<td style='padding:10px; border:1px solid #d9d9d9;'>%s</td>"
                 "</tr>"
                 "<tr>"
-                "<td style='padding:8px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Nouvelle date fin OF</td>"
-                "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
+                "<td style='padding:10px; border:1px solid #d9d9d9; background:#f6f6f6; font-weight:600;'>Nouvelle date fin OF</td>"
+                "<td style='padding:10px; border:1px solid #d9d9d9;'>%s</td>"
                 "</tr>"
                 "</table>"
                 "</div>"
@@ -50,18 +54,18 @@ class MrpRecalcPlanifWizard(models.TransientModel):
                     "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
                     "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
                     "<td style='padding:8px; border:1px solid #d9d9d9;'>%s</td>"
-                    "</tr>" % (po["name"], po["supplier"], po["planned"])
+                    "</tr>" % (po["name"], po["supplier"], self._fmt(po["planned"]))
                 )
 
             po_html = (
-                "<div style='width:100%%; margin-top:10px;'>"
+                "<div style='width:100%%; margin-top:14px;'>"
                 "<div style='font-weight:600; margin-bottom:8px;'>PO associées</div>"
-                "<table style='width:100%%; border-collapse:collapse;'>"
+                "<table style='width:100%%; border-collapse:collapse; table-layout:fixed;'>"
                 "<thead>"
                 "<tr>"
-                "<th style='text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>PO</th>"
-                "<th style='text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>Fournisseur</th>"
-                "<th style='text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>Date prévue</th>"
+                "<th style='width:20%%; text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>PO</th>"
+                "<th style='width:30%%; text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>Fournisseur</th>"
+                "<th style='width:50%%; text-align:left; padding:8px; border:1px solid #d9d9d9; background:#f6f6f6;'>Date prévue</th>"
                 "</tr>"
                 "</thead>"
                 "<tbody>%s</tbody></table></div>"
@@ -75,9 +79,8 @@ class MrpRecalcPlanifWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
-        ok, error = self.production_id._check_delivery_vs_finish()
-        if not ok:
-            raise ValidationError(error)
+        self.production_id._check_delivery_vs_finish()
+        self.production_id._sync_finish_date_to_engine_fields()
         self.production_id._resequence_fma_workorders()
         self.production_id._recompute_single_macro_planning()
         return {"type": "ir.actions.act_window_close"}
