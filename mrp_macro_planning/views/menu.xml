@@ -4,7 +4,6 @@
     <menuitem
         id="menu_mrp_workorder_planning_gantt"
         name="Macro Planning"
-        parent="mrp.menu_mrp_planning"
         action="action_mrp_workorder_planning_gantt"
         sequence="35"
     />
