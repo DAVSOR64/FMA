@@ -25,42 +25,35 @@ class MrpWorkorder(models.Model):
     )
 
     # Champs de dates pour le GANTT macro planning
-    # Priorité : macro_planned_start > date_planned_start > date_start
+    # Priorité début : macro_planned_start > date_start
     gantt_date_start = fields.Datetime(
         string='Début GANTT',
         compute='_compute_gantt_dates',
         store=True,
-        help='Date de début pour le GANTT macro : macro_planned_start en priorité, sinon date_planned_start',
+        help='Date de début pour le GANTT macro : macro_planned_start en priorité, sinon date_start',
     )
     gantt_date_stop = fields.Datetime(
         string='Fin GANTT',
         compute='_compute_gantt_dates',
         store=True,
-        help='Date de fin pour le GANTT macro : date_planned_finished en priorité, sinon calculée depuis durée',
+        help='Date de fin pour le GANTT macro : date_finished ou calculée depuis durée',
     )
 
     @api.depends(
         'macro_planned_start',
         'date_start',
-        'date_planned_finished',
         'date_finished',
         'duration_expected',
     )
     def _compute_gantt_dates(self):
         from datetime import timedelta
         for wo in self:
-            # Date de début : priorité macro_planned_start, sinon date_start
-            start = (
-                getattr(wo, 'macro_planned_start', False)
-                or wo.date_start
-            )
+            # Date de début : macro_planned_start en priorité, sinon date_start
+            start = getattr(wo, 'macro_planned_start', False) or wo.date_start
             wo.gantt_date_start = start
 
-            # Date de fin : date_planned_finished en priorité
-            stop = (
-                wo.date_planned_finished
-                or wo.date_finished
-            )
+            # Date de fin : date_finished en priorité
+            stop = wo.date_finished
             # Si pas de fin mais une durée → calculer depuis le début
             if not stop and start and wo.duration_expected:
                 stop = start + timedelta(minutes=wo.duration_expected)

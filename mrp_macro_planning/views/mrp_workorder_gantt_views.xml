@@ -68,8 +68,6 @@
                 <field name="state"/>
                 <field name="duration_expected"/>
                 <field name="color_index"/>
-
-            </gantt>
         </field>
     </record>
 
