@@ -1,33 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ================================================================ -->
-    <!-- Macro Planning basé sur les OT                                   -->
-    <!-- Source unique : mrp.workorder avec macro_planned_start renseigné -->
-    <!-- ================================================================ -->
-
     <record id="view_mrp_workorder_planning_gantt" model="ir.ui.view">
         <field name="name">mrp.workorder.planning.gantt</field>
         <field name="model">mrp.workorder</field>
         <field name="arch" type="xml">
             <gantt
-                string="Planning Atelier — Gantt"
+                string="Planning Atelier"
                 date_start="macro_planned_start"
                 date_stop="macro_end"
                 default_scale="week"
                 scales="day,week,month"
                 default_group_by="production_id"
                 color="workcenter_id"
-                pill_label="True"
-                on_create="false"
+                pill_label="1"
+                create="0"
+                edit="0"
+                delete="0"
             >
-                <field name="name" string="Opération"/>
-                <field name="production_id" string="N° OF"/>
-                <field name="workcenter_id" string="Poste"/>
-                <field name="macro_planned_start" string="Début macro"/>
-                <field name="macro_end" string="Fin macro"/>
-                <field name="duration_expected" string="Durée prévue"/>
-                <field name="state" string="État"/>
+                <field name="production_id"/>
+                <field name="name"/>
+                <field name="workcenter_id"/>
+                <field name="macro_planned_start"/>
+                <field name="macro_end"/>
+                <field name="duration_expected"/>
+                <field name="state"/>
             </gantt>
         </field>
     </record>
@@ -36,24 +33,18 @@
         <field name="name">mrp.workorder.planning.tree</field>
         <field name="model">mrp.workorder</field>
         <field name="arch" type="xml">
-            <tree string="Planning Opérations"
-                  create="false"
-                  edit="false"
-                  delete="false"
-                  default_order="macro_planned_start asc">
-
-                <field name="production_id" string="N° OF"/>
+            <tree string="Planning Atelier"
+                  create="0"
+                  edit="0"
+                  delete="0"
+                  default_order="macro_planned_start asc, production_id asc, sequence asc, id asc">
+                <field name="production_id" string="OF"/>
                 <field name="name" string="Opération"/>
                 <field name="workcenter_id" string="Poste"/>
                 <field name="macro_planned_start" string="Début macro"/>
                 <field name="macro_end" string="Fin macro"/>
                 <field name="duration_expected" string="Durée prévue"/>
-                <field name="state" string="État"
-                       widget="badge"
-                       decoration-success="state == 'done'"
-                       decoration-warning="state == 'progress'"
-                       decoration-info="state in ('pending', 'ready', 'waiting')"
-                       decoration-muted="state == 'cancel'"/>
+                <field name="state" string="Statut"/>
             </tree>
         </field>
     </record>
@@ -62,34 +53,30 @@
         <field name="name">mrp.workorder.planning.search</field>
         <field name="model">mrp.workorder</field>
         <field name="arch" type="xml">
-            <search string="Rechercher">
-                <field name="production_id" string="N° OF"/>
-                <field name="workcenter_id" string="Poste"/>
-                <field name="name" string="Opération"/>
+            <search string="Planning Atelier">
+                <field name="production_id"/>
+                <field name="workcenter_id"/>
+                <field name="name"/>
 
-                <filter string="Avec date macro"
-                        name="with_macro"
+                <filter name="with_macro"
+                        string="Avec date macro"
                         domain="[('macro_planned_start', '!=', False)]"/>
 
-                <filter string="En cours"
-                        name="in_progress"
-                        domain="[('state', '=', 'progress')]"/>
-
-                <filter string="Planifiés"
-                        name="planned"
-                        domain="[('macro_planned_start', '!=', False), ('state', 'not in', ['done', 'cancel'])]"/>
+                <filter name="not_done"
+                        string="Non terminés"
+                        domain="[('state', 'not in', ['done', 'cancel'])]"/>
 
                 <separator/>
 
                 <group expand="1" string="Regrouper par">
-                    <filter string="OF"
-                            name="group_production"
+                    <filter name="group_production"
+                            string="OF"
                             context="{'group_by': 'production_id'}"/>
-                    <filter string="Poste"
-                            name="group_workcenter"
+                    <filter name="group_workcenter"
+                            string="Poste"
                             context="{'group_by': 'workcenter_id'}"/>
-                    <filter string="Semaine"
-                            name="group_week"
+                    <filter name="group_week"
+                            string="Semaine"
                             context="{'group_by': 'macro_planned_start:week'}"/>
                 </group>
             </search>
@@ -100,9 +87,9 @@
         <field name="name">Planning Atelier</field>
         <field name="res_model">mrp.workorder</field>
         <field name="view_mode">gantt,tree</field>
-        <field name="domain">[('state', 'not in', ['done', 'cancel']), ('macro_planned_start', '!=', False)]</field>
+        <field name="domain">[('macro_planned_start', '!=', False), ('state', 'not in', ['done', 'cancel'])]</field>
         <field name="search_view_id" ref="view_mrp_workorder_planning_search"/>
-        <field name="context">{'search_default_with_macro': 1, 'search_default_group_production': 1}</field>
+        <field name="context">{'search_default_with_macro': 1, 'search_default_not_done': 1, 'search_default_group_production': 1}</field>
         <field name="view_ids" eval="[
             (5, 0, 0),
             (0, 0, {'view_mode': 'gantt', 'view_id': ref('view_mrp_workorder_planning_gantt')}),
