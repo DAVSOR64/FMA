@@ -6,6 +6,7 @@
     "depends": ["mrp"],
     "data": [
         "views/mrp_workorder_gantt_views.xml",
+        "views/mrp_capacity_views.xml",
         "views/menu.xml",
     ],
     "installable": True,
