@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mrp_capacity_generate_wizard_form" model="ir.ui.view">
+        <field name="name">mrp.capacity.generate.wizard.form</field>
+        <field name="model">mrp.capacity.generate.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Générer les semaines de capacité">
+                <group>
+                    <group string="Horizon de génération">
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                        <field name="weeks_count" readonly="1"
+                               string="Nb semaines générées"/>
+                    </group>
+                    <group string="Périmètre">
+                        <field name="capacity_resource_ids"
+                               widget="many2many_tags"
+                               placeholder="Laisser vide = toutes les affectations actives"/>
+                        <field name="overwrite_existing"/>
+                    </group>
+                </group>
+
+                <div class="alert alert-info mt-2" role="alert">
+                    <strong>Comment ça marche ?</strong>
+                    <ul class="mb-0 mt-1">
+                        <li>Une ligne est créée par <b>affectation × semaine</b>.</li>
+                        <li>La capacité standard est lue depuis le <b>calendrier de travail</b> de l'employé.</li>
+                        <li>Les <b>jours fériés société</b>, <b>congés validés</b> et <b>arrêts maladie</b>
+                            sont déduits automatiquement.</li>
+                        <li>Vous pouvez ensuite saisir une <b>capacité manuelle</b> semaine par semaine
+                            (inline dans la liste ou via le formulaire).</li>
+                        <li>Un <b>recalcul quotidien</b> (6h00) met à jour les absences automatiquement.</li>
+                    </ul>
+                </div>
+
+                <footer>
+                    <button name="action_generate" type="object"
+                            string="Générer" class="btn-primary"/>
+                    <button special="cancel" string="Annuler" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mrp_capacity_generate_wizard" model="ir.actions.act_window">
+        <field name="name">Générer les semaines</field>
+        <field name="res_model">mrp.capacity.generate.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</odoo>
