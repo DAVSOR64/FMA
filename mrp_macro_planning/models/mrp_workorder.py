@@ -7,7 +7,6 @@ _logger = logging.getLogger(__name__)
 
 class MrpWorkorder(models.Model):
     _inherit = 'mrp.workorder'
-    _rec_name = 'gantt_label'
 
     project_display = fields.Char(
         string='Projet',
@@ -53,6 +52,17 @@ class MrpWorkorder(models.Model):
                 label = mo_name
             result.append((wo.id, label))
         return result
+
+    def _compute_display_name(self):
+        """Surcharge display_name — utilisé par le GANTT Odoo 17 pour les pills."""
+        for wo in self:
+            mo_name = wo.production_id.name or ''
+            projet = wo.project_display or ''
+            if projet and projet != 'Sans projet':
+                wo.display_name = f"{mo_name} | {projet}"
+            else:
+                wo.display_name = mo_name or wo.name
+
     gantt_date_start = fields.Datetime(
         string='Début GANTT',
         compute='_compute_gantt_dates',

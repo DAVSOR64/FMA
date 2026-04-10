@@ -52,7 +52,7 @@
                 string="Planning Atelier"
                 date_start="gantt_date_start"
                 date_stop="gantt_date_stop"
-                default_group_by="workcenter_id"
+                default_group_by="project_display,workcenter_id"
                 color="color_index"
                 default_scale="month"
                 precision="{'day': 'day:half', 'week': 'day:half', 'month': 'day:half'}"
@@ -117,7 +117,7 @@
         </field>
 
         <!-- Groupement par poste par défaut -->
-        <field name="context">{'group_by': 'workcenter_id', 'search_default_future': 1}</field>
+        <field name="context">{'group_by': ['workcenter_id', 'production_id'], 'search_default_future': 1}</field>
 
         <field name="search_view_id" ref="view_mrp_workorder_planning_search"/>
 
