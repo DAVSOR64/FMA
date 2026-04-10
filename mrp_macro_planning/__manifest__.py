@@ -1,15 +1,21 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "MRP Macro Planning",
-    "version": "17.0.1.1.0",
-    "summary": "Macro planning based on work orders",
-    "depends": ["mrp"],
-    "data": [
-        "views/mrp_workorder_gantt_views.xml",
-        "views/mrp_capacity_views.xml",
-        "views/menu.xml",
+    'name': 'MRP Macro Planning - Capacité vs Charge',
+    'version': '17.0.6.0.0',
+    'category': 'Manufacturing',
+    'summary': 'Tableau de bord capacité vs charge avec suivi prévu/effectué/cumul',
+    'author': 'Paxo Consulting',
+    'depends': ['mrp', 'planning', 'hr', 'mrp_capacity_planning', 'mrp_replan_workorder'],
+    'data': [
+        'data/mrp_macro_planning_cron.xml',
+        'security/ir.model.access.csv',
+        'views/capacite_charge_views.xml',
+        'views/capacite_operateur_views.xml',
+        'views/mrp_workorder_gantt_views.xml',
+        'views/menu.xml',
     ],
-    "installable": True,
-    "application": False,
-    "license": "LGPL-3",
+    
+    'installable': True,
+    'application': False,
+    'license': 'LGPL-3',
 }

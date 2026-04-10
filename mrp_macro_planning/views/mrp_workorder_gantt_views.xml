@@ -1,100 +1,112 @@
-<?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <!-- ========================= -->
+    <!-- SEARCH VIEW (AJOUTÉE)     -->
+    <!-- ========================= -->
+    <record id="view_mrp_workorder_planning_search" model="ir.ui.view">
+        <field name="name">mrp.workorder.planning.search</field>
+        <field name="model">mrp.workorder</field>
+        <field name="arch" type="xml">
+            <search string="Recherche planning atelier">
+
+                <field name="name"/>
+                <field name="project_display"/>
+                <field name="workcenter_id"/>
+                <field name="production_id"/>
+                <field name="date_start"/>
+                <field name="date_finished"/>
+
+                <filter string="À venir"
+                        name="future"
+                        domain="[('date_finished', '&gt;=', context_today())]"/>
+
+                <group expand="1" string="Regrouper par">
+                    <filter string="Projet"
+                            name="group_project"
+                            context="{'group_by': 'project_display'}"/>
+                    <filter string="Poste"
+                            name="group_workcenter"
+                            context="{'group_by': 'workcenter_id'}"/>
+                </group>
+
+            </search>
+        </field>
+    </record>
+
+
+    <!-- ========================= -->
+    <!-- GANTT VIEW               -->
+    <!-- ========================= -->
     <record id="view_mrp_workorder_planning_gantt" model="ir.ui.view">
         <field name="name">mrp.workorder.planning.gantt</field>
         <field name="model">mrp.workorder</field>
         <field name="arch" type="xml">
             <gantt
                 string="Planning Atelier"
-                date_start="macro_planned_start"
-                date_stop="macro_end"
-                default_scale="week"
-                scales="day,week,month"
-                default_group_by="production_id"
-                color="workcenter_id"
-                pill_label="1"
-                create="0"
-                edit="0"
-                delete="0"
-            >
-                <field name="production_id"/>
+                date_start="date_start"
+                date_stop="date_finished"
+                default_group_by="project_display"
+                color="color_index">
+
                 <field name="name"/>
+                <field name="project_display"/>
                 <field name="workcenter_id"/>
-                <field name="macro_planned_start"/>
-                <field name="macro_end"/>
-                <field name="duration_expected"/>
-                <field name="state"/>
+                <field name="production_id"/>
+                <field name="date_start"/>
+                <field name="date_finished"/>
+
             </gantt>
         </field>
     </record>
 
+
+    <!-- ========================= -->
+    <!-- TREE VIEW                -->
+    <!-- ========================= -->
     <record id="view_mrp_workorder_planning_tree" model="ir.ui.view">
         <field name="name">mrp.workorder.planning.tree</field>
         <field name="model">mrp.workorder</field>
         <field name="arch" type="xml">
-            <tree string="Planning Atelier"
-                  create="0"
-                  edit="0"
-                  delete="0"
-                  default_order="macro_planned_start asc, production_id asc, sequence asc, id asc">
-                <field name="production_id" string="OF"/>
-                <field name="name" string="Opération"/>
-                <field name="workcenter_id" string="Poste"/>
-                <field name="macro_planned_start" string="Début macro"/>
-                <field name="macro_end" string="Fin macro"/>
-                <field name="duration_expected" string="Durée prévue"/>
-                <field name="state" string="Statut"/>
+            <tree string="Planning Atelier">
+
+                <field name="name"/>
+                <field name="project_display"/>
+                <field name="workcenter_id"/>
+                <field name="production_id"/>
+                <field name="date_start"/>
+                <field name="date_finished"/>
+                <field name="state"/>
+
             </tree>
         </field>
     </record>
 
-    <record id="view_mrp_workorder_planning_search" model="ir.ui.view">
-        <field name="name">mrp.workorder.planning.search</field>
-        <field name="model">mrp.workorder</field>
-        <field name="arch" type="xml">
-            <search string="Planning Atelier">
-                <field name="production_id"/>
-                <field name="workcenter_id"/>
-                <field name="name"/>
 
-                <filter name="with_macro"
-                        string="Avec date macro"
-                        domain="[('macro_planned_start', '!=', False)]"/>
-
-                <filter name="not_done"
-                        string="Non terminés"
-                        domain="[('state', 'not in', ['done', 'cancel'])]"/>
-
-                <separator/>
-
-                <group expand="1" string="Regrouper par">
-                    <filter name="group_production"
-                            string="OF"
-                            context="{'group_by': 'production_id'}"/>
-                    <filter name="group_workcenter"
-                            string="Poste"
-                            context="{'group_by': 'workcenter_id'}"/>
-                    <filter name="group_week"
-                            string="Semaine"
-                            context="{'group_by': 'macro_planned_start:week'}"/>
-                </group>
-            </search>
-        </field>
-    </record>
-
+    <!-- ========================= -->
+    <!-- ACTION                   -->
+    <!-- ========================= -->
     <record id="action_mrp_workorder_planning_gantt" model="ir.actions.act_window">
         <field name="name">Planning Atelier</field>
         <field name="res_model">mrp.workorder</field>
         <field name="view_mode">gantt,tree</field>
-        <field name="domain">[('macro_planned_start', '!=', False), ('state', 'not in', ['done', 'cancel'])]</field>
+
+        <!-- IMPORTANT : filtrage léger -->
+        <field name="domain">
+            [('state', 'not in', ['done', 'cancel']), ('date_start', '!=', False)]
+        </field>
+
+        <!-- groupement par projet -->
+        <field name="context">{'group_by': 'project_display'}</field>
+
+        <!-- FIX : search view maintenant existante -->
         <field name="search_view_id" ref="view_mrp_workorder_planning_search"/>
-        <field name="context">{'search_default_with_macro': 1, 'search_default_not_done': 1, 'search_default_group_production': 1}</field>
+
         <field name="view_ids" eval="[
             (5, 0, 0),
             (0, 0, {'view_mode': 'gantt', 'view_id': ref('view_mrp_workorder_planning_gantt')}),
-            (0, 0, {'view_mode': 'tree', 'view_id': ref('view_mrp_workorder_planning_tree')})
+            (0, 0, {'view_mode': 'tree',  'view_id': ref('view_mrp_workorder_planning_tree')})
         ]"/>
+
     </record>
 
 </odoo>
