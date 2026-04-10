@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
-from . import mrp_capacity_resource
-from . import mrp_capacity_week
-from . import planning_role
+from . import mrp_workorder
+from . import mrp_capacity_charge
+from . import capacity_compute

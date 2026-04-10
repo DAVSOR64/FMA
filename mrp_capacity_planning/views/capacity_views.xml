@@ -1,0 +1,54 @@
+<odoo>
+    <record id="view_capacity_tree" model="ir.ui.view">
+        <field name="name">capacity.tree</field>
+        <field name="model">mrp.capacity.charge</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="date"/>
+                <field name="workcenter_id"/>
+                <field name="capacity"/>
+                <field name="charge"/>
+                <field name="load_rate"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_capacity_form" model="ir.ui.view">
+        <field name="name">capacity.form</field>
+        <field name="model">mrp.capacity.charge</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="date"/>
+                        <field name="workcenter_id"/>
+                        <field name="capacity"/>
+                        <field name="charge"/>
+                        <field name="load_rate"/>
+                    </group>
+                    <notebook>
+                        <page string="Détail">
+                            <field name="detail_ids">
+                                <tree>
+                                    <field name="workorder_id"/>
+                                    <field name="duration"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_capacity" model="ir.actions.act_window">
+        <field name="name">Capacité vs Charge</field>
+        <field name="res_model">mrp.capacity.charge</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_capacity_root"
+              name="Capacité"
+              parent="mrp.menu_mrp_root"
+              action="action_capacity"/>
+</odoo>
