@@ -42,50 +42,129 @@ class CapaciteCache(models.Model):
 
     def refresh(self):
         """
-        Recalcule la capacité depuis mrp.capacity.week (module mrp_capacity_planning).
+        Recalcule la capacité par poste/jour.
 
-        Nouvelle logique :
-        - on ne lisse plus la capacité nette sur la semaine ;
-        - on calcule la capacité JOUR PAR JOUR à partir du calendrier ;
-        - on enlève sur le jour concerné :
-            * les jours fériés / calendar leaves,
-            * les congés validés,
-            * les maladies validées.
+        Source 1 (prioritaire) : mrp.capacity.week — capacité nette avec congés/absences
+        Source 2 (fallback)    : calendrier du workcenter × nb_resources configurées,
+                                 pour les dates de charge qui n'ont pas de semaine capacité.
+
+        On couvre TOUTES les dates présentes dans mrp_workorder_charge_cache,
+        afin que le tableau ne montre jamais 0 capacité faute de données.
         """
         self.search([]).unlink()
 
-        if 'mrp.capacity.week' not in self.env:
-            _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — capacité vide')
-            return
-
-        weeks = self.env['mrp.capacity.week'].search([])
-        _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines trouvées', len(weeks))
-        if not weeks:
-            return
-
         aggregated = {}
 
-        for week in weeks:
-            if not week.workcenter_id or not week.week_date:
-                continue
+        # ── Source 1 : mrp.capacity.week ──────────────────────────────────────
+        if 'mrp.capacity.week' in self.env:
+            weeks = self.env['mrp.capacity.week'].search([])
+            _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines mrp.capacity.week', len(weeks))
 
-            daily_hours = self._get_daily_capacity_map(week)
-            if not daily_hours:
-                continue
+            for week in weeks:
+                if not week.workcenter_id or not week.week_date:
+                    continue
 
-            for jour, capacite_jour in daily_hours.items():
-                # garder la ligne même à 0 pour voir le jour d'absence
-                key = (week.workcenter_id.id, jour)
-                if key not in aggregated:
-                    aggregated[key] = {
-                        'workcenter_id': week.workcenter_id.id,
-                        'workcenter_name': week.workcenter_id.name,
-                        'date': jour,
-                        'capacite_heures': 0.0,
-                        'nb_personnes': 0,
-                    }
-                aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
-                aggregated[key]['nb_personnes'] += 1
+                daily_hours = self._get_daily_capacity_map(week)
+                if not daily_hours:
+                    continue
+
+                for jour, capacite_jour in daily_hours.items():
+                    key = (week.workcenter_id.id, jour)
+                    if key not in aggregated:
+                        aggregated[key] = {
+                            'workcenter_id': week.workcenter_id.id,
+                            'workcenter_name': week.workcenter_id.name,
+                            'date': jour,
+                            'capacite_heures': 0.0,
+                            'nb_personnes': 0,
+                        }
+                    aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
+                    aggregated[key]['nb_personnes'] += 1
+        else:
+            _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — fallback calendrier uniquement')
+
+        # ── Source 2 : fallback calendrier pour les dates sans capacité ────────
+        # Récupérer toutes les dates/postes présents dans le cache charge
+        self.env.cr.execute("""
+            SELECT DISTINCT workcenter_id, date
+            FROM mrp_workorder_charge_cache
+            ORDER BY workcenter_id, date
+        """)
+        charge_keys = self.env.cr.fetchall()
+
+        if charge_keys:
+            # Dates manquantes = dates de charge sans entrée capacité
+            missing_keys = [(wc_id, d) for wc_id, d in charge_keys if (wc_id, d) not in aggregated]
+            _logger.info('[MacroPlanning] %d clés charge sans capacité → fallback calendrier', len(missing_keys))
+
+            # Grouper par workcenter pour éviter de recalculer le calendrier N fois
+            from collections import defaultdict
+            missing_by_wc = defaultdict(set)
+            for wc_id, d in missing_keys:
+                missing_by_wc[wc_id].add(d)
+
+            for wc_id, dates in missing_by_wc.items():
+                wc = self.env['mrp.workcenter'].browse(wc_id)
+                if not wc.exists():
+                    continue
+
+                calendar = wc.resource_calendar_id
+                if not calendar:
+                    # Pas de calendrier : on met 0 pour que la ligne existe
+                    for d in dates:
+                        key = (wc_id, d)
+                        if key not in aggregated:
+                            aggregated[key] = {
+                                'workcenter_id': wc_id,
+                                'workcenter_name': wc.name,
+                                'date': d,
+                                'capacite_heures': 0.0,
+                                'nb_personnes': 0,
+                            }
+                    continue
+
+                # Nombre de ressources configurées sur ce workcenter
+                # (capacity = nb_resources × heures_calendrier_jour)
+                nb_resources = max(1, wc.capacity or 1)
+
+                # Calculer les heures par jour sur la plage nécessaire
+                min_date = min(dates)
+                max_date = max(dates)
+                start_dt = self._to_utc(datetime.combine(min_date, datetime.min.time()))
+                end_dt = self._to_utc(datetime.combine(max_date + timedelta(days=1), datetime.min.time()))
+
+                try:
+                    intervals = calendar._work_intervals_batch(start_dt, end_dt)
+                    work_intervals = intervals.get(False, [])
+
+                    heures_par_jour = {}
+                    for start, stop, _meta in work_intervals:
+                        jour = start.date()
+                        heures_par_jour[jour] = heures_par_jour.get(jour, 0) + (stop - start).total_seconds() / 3600.0
+
+                    for d in dates:
+                        key = (wc_id, d)
+                        if key not in aggregated:
+                            h = round(heures_par_jour.get(d, 0.0) * nb_resources, 2)
+                            aggregated[key] = {
+                                'workcenter_id': wc_id,
+                                'workcenter_name': wc.name,
+                                'date': d,
+                                'capacite_heures': h,
+                                'nb_personnes': nb_resources,
+                            }
+                except Exception as e:
+                    _logger.error('[MacroPlanning] Fallback calendrier workcenter %s : %s', wc_id, e)
+                    for d in dates:
+                        key = (wc_id, d)
+                        if key not in aggregated:
+                            aggregated[key] = {
+                                'workcenter_id': wc_id,
+                                'workcenter_name': wc.name,
+                                'date': d,
+                                'capacite_heures': 0.0,
+                                'nb_personnes': 0,
+                            }
 
         if aggregated:
             self.create(list(aggregated.values()))
@@ -96,32 +175,57 @@ class CapaciteCache(models.Model):
         )
 
     def _get_daily_capacity_map(self, week):
-        """Retourne {date: heures_nettes} pour une semaine de capacité."""
+        """
+        Retourne {date: heures_nettes} pour une semaine de capacité.
+
+        Logique : on utilise directement capacity_net (déjà calculé dans mrp.capacity.week,
+        tenant compte du taux d'affectation, des congés, absences, fériés) et on le
+        répartit proportionnellement sur les jours ouvrés de la semaine selon le calendrier.
+
+        Ex : GUILLON 50% → capacity_net=22,50h sur 5 jours ouvrés → 4,50h/jour
+             DESORMEAUX 100% → capacity_net=38,50h sur 5 jours ouvrés → 7,70h/jour
+        """
         calendar = week.override_calendar_id or week.resource_calendar_id
         if not calendar:
             return {}
 
-        employee = week.employee_id
-        rate = (week.allocation_rate or 100.0) / 100.0
+        # capacity_net est LA valeur de référence — déjà nette de tout
+        capacity_net = week.capacity_net or 0.0
+        if capacity_net <= 0:
+            return {}
+
         week_start = week.week_date
         week_end = week.week_end_date or (week.week_date + timedelta(days=6))
 
-        # 1) capacité brute du calendrier par jour (sans absences)
+        # Récupérer les jours ouvrés de la semaine et leurs heures brutes
+        # (pour calculer la proportion de chaque jour)
         base_map = self._get_working_days(calendar, week_start)
-        # inclure tous les jours ouvrés de la semaine même si capacité finale = 0
-        result = {d: round(h * rate, 2) for d, h in base_map.items()}
-
-        if not result:
+        if not base_map:
             return {}
 
-        # 2) jours fériés / calendar leaves : on retire sur le jour concerné
-        holiday_map = self._get_calendar_leave_hours_by_day(calendar, week_start, week_end)
+        # Filtrer uniquement les jours dans la fenêtre semaine
+        jours_ouvres = {d: h for d, h in base_map.items() if week_start <= d <= week_end}
+        if not jours_ouvres:
+            return {}
 
-        # 3) congés et maladies validés de l'employé : on retire sur le jour concerné
-        leave_map = self._get_employee_leave_hours_by_day(employee, calendar, week_start, week_end)
+        total_heures_brutes = sum(jours_ouvres.values())
+        if total_heures_brutes <= 0:
+            return {}
 
-        for day in list(result.keys()):
-            result[day] = max(0.0, round(result[day] - (holiday_map.get(day, 0.0) * rate) - (leave_map.get(day, 0.0) * rate), 2))
+        # Répartir capacity_net proportionnellement aux heures de chaque jour
+        # (gère les demi-journées, jours fériés qui réduisent la capacité brute d'un jour)
+        result = {}
+        total_attribue = 0.0
+        jours_tries = sorted(jours_ouvres.keys())
+
+        for i, jour in enumerate(jours_tries):
+            if i < len(jours_tries) - 1:
+                h_jour = round(capacity_net * jours_ouvres[jour] / total_heures_brutes, 2)
+            else:
+                # Dernier jour : prendre le reste pour éviter les erreurs d'arrondi
+                h_jour = round(capacity_net - total_attribue, 2)
+            result[jour] = max(0.0, h_jour)
+            total_attribue += h_jour
 
         return result
 
@@ -329,105 +433,105 @@ class WorkorderChargeCache(models.Model):
             
             if not date_start_operation:
                 continue
-            
-            # OPTIMISATION : Si pas de calendrier → tout sur date_start
+
+            # DATE DE DÉBUT : on ne tient PAS compte de l'heure, seulement du jour ouvré
+            date_debut = date_start_operation.date() if hasattr(date_start_operation, 'date') else date_start_operation
+
+            # Si pas de calendrier → tout sur le jour de début
             if not calendar:
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
-                    'date': date_start_operation.date() if hasattr(date_start_operation, 'date') else date_start_operation,
+                    'date': date_debut,
                     'charge_prevue_heures': charge_restante_totale,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
                 continue
-            
-            # Calculer une fenêtre large pour récupérer les jours ouvrés (90 jours)
-            date_end_window = date_start_operation + timedelta(days=90)
-            
+
+            # Fenêtre large : depuis le début du premier jour ouvré (minuit) sur 90 jours
+            date_end_window = datetime.combine(date_debut, datetime.min.time()) + timedelta(days=90)
+
             try:
-                date_start_utc = self._to_utc(date_start_operation)
+                # On part du début de la journée (minuit) pour avoir la journée complète
+                date_start_utc = self._to_utc(datetime.combine(date_debut, datetime.min.time()))
                 date_end_utc = self._to_utc(date_end_window)
-                
-                # Récupérer les intervalles de travail depuis la date de début planifiée
+
+                # Récupérer les intervalles de travail (journées complètes)
                 intervals = calendar._work_intervals_batch(date_start_utc, date_end_utc)
                 work_intervals = intervals.get(False, [])
-                
+
                 if not work_intervals:
-                    date_val = date_start_operation.date() if hasattr(date_start_operation, 'date') else date_start_operation
                     vals_list.append({
                         'workorder_id': wo.id,
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
-                        'date': date_val,
+                        'date': date_debut,
                         'charge_prevue_heures': charge_restante_totale,
                         'employee_ids': [(6, 0, employee_ids)],
                     })
                     continue
-                
-                # Calculer les heures ouvrées par jour
+
+                # Heures ouvrées par jour (journées COMPLÈTES - sans tenir compte de l'heure de début)
                 heures_calendrier_par_jour = {}
                 for start, stop, _meta in work_intervals:
                     jour = start.date()
                     heures_interval = (stop - start).total_seconds() / 3600.0
                     heures_calendrier_par_jour[jour] = heures_calendrier_par_jour.get(jour, 0) + heures_interval
-                
+
                 if not heures_calendrier_par_jour:
-                    date_val = date_start_operation.date() if hasattr(date_start_operation, 'date') else date_start_operation
                     vals_list.append({
                         'workorder_id': wo.id,
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
-                        'date': date_val,
+                        'date': date_debut,
                         'charge_prevue_heures': charge_restante_totale,
                         'employee_ids': [(6, 0, employee_ids)],
                     })
                     continue
-                
-                # RÉPARTITION JOUR PAR JOUR avec plafonnement à la capacité calendrier
+
+                # RÉPARTITION JOUR PAR JOUR — journées complètes, plafonnées à la capa du calendrier
                 charge_restante = charge_restante_totale
                 jours_tries = sorted(heures_calendrier_par_jour.keys())
-                
+
                 for jour in jours_tries:
                     if charge_restante <= 0:
                         break
-                    
+
                     capacite_jour = heures_calendrier_par_jour[jour]
                     charge_ce_jour = min(charge_restante, capacite_jour)
-                    
+
                     if charge_ce_jour > 0:
                         vals_list.append({
                             'workorder_id': wo.id,
                             'workcenter_id': wo.workcenter_id.id,
                             'workcenter_name': wo.workcenter_id.name,
                             'date': jour,
-                            'charge_prevue_heures': charge_ce_jour,
+                            'charge_prevue_heures': round(charge_ce_jour, 2),
                             'employee_ids': [(6, 0, employee_ids)],
                         })
                         charge_restante -= charge_ce_jour
-                
-                # S'il reste de la charge après 90 jours
+
+                # S'il reste de la charge après 90 jours calendaires
                 if charge_restante > 0:
-                    date_val_last = date_start_operation.date() if hasattr(date_start_operation, 'date') else date_start_operation
-                    dernier_jour = jours_tries[-1] if jours_tries else date_val_last
+                    dernier_jour = jours_tries[-1] if jours_tries else date_debut
                     vals_list.append({
                         'workorder_id': wo.id,
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': dernier_jour,
-                        'charge_prevue_heures': charge_restante,
+                        'charge_prevue_heures': round(charge_restante, 2),
                         'employee_ids': [(6, 0, employee_ids)],
                     })
-                    _logger.warning('WO %s : charge restante %sh après 90 jours', wo.id, charge_restante)
+                    _logger.warning('WO %s : charge restante %.2fh après 90 jours', wo.id, charge_restante)
             
             except Exception as e:
                 _logger.error('Erreur workorder %s : %s\n%s', wo.id, str(e), traceback.format_exc())
-                date_val = date_start_operation.date() if hasattr(date_start_operation, 'date') else date_start_operation
                 vals_list.append({
                     'workorder_id': wo.id,
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
-                    'date': date_val,
+                    'date': date_debut,
                     'charge_prevue_heures': charge_restante_totale,
                     'employee_ids': [(6, 0, employee_ids)],
                 })
