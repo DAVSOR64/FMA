@@ -125,7 +125,7 @@ class CapaciteCache(models.Model):
 
                 # Nombre de ressources configurées sur ce workcenter
                 # (capacity = nb_resources × heures_calendrier_jour)
-                nb_resources = max(1, wc.capacity or 1)
+                nb_resources = max(1, int(getattr(wc, 'capacity', 1) or 1))
 
                 # Calculer les heures par jour sur la plage nécessaire
                 min_date = min(dates)
