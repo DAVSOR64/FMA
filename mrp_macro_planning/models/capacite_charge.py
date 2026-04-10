@@ -366,10 +366,10 @@ class WorkorderChargeCache(models.Model):
     def _get_wo_date_start(self, wo):
         """
         Retourne la meilleure date de début disponible sur le workorder.
-        Priorité : macro_planned_start > date_planned_start > date_start
-        Odoo 17 : le champ planifié est 'date_planned_start' (pas 'date_start' pour les WOs non démarrés).
+        Priorité : macro_planned_start > date_start
+        En Odoo 17, date_planned_start n'existe pas sur mrp.workorder.
         """
-        for fname in ('macro_planned_start', 'date_planned_start', 'date_start'):
+        for fname in ('macro_planned_start', 'date_start'):
             val = getattr(wo, fname, False)
             if val:
                 return val

@@ -41,7 +41,6 @@ class MrpWorkorder(models.Model):
 
     @api.depends(
         'macro_planned_start',
-        'date_planned_start',
         'date_start',
         'date_planned_finished',
         'date_finished',
@@ -50,10 +49,9 @@ class MrpWorkorder(models.Model):
     def _compute_gantt_dates(self):
         from datetime import timedelta
         for wo in self:
-            # Date de début : priorité macro_planned_start
+            # Date de début : priorité macro_planned_start, sinon date_start
             start = (
                 getattr(wo, 'macro_planned_start', False)
-                or wo.date_planned_start
                 or wo.date_start
             )
             wo.gantt_date_start = start
