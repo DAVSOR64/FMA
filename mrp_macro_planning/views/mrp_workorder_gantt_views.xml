@@ -1,7 +1,7 @@
 <odoo>
 
     <!-- ========================= -->
-    <!-- SEARCH VIEW (AJOUTÉE)     -->
+    <!-- SEARCH VIEW               -->
     <!-- ========================= -->
     <record id="view_mrp_workorder_planning_search" model="ir.ui.view">
         <field name="name">mrp.workorder.planning.search</field>
@@ -13,20 +13,27 @@
                 <field name="project_display"/>
                 <field name="workcenter_id"/>
                 <field name="production_id"/>
-                <field name="date_start"/>
-                <field name="date_finished"/>
 
                 <filter string="À venir"
                         name="future"
-                        domain="[('date_finished', '&gt;=', context_today())]"/>
+                        domain="[('gantt_date_stop', '&gt;=', context_today())]"/>
+                <filter string="En cours"
+                        name="in_progress"
+                        domain="[('state', '=', 'progress')]"/>
+                <filter string="En attente"
+                        name="waiting"
+                        domain="[('state', 'in', ['pending', 'ready', 'waiting'])]"/>
 
                 <group expand="1" string="Regrouper par">
+                    <filter string="Poste de travail"
+                            name="group_workcenter"
+                            context="{'group_by': 'workcenter_id'}"/>
                     <filter string="Projet"
                             name="group_project"
                             context="{'group_by': 'project_display'}"/>
-                    <filter string="Poste"
-                            name="group_workcenter"
-                            context="{'group_by': 'workcenter_id'}"/>
+                    <filter string="OF"
+                            name="group_production"
+                            context="{'group_by': 'production_id'}"/>
                 </group>
 
             </search>
@@ -35,7 +42,7 @@
 
 
     <!-- ========================= -->
-    <!-- GANTT VIEW               -->
+    <!-- GANTT VIEW                -->
     <!-- ========================= -->
     <record id="view_mrp_workorder_planning_gantt" model="ir.ui.view">
         <field name="name">mrp.workorder.planning.gantt</field>
@@ -43,17 +50,24 @@
         <field name="arch" type="xml">
             <gantt
                 string="Planning Atelier"
-                date_start="date_start"
-                date_stop="date_finished"
-                default_group_by="project_display"
-                color="color_index">
+                date_start="gantt_date_start"
+                date_stop="gantt_date_stop"
+                default_group_by="workcenter_id"
+                color="color_index"
+                default_scale="month"
+                precision="{'day': 'day:half', 'week': 'day:half', 'month': 'day:half'}"
+                display_unavailability="1"
+                pill_label="True">
 
                 <field name="name"/>
                 <field name="project_display"/>
                 <field name="workcenter_id"/>
                 <field name="production_id"/>
-                <field name="date_start"/>
-                <field name="date_finished"/>
+                <field name="gantt_date_start"/>
+                <field name="gantt_date_stop"/>
+                <field name="state"/>
+                <field name="duration_expected"/>
+                <field name="color_index"/>
 
             </gantt>
         </field>
@@ -61,21 +75,26 @@
 
 
     <!-- ========================= -->
-    <!-- TREE VIEW                -->
+    <!-- TREE VIEW                 -->
     <!-- ========================= -->
     <record id="view_mrp_workorder_planning_tree" model="ir.ui.view">
         <field name="name">mrp.workorder.planning.tree</field>
         <field name="model">mrp.workorder</field>
         <field name="arch" type="xml">
-            <tree string="Planning Atelier">
+            <tree string="Planning Atelier"
+                  decoration-success="state == 'done'"
+                  decoration-info="state == 'progress'"
+                  decoration-warning="state in ['pending', 'ready', 'waiting']"
+                  decoration-muted="state == 'cancel'">
 
-                <field name="name"/>
-                <field name="project_display"/>
-                <field name="workcenter_id"/>
-                <field name="production_id"/>
-                <field name="date_start"/>
-                <field name="date_finished"/>
-                <field name="state"/>
+                <field name="production_id" string="OF"/>
+                <field name="project_display" string="Projet"/>
+                <field name="name" string="Opération"/>
+                <field name="workcenter_id" string="Poste"/>
+                <field name="gantt_date_start" string="Début planifié"/>
+                <field name="gantt_date_stop" string="Fin planifiée"/>
+                <field name="duration_expected" string="Durée prévue (min)"/>
+                <field name="state" string="Statut"/>
 
             </tree>
         </field>
@@ -83,22 +102,22 @@
 
 
     <!-- ========================= -->
-    <!-- ACTION                   -->
+    <!-- ACTION                    -->
     <!-- ========================= -->
     <record id="action_mrp_workorder_planning_gantt" model="ir.actions.act_window">
         <field name="name">Planning Atelier</field>
         <field name="res_model">mrp.workorder</field>
         <field name="view_mode">gantt,tree</field>
 
-        <!-- IMPORTANT : filtrage léger -->
+        <!-- Tous les WOs actifs avec une date de début calculée -->
         <field name="domain">
-            [('state', 'not in', ['done', 'cancel']), ('date_start', '!=', False)]
+            [('state', 'not in', ['done', 'cancel']),
+             ('gantt_date_start', '!=', False)]
         </field>
 
-        <!-- groupement par projet -->
-        <field name="context">{'group_by': 'project_display'}</field>
+        <!-- Groupement par poste par défaut -->
+        <field name="context">{'group_by': 'workcenter_id', 'search_default_future': 1}</field>
 
-        <!-- FIX : search view maintenant existante -->
         <field name="search_view_id" ref="view_mrp_workorder_planning_search"/>
 
         <field name="view_ids" eval="[
