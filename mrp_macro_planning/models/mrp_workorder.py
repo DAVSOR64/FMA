@@ -1,90 +1,102 @@
 # -*- coding: utf-8 -*-
-from odoo import models, api, fields
+from datetime import timedelta
+
+from odoo import api, fields, models
 import logging
 
 _logger = logging.getLogger(__name__)
 
+SEUIL_AUTO_REFRESH = 100
+
 
 class MrpWorkorder(models.Model):
-    _inherit = 'mrp.workorder'
+    _inherit = "mrp.workorder"
 
-    project_display = fields.Char(
-        string='Projet',
-        compute='_compute_planning_labels',
-        store=True,
-    )
-    mtn_display = fields.Char(
-        string='N° MTN',
-        compute='_compute_planning_labels',
-        store=True,
-    )
-    color_index = fields.Integer(
-        string='Couleur planning',
-        compute='_compute_color_index',
+    macro_end = fields.Datetime(
+        string="Fin macro",
+        compute="_compute_macro_end",
         store=True,
     )
 
-    @api.depends(
-        'production_id',
-        'production_id.name',
-        'production_id.origin',
-        'production_id.procurement_group_id',
-    )
-    def _compute_planning_labels(self):
-        SaleOrder = self.env['sale.order']
-        for wo in self:
-            mo = wo.production_id
-            sale = False
-            if mo:
-                sale = getattr(getattr(mo, 'procurement_group_id', False), 'sale_id', False)
-                if not sale and getattr(mo, 'origin', False):
-                    sale = SaleOrder.search([('name', '=', mo.origin)], limit=1)
-
-            project = False
-            for candidate in (
-                getattr(mo, 'x_studio_projet', False) if mo else False,
-                getattr(sale, 'x_studio_projet', False) if sale else False,
-                getattr(sale, 'project_id', False).display_name if sale and getattr(sale, 'project_id', False) else False,
-                getattr(sale, 'analytic_account_id', False).display_name if sale and getattr(sale, 'analytic_account_id', False) else False,
-                getattr(sale, 'name', False) if sale else False,
-                getattr(mo, 'origin', False) if mo else False,
-                getattr(mo, 'name', False) if mo else False,
-            ):
-                if candidate:
-                    project = candidate.display_name if hasattr(candidate, 'display_name') else str(candidate)
-                    break
-            wo.project_display = project or 'Sans projet'
-
-            mtn = False
-            for candidate in (
-                getattr(mo, 'x_studio_mtn_mrp_sale_order', False) if mo else False,
-                getattr(sale, 'x_studio_mtn_mrp_sale_order', False) if sale else False,
-                getattr(sale, 'client_order_ref', False) if sale else False,
-            ):
-                if candidate:
-                    mtn = candidate.display_name if hasattr(candidate, 'display_name') else str(candidate)
-                    break
-            wo.mtn_display = mtn or False
-
-
-    @api.depends('workcenter_id')
-    def _compute_color_index(self):
-        """Couleur stable par poste pour le Gantt.
-        Même poste = même couleur sur tous les projets.
-        On borne sur 1..11 pour rester dans la palette standard Odoo.
+    @api.depends("macro_planned_start", "duration_expected", "date_finished")
+    def _compute_macro_end(self):
+        """
+        Fin utilisée par le macro planning.
+        Priorité :
+        1) date_finished si elle existe déjà et qu'on a un début macro
+        2) sinon calcul depuis macro_planned_start + duration_expected (en minutes)
         """
         for wo in self:
-            wc_id = wo.workcenter_id.id or 0
-            wo.color_index = ((wc_id - 1) % 11) + 1 if wc_id else 0
+            macro_end = False
+
+            if wo.macro_planned_start:
+                if wo.date_finished:
+                    macro_end = wo.date_finished
+                elif wo.duration_expected:
+                    # duration_expected est géré ici en minutes
+                    macro_end = wo.macro_planned_start + timedelta(minutes=float(wo.duration_expected))
+                else:
+                    # fallback minimum pour que le gantt voie quand même la barre
+                    macro_end = wo.macro_planned_start + timedelta(minutes=1)
+
+            wo.macro_end = macro_end
 
     def write(self, vals):
         """
-        Pas de recalcul automatique du macro planning ici.
-        Le recalcul global reste manuel ou via cron.
+        Auto-refresh du cache charge si modification des champs critiques
+        ET si nombre de workorders actifs <= SEUIL_AUTO_REFRESH
         """
-        return super().write(vals)
+        res = super().write(vals)
+
+        critical_fields = {
+            "date_start",
+            "date_finished",
+            "date_planned_finished",
+            "duration_expected",
+            "duration",
+            "state",
+            "workcenter_id",
+            "macro_planned_start",
+        }
+
+        if any(f in vals for f in critical_fields):
+            nb_active = self.env["mrp.workorder"].search_count([
+                ("state", "not in", ("done", "cancel")),
+                ("macro_planned_start", "!=", False),
+            ])
+
+            if nb_active <= SEUIL_AUTO_REFRESH:
+                _logger.info("AUTO-REFRESH charge : %d workorders actifs", nb_active)
+                try:
+                    self.env["mrp.workorder.charge.cache"].refresh()
+                except Exception as e:
+                    _logger.error("Erreur auto-refresh charge : %s", e)
+            else:
+                _logger.info(
+                    "AUTO-REFRESH désactivé : %d workorders (seuil=%d)",
+                    nb_active,
+                    SEUIL_AUTO_REFRESH,
+                )
+
+        return res
 
     @api.model_create_multi
     def create(self, vals_list):
-        """Pas de refresh global à la création."""
-        return super().create(vals_list)
+        """
+        Auto-refresh après création si sous le seuil
+        """
+        res = super().create(vals_list)
+
+        nb_active = self.env["mrp.workorder"].search_count([
+            ("state", "not in", ("done", "cancel")),
+            ("macro_planned_start", "!=", False),
+        ])
+
+        if nb_active <= SEUIL_AUTO_REFRESH:
+            _logger.info("AUTO-REFRESH charge après création : %d workorders", nb_active)
+            try:
+                self.env["mrp.workorder.charge.cache"].refresh()
+            except Exception as e:
+                _logger.error("Erreur auto-refresh charge : %s", e)
+
+        return res
