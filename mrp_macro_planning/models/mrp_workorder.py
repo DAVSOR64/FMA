@@ -7,6 +7,7 @@ _logger = logging.getLogger(__name__)
 
 class MrpWorkorder(models.Model):
     _inherit = 'mrp.workorder'
+    _rec_name = 'gantt_label'
 
     project_display = fields.Char(
         string='Projet',

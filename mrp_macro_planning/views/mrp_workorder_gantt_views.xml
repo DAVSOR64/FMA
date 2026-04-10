@@ -57,8 +57,7 @@
                 default_scale="month"
                 precision="{'day': 'day:half', 'week': 'day:half', 'month': 'day:half'}"
                 display_unavailability="1"
-                pill_label="True"
-                display="gantt_label">
+                pill_label="True">
 
                 <field name="gantt_label"/>
                 <field name="name"/>
