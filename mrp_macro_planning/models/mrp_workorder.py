@@ -7,6 +7,12 @@ from odoo import api, fields, models
 class MrpWorkorder(models.Model):
     _inherit = "mrp.workorder"
 
+    macro_planned_start = fields.Datetime(
+        string="Macro (début planifié)",
+        copy=False,
+        index=True,
+    )
+
     macro_end = fields.Datetime(
         string="Fin macro",
         compute="_compute_macro_end",
