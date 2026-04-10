@@ -59,6 +59,7 @@
                 display_unavailability="1"
                 pill_label="True">
 
+                <field name="gantt_label"/>
                 <field name="name"/>
                 <field name="project_display"/>
                 <field name="workcenter_id"/>

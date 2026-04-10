@@ -24,8 +24,34 @@ class MrpWorkorder(models.Model):
         store=True,
     )
 
-    # Champs de dates pour le GANTT macro planning
-    # Priorité début : macro_planned_start > date_start
+    gantt_label = fields.Char(
+        string='Label GANTT',
+        compute='_compute_gantt_label',
+        store=True,
+    )
+
+    @api.depends('production_id', 'project_display')
+    def _compute_gantt_label(self):
+        for wo in self:
+            mo_name = wo.production_id.name or ''
+            projet = wo.project_display or ''
+            if projet and projet != 'Sans projet':
+                wo.gantt_label = f"{mo_name} | {projet}"
+            else:
+                wo.gantt_label = mo_name
+
+    def name_get(self):
+        """Surcharge pour afficher OF | Projet dans le GANTT."""
+        result = []
+        for wo in self:
+            mo_name = wo.production_id.name or ''
+            projet = wo.project_display or ''
+            if projet and projet != 'Sans projet':
+                label = f"{mo_name} | {projet}"
+            else:
+                label = mo_name
+            result.append((wo.id, label))
+        return result
     gantt_date_start = fields.Datetime(
         string='Début GANTT',
         compute='_compute_gantt_dates',
