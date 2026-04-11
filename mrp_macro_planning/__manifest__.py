@@ -12,6 +12,7 @@
         'views/capacite_charge_views.xml',
         'views/capacite_operateur_views.xml',
         'views/mrp_workorder_gantt_views.xml',
+        'views/mrp_workcenter_search_override.xml',
         'views/menu.xml',
     ],
     
