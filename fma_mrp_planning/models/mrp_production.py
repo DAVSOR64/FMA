@@ -761,7 +761,7 @@ class MrpProduction(models.Model):
             _logger.info("=== CAS 1 : Changement date DÉBUT ===")
             
             # Si des opérations ont déjà démarré, on bascule en mode backward
-            started_wos = [wo.name for wo in workorders if wo.state not in ('pending', 'waiting', 'ready')]
+            started_wos = [wo.name for wo in workorders if wo.state == 'progress']
             if started_wos:
                 _logger.info("Opérations démarrées, recalcul backward : %s", ', '.join(started_wos))
                 self._recalculate_macro_backward(workorders)
@@ -855,8 +855,10 @@ class MrpProduction(models.Model):
         _logger.info("RECALCUL BACKWARD depuis %s", end_day)
         
         # Identifier les opérations NON commencées
-        not_started_wos = workorders.filtered(lambda w: w.state in ('pending', 'waiting', 'ready'))
-        started_wos = workorders.filtered(lambda w: w.state not in ('pending', 'waiting', 'ready'))
+        # En Odoo 17 : pending, waiting, ready = pas encore démarré
+        # On exclut uniquement done, cancel, et progress (en cours d'exécution)
+        not_started_wos = workorders.filtered(lambda w: w.state not in ('done', 'cancel', 'progress'))
+        started_wos = workorders.filtered(lambda w: w.state == 'progress')
         
         if not not_started_wos:
             # Toutes commencées : juste recalculer date_finished de l'OF
