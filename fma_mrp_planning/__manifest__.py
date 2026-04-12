@@ -13,6 +13,7 @@
         'views/mrp_capacity_week_views.xml',
         'views/mrp_capacity_week_gantt.xml',
         'views/mrp_production_views.xml',
+        'views/mrp_production_button_views.xml',
         'views/mrp_workorder_views.xml',
         'views/sale_order_views.xml',
         'wizard/mrp_replan_preview_wizard_views.xml',
