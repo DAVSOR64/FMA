@@ -1225,13 +1225,30 @@ class MrpProductionReplanPopup(models.Model):
         if not workorders:
             raise UserError(_("Aucune opération à recalculer."))
 
-        fixed_end_dt = (
-            getattr(self, "macro_forced_end", False)
-            or self.date_deadline
-            or getattr(self, "date_finished", False)
+        # Date de fin = champ custom x_studio_date_de_fin (date saisie par l'utilisateur)
+        # C'est depuis cette date qu'on calcule le backward
+        x_end = (
+            getattr(self, 'x_studio_date_de_fin', False)
+            or getattr(self, 'x_studio_date_fin', False)
         )
+        if x_end:
+            # Convertir en datetime fin de journée (soir du dernier WO)
+            from datetime import date as date_type
+            if isinstance(x_end, date_type) and not isinstance(x_end, datetime):
+                # Récupérer l'heure de fin du dernier poste
+                wos_sorted = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+                last_wc = wos_sorted[-1].workcenter_id if wos_sorted else False
+                fixed_end_dt = self._evening_dt(x_end, last_wc) if last_wc else datetime.combine(x_end, time(17, 0))
+            else:
+                fixed_end_dt = fields.Datetime.to_datetime(x_end)
+        else:
+            fixed_end_dt = (
+                getattr(self, "macro_forced_end", False)
+                or self.date_deadline
+                or getattr(self, "date_finished", False)
+            )
         if not fixed_end_dt:
-            raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
+            raise UserError(_("Aucune date de fin n'est définie sur l'OF. Renseignez le champ 'Date de fin'."))
 
         # Snapshot avant simulation
         snapshot = {}
@@ -1319,11 +1336,17 @@ class MrpProductionReplanPopup(models.Model):
             except Exception:
                 return str(dt)
 
+        # Date de livraison client pour comparaison visuelle
+        delivery_dt, sale_order = self._get_macro_target_date()
+
         return {
             "production_name": self.display_name or self.name or "",
+            "date_fin_fab": _fmt(fields.Datetime.to_datetime(x_end) if x_end else fixed_end_dt),
             "date_start": _fmt(new_start),
             "date_end": _fmt(new_end),
             "transfer_date": _fmt(transfer_date),
+            "date_livraison": _fmt(delivery_dt) if delivery_dt else "-",
+            "retard": bool(delivery_dt and new_end and fields.Datetime.to_datetime(new_end) > fields.Datetime.to_datetime(delivery_dt)),
             "purchase_orders": po_data,
         }
 
@@ -1354,13 +1377,25 @@ class MrpProductionReplanPopup(models.Model):
         if not po_rows:
             po_rows = '<tr><td colspan="3" style="color:#888">Aucun PO lié</td></tr>'
 
+        # Alerte retard
+        retard_html = ""
+        if payload.get("retard"):
+            retard_html = """
+                <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:8px;margin:8px 0">
+                    ⚠️ <b>La date de fin fab dépasse la date de livraison client !</b>
+                </div>
+            """
+
         return """
             <div style="font-size:14px; line-height:1.8">
                 <p><b>OF :</b> {production_name}</p>
                 <hr/>
-                <p><b>📅 Début fabrication :</b> <span style="color:#1a7abf">{date_start}</span></p>
-                <p><b>🏁 Fin fabrication :</b> <span style="color:#1a7abf">{date_end}</span></p>
-                <p><b>🚚 Date de transfert composants :</b> <span style="color:#1a7abf">{transfer_date}</span></p>
+                <p><b>🎯 Date de fin fab planifiée :</b> <span style="color:#555">{date_fin_fab}</span></p>
+                <p><b>📅 Début fabrication calculé :</b> <span style="color:#1a7abf"><b>{date_start}</b></span></p>
+                <p><b>🏁 Fin fabrication calculée :</b> <span style="color:#1a7abf"><b>{date_end}</b></span></p>
+                <p><b>🚚 Date transfert composants :</b> <span style="color:#1a7abf">{transfer_date}</span></p>
+                <p><b>📦 Date livraison client :</b> <span style="color:{livraison_color}"><b>{date_livraison}</b></span></p>
+                {retard_html}
                 <br/>
                 <b>Commandes d'achat liées</b>
                 <table class="table table-sm table-bordered" style="margin-top:8px">
@@ -1372,9 +1407,13 @@ class MrpProductionReplanPopup(models.Model):
             </div>
         """.format(
             production_name=payload.get("production_name", "-") or "-",
+            date_fin_fab=payload.get("date_fin_fab", "-") or "-",
             date_start=payload.get("date_start", "-") or "-",
             date_end=payload.get("date_end", "-") or "-",
             transfer_date=payload.get("transfer_date", "-") or "-",
+            date_livraison=payload.get("date_livraison", "-") or "-",
+            livraison_color="#dc3545" if payload.get("retard") else "#28a745",
+            retard_html=retard_html,
             po_rows=po_rows,
         )
 
@@ -1385,11 +1424,25 @@ class MrpProductionReplanPopup(models.Model):
         if not workorders:
             raise UserError(_("Aucune opération à recalculer."))
 
-        fixed_end_dt = (
-            getattr(self, "macro_forced_end", False)
-            or self.date_deadline
-            or getattr(self, "date_finished", False)
+        # Même logique : partir de x_studio_date_de_fin
+        x_end = (
+            getattr(self, 'x_studio_date_de_fin', False)
+            or getattr(self, 'x_studio_date_fin', False)
         )
+        if x_end:
+            from datetime import date as date_type
+            if isinstance(x_end, date_type) and not isinstance(x_end, datetime):
+                wos_sorted = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+                last_wc = wos_sorted[-1].workcenter_id if wos_sorted else False
+                fixed_end_dt = self._evening_dt(x_end, last_wc) if last_wc else datetime.combine(x_end, time(17, 0))
+            else:
+                fixed_end_dt = fields.Datetime.to_datetime(x_end)
+        else:
+            fixed_end_dt = (
+                getattr(self, "macro_forced_end", False)
+                or self.date_deadline
+                or getattr(self, "date_finished", False)
+            )
         if not fixed_end_dt:
             raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
 
