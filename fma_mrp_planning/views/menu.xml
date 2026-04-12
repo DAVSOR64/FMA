@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- Menu principal Fabrication → Capacité                             -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <menuitem id="menu_fma_planning_root"
+              name="Capacité"
+              parent="mrp.menu_mrp_root"
+              sequence="60"/>
+
+    <!-- Ressources & Postes -->
+    <menuitem id="menu_mrp_capacity_resource"
+              name="Ressources &amp; Postes"
+              parent="menu_fma_planning_root"
+              action="action_mrp_capacity_resource"
+              sequence="10"/>
+
+    <!-- Planning Capacité (Gantt) -->
+    <menuitem id="menu_mrp_capacity_week_gantt"
+              name="Planning capacité"
+              parent="menu_fma_planning_root"
+              action="action_mrp_capacity_week"
+              sequence="20"/>
+
+    <!-- Replanification en lot -->
+    <menuitem id="menu_mrp_batch_macro_replan"
+              name="Replanification en lot"
+              parent="menu_fma_planning_root"
+              action="action_mrp_batch_macro_replan_wizard"
+              sequence="30"/>
+</odoo>

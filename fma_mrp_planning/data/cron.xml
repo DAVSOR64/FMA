@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Cron recalcul absences capacité (quotidien) -->
+    <record id="cron_recompute_capacity_absences" model="ir.cron">
+        <field name="name">FMA - Recalcul capacité hebdomadaire</field>
+        <field name="model_id" ref="model_mrp_capacity_week"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_recompute_absences()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+    </record>
+
+    <!-- Cron replan macro (3x/jour) -->
+    <record id="cron_macro_replan_all" model="ir.cron">
+        <field name="name">FMA - Replan macro planning (3x/jour)</field>
+        <field name="model_id" ref="model_mrp_production"/>
+        <field name="state">code</field>
+        <field name="code">model.action_replan_all_productions()</field>
+        <field name="interval_number">8</field>
+        <field name="interval_type">hours</field>
+        <field name="numbercall">-1</field>
+        <field name="active">False</field>
+    </record>
+</odoo>
