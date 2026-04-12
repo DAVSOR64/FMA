@@ -1065,12 +1065,9 @@ class MrpProduction(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Extension : Réordonnancement FMA + Batch macro replan + Popup replanification
-# (tout dans la même classe _inherit pour garantir l'accès aux méthodes)
+# Méthodes supplémentaires : réordonnancement FMA + batch + popup replanification
+# Toutes dans la même classe MrpProduction pour accès garanti à self.*
 # ─────────────────────────────────────────────────────────────────────────────
-
-class MrpProductionFmaExtra(models.Model):
-    _inherit = "mrp.production"
 
     # ── Réordonnancement FMA ──────────────────────────────────────────────────
     def _fma_rank(self, wo):
