@@ -1256,7 +1256,11 @@ class MrpProductionReplanPopup(models.Model):
         ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
         ctx._update_components_picking_dates()
 
+        # Lire les nouvelles dates SIMULÉES avant restore
+        self.invalidate_recordset(['date_start', 'date_finished', 'date_deadline'])
+        picking.invalidate_recordset(['scheduled_date']) if picking else None
         new_start = self.date_start
+        new_end = getattr(self, 'date_finished', False) or fixed_end_dt
         transfer_date = picking.scheduled_date if picking else False
 
         # POs liés
@@ -1302,15 +1306,38 @@ class MrpProductionReplanPopup(models.Model):
                 "date_deadline": picking_deadline_snapshot,
             })
 
+        def _fmt(dt):
+            """Formate un datetime en français DD/MM/YYYY HH:MM"""
+            if not dt:
+                return "-"
+            if hasattr(dt, 'strftime'):
+                return dt.strftime('%d/%m/%Y %H:%M')
+            try:
+                from datetime import datetime as dt_cls
+                d = dt_cls.strptime(str(dt)[:16], '%Y-%m-%d %H:%M')
+                return d.strftime('%d/%m/%Y %H:%M')
+            except Exception:
+                return str(dt)
+
         return {
             "production_name": self.display_name or self.name or "",
-            "date_start": fields.Datetime.to_string(new_start) if new_start else "",
-            "date_end": fields.Datetime.to_string(fixed_end_dt) if fixed_end_dt else "",
-            "transfer_date": fields.Datetime.to_string(transfer_date) if transfer_date else "",
+            "date_start": _fmt(new_start),
+            "date_end": _fmt(new_end),
+            "transfer_date": _fmt(transfer_date),
             "purchase_orders": po_data,
         }
 
     def _render_replan_preview_html(self, payload):
+        def _fmt_po_date(dt_str):
+            if not dt_str:
+                return "-"
+            try:
+                from datetime import datetime
+                d = datetime.strptime(str(dt_str)[:16], '%Y-%m-%d %H:%M')
+                return d.strftime('%d/%m/%Y')
+            except Exception:
+                return str(dt_str)
+
         po_rows = ""
         for po in payload.get("purchase_orders", []):
             po_rows += """
@@ -1322,21 +1349,24 @@ class MrpProductionReplanPopup(models.Model):
             """.format(
                 name=po.get("name", "") or "",
                 partner=po.get("partner", "") or "",
-                date_planned=po.get("date_planned", "") or "",
+                date_planned=_fmt_po_date(po.get("date_planned", "")),
             )
         if not po_rows:
-            po_rows = '<tr><td colspan="3">Aucun PO lié</td></tr>'
+            po_rows = '<tr><td colspan="3" style="color:#888">Aucun PO lié</td></tr>'
 
         return """
-            <div>
+            <div style="font-size:14px; line-height:1.8">
                 <p><b>OF :</b> {production_name}</p>
-                <p><b>Début fabrication :</b> {date_start}</p>
-                <p><b>Fin fabrication :</b> {date_end}</p>
-                <p><b>Date de transfert :</b> {transfer_date}</p>
+                <hr/>
+                <p><b>📅 Début fabrication :</b> <span style="color:#1a7abf">{date_start}</span></p>
+                <p><b>🏁 Fin fabrication :</b> <span style="color:#1a7abf">{date_end}</span></p>
+                <p><b>🚚 Date de transfert composants :</b> <span style="color:#1a7abf">{transfer_date}</span></p>
                 <br/>
-                <b>PO liés</b>
-                <table class="table table-sm table-bordered">
-                    <thead><tr><th>PO</th><th>Fournisseur</th><th>Date prévue</th></tr></thead>
+                <b>Commandes d'achat liées</b>
+                <table class="table table-sm table-bordered" style="margin-top:8px">
+                    <thead style="background:#f5f5f5">
+                        <tr><th>N° PO</th><th>Fournisseur</th><th>Date prévue</th></tr>
+                    </thead>
                     <tbody>{po_rows}</tbody>
                 </table>
             </div>
