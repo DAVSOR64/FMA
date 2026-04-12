@@ -1065,7 +1065,8 @@ class MrpProduction(models.Model):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Extension : Réordonnancement FMA + Batch macro replan
+# Extension : Réordonnancement FMA + Batch macro replan + Popup replanification
+# (tout dans la même classe _inherit pour garantir l'accès aux méthodes)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class MrpProductionFmaExtra(models.Model):
@@ -1184,12 +1185,7 @@ class MrpProductionFmaExtra(models.Model):
         }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Extension : Popup de prévisualisation replanification
-# ─────────────────────────────────────────────────────────────────────────────
-
-class MrpProductionReplanPopup(models.Model):
-    _inherit = "mrp.production"
+    # ── Popup de prévisualisation replanification ─────────────────────────────
 
     def action_open_replan_preview(self):
         import json
