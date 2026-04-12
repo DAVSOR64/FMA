@@ -378,8 +378,8 @@ class MrpProduction(models.Model):
     # ============================================================
     def _update_components_picking_dates(self):
         """
-        - date_deadline = début fab (MO.date_start, matin)
-        - scheduled_date = veille ouvrée (matin)
+        - scheduled_date = 4 jours ouvrés avant le début fab (matin 07:30)
+        - date_deadline  = début fab (matin 07:30)
         Recherche pickings via group_id (procurement group) => robuste.
         """
         self.ensure_one()
@@ -409,10 +409,19 @@ class MrpProduction(models.Model):
         ) or pickings
 
         first_wc = self.workorder_ids[:1].workcenter_id if self.workorder_ids else None
-        prev_day = self._previous_working_day(start_day, first_wc) if first_wc else (start_day - timedelta(days=1))
 
-        scheduled_dt = datetime.combine(prev_day, time(7, 30))
+        # Reculer de 4 jours ouvrés depuis le début de fabrication
+        transfer_day = start_day
+        for _ in range(4):
+            transfer_day = self._previous_working_day(transfer_day, first_wc)
+
+        scheduled_dt = datetime.combine(transfer_day, time(7, 30))
         deadline_dt = datetime.combine(start_day, time(7, 30))
+
+        _logger.info(
+            "MO %s : transfert composants scheduled=%s deadline=%s (4j ouvrés avant début fab %s)",
+            self.name, scheduled_dt, deadline_dt, start_day
+        )
 
         vals = {}
         if "scheduled_date" in comp_pickings._fields:
@@ -422,10 +431,6 @@ class MrpProduction(models.Model):
 
         if vals:
             comp_pickings.with_context(mail_notrack=True).write(vals)
-
-        self.message_post(
-            body=f"🧪 DEBUG : pickings MAJ ({len(comp_pickings)}) scheduled={scheduled_dt} deadline={deadline_dt}"
-        )
 
     # ============================================================
     # CAPACITY RULES HELPER
@@ -1342,17 +1347,17 @@ class MrpProduction(models.Model):
             })
 
         def _fmt(dt):
-            """Formate un datetime en français DD/MM/YYYY HH:MM"""
+            """Formate en DD/MM/YYYY sans heure"""
             if not dt:
                 return "-"
-            if hasattr(dt, 'strftime'):
-                return dt.strftime('%d/%m/%Y %H:%M')
             try:
+                if hasattr(dt, 'strftime'):
+                    return dt.strftime('%d/%m/%Y')
                 from datetime import datetime as dt_cls
-                d = dt_cls.strptime(str(dt)[:16], '%Y-%m-%d %H:%M')
-                return d.strftime('%d/%m/%Y %H:%M')
+                d = dt_cls.strptime(str(dt)[:10], '%Y-%m-%d')
+                return d.strftime('%d/%m/%Y')
             except Exception:
-                return str(dt)
+                return str(dt)[:10]
 
         # Date de livraison client pour comparaison visuelle
         delivery_dt, sale_order = self._get_macro_target_date()
@@ -1361,7 +1366,6 @@ class MrpProduction(models.Model):
             "production_name": self.display_name or self.name or "",
             "date_fin_fab": _fmt(fields.Datetime.to_datetime(x_end) if x_end else fixed_end_dt),
             "date_start": _fmt(new_start),
-            "date_end": _fmt(new_end),
             "transfer_date": _fmt(transfer_date),
             "date_livraison": _fmt(delivery_dt) if delivery_dt else "-",
             "retard": bool(delivery_dt and new_end and fields.Datetime.to_datetime(new_end) > fields.Datetime.to_datetime(delivery_dt)),
@@ -1373,11 +1377,20 @@ class MrpProduction(models.Model):
             if not dt_str:
                 return "-"
             try:
-                from datetime import datetime
-                d = datetime.strptime(str(dt_str)[:16], '%Y-%m-%d %H:%M')
-                return d.strftime('%d/%m/%Y')
+                return str(dt_str)[:10].replace('-', '/').split('/')
+                d = str(dt_str)[:10].split('-')
+                return f"{d[2]}/{d[1]}/{d[0]}"
             except Exception:
-                return str(dt_str)
+                return str(dt_str)[:10]
+
+        def _fmt_date(dt_str):
+            if not dt_str:
+                return "-"
+            try:
+                d = str(dt_str)[:10].split('-')
+                return f"{d[2]}/{d[1]}/{d[0]}"
+            except Exception:
+                return str(dt_str)[:10]
 
         po_rows = ""
         for po in payload.get("purchase_orders", []):
@@ -1390,29 +1403,27 @@ class MrpProduction(models.Model):
             """.format(
                 name=po.get("name", "") or "",
                 partner=po.get("partner", "") or "",
-                date_planned=_fmt_po_date(po.get("date_planned", "")),
+                date_planned=_fmt_date(po.get("date_planned", "")),
             )
         if not po_rows:
             po_rows = '<tr><td colspan="3" style="color:#888">Aucun PO lié</td></tr>'
 
-        # Alerte retard
         retard_html = ""
         if payload.get("retard"):
             retard_html = """
                 <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:8px;margin:8px 0">
-                    ⚠️ <b>La date de fin fab dépasse la date de livraison client !</b>
+                    ⚠️ <b>Attention : la fin de fabrication dépasse la date de livraison client !</b>
                 </div>
             """
 
         return """
-            <div style="font-size:14px; line-height:1.8">
+            <div style="font-size:14px; line-height:2.0">
                 <p><b>OF :</b> {production_name}</p>
                 <hr/>
-                <p><b>🎯 Date de fin fab planifiée :</b> <span style="color:#555">{date_fin_fab}</span></p>
-                <p><b>📅 Début fabrication calculé :</b> <span style="color:#1a7abf"><b>{date_start}</b></span></p>
-                <p><b>🏁 Fin fabrication calculée :</b> <span style="color:#1a7abf"><b>{date_end}</b></span></p>
-                <p><b>🚚 Date transfert composants :</b> <span style="color:#1a7abf">{transfer_date}</span></p>
-                <p><b>📦 Date livraison client :</b> <span style="color:{livraison_color}"><b>{date_livraison}</b></span></p>
+                <p><b>🏁 Date de fin fab :</b> <span style="color:#555"><b>{date_fin_fab}</b></span></p>
+                <p><b>📅 Début fabrication :</b> <span style="color:#1a7abf;font-size:16px"><b>{date_start}</b></span></p>
+                <p><b>🚚 Transfert composants :</b> <span style="color:#1a7abf"><b>{transfer_date}</b></span></p>
+                <p><b>📦 Livraison client :</b> <span style="color:{livraison_color}"><b>{date_livraison}</b></span></p>
                 {retard_html}
                 <br/>
                 <b>Commandes d'achat liées</b>
@@ -1427,7 +1438,6 @@ class MrpProduction(models.Model):
             production_name=payload.get("production_name", "-") or "-",
             date_fin_fab=payload.get("date_fin_fab", "-") or "-",
             date_start=payload.get("date_start", "-") or "-",
-            date_end=payload.get("date_end", "-") or "-",
             transfer_date=payload.get("transfer_date", "-") or "-",
             date_livraison=payload.get("date_livraison", "-") or "-",
             livraison_color="#dc3545" if payload.get("retard") else "#28a745",
