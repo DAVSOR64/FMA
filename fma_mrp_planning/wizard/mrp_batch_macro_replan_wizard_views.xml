@@ -35,9 +35,5 @@
         <field name="target">new</field>
     </record>
 
-    <menuitem id="menu_mrp_batch_macro_replan_wizard"
-              name="Recalculer les OF non démarrés"
-              parent="mrp_macro_planning.menu_capacite_charge_root"
-              action="action_mrp_batch_macro_replan_wizard"
-              sequence="35"/>
+    <!-- Menu géré dans views/menu.xml -->
 </odoo>
