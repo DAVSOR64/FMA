@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Surcharge des labels "En attente" dans la vue Atelier -->
+    <record id="mrp_workorder_search_override" model="ir.ui.view">
+        <field name="name">mrp.workorder.search.waiting.override</field>
+        <field name="model">mrp.workorder</field>
+        <field name="inherit_id" ref="mrp.mrp_workorder_view_search"/>
+        <field name="arch" type="xml">
+            <!-- Renommer "En attente" (waiting = en attente d'un autre OT) -->
+            <filter name="waiting" position="attributes">
+                <attribute name="string">En attente d'un autre OT</attribute>
+            </filter>
+            <!-- Renommer "En attente" (pending = en attente de composants) -->
+            <filter name="pending" position="attributes">
+                <attribute name="string">En attente de composants</attribute>
+            </filter>
+        </field>
+    </record>
+</odoo>
