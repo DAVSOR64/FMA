@@ -1127,6 +1127,31 @@ class MrpProduction(models.Model):
         return True
 
     # ── Batch macro replan ────────────────────────────────────────────────────
+    def _get_macro_target_date(self):
+        """Retourne (delivery_dt, sale_order) pour le recalcul macro."""
+        self.ensure_one()
+        sale_order = False
+        if self.procurement_group_id:
+            sale_order = self.env['sale.order'].search([
+                ('procurement_group_id', '=', self.procurement_group_id.id)
+            ], limit=1)
+        delivery_dt = False
+        if sale_order:
+            raw = (
+                getattr(sale_order, 'so_date_de_livraison_prevu', False)
+                or getattr(sale_order, 'x_studio_date_de_livraison_prevu', False)
+                or sale_order.commitment_date
+            )
+            if raw:
+                delivery_dt = fields.Datetime.to_datetime(raw)
+        if not delivery_dt and self.date_deadline:
+            delivery_dt = fields.Datetime.to_datetime(self.date_deadline)
+        if not delivery_dt and getattr(self, 'date_finished', False):
+            delivery_dt = fields.Datetime.to_datetime(self.date_finished)
+        if not delivery_dt and getattr(self, 'macro_forced_end', False):
+            delivery_dt = fields.Datetime.to_datetime(self.macro_forced_end)
+        return delivery_dt, sale_order
+
     def _is_macro_batch_eligible(self):
         self.ensure_one()
         active_wos = self.workorder_ids.filtered(
