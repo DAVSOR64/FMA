@@ -19,6 +19,45 @@ class MrpProduction(models.Model):
         help="Date de fin de fabrication imposée (livraison - délai de sécurité)."
     )
     
+
+
+    def _planning_operation_rank(self, wo):
+        """Retourne un rang métier stable pour l'ordre des opérations FMA."""
+        self.ensure_one()
+        label = " ".join(filter(None, [
+            getattr(wo, 'name', '') or '',
+            getattr(getattr(wo, 'operation_id', False), 'name', '') or '',
+            getattr(getattr(wo, 'workcenter_id', False), 'name', '') or '',
+        ])).lower()
+
+        mapping = [
+            ('débit', 10), ('debit', 10),
+            ('cu', 20), ('banc', 20),
+            ('usinage', 30),
+            ('montage', 40),
+            ('vitrage', 50),
+            ('emballage', 60),
+        ]
+        for token, rank in mapping:
+            if token in label:
+                return rank
+        return 999
+
+    def _ordered_workorders_for_planning(self, include_progress=True):
+        """Renvoie les OT éligibles au planning dans l'ordre métier, sans rien écrire."""
+        self.ensure_one()
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
+        if not include_progress:
+            workorders = workorders.filtered(lambda w: w.state != 'progress')
+        return workorders.sorted(lambda w: (self._planning_operation_rank(w), (w.operation_id.sequence if w.operation_id else 0), w.id))
+
+    def _resequence_workorders_for_planning(self, workorders):
+        """Sécurise le flux de planning sans modifier les séquences standard Odoo."""
+        self.ensure_one()
+        if not workorders:
+            return workorders
+        return workorders.sorted(lambda w: (self._planning_operation_rank(w), (w.operation_id.sequence if w.operation_id else 0), w.id))
+
     def _log_wo_dates(self, label, workorders):
         _logger.info("=== %s | MO %s | WO count=%s ===", label, self.name, len(workorders))
         for wo in workorders:
