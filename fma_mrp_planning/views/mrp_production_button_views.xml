@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ================================================================== -->
-    <!-- Masquer "Programmer" + ajouter "Replanifier" dans le formulaire OF -->
-    <!-- ================================================================== -->
+    <!-- ================================================================ -->
+    <!-- Formulaire OF : garder Programmer + ajouter Replanifier          -->
+    <!-- ================================================================ -->
 
     <record id="view_mrp_production_inherit_replanifier" model="ir.ui.view">
         <field name="name">mrp.production.form.inherit.replanifier</field>
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
-            <!-- Masquer le bouton Programmer natif Odoo -->
+            <!-- Réafficher le bouton standard Programmer -->
             <xpath expr="//button[@name='button_plan']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="invisible">state in ('draft', 'done', 'cancel')</attribute>
             </xpath>
-            <!-- Ajouter Replanifier à la place -->
+
+            <!-- Ajouter Replanifier à côté -->
             <xpath expr="//button[@name='button_plan']" position="after">
                 <button name="action_replanifier"
                         string="⟳ Replanifier"
@@ -22,14 +23,14 @@
                         class="btn-warning"
                         icon="fa-refresh"
                         invisible="state in ('draft', 'done', 'cancel')"
-                        help="Recalcule les dates de toutes les opérations en rétroplanning depuis la date de fin fixée."/>
+                        help="Recalcule les dates macro des opérations en rétroplanning depuis la date de fin fixée."/>
             </xpath>
         </field>
     </record>
 
-    <!-- ================================================================== -->
-    <!-- Bouton Replanifier dans la vue liste OF standard                   -->
-    <!-- ================================================================== -->
+    <!-- ================================================================ -->
+    <!-- Liste OF : ajouter Programmer + Replanifier                      -->
+    <!-- ================================================================ -->
 
     <record id="view_mrp_production_inherit_list_replanifier" model="ir.ui.view">
         <field name="name">mrp.production.tree.inherit.replanifier</field>
@@ -37,8 +38,17 @@
         <field name="inherit_id" ref="mrp.mrp_production_tree_view"/>
         <field name="arch" type="xml">
             <xpath expr="//tree" position="inside">
-                <button name="action_replanifier" type="object"
-                        string="⟳" icon="fa-refresh"
+                <button name="button_plan"
+                        type="object"
+                        string="Programmer"
+                        icon="fa-calendar"
+                        class="btn-primary btn-sm"
+                        invisible="state in ('draft', 'done', 'cancel')"/>
+
+                <button name="action_replanifier"
+                        type="object"
+                        string="⟳"
+                        icon="fa-refresh"
                         title="Replanifier cet OF"
                         class="btn-warning btn-sm"
                         invisible="state in ('draft', 'done', 'cancel')"/>
