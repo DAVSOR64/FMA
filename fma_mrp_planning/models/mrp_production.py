@@ -1455,6 +1455,9 @@ class MrpProduction(models.Model):
 
         ctx = self.with_context(skip_macro_recalc=True)
         ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
+        # Flush immédiat pour que apply_macro lise les macros fraîchement écrits
+        workorders.flush_recordset()
+        workorders.invalidate_recordset(['macro_planned_start'])
         ctx.apply_macro_to_workorders_dates()
         ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
         ctx._update_components_picking_dates()

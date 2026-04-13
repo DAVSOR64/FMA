@@ -75,7 +75,7 @@ class MrpWorkorder(models.Model):
 
         res = super().write(values)
 
-        if trigger:
+        if trigger and not self.env.context.get('skip_macro_recalc'):
             for wo in self:
                 old_start = old_starts.get(wo.id)
                 new_start = (
