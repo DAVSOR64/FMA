@@ -149,6 +149,22 @@ class MrpProduction(models.Model):
             self.env.cr.commit()
             self._debug_log_wo_db_state(wo, 'AFTER SQL FALLBACK')
 
+    def _restore_wo_schedule_after_mo_update(self, wo_payloads):
+        """Réapplique les dates OT après écriture sur l'OF, car Odoo peut les vider."""
+        self.ensure_one()
+        for payload in wo_payloads:
+            wo = payload.get('wo')
+            if not wo or not wo.exists():
+                continue
+            self._write_wo_schedule_debug(
+                wo,
+                payload.get('macro_dt'),
+                payload.get('start_dt'),
+                payload.get('end_dt'),
+                payload.get('nb_resources', 1),
+            )
+        self.env.cr.flush()
+
     # ============================================================
     # ENTRY POINT FROM SALE ORDER (SO -> MO)
     # ============================================================
@@ -226,8 +242,28 @@ class MrpProduction(models.Model):
             # Décalage "veille ouvrée" entre opérations
             current_end_day = self._previous_working_day(first_day, wc)
 
+        wo_payloads = []
+        for wo in workorders:
+            self.env.cr.execute(
+                "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
+                (wo.id,)
+            )
+            row = self.env.cr.fetchone()
+            wo_payloads.append({
+                'wo': wo,
+                'macro_dt': row[0] if row else False,
+                'start_dt': row[1] if row else False,
+                'end_dt': row[2] if row else False,
+                'nb_resources': getattr(wo, 'x_nb_resources', 1) or 1,
+            })
+            _logger.info("TRACE SALE FINAL SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
+                wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
+
         # ✅ Recaler l'OF depuis les macros WO
         self._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
+
+        # ✅ Réappliquer les OT après update OF
+        self._restore_wo_schedule_after_mo_update(wo_payloads)
 
         # ✅ Recaler les pickings composants depuis le début fab (MO.date_start)
         self._update_components_picking_dates()
@@ -329,29 +365,41 @@ class MrpProduction(models.Model):
 
             current_end_day = self._previous_working_day(first_day, wc)
 
-        # Vérification SQL finale AVANT _update_mo_dates_from_macro
+        # Vérification SQL finale AVANT _update_mo_dates_from_macro + backup
+        wo_payloads = []
         for wo in workorders:
             self.env.cr.execute(
                 "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
                 (wo.id,)
             )
             row = self.env.cr.fetchone()
-            _logger.info("TRACE FINAL SQL | WO %s (id=%s) | macro=%s | date_start=%s",
-                wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL')
+            wo_payloads.append({
+                'wo': wo,
+                'macro_dt': row[0] if row else False,
+                'start_dt': row[1] if row else False,
+                'end_dt': row[2] if row else False,
+                'nb_resources': getattr(wo, 'x_nb_resources', 1) or 1,
+            })
+            _logger.info("TRACE FINAL SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
+                wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
 
         # 6) Recaler les dates OF + transfert composants
         self._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
+
+        # 7) Restaurer immédiatement les OT écrasés par l'update OF
+        self._restore_wo_schedule_after_mo_update(wo_payloads)
+
         self._update_components_picking_dates()
 
-        # Vérification SQL APRÈS _update_mo_dates_from_macro
+        # Vérification SQL APRÈS restauration
         for wo in workorders:
             self.env.cr.execute(
                 "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
                 (wo.id,)
             )
             row = self.env.cr.fetchone()
-            _logger.info("TRACE POST-UPDATE SQL | WO %s (id=%s) | macro=%s | date_start=%s",
-                wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL')
+            _logger.info("TRACE POST-RESTORE SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
+                wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
 
         _logger.info("MO %s : REPLANIFIER terminé", self.name)
         return True
@@ -557,16 +605,18 @@ class MrpProduction(models.Model):
             end_dt = max(end_candidates) if end_candidates else start_dt
     
         vals = {}
-        if "date_start" in self._fields:
-            vals["date_start"] = start_dt
-        if "date_planned_start" in self._fields:
-            vals["date_planned_start"] = start_dt
+        # Important: éviter de réécrire trop de champs OF, car Odoo 17 peut vider les dates OT.
         if "date_finished" in self._fields:
             vals["date_finished"] = end_dt
         if "date_planned_finished" in self._fields:
             vals["date_planned_finished"] = end_dt
         if "date_deadline" in self._fields:
             vals["date_deadline"] = end_dt
+        # On conserve date_start uniquement si vraiment présent, mais après les OT seront restaurés.
+        if "date_start" in self._fields:
+            vals["date_start"] = start_dt
+        if "date_planned_start" in self._fields:
+            vals["date_planned_start"] = start_dt
     
         if vals:
             self.with_context(
