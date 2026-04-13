@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================== -->
+    <!-- VUE LISTE                                                           -->
+    <!-- ================================================================== -->
+    <record id="view_mrp_daily_snapshot_list" model="ir.ui.view">
+        <field name="name">mrp.daily.snapshot.list</field>
+        <field name="model">mrp.daily.snapshot</field>
+        <field name="arch" type="xml">
+            <list string="Snapshots retard atelier"
+                  decoration-danger="is_late and not is_done"
+                  decoration-success="not is_late"
+                  decoration-warning="is_late and is_done">
+                <field name="snapshot_date"/>
+                <field name="workcenter_id"/>
+                <field name="mo_name" string="OF"/>
+                <field name="wo_name" string="Opération"/>
+                <field name="state_at_eod" string="État"/>
+                <field name="capture_reason" string="Raison"/>
+                <field name="macro_planned_start" string="Date macro"/>
+                <field name="duration_expected_h" string="Prévu (h)" digits="[10,2]"/>
+                <field name="duration_real_h" string="Réel (h)" digits="[10,2]"/>
+                <field name="delta_hours" string="Δ (h)" digits="[10,2]"/>
+                <field name="is_late" string="Retard"/>
+                <field name="cumul_retard_wc" string="Cumul retard poste (h)" digits="[10,2]"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- VUE PIVOT — source pour Spreadsheet Odoo                           -->
+    <!-- ================================================================== -->
+    <record id="view_mrp_daily_snapshot_pivot" model="ir.ui.view">
+        <field name="name">mrp.daily.snapshot.pivot</field>
+        <field name="model">mrp.daily.snapshot</field>
+        <field name="arch" type="xml">
+            <pivot string="Retard atelier par poste">
+                <field name="workcenter_id" type="row"/>
+                <field name="snapshot_date" type="col"/>
+                <field name="delta_hours" type="measure"/>
+                <field name="duration_expected_h" type="measure"/>
+                <field name="duration_real_h" type="measure"/>
+                <field name="cumul_retard_wc" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- VUE GRAPH                                                           -->
+    <!-- ================================================================== -->
+    <record id="view_mrp_daily_snapshot_graph" model="ir.ui.view">
+        <field name="name">mrp.daily.snapshot.graph</field>
+        <field name="model">mrp.daily.snapshot</field>
+        <field name="arch" type="xml">
+            <graph string="Retard atelier" type="bar" stacked="1">
+                <field name="snapshot_date" type="row"/>
+                <field name="workcenter_id" type="col"/>
+                <field name="delta_hours" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- VUE RECHERCHE                                                       -->
+    <!-- ================================================================== -->
+    <record id="view_mrp_daily_snapshot_search" model="ir.ui.view">
+        <field name="name">mrp.daily.snapshot.search</field>
+        <field name="model">mrp.daily.snapshot</field>
+        <field name="arch" type="xml">
+            <search string="Recherche snapshots">
+                <field name="snapshot_date"/>
+                <field name="workcenter_id"/>
+                <field name="mo_name"/>
+                <field name="wo_name"/>
+
+                <filter string="Aujourd'hui" name="today"
+                        domain="[('snapshot_date','=', context_today())]"/>
+                <filter string="Cette semaine" name="this_week"
+                        domain="[('snapshot_date','&gt;=', (context_today() - datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                <filter string="En retard" name="late"
+                        domain="[('is_late','=',True)]"/>
+                <filter string="Terminés" name="done"
+                        domain="[('is_done','=',True)]"/>
+                <filter string="Non démarrés" name="not_started"
+                        domain="[('capture_reason','=','not_started')]"/>
+
+                <separator/>
+                <group expand="1" string="Regrouper par">
+                    <filter string="Poste" name="group_wc"
+                            context="{'group_by': 'workcenter_id'}"/>
+                    <filter string="Date" name="group_date"
+                            context="{'group_by': 'snapshot_date'}"/>
+                    <filter string="OF" name="group_mo"
+                            context="{'group_by': 'production_id'}"/>
+                    <filter string="Raison" name="group_reason"
+                            context="{'group_by': 'capture_reason'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- ACTION                                                              -->
+    <!-- ================================================================== -->
+    <record id="action_mrp_daily_snapshot" model="ir.actions.act_window">
+        <field name="name">Retard Atelier</field>
+        <field name="res_model">mrp.daily.snapshot</field>
+        <field name="view_mode">pivot,graph,list</field>
+        <field name="context">{'search_default_this_week': 1}</field>
+        <field name="search_view_id" ref="view_mrp_daily_snapshot_search"/>
+        <field name="view_ids" eval="[
+            (5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_mrp_daily_snapshot_pivot')}),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('view_mrp_daily_snapshot_graph')}),
+            (0, 0, {'view_mode': 'list',  'view_id': ref('view_mrp_daily_snapshot_list')}),
+        ]"/>
+    </record>
+
+    <!-- ================================================================== -->
+    <!-- ACTION : recalcul manuel du snapshot du jour                        -->
+    <!-- ================================================================== -->
+    <record id="action_recompute_snapshot_today" model="ir.actions.server">
+        <field name="name">Recalculer le snapshot du jour</field>
+        <field name="model_id" ref="model_mrp_daily_snapshot"/>
+        <field name="binding_model_id" ref="model_mrp_daily_snapshot"/>
+        <field name="state">code</field>
+        <field name="code">model.action_recompute_today()</field>
+    </record>
+
+</odoo>
