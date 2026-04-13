@@ -138,11 +138,16 @@ class MrpProduction(models.Model):
             allow_wo_clear=True,
         ).write(vals)
         self._set_wo_planning_dates_full(wo, start_dt, end_dt)
-        wo.flush_recordset()
-        wo.invalidate_recordset([
-            'macro_planned_start', 'date_start', 'date_finished',
-            'date_planned_start', 'date_planned_finished'
-        ])
+        fields_to_refresh = [fname for fname in [
+            'macro_planned_start',
+            'date_start',
+            'date_finished',
+            'date_planned_start',
+            'date_planned_finished',
+        ] if fname in wo._fields]
+        if fields_to_refresh:
+            wo.flush_recordset(fields_to_refresh)
+            wo.invalidate_recordset(fields_to_refresh)
 
     def _apply_backward_plan(self, plan_lines, forced_end_dt=None):
         self.ensure_one()
