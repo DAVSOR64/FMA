@@ -1454,11 +1454,38 @@ class MrpProduction(models.Model):
             raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
 
         ctx = self.with_context(skip_macro_recalc=True)
+
+        # Étape 1 : calculer et écrire macro_planned_start sur chaque WO
         ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
-        # Flush immédiat pour que apply_macro lise les macros fraîchement écrits
+
+        # Étape 2 : flush pour garantir que les macros sont en base
         workorders.flush_recordset()
-        workorders.invalidate_recordset(['macro_planned_start'])
-        ctx.apply_macro_to_workorders_dates()
+
+        # Étape 3 : écrire date_start/date_finished directement (sans passer par
+        # apply_macro_to_workorders_dates qui déclenche button_plan → button_unplan → macro=False)
+        import math as _math
+        for wo in workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)):
+            if not wo.macro_planned_start:
+                continue
+            wc = wo.workcenter_id
+            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
+            hours_per_day = cal.hours_per_day or 7.8
+            duration_hours, _ = self._get_effective_duration_hours(wo)
+            required_days = max(1, int(_math.ceil(duration_hours / hours_per_day)))
+            start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
+            last_day = start_day
+            for _ in range(required_days - 1):
+                last_day = self._next_working_day(last_day, wc)
+            start_dt = self._morning_dt(start_day, wc)
+            end_dt = self._evening_dt(last_day, wc)
+            wo.with_context(
+                skip_macro_recalc=True,
+                skip_shift_chain=True,
+                allow_wo_clear=True,
+                mail_notrack=True,
+            ).write({'date_start': start_dt, 'date_finished': end_dt})
+
+        # Étape 4 : recaler les dates OF et transferts
         ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
         ctx._update_components_picking_dates()
 
