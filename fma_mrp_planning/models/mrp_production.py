@@ -319,33 +319,7 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(first_day, wc)
             end_dt = self._evening_dt(last_day, wc)
 
-            if "macro_planned_start" in wo._fields:
-                write_vals = {
-                    "macro_planned_start": macro_dt,
-                    "date_start": macro_dt,
-                    "date_finished": end_dt,
-                }
-                if "x_nb_resources" in wo._fields:
-                    write_vals["x_nb_resources"] = nb_resources
-
-                _logger.info("TRACE BEFORE | WO %s (id=%s) | macro=%s | date_start=%s",
-                    wo.name, wo.id, wo.macro_planned_start, wo.date_start)
-
-                wo.with_context(
-                    mail_notrack=True,
-                    skip_macro_recalc=True,
-                    skip_shift_chain=True,
-                    allow_wo_clear=True,
-                ).write(write_vals)
-
-                # Vérification SQL directe (bypass cache ORM)
-                self.env.cr.execute(
-                    "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
-                    (wo.id,)
-                )
-                row = self.env.cr.fetchone()
-                _logger.info("TRACE AFTER SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
-                    wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
+            self._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources)
 
             _logger.info(
                 "WO %s (%s): %s -> %s | eff=%.2fh | %d j | macro=%s",
