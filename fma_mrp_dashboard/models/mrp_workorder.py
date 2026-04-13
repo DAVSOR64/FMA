@@ -4,6 +4,28 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+ORDER_FMA = [
+    "Débit FMA",
+    "CU (banc) FMA",
+    "Usinage FMA",
+    "Montage FMA",
+    "Vitrage FMA",
+    "Emballage FMA",
+]
+
+COLOR_BY_RANK = {
+    1: 1,   # Débit -> rouge
+    2: 5,   # CU -> bleu foncé
+    3: 4,   # Usinage -> bleu clair
+    4: 10,  # Montage -> vert
+    5: 11,  # Vitrage -> violet
+    6: 3,   # Emballage -> jaune
+}
+
+
+def _norm(value):
+    return (value or "").strip().lower()
+
 
 class MrpWorkorder(models.Model):
     _inherit = 'mrp.workorder'
@@ -139,15 +161,31 @@ class MrpWorkorder(models.Model):
             wo.mtn_display = mtn or False
 
 
-    @api.depends('workcenter_id')
+    def _fma_rank(self):
+        values = [
+            _norm(self.name),
+            _norm(self.workcenter_id.name),
+            _norm(self.operation_id.name if self.operation_id else ""),
+        ]
+        for idx, label in enumerate(ORDER_FMA, start=1):
+            if any(_norm(label) in val for val in values):
+                return idx
+        return 999
+
+    @api.depends('workcenter_id', 'name', 'operation_id', 'operation_id.sequence')
     def _compute_color_index(self):
-        """Couleur stable par poste pour le Gantt.
-        Même poste = même couleur sur tous les projets.
-        On borne sur 1..11 pour rester dans la palette standard Odoo.
+        """Couleur métier FMA pour le Gantt.
+        Débit=rouge, CU=bleu foncé, Usinage=bleu clair,
+        Montage=vert, Vitrage=violet, Emballage=jaune.
+        Fallback : couleur stable par poste.
         """
         for wo in self:
-            wc_id = wo.workcenter_id.id or 0
-            wo.color_index = ((wc_id - 1) % 11) + 1 if wc_id else 0
+            rank = wo._fma_rank()
+            if rank in COLOR_BY_RANK:
+                wo.color_index = COLOR_BY_RANK[rank]
+            else:
+                wc_id = wo.workcenter_id.id or 0
+                wo.color_index = ((wc_id - 1) % 11) + 1 if wc_id else 0
 
     def write(self, vals):
         """

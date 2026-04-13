@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <!-- Cron recalcul absences capacité (quotidien) -->
+<odoo noupdate="1">
     <record id="cron_recompute_capacity_absences" model="ir.cron">
         <field name="name">FMA - Recalcul capacité hebdomadaire</field>
         <field name="model_id" ref="model_mrp_capacity_week"/>
@@ -12,7 +11,6 @@
         <field name="active">True</field>
     </record>
 
-    <!-- Cron replan macro 13H -->
     <record id="cron_macro_replan_13h" model="ir.cron">
         <field name="name">FMA - Replan macro planning 13H</field>
         <field name="model_id" ref="model_mrp_production"/>
@@ -25,7 +23,6 @@
         <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 13:00:00')"/>
     </record>
 
-    <!-- Cron replan macro 18H -->
     <record id="cron_macro_replan_18h" model="ir.cron">
         <field name="name">FMA - Replan macro planning 18H</field>
         <field name="model_id" ref="model_mrp_production"/>

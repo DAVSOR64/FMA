@@ -189,7 +189,7 @@ class MrpProduction(models.Model):
 
         self.message_post(body="🧪 DEBUG : macro planning (SO confirm) exécuté")
 
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        workorders = self._resequence_workorders_for_planning(self._ordered_workorders_for_planning(include_progress=True))
         if not workorders:
             _logger.info("MO %s : aucun WO", self.name)
             return False
@@ -298,7 +298,7 @@ class MrpProduction(models.Model):
         if not isinstance(x_end, date_type):
             x_end = fields.Date.to_date(x_end)
 
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        workorders = self._resequence_workorders_for_planning(self._ordered_workorders_for_planning(include_progress=True))
         if not workorders:
             raise UserError(_("Aucune opération active à replanifier sur cet OF."))
 
@@ -512,7 +512,7 @@ class MrpProduction(models.Model):
         """
         self.ensure_one()
 
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        workorders = self._resequence_workorders_for_planning(self._ordered_workorders_for_planning(include_progress=True))
         if not workorders:
             return
 
@@ -980,11 +980,10 @@ class MrpProduction(models.Model):
     @api.model
     def cron_replan_all_productions(self):
         """
-        Cron tournant à 13H et 18H.
-        Replanifie tous les OFs actifs depuis x_studio_date_de_fin :
-        - OFs non débutés : tous les WOs recalculés
-        - OFs débutés : uniquement les WOs non débutés (state != progress/done/cancel)
-        Log systématique pour traçabilité et futur dashboard retard.
+        Cron 13h / 18h aligné sur le moteur qui fonctionne déjà.
+        - OF non lancés : toutes les OT actives
+        - OF lancés : uniquement OT non démarrées
+        - resequence FMA avant calcul
         """
         import traceback
         from datetime import datetime as dt_now
@@ -993,538 +992,75 @@ class MrpProduction(models.Model):
         _logger.info("CRON REPLAN START : %s", dt_now.now().strftime('%d/%m/%Y %H:%M'))
         _logger.info("=" * 60)
 
-        productions = self.search([
-            ('state', 'not in', ('done', 'cancel')),
-        ])
-
-        _logger.info("CRON REPLAN : %d OFs actifs trouvés", len(productions))
-
-        stats = {
-            'traites': 0,
-            'ignores_sans_date': 0,
-            'ignores_sans_wo': 0,
-            'erreurs': 0,
-        }
+        productions = self.search([('state', 'not in', ('done', 'cancel'))])
+        stats = {'traites': 0, 'ignores': 0, 'erreurs': 0}
 
         for mo in productions:
             try:
-                # Vérifier x_studio_date_de_fin
-                x_end = (
-                    getattr(mo, 'x_studio_date_de_fin', False)
-                    or getattr(mo, 'x_studio_date_fin', False)
-                )
+                x_end = getattr(mo, 'x_studio_date_de_fin', False) or getattr(mo, 'x_studio_date_fin', False)
                 if not x_end:
-                    _logger.info("CRON REPLAN | OF %s : pas de date_de_fin → ignoré", mo.name)
-                    stats['ignores_sans_date'] += 1
+                    stats['ignores'] += 1
                     continue
 
-                # WOs éligibles selon l'état de l'OF
-                all_wos = mo.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
-                mo_started = any(w.state == 'progress' for w in mo.workorder_ids)
-
-                if mo_started:
-                    # OF débuté → uniquement les WOs non débutés
-                    eligible_wos = all_wos.filtered(lambda w: w.state not in ('progress', 'done', 'cancel'))
-                    wo_type = "non débutés (OF en cours)"
-                else:
-                    # OF non débuté → tous les WOs
-                    eligible_wos = all_wos
-                    wo_type = "tous"
-
-                if not eligible_wos:
-                    _logger.info(
-                        "CRON REPLAN | OF %s : aucun WO %s → ignoré",
-                        mo.name, wo_type
-                    )
-                    stats['ignores_sans_wo'] += 1
+                delivery_dt, _sale_order = mo._get_macro_target_date()
+                if delivery_dt and x_end > delivery_dt.date():
+                    _logger.warning("CRON | %s ignoré (date fin > livraison)", mo.name)
+                    stats['ignores'] += 1
                     continue
 
-                # Convertir x_end en date
-                from datetime import date as date_type
-                if not isinstance(x_end, date_type):
-                    x_end = fields.Date.to_date(x_end)
-
-                # Calcul backward depuis x_end
-                last_wc = eligible_wos.sorted(
-                    lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)
-                )[-1].workcenter_id
-                end_fab_dt = mo._evening_dt(x_end, last_wc) if last_wc \
-                    else datetime.combine(x_end, time(17, 0))
-
-                current_end_day = mo._previous_or_same_working_day(x_end, last_wc)
-                wos_sorted_rev = eligible_wos.sorted(
-                    lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id),
-                    reverse=True
+                include_progress = not any(w.state == 'progress' for w in mo.workorder_ids)
+                eligible_wos = mo._resequence_workorders_for_planning(
+                    mo._ordered_workorders_for_planning(include_progress=include_progress)
                 )
+                if not eligible_wos:
+                    stats['ignores'] += 1
+                    continue
 
-                for wo in wos_sorted_rev:
+                last_wc = eligible_wos[-1].workcenter_id
+                end_fab_dt = mo._evening_dt(x_end, last_wc) if last_wc else datetime.combine(x_end, time(17, 0))
+                current_end_day = mo._previous_or_same_working_day(x_end, last_wc)
+                wo_payloads = []
+
+                for wo in eligible_wos.sorted(lambda w: ((w.operation_id.sequence if w.operation_id else 0), w.id), reverse=True):
                     wc = wo.workcenter_id
                     cal = wc.resource_calendar_id or mo.env.company.resource_calendar_id
                     hours_per_day = cal.hours_per_day or 7.8
                     duration_hours, nb_resources = mo._get_effective_duration_hours(wo)
                     required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
+
                     last_day = mo._previous_or_same_working_day(current_end_day, wc)
                     first_day = last_day
                     for _ in range(required_days - 1):
                         first_day = mo._previous_working_day(first_day, wc)
+
                     macro_dt = mo._morning_dt(first_day, wc)
                     end_dt = mo._evening_dt(last_day, wc)
-
                     mo._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources)
-
-                    _logger.info(
-                        "CRON REPLAN | OF %s | WO %s (%s) : %s → %s | %.2fh | %d j",
-                        mo.name, wo.name, wc.name,
-                        first_day.strftime('%d/%m/%Y'),
-                        last_day.strftime('%d/%m/%Y'),
-                        duration_hours, required_days
-                    )
+                    wo_payloads.append({'wo': wo, 'macro_dt': macro_dt, 'start_dt': macro_dt, 'end_dt': end_dt, 'nb_resources': nb_resources})
                     current_end_day = mo._previous_working_day(first_day, wc)
 
-                # Recaler les dates OF
-                mo.with_context(skip_macro_recalc=True, mail_notrack=True)._update_mo_dates_from_macro(
-                    forced_end_dt=end_fab_dt
-                )
-
-                _logger.info(
-                    "CRON REPLAN | OF %s : OK | x_end=%s | %d WOs (%s)",
-                    mo.name, x_end.strftime('%d/%m/%Y'), len(eligible_wos), wo_type
-                )
+                mo._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
+                mo._restore_wo_schedule_after_mo_update(wo_payloads)
+                mo._update_components_picking_dates()
+                mo._refresh_charge_cache_for_production()
                 stats['traites'] += 1
-
+                _logger.info("CRON | %s OK (%d OT)", mo.name, len(eligible_wos))
             except Exception as e:
-                _logger.error(
-                    "CRON REPLAN | OF %s : ERREUR %s\n%s",
-                    mo.name, str(e), traceback.format_exc()
-                )
                 stats['erreurs'] += 1
+                _logger.error("CRON | %s ERREUR %s\n%s", mo.name, str(e), traceback.format_exc())
 
-        # Rafraîchir le cache charge macro planning
         try:
-            charge_cache = self.env.get('mrp.workorder.charge.cache')
-            if charge_cache:
-                charge_cache.refresh()
-                _logger.info("CRON REPLAN : cache charge macro rafraîchi")
+            if 'mrp.workorder.charge.cache' in self.env:
+                self.env['mrp.workorder.charge.cache'].refresh()
+            if 'mrp.capacite.cache' in self.env:
+                self.env['mrp.capacite.cache'].refresh()
+            if 'mrp.capacity.week' in self.env and hasattr(self.env['mrp.capacity.week'], 'cron_recompute_absences'):
+                self.env['mrp.capacity.week'].cron_recompute_absences()
         except Exception as e:
-            _logger.error("CRON REPLAN : erreur refresh cache charge : %s", str(e))
+            _logger.error("CRON refresh erreur : %s", e)
 
+        _logger.info("CRON REPLAN END | %s traités | %s ignorés | %s erreurs", stats['traites'], stats['ignores'], stats['erreurs'])
         _logger.info("=" * 60)
-        _logger.info(
-            "CRON REPLAN END : %d traités | %d sans date | %d sans WO | %d erreurs",
-            stats['traites'], stats['ignores_sans_date'],
-            stats['ignores_sans_wo'], stats['erreurs']
-        )
-        _logger.info("=" * 60)
-
-    @api.model
-    def action_replan_all_productions(self):
-        """Alias maintenu pour compatibilité — appelle cron_replan_all_productions."""
-        return self.cron_replan_all_productions()
-
-    def _recalculate_macro_on_date_change(self, date_start_changed=False, date_finished_changed=False):
-        """
-        Recalcule les macro_planned_start des workorders suite à un changement de dates de l'OF
-        
-        RÈGLES :
-        - Si date_start change et aucune opération commencée → recalcul FORWARD depuis date_start
-        - Si date_finished change → recalcul BACKWARD depuis date_finished
-        - Respecte l'enchaînement : chaque opération commence le lendemain ouvré de la précédente
-        - Alerte si dépassement date de livraison
-        """
-        self.ensure_one()
-        
-        _logger.info("=== RECALCUL MACRO OF %s ===", self.name)
-        
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
-        if not workorders:
-            _logger.info("Aucune opération à recalculer")
-            return
-        
-        # Tri par séquence
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-        
-        # Opérations terminées : on les ignore sans erreur
-        done_wos = [wo.name for wo in self.workorder_ids if wo.state == 'done']
-        if done_wos:
-            _logger.info("Opérations terminées ignorées pour recalcul : %s", ', '.join(done_wos))
-            if not workorders:
-                return
-        
-        # CAS 1 : Changement date DÉBUT
-        if date_start_changed and not date_finished_changed:
-            _logger.info("=== CAS 1 : Changement date DÉBUT ===")
-            
-            # Si des opérations ont déjà démarré, on bascule en mode backward
-            started_wos = [wo.name for wo in workorders if wo.state == 'progress']
-            if started_wos:
-                _logger.info("Opérations démarrées, recalcul backward : %s", ', '.join(started_wos))
-                self._recalculate_macro_backward(workorders)
-                self._refresh_charge_cache_for_production()
-                return
-            
-            self._recalculate_macro_forward(workorders)
-        
-        # CAS 2 : Changement date FIN
-        elif date_finished_changed:
-            _logger.info("=== CAS 2 : Changement date FIN ===")
-            self._recalculate_macro_backward(workorders)
-        
-        # Rafraîchir le cache charge
-        self._refresh_charge_cache_for_production()
-
-    def _recalculate_macro_forward(self, workorders):
-        """
-        Recalcule FORWARD : depuis date_start de l'OF vers le futur
-        Utilisé quand date_start change et aucune opération démarrée
-        """
-        # Invalider le cache ORM pour être sûr de lire la valeur qui vient d'être écrite
-        self.invalidate_recordset(['date_start', 'date_finished', 'date_deadline'])
-
-        if not self.date_start:
-            return
-        
-        current_day = fields.Datetime.to_datetime(self.date_start).date()
-        
-        _logger.info("RECALCUL FORWARD depuis %s", current_day)
-        
-        for wo in workorders:
-            wc = wo.workcenter_id
-            if not wc:
-                continue
-            
-            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-            hours_per_day = cal.hours_per_day or 7.8
-            
-            duration_minutes = wo.duration_expected or 0.0
-            duration_hours, nb_resources = self._get_effective_duration_hours(wo)
-            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-            
-            # Début = current_day (matin)
-            start_day = self._previous_or_same_working_day(current_day, wc)
-            macro_dt = self._morning_dt(start_day, wc)
-            
-            # Mettre à jour macro_planned_start
-            write_vals = {'macro_planned_start': macro_dt}
-            if "x_nb_resources" in wo._fields:
-                write_vals["x_nb_resources"] = nb_resources
-            wo.with_context(skip_macro_recalc=True, mail_notrack=True).write(write_vals)
-            
-            _logger.info("WO %s : macro=%s | brut=%.0f min | eff=%.2fh | %d j | %d ressource(s)",
-                        wo.name, macro_dt, duration_minutes, duration_hours, required_days, nb_resources)
-            
-            # Prochaine opération commence le lendemain ouvré de la fin de celle-ci
-            # Fin = start_day + (required_days - 1) jours ouvrés
-            end_day = start_day
-            for _ in range(required_days - 1):
-                end_day = self._next_working_day(end_day, wc)
-            
-            current_day = self._next_working_day(end_day, wc)
-        
-        # Recalculer date_finished de l'OF
-        self._update_mo_dates_from_macro()
-
-        # Si les WO n'ont plus de date_start (cas post-déprogrammation),
-        # appliquer les macros sur date_start/date_finished pour que le Gantt soit à jour
-        wos_without_dates = workorders.filtered(lambda w: not w.date_start)
-        if wos_without_dates:
-            _logger.info("FORWARD : %d WO sans date_start après déprogrammation -> apply_macro", len(wos_without_dates))
-            self.with_context(skip_macro_recalc=True).apply_macro_to_workorders_dates()
-        
-        # Vérifier dépassement livraison
-        self._check_delivery_date_exceeded()
-
-    def _recalculate_macro_backward(self, workorders, end_dt=None):
-        """
-        Recalcule BACKWARD : depuis date_finished de l'OF vers le passé
-        Utilisé quand date_finished change (avec ou sans opérations démarrées)
-        """
-        # Utiliser la date de fin fournie si elle est imposée,
-        # sinon date_deadline en priorité, puis date_finished
-        end_dt = end_dt or self.date_deadline or self.date_finished
-        if not end_dt:
-            return
-        
-        end_day = fields.Datetime.to_datetime(end_dt).date()
-        
-        _logger.info("RECALCUL BACKWARD depuis %s", end_day)
-        
-        # Identifier les opérations NON commencées
-        # En Odoo 17 : pending, waiting, ready = pas encore démarré
-        # On exclut uniquement done, cancel, et progress (en cours d'exécution)
-        not_started_wos = workorders.filtered(lambda w: w.state not in ('done', 'cancel', 'progress'))
-        started_wos = workorders.filtered(lambda w: w.state == 'progress')
-        
-        if not not_started_wos:
-            # Toutes commencées : juste recalculer date_finished de l'OF
-            _logger.info("Toutes les opérations ont démarré, pas de recalcul macro")
-            self._update_mo_dates_from_macro(forced_end_dt=end_dt)
-            self._check_delivery_date_exceeded()
-            return
-        
-        # Backward sur les non commencées uniquement
-        current_end_day = end_day
-        
-        # Partir de la dernière opération (reverse)
-        for wo in reversed(not_started_wos.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))):
-            wc = wo.workcenter_id
-            if not wc:
-                continue
-            
-            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-            hours_per_day = cal.hours_per_day or 7.8
-            
-            duration_minutes = wo.duration_expected or 0.0
-            duration_hours, nb_resources = self._get_effective_duration_hours(wo)
-            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
-            
-            # Fin = current_end_day
-            last_day = self._previous_or_same_working_day(current_end_day, wc)
-            
-            # Début = last_day - (required_days - 1) jours ouvrés
-            first_day = last_day
-            for _ in range(required_days - 1):
-                first_day = self._previous_working_day(first_day, wc)
-            
-            macro_dt = self._morning_dt(first_day, wc)
-            
-            write_vals = {'macro_planned_start': macro_dt}
-            if "x_nb_resources" in wo._fields:
-                write_vals["x_nb_resources"] = nb_resources
-            wo.with_context(skip_macro_recalc=True, mail_notrack=True).write(write_vals)
-            
-            _logger.info("WO %s : macro=%s | %s -> %s | brut=%.0f min | eff=%.2fh | %d j | %d ressource(s)",
-                        wo.name, macro_dt, first_day, last_day, duration_minutes, duration_hours, required_days, nb_resources)
-            
-            # Opération précédente se termine AVANT first_day.
-            # On impose un jour calendaire de "trou" entre opérations,
-            # puis la prochaine itération recale sur un jour ouvré du workcenter
-            # via _previous_or_same_working_day().
-            current_end_day = first_day - timedelta(days=1)
-        
-        # Recalculer date_start de l'OF + forcer la date de fin demandée
-        self._update_mo_dates_from_macro(forced_end_dt=end_dt)
-        
-        # Vérifier dépassement livraison
-        self._check_delivery_date_exceeded()
-
-    def _to_date(self, value):
-        """Convertit proprement en date"""
-        if not value:
-            return None
-        if isinstance(value, date) and not isinstance(value, datetime):
-            return value
-        if isinstance(value, datetime):
-            return value.date()
-        return fields.Date.to_date(value)
-
-
-    def _check_delivery_date_exceeded(self):
-        """Vérifie si la date de fin métier dépasse la date de livraison"""
-        self.ensure_one()
-
-        _logger.warning(
-            "[DELIVERY CHECK] START | OF=%s | x_de_fin(raw)=%s | date_finished(raw)=%s",
-            self.name, self.x_studio_date_de_fin, self.date_finished
-        )
-
-        # Récupérer la commande de vente
-        so = False
-        if hasattr(self, 'x_studio_mtn_mrp_sale_order') and self.x_studio_mtn_mrp_sale_order:
-            so = self.x_studio_mtn_mrp_sale_order
-            _logger.warning("[DELIVERY CHECK] SO via x_studio_mtn_mrp_sale_order: %s", so.name)
-        elif getattr(self, 'sale_id', False):
-            so = self.sale_id
-            _logger.warning("[DELIVERY CHECK] SO via sale_id: %s", so.name)
-        elif self.procurement_group_id and self.procurement_group_id.sale_id:
-            so = self.procurement_group_id.sale_id
-            _logger.warning("[DELIVERY CHECK] SO via procurement_group: %s", so.name)
-
-        if not so:
-            return
-
-        raw_delivery = getattr(so, "so_date_de_livraison_prevu", False) \
-            or getattr(so, "x_studio_date_de_livraison_prevu", False) \
-            or so.commitment_date \
-            or so.expected_date
-        delivery_date = self._to_date(raw_delivery)
-
-        x_end = self._to_date(self.x_studio_date_de_fin)
-
-        _logger.warning(
-            "[DELIVERY CHECK] VALUES | OF=%s | delivery(raw)=%s -> %s | x_end(raw)=%s -> %s",
-            self.name, raw_delivery, delivery_date, self.x_studio_date_de_fin, x_end
-        )
-
-        if not delivery_date or not x_end:
-            return
-
-        if x_end > delivery_date:
-            days_late = (x_end - delivery_date).days
-
-            _logger.warning(
-                "[DELIVERY CHECK] LATE | OF=%s | end=%s > delivery=%s | days=%s",
-                self.name, x_end, delivery_date, days_late
-            )
-
-            raise ValidationError(_(
-                "⚠️ ALERTE DÉPASSEMENT DATE DE LIVRAISON ⚠️\n\n"
-                "OF : %s\n"
-                "Date de fin planifiée : %s\n"
-                "Date de livraison promise : %s\n"
-                "Retard : %d jours\n\n"
-                "La fabrication se terminera APRÈS la date promise au client !"
-            ) % (
-                self.name,
-                x_end.strftime('%d/%m/%Y'),
-                delivery_date.strftime('%d/%m/%Y'),
-                days_late
-            ))
-
-    def _refresh_charge_cache_for_production(self):
-        """Rafraîchit le cache charge pour cet OF"""
-        try:
-            # Supprimer les entrées de cache de cet OF
-            cache_model = self.env.get('mrp.workorder.charge.cache')
-            if cache_model:
-                cache_model.search([('production_id', '=', self.id)]).unlink()
-                
-                # Recalculer pour les workorders de cet OF
-                for wo in self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel')):
-                    if wo.macro_planned_start and wo.workcenter_id:
-                        # Le cache se mettra à jour automatiquement au prochain refresh global
-                        pass
-        except Exception as e:
-            _logger.warning("Impossible de rafraîchir cache charge : %s", str(e))
-
-
-    # ============================================================
-    # CORRECTION : "Tous fabriquer" → transferts produit fini
-    # ============================================================
-
-    def button_produce_all(self):
-        """Surcharge du bouton « Tous fabriquer » pour valider aussi les transferts.
-
-        Odoo standard produit l'OF mais ne valide pas automatiquement le transfert
-        de produit fini. On force la validation de tous les pickings de sortie
-        (type_code = 'outgoing' ou picking_type_id.code = 'outgoing') liés à l'OF
-        via le procurement_group.
-        """
-        res = super().button_produce_all() if hasattr(super(), 'button_produce_all') else self._action_generate_backorder_wizard()
-
-        for production in self:
-            try:
-                production._validate_output_pickings()
-            except Exception as e:
-                _logger.error("Erreur validation transferts OF %s : %s", production.name, str(e))
-
-        return res
-
-    def _generate_wo_lines(self):
-        """Surcharge pour propager la validation des transferts après production immédiate."""
-        res = super()._generate_wo_lines() if hasattr(super(), '_generate_wo_lines') else True
-        return res
-
-    def _validate_output_pickings(self):
-        """Valide les transferts de produit fini liés à cet OF (state=ready/assigned).
-
-        Recherche via procurement_group_id pour couvrir tous les cas
-        (backorder, sous-traitance, etc.).
-        """
-        self.ensure_one()
-        if not self.procurement_group_id:
-            return
-
-        # Récupérer tous les pickings liés à ce groupe (hors done/cancel)
-        pickings = self.env['stock.picking'].search([
-            ('group_id', '=', self.procurement_group_id.id),
-            ('state', 'in', ('assigned', 'ready', 'confirmed')),
-        ])
-
-        # Filtrer sur les transferts de sortie produit fini (pas les approvisionnements composants)
-        output_pickings = pickings.filtered(
-            lambda p: p.picking_type_id.code == 'outgoing'
-            or (p.picking_type_id.name or '').lower() in ('livraison', 'delivery orders', 'receipts produit fini', 'sortie')
-        )
-
-        if not output_pickings:
-            _logger.info("OF %s : aucun transfert sortie à valider", self.name)
-            return
-
-        for picking in output_pickings:
-            try:
-                if picking.state not in ('done', 'cancel'):
-                    # Remplir les quantités faites = quantités demandées si vides
-                    for move in picking.move_ids.filtered(lambda m: m.state not in ('done', 'cancel')):
-                        for ml in move.move_line_ids:
-                            if not ml.qty_done:
-                                ml.qty_done = ml.reserved_qty or ml.product_qty or 0.0
-                    picking.with_context(skip_sms=True, skip_backorder=True).button_validate()
-                    _logger.info("OF %s : transfert %s validé", self.name, picking.name)
-            except Exception as e:
-                _logger.error("OF %s : impossible de valider le transfert %s : %s",
-                              self.name, picking.name, str(e))
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Méthodes supplémentaires : réordonnancement FMA + batch + popup replanification
-# Toutes dans la même classe MrpProduction pour accès garanti à self.*
-# ─────────────────────────────────────────────────────────────────────────────
-
-    # ── Réordonnancement FMA ──────────────────────────────────────────────────
-    def _fma_rank(self, wo):
-        from .mrp_workorder import ORDER_FMA, _norm
-        values = [
-            _norm(wo.name),
-            _norm(wo.workcenter_id.name),
-            _norm(wo.operation_id.name if wo.operation_id else ""),
-        ]
-        for idx, label in enumerate(ORDER_FMA, start=1):
-            if any(_norm(label) in val for val in values):
-                return idx
-        return 999
-
-    def _get_active_fma_workorders(self):
-        self.ensure_one()
-        return self.workorder_ids.filtered(
-            lambda w: w.state not in ("done", "cancel", "progress")
-        )
-
-    def _reset_workorder_dependencies(self, ordered_wos):
-        if not ordered_wos:
-            return
-        fields_map = self.env["mrp.workorder"]._fields
-        if "blocked_by_workorder_ids" in fields_map:
-            ordered_wos.write({"blocked_by_workorder_ids": [(5, 0, 0)]})
-        if "next_work_order_id" in fields_map:
-            ordered_wos.write({"next_work_order_id": False})
-        if "prev_work_order_id" in fields_map:
-            ordered_wos.write({"prev_work_order_id": False})
-        previous = False
-        for wo in ordered_wos:
-            values = {}
-            if previous:
-                if "blocked_by_workorder_ids" in fields_map:
-                    values["blocked_by_workorder_ids"] = [(4, previous.id)]
-                if "prev_work_order_id" in fields_map:
-                    values["prev_work_order_id"] = previous.id
-            if values:
-                wo.write(values)
-            if previous and "next_work_order_id" in fields_map:
-                previous.write({"next_work_order_id": wo.id})
-            previous = wo
-
-    def action_resequence_fma(self):
-        for production in self:
-            active_wos = production._get_active_fma_workorders()
-            for wo in active_wos:
-                rank = production._fma_rank(wo)
-                if rank < 999 and wo.operation_id:
-                    wo.operation_id.sequence = rank * 10
-            ordered_wos = active_wos.sorted(
-                key=lambda wo: ((wo.op_sequence or 0), wo.id)
-            )
-            production._reset_workorder_dependencies(ordered_wos)
-            production.action_replanifier()
         return True
 
     # ── Batch macro replan ────────────────────────────────────────────────────
@@ -1625,7 +1161,7 @@ class MrpProduction(models.Model):
         import json
         self.ensure_one()
         from odoo.exceptions import UserError
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        workorders = self._resequence_workorders_for_planning(self._ordered_workorders_for_planning(include_progress=True))
         if not workorders:
             raise UserError(_("Aucune opération à recalculer."))
 
@@ -1663,7 +1199,7 @@ class MrpProduction(models.Model):
         if not isinstance(x_end, date_type):
             x_end = fields.Date.to_date(x_end)
 
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        workorders = self._resequence_workorders_for_planning(self._ordered_workorders_for_planning(include_progress=True))
         if not workorders:
             raise UserError(_("Aucune opération active à replanifier."))
 

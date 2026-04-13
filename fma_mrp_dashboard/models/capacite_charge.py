@@ -674,6 +674,7 @@ class CapaciteChargeDetail(models.Model):
     cumul_prevu = fields.Float(string='Cumul prévu (h)', digits=(10, 2), readonly=True)
     cumul_effectue = fields.Float(string='Cumul effectué (h)', digits=(10, 2), readonly=True)
     ecart = fields.Float(string='Écart (h)', digits=(10, 2), readonly=True)
+    performance_jour = fields.Float(string='Performance jour (h)', digits=(10, 2), readonly=True, help='Positif = avance, négatif = retard')
     state = fields.Char(string='Statut', readonly=True)
 
     def init(self):
@@ -706,6 +707,16 @@ class CapaciteChargeDetail(models.Model):
                 WHERE wop.date_start IS NOT NULL
                 GROUP BY wop.workorder_id, DATE(wop.date_start)
             ),
+            effectue_total AS (
+                SELECT wop.workorder_id, SUM(COALESCE(wop.duration, 0)) / 60.0 AS effectue_total
+                FROM mrp_workcenter_productivity wop
+                GROUP BY wop.workorder_id
+            ),
+            prevu_total AS (
+                SELECT workorder_id, SUM(charge_prevue_heures) AS prevu_total, MAX(date) AS last_planned_date
+                FROM mrp_workorder_charge_cache
+                GROUP BY workorder_id
+            ),
             cumuls AS (
                 SELECT
                     wcc.id,
@@ -713,6 +724,9 @@ class CapaciteChargeDetail(models.Model):
                     wcc.date,
                     wcc.charge_prevue_heures,
                     COALESCE(epj.effectue_heures, 0) AS effectue_jour,
+                    COALESCE(et.effectue_total, 0) AS effectue_total,
+                    COALESCE(pt.prevu_total, 0) AS prevu_total,
+                    pt.last_planned_date AS last_planned_date,
                     SUM(wcc.charge_prevue_heures) OVER (
                         PARTITION BY wcc.workorder_id 
                         ORDER BY wcc.date 
@@ -727,6 +741,8 @@ class CapaciteChargeDetail(models.Model):
                 LEFT JOIN effectue_par_jour epj 
                     ON epj.workorder_id = wcc.workorder_id 
                     AND epj.date = wcc.date
+                LEFT JOIN effectue_total et ON et.workorder_id = wcc.workorder_id
+                LEFT JOIN prevu_total pt ON pt.workorder_id = wcc.workorder_id
             )
             SELECT
                 cum.id                                      AS id,
@@ -752,6 +768,13 @@ class CapaciteChargeDetail(models.Model):
                 cum.cumul_prevu                             AS cumul_prevu,
                 cum.cumul_effectue                          AS cumul_effectue,
                 cum.cumul_effectue - cum.cumul_prevu        AS ecart,
+                CASE
+                    WHEN wo.state = 'done' AND cum.date = cum.last_planned_date
+                        THEN cum.prevu_total - cum.effectue_total
+                    WHEN wo.state != 'done'
+                        THEN cum.effectue_jour - cum.charge_prevue_heures
+                    ELSE 0
+                END                                          AS performance_jour,
                 wo.state
             FROM cumuls cum
             JOIN mrp_workorder_charge_cache wcc ON wcc.id = cum.id
@@ -789,6 +812,10 @@ class CapaciteCharge(models.Model):
     cumul_effectue = fields.Float(string='Cumul effectué (h)', digits=(10, 2), readonly=True)
     ecart = fields.Float(string='Écart (h)', digits=(10, 2), readonly=True, 
                          help='Cumul effectué - Cumul prévu (négatif = retard, positif = avance)')
+    performance_jour = fields.Float(string='Avance/retard net (h)', digits=(10, 2), readonly=True,
+                                    help='Positif = avance nette du poste, négatif = retard net')
+    retard_brut_jour = fields.Float(string='Retard brut (h)', digits=(10, 2), readonly=True)
+    avance_brute_jour = fields.Float(string='Avance brute (h)', digits=(10, 2), readonly=True)
     
     taux_charge = fields.Float(string='Taux charge (%)', digits=(10, 1), readonly=True)
     solde_heures = fields.Float(string='Solde (h)', digits=(10, 2), readonly=True)
@@ -822,6 +849,41 @@ class CapaciteCharge(models.Model):
                 WHERE wop.date_start IS NOT NULL
                 GROUP BY wo.workcenter_id, DATE(wop.date_start)
             ),
+            effectue_total AS (
+                SELECT wop.workorder_id, SUM(COALESCE(wop.duration, 0)) / 60.0 AS effectue_total
+                FROM mrp_workcenter_productivity wop
+                GROUP BY wop.workorder_id
+            ),
+            prevu_total AS (
+                SELECT workorder_id, SUM(charge_prevue_heures) AS prevu_total, MAX(date) AS last_planned_date
+                FROM mrp_workorder_charge_cache
+                GROUP BY workorder_id
+            ),
+            performance_par_jour AS (
+                SELECT
+                    wcc.workcenter_id,
+                    wcc.date,
+                    SUM(CASE
+                        WHEN wo.state = 'done' AND wcc.date = pt.last_planned_date THEN GREATEST(pt.prevu_total - COALESCE(et.effectue_total, 0), 0)
+                        ELSE 0
+                    END) AS avance_brute_jour,
+                    SUM(CASE
+                        WHEN wo.state = 'done' AND wcc.date = pt.last_planned_date THEN GREATEST(COALESCE(et.effectue_total, 0) - pt.prevu_total, 0)
+                        WHEN wo.state != 'done' THEN GREATEST(wcc.charge_prevue_heures - COALESCE(epj.effectue_heures, 0), 0)
+                        ELSE 0
+                    END) AS retard_brut_jour,
+                    SUM(CASE
+                        WHEN wo.state = 'done' AND wcc.date = pt.last_planned_date THEN pt.prevu_total - COALESCE(et.effectue_total, 0)
+                        WHEN wo.state != 'done' THEN COALESCE(epj.effectue_heures, 0) - wcc.charge_prevue_heures
+                        ELSE 0
+                    END) AS performance_jour
+                FROM mrp_workorder_charge_cache wcc
+                JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
+                LEFT JOIN effectue_par_jour epj ON epj.workcenter_id = wcc.workcenter_id AND epj.date = wcc.date
+                LEFT JOIN effectue_total et ON et.workorder_id = wcc.workorder_id
+                LEFT JOIN prevu_total pt ON pt.workorder_id = wcc.workorder_id
+                GROUP BY wcc.workcenter_id, wcc.date
+            ),
             charge AS (
                 SELECT
                     wcc.workcenter_id,
@@ -829,13 +891,19 @@ class CapaciteCharge(models.Model):
                     COUNT(DISTINCT wcc.workorder_id)                AS nb_operations,
                     SUM(wcc.charge_prevue_heures)                   AS charge_prevue_jour,
                     COALESCE(epj.effectue_heures, 0)                AS charge_effectuee_jour,
-                    SUM(COALESCE(wo.x_nb_resources, 1))             AS nb_resources
+                    SUM(COALESCE(wo.x_nb_resources, 1))             AS nb_resources,
+                    COALESCE(ppj.performance_jour, 0)               AS performance_jour,
+                    COALESCE(ppj.retard_brut_jour, 0)               AS retard_brut_jour,
+                    COALESCE(ppj.avance_brute_jour, 0)              AS avance_brute_jour
                 FROM mrp_workorder_charge_cache wcc
                 JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
                 LEFT JOIN effectue_par_jour epj 
                     ON epj.workcenter_id = wcc.workcenter_id 
                     AND epj.date = wcc.date
-                GROUP BY wcc.workcenter_id, wcc.date, epj.effectue_heures
+                LEFT JOIN performance_par_jour ppj
+                    ON ppj.workcenter_id = wcc.workcenter_id
+                    AND ppj.date = wcc.date
+                GROUP BY wcc.workcenter_id, wcc.date, epj.effectue_heures, ppj.performance_jour, ppj.retard_brut_jour, ppj.avance_brute_jour
             ),
             capacite AS (
                 SELECT 
@@ -861,6 +929,9 @@ class CapaciteCharge(models.Model):
                     COALESCE(ch.nb_resources, 0)                AS nb_resources,
                     COALESCE(ch.charge_prevue_jour, 0)          AS charge_prevue_jour,
                     COALESCE(ch.charge_effectuee_jour, 0)       AS charge_effectuee_jour,
+                    COALESCE(ch.performance_jour, 0)            AS performance_jour,
+                    COALESCE(ch.retard_brut_jour, 0)            AS retard_brut_jour,
+                    COALESCE(ch.avance_brute_jour, 0)           AS avance_brute_jour,
                     SUM(COALESCE(ch.charge_prevue_jour, 0)) OVER (
                         PARTITION BY ak.workcenter_id 
                         ORDER BY ak.date 
@@ -889,6 +960,9 @@ class CapaciteCharge(models.Model):
                 cumul_prevu,
                 cumul_effectue,
                 cumul_effectue - cumul_prevu AS ecart,
+                performance_jour,
+                retard_brut_jour,
+                avance_brute_jour,
                 charge_prevue_jour - capacite_heures AS solde_heures,
                 CASE
                     WHEN capacite_heures > 0
