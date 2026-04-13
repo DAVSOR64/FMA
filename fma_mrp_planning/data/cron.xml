@@ -12,15 +12,29 @@
         <field name="active">True</field>
     </record>
 
-    <!-- Cron replan macro (3x/jour) -->
-    <record id="cron_macro_replan_all" model="ir.cron">
-        <field name="name">FMA - Replan macro planning (3x/jour)</field>
+    <!-- Cron replan macro 13H -->
+    <record id="cron_macro_replan_13h" model="ir.cron">
+        <field name="name">FMA - Replan macro planning 13H</field>
         <field name="model_id" ref="model_mrp_production"/>
         <field name="state">code</field>
-        <field name="code">model.action_replan_all_productions()</field>
-        <field name="interval_number">8</field>
-        <field name="interval_type">hours</field>
+        <field name="code">model.cron_replan_all_productions()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
         <field name="numbercall">-1</field>
-        <field name="active">False</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 13:00:00')"/>
+    </record>
+
+    <!-- Cron replan macro 18H -->
+    <record id="cron_macro_replan_18h" model="ir.cron">
+        <field name="name">FMA - Replan macro planning 18H</field>
+        <field name="model_id" ref="model_mrp_production"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_replan_all_productions()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 18:00:00')"/>
     </record>
 </odoo>
