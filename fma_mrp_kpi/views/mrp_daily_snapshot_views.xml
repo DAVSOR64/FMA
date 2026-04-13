@@ -8,7 +8,7 @@
         <field name="name">mrp.daily.snapshot.list</field>
         <field name="model">mrp.daily.snapshot</field>
         <field name="arch" type="xml">
-            <list string="Snapshots retard atelier"
+            <tree string="Snapshots retard atelier"
                   decoration-danger="is_late and not is_done"
                   decoration-success="not is_late"
                   decoration-warning="is_late and is_done">
@@ -24,7 +24,7 @@
                 <field name="delta_hours" string="Δ (h)" digits="[10,2]"/>
                 <field name="is_late" string="Retard"/>
                 <field name="cumul_retard_wc" string="Cumul retard poste (h)" digits="[10,2]"/>
-            </list>
+            </tree>
         </field>
     </record>
 
