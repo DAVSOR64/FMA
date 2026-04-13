@@ -139,37 +139,25 @@ class MrpWorkorder(models.Model):
             wo.mtn_display = mtn or False
 
 
-    # Couleurs fixes par poste FMA (index Odoo 0-15)
-    _WC_COLOR_MAP = {
-        'débit':    1,   # Rouge
-        'cu':       5,   # Bleu foncé
-        'usinage':  4,   # Bleu clair
-        'montage':  10,  # Vert
-        'vitrage':  11,  # Violet
-        'emballage': 3,  # Jaune/Orange
-        'peinture': 6,   # Cyan
-        'soudure':  2,   # Rose
-        'assemblage': 7, # Turquoise
-        'contrôle': 13,  # Gris
-        'expédition': 8, # Vert clair
-    }
-
-    @api.depends('workcenter_id', 'workcenter_id.name')
+    @api.depends('workcenter_id')
     def _compute_color_index(self):
-        """Couleur par nom de poste pour le Gantt.
-        Même poste = même couleur sur tous les OFs.
-        """
+        """Couleurs métier FMA fixes par poste pour le Gantt."""
         for wo in self:
-            name = (wo.workcenter_id.name or '').lower().strip()
-            color = 0
-            for keyword, idx in self._WC_COLOR_MAP.items():
-                if keyword in name:
-                    color = idx
-                    break
-            # Fallback si aucun mot-clé ne correspond
-            if not color and wo.workcenter_id.id:
-                color = ((wo.workcenter_id.id - 1) % 11) + 1
-            wo.color_index = color
+            name = (wo.workcenter_id.name or '').strip().lower()
+            if 'débit' in name or 'debit' in name:
+                wo.color_index = 1   # rouge
+            elif 'cu' in name:
+                wo.color_index = 5   # bleu foncé
+            elif 'usinage' in name:
+                wo.color_index = 4   # bleu clair
+            elif 'montage' in name:
+                wo.color_index = 10  # vert
+            elif 'vitrage' in name:
+                wo.color_index = 11  # violet
+            elif 'emballage' in name:
+                wo.color_index = 3   # jaune
+            else:
+                wo.color_index = 0
 
     def write(self, vals):
         """
