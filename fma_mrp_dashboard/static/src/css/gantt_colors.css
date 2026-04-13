@@ -1,0 +1,76 @@
+/* ============================================================
+   Couleurs GANTT FMA — Palette custom par poste de travail
+   Remplace les couleurs Odoo standard peu différenciées
+   ============================================================ */
+
+/* Index 1 — Débit FMA — Rouge vif */
+.o_gantt_pill.o_gantt_color_1 {
+    background-color: #E53935 !important;
+    color: #fff !important;
+}
+.o_gantt_group_pill.o_gantt_color_1 {
+    background-color: #E53935 !important;
+}
+
+/* Index 2 — CU (banc) FMA — Orange */
+.o_gantt_pill.o_gantt_color_2 {
+    background-color: #FB8C00 !important;
+    color: #fff !important;
+}
+.o_gantt_group_pill.o_gantt_color_2 {
+    background-color: #FB8C00 !important;
+}
+
+/* Index 4 — Usinage FMA — Violet */
+.o_gantt_pill.o_gantt_color_4 {
+    background-color: #8E24AA !important;
+    color: #fff !important;
+}
+.o_gantt_group_pill.o_gantt_color_4 {
+    background-color: #8E24AA !important;
+}
+
+/* Index 6 — Montage FMA — Bleu foncé */
+.o_gantt_pill.o_gantt_color_6 {
+    background-color: #1E88E5 !important;
+    color: #fff !important;
+}
+.o_gantt_group_pill.o_gantt_color_6 {
+    background-color: #1E88E5 !important;
+}
+
+/* Index 7 — Vitrage FMA — Vert */
+.o_gantt_pill.o_gantt_color_7 {
+    background-color: #43A047 !important;
+    color: #fff !important;
+}
+.o_gantt_group_pill.o_gantt_color_7 {
+    background-color: #43A047 !important;
+}
+
+/* Index 3 — Emballage FMA — Jaune/Ambre */
+.o_gantt_pill.o_gantt_color_3 {
+    background-color: #F9A825 !important;
+    color: #333 !important;
+}
+.o_gantt_group_pill.o_gantt_color_3 {
+    background-color: #F9A825 !important;
+}
+
+/* Index 5 — Indigo */
+.o_gantt_pill.o_gantt_color_5 {
+    background-color: #3949AB !important;
+    color: #fff !important;
+}
+.o_gantt_group_pill.o_gantt_color_5 {
+    background-color: #3949AB !important;
+}
+
+/* Index 8 — Teal */
+.o_gantt_pill.o_gantt_color_8 {
+    background-color: #00897B !important;
+    color: #fff !important;
+}
+.o_gantt_group_pill.o_gantt_color_8 {
+    background-color: #00897B !important;
+}

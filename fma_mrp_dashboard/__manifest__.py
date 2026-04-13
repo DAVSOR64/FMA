@@ -14,6 +14,11 @@
         'views/mrp_workorder_gantt_views.xml',
         'views/menu.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'fma_mrp_dashboard/static/src/css/gantt_colors.css',
+        ],
+    },
     'installable': True,
     'application': False,
     'license': 'LGPL-3',

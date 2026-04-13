@@ -139,19 +139,20 @@ class MrpWorkorder(models.Model):
             wo.mtn_display = mtn or False
 
 
-    # Couleurs fixes par poste FMA (index Odoo 0-15)
+    # Couleurs fixes par poste FMA (index Odoo GANTT 0-11)
+    # Testées pour contraste optimal en Odoo 17
     _WC_COLOR_MAP = {
-        'débit':    1,   # Rouge
-        'cu':       5,   # Bleu foncé
-        'usinage':  4,   # Bleu clair
-        'montage':  10,  # Vert
-        'vitrage':  11,  # Violet
-        'emballage': 3,  # Jaune/Orange
-        'peinture': 6,   # Cyan
-        'soudure':  2,   # Rose
-        'assemblage': 7, # Turquoise
-        'contrôle': 13,  # Gris
-        'expédition': 8, # Vert clair
+        'débit':     1,   # Rouge vif
+        'cu':        2,   # Rose/Magenta
+        'usinage':   4,   # Violet
+        'montage':   6,   # Bleu
+        'vitrage':   7,   # Bleu clair
+        'emballage': 3,   # Orange
+        'peinture':  8,   # Vert foncé
+        'soudure':   9,   # Vert
+        'assemblage': 10, # Vert clair
+        'contrôle':  5,   # Indigo
+        'expédition': 11, # Cyan
     }
 
     @api.depends('workcenter_id', 'workcenter_id.name')
