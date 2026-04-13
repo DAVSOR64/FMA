@@ -4,28 +4,6 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-ORDER_FMA = [
-    "Débit FMA",
-    "CU (banc) FMA",
-    "Usinage FMA",
-    "Montage FMA",
-    "Vitrage FMA",
-    "Emballage FMA",
-]
-
-COLOR_BY_RANK = {
-    1: 1,   # Débit -> rouge
-    2: 5,   # CU -> bleu foncé
-    3: 4,   # Usinage -> bleu clair
-    4: 10,  # Montage -> vert
-    5: 11,  # Vitrage -> violet
-    6: 3,   # Emballage -> jaune
-}
-
-
-def _norm(value):
-    return (value or "").strip().lower()
-
 
 class MrpWorkorder(models.Model):
     _inherit = 'mrp.workorder'
@@ -161,31 +139,25 @@ class MrpWorkorder(models.Model):
             wo.mtn_display = mtn or False
 
 
-    def _fma_rank(self):
-        values = [
-            _norm(self.name),
-            _norm(self.workcenter_id.name),
-            _norm(self.operation_id.name if self.operation_id else ""),
-        ]
-        for idx, label in enumerate(ORDER_FMA, start=1):
-            if any(_norm(label) in val for val in values):
-                return idx
-        return 999
-
-    @api.depends('workcenter_id', 'name', 'operation_id', 'operation_id.sequence')
+    @api.depends('workcenter_id')
     def _compute_color_index(self):
-        """Couleur métier FMA pour le Gantt.
-        Débit=rouge, CU=bleu foncé, Usinage=bleu clair,
-        Montage=vert, Vitrage=violet, Emballage=jaune.
-        Fallback : couleur stable par poste.
-        """
+        """Couleurs métier FMA fixes par poste pour le Gantt."""
         for wo in self:
-            rank = wo._fma_rank()
-            if rank in COLOR_BY_RANK:
-                wo.color_index = COLOR_BY_RANK[rank]
+            name = (wo.workcenter_id.name or '').strip().lower()
+            if 'débit' in name or 'debit' in name:
+                wo.color_index = 1   # rouge
+            elif 'cu' in name:
+                wo.color_index = 5   # bleu foncé
+            elif 'usinage' in name:
+                wo.color_index = 4   # bleu clair
+            elif 'montage' in name:
+                wo.color_index = 10  # vert
+            elif 'vitrage' in name:
+                wo.color_index = 11  # violet
+            elif 'emballage' in name:
+                wo.color_index = 3   # jaune
             else:
-                wc_id = wo.workcenter_id.id or 0
-                wo.color_index = ((wc_id - 1) % 11) + 1 if wc_id else 0
+                wo.color_index = 0
 
     def write(self, vals):
         """

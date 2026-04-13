@@ -133,12 +133,8 @@
                 <!-- Cumuls -->
                 <field name="cumul_prevu" string="📈 Cumul prévu (h)"/>
                 <field name="cumul_effectue" string="📉 Cumul effectué (h)"/>
-                <field name="ecart" string="🎯 Écart cumul (h)"
+                <field name="ecart" string="🎯 Écart (h)"
                        widget="monetary" options="{'currency_field': 'False'}"/>
-                <field name="performance_jour" string="⚡ Avance/retard jour (h)"
-                       decoration-danger="performance_jour &lt; 0"
-                       decoration-success="performance_jour &gt; 0"
-                       decoration-bf="performance_jour != 0"/>
             </tree>
         </field>
     </record>
@@ -153,8 +149,8 @@
                 <field name="sale_order_name" string="Commande"/>
                 <field name="workcenter_name" string="Poste"/>
                 <field name="operateurs" string="Opérateur"/>
-                <filter string="En retard" name="retard" domain="[('performance_jour', '&lt;', 0)]"/>
-                <filter string="En avance" name="avance" domain="[('performance_jour', '&gt;', 0)]"/>
+                <filter string="En retard" name="retard" domain="[('ecart', '&lt;', 0)]"/>
+                <filter string="En avance" name="avance" domain="[('ecart', '&gt;', 0)]"/>
             </search>
         </field>
     </record>
@@ -181,14 +177,6 @@
                 <!-- Charge du jour -->
                 <field name="charge_prevue_jour" string="📅 Prévu jour (h)" sum="Total prévu"/>
                 <field name="charge_effectuee_jour" string="✓ Effectué jour (h)" sum="Total effectué"/>
-                <field name="retard_brut_jour" string="⛔ Retard brut (h)" sum="Total retard"
-                       decoration-danger="retard_brut_jour &gt; 0"/>
-                <field name="avance_brute_jour" string="🚀 Avance brute (h)" sum="Total avance"
-                       decoration-success="avance_brute_jour &gt; 0"/>
-                <field name="performance_jour" string="⚡ Net jour (h)" sum="Net jour"
-                       decoration-danger="performance_jour &lt; 0"
-                       decoration-success="performance_jour &gt; 0"
-                       decoration-bf="performance_jour != 0"/>
                 
                 <field name="solde_heures" string="⚖️ Solde jour (h)" sum="Total solde"
                        decoration-danger="solde_heures &gt; 0"
@@ -232,9 +220,6 @@
                 <field name="capacite_heures" type="measure"/>
                 <field name="charge_prevue_jour" type="measure"/>
                 <field name="charge_effectuee_jour" type="measure"/>
-                <field name="retard_brut_jour" type="measure"/>
-                <field name="avance_brute_jour" type="measure"/>
-                <field name="performance_jour" type="measure"/>
                 <field name="ecart" type="measure"/>
             </pivot>
         </field>
@@ -250,7 +235,7 @@
                 <filter string="Proche saturation (80-100%)" name="alerte"
                         domain="[('taux_charge', '&gt;=', 80), ('taux_charge', '&lt;=', 100)]"/>
                 <filter string="En retard" name="retard"
-                        domain="[('performance_jour', '&lt;', 0)]"/>
+                        domain="[('ecart', '&lt;', 0)]"/>
                 <field name="workcenter_id" string="Poste de travail"/>
                 <field name="date" string="Date"/>
                 <group expand="1" string="Regrouper par">
