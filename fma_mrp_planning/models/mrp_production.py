@@ -1243,24 +1243,20 @@ class MrpProduction(models.Model):
         return self.action_open_replan_preview()
 
     def _build_replan_preview_payload(self):
-        import json
         from odoo.exceptions import UserError
         self.ensure_one()
         workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
         if not workorders:
             raise UserError(_("Aucune opération à recalculer."))
 
-        # Date de fin = champ custom x_studio_date_de_fin (date saisie par l'utilisateur)
-        # C'est depuis cette date qu'on calcule le backward
+        # Date de fin fab custom
         x_end = (
             getattr(self, 'x_studio_date_de_fin', False)
             or getattr(self, 'x_studio_date_fin', False)
         )
         if x_end:
-            # Convertir en datetime fin de journée (soir du dernier WO)
             from datetime import date as date_type
             if isinstance(x_end, date_type) and not isinstance(x_end, datetime):
-                # Récupérer l'heure de fin du dernier poste
                 wos_sorted = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
                 last_wc = wos_sorted[-1].workcenter_id if wos_sorted else False
                 fixed_end_dt = self._evening_dt(x_end, last_wc) if last_wc else datetime.combine(x_end, time(17, 0))
@@ -1275,35 +1271,53 @@ class MrpProduction(models.Model):
         if not fixed_end_dt:
             raise UserError(_("Aucune date de fin n'est définie sur l'OF. Renseignez le champ 'Date de fin'."))
 
-        # Snapshot avant simulation
-        snapshot = {}
-        for wo in workorders:
-            snapshot[wo.id] = {
-                "macro_start": getattr(wo, "macro_planned_start", False),
-                "date_start": getattr(wo, "date_start", False),
-                "date_finished": getattr(wo, "date_finished", False),
-            }
-        mo_start_snapshot = self.date_start
-        mo_finished_snapshot = getattr(self, "date_finished", False)
-        mo_deadline_snapshot = getattr(self, "date_deadline", False)
+        def _fmt(dt):
+            if not dt:
+                return "-"
+            try:
+                if hasattr(dt, 'strftime'):
+                    return dt.strftime('%d/%m/%Y')
+                d = str(dt)[:10].split('-')
+                return f"{d[2]}/{d[1]}/{d[0]}"
+            except Exception:
+                return str(dt)[:10]
 
-        picking = self.picking_ids.filtered(lambda p: p.state not in ("done", "cancel"))[:1]
-        picking_sched_snapshot = picking.scheduled_date if picking else False
-        picking_deadline_snapshot = picking.date_deadline if picking else False
+        # ── Calcul à sec des dates (sans écrire en base) ──────────────────────
+        # On simule le backward pour afficher les dates dans le popup
+        # Le vrai calcul avec écriture se fait au clic OK via action_apply_replan_preview
+        end_day = fields.Datetime.to_datetime(fixed_end_dt).date()
+        wos_sorted = workorders.sorted(
+            lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id),
+            reverse=True
+        )
+        current_end_day = end_day
+        first_start_day = None
+        import math as _math
 
-        # Simulation du calcul
-        ctx = self.with_context(skip_macro_recalc=True)
-        ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
-        ctx.apply_macro_to_workorders_dates()
-        ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
-        ctx._update_components_picking_dates()
+        for wo in wos_sorted:
+            wc = wo.workcenter_id
+            if not wc:
+                continue
+            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
+            hours_per_day = cal.hours_per_day or 7.8
+            duration_hours, _ = self._get_effective_duration_hours(wo)
+            required_days = max(1, int(_math.ceil(duration_hours / hours_per_day)))
+            last_day = self._previous_or_same_working_day(current_end_day, wc)
+            first_day = last_day
+            for _ in range(required_days - 1):
+                first_day = self._previous_working_day(first_day, wc)
+            first_start_day = first_day
+            current_end_day = first_day - timedelta(days=1)
 
-        # Lire les nouvelles dates SIMULÉES avant restore
-        self.invalidate_recordset(['date_start', 'date_finished', 'date_deadline'])
-        picking.invalidate_recordset(['scheduled_date']) if picking else None
-        new_start = self.date_start
-        new_end = getattr(self, 'date_finished', False) or fixed_end_dt
-        transfer_date = picking.scheduled_date if picking else False
+        # Date de début OF calculée
+        new_start = self._morning_dt(first_start_day, workorders[0].workcenter_id) if first_start_day else None
+
+        # Date transfert composants = 4 jours ouvrés avant new_start
+        transfer_day = first_start_day
+        if transfer_day:
+            first_wc = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))[0].workcenter_id
+            for _ in range(4):
+                transfer_day = self._previous_working_day(transfer_day, first_wc)
 
         # POs liés
         purchase_orders = self.env["purchase.order"]
@@ -1319,58 +1333,21 @@ class MrpProduction(models.Model):
             "date_planned": fields.Datetime.to_string(po.date_planned) if po.date_planned else "",
         } for po in purchase_orders]
 
-        # Restore snapshot
-        for wo in workorders:
-            data = snapshot[wo.id]
-            vals = {}
-            if "macro_planned_start" in wo._fields:
-                vals["macro_planned_start"] = data["macro_start"]
-            if "date_start" in wo._fields:
-                vals["date_start"] = data["date_start"]
-            if "date_finished" in wo._fields:
-                vals["date_finished"] = data["date_finished"]
-            if vals:
-                wo.with_context(skip_macro_recalc=True, skip_shift_chain=True, mail_notrack=True).write(vals)
-
-        vals_mo = {}
-        if "date_start" in self._fields:
-            vals_mo["date_start"] = mo_start_snapshot
-        if "date_finished" in self._fields:
-            vals_mo["date_finished"] = mo_finished_snapshot
-        if "date_deadline" in self._fields:
-            vals_mo["date_deadline"] = mo_deadline_snapshot
-        if vals_mo:
-            self.with_context(skip_macro_recalc=True, mail_notrack=True).write(vals_mo)
-
-        if picking:
-            picking.with_context(mail_notrack=True).write({
-                "scheduled_date": picking_sched_snapshot,
-                "date_deadline": picking_deadline_snapshot,
-            })
-
-        def _fmt(dt):
-            """Formate en DD/MM/YYYY sans heure"""
-            if not dt:
-                return "-"
-            try:
-                if hasattr(dt, 'strftime'):
-                    return dt.strftime('%d/%m/%Y')
-                from datetime import datetime as dt_cls
-                d = dt_cls.strptime(str(dt)[:10], '%Y-%m-%d')
-                return d.strftime('%d/%m/%Y')
-            except Exception:
-                return str(dt)[:10]
-
-        # Date de livraison client pour comparaison visuelle
-        delivery_dt, sale_order = self._get_macro_target_date()
+        # Date livraison client
+        delivery_dt, _ = self._get_macro_target_date()
 
         return {
             "production_name": self.display_name or self.name or "",
-            "date_fin_fab": _fmt(fields.Datetime.to_datetime(x_end) if x_end else fixed_end_dt),
+            "date_fin_fab": _fmt(x_end or fixed_end_dt),
             "date_start": _fmt(new_start),
-            "transfer_date": _fmt(transfer_date),
+            "transfer_date": _fmt(datetime.combine(transfer_day, time(7, 30)) if transfer_day else None),
             "date_livraison": _fmt(delivery_dt) if delivery_dt else "-",
-            "retard": bool(delivery_dt and new_end and fields.Datetime.to_datetime(new_end) > fields.Datetime.to_datetime(delivery_dt)),
+            "retard": bool(
+                delivery_dt and fixed_end_dt
+                and fields.Datetime.to_datetime(fixed_end_dt).date() > (
+                    delivery_dt.date() if hasattr(delivery_dt, 'date') else delivery_dt
+                )
+            ),
             "purchase_orders": po_data,
         }
 
