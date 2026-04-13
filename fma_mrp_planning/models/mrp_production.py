@@ -97,12 +97,22 @@ class MrpProduction(models.Model):
 
             # macro_planned_start = début du bloc (matin)
             macro_dt = self._morning_dt(first_day, wc)
+            end_dt = self._evening_dt(last_day, wc)
 
             if "macro_planned_start" in wo._fields:
-                write_vals = {"macro_planned_start": macro_dt}
+                write_vals = {
+                    "macro_planned_start": macro_dt,
+                    "date_start": macro_dt,
+                    "date_finished": end_dt,
+                }
                 if "x_nb_resources" in wo._fields:
                     write_vals["x_nb_resources"] = nb_resources
-                wo.with_context(mail_notrack=True).write(write_vals)
+                wo.with_context(
+                    mail_notrack=True,
+                    skip_macro_recalc=True,
+                    skip_shift_chain=True,
+                    allow_wo_clear=True,
+                ).write(write_vals)
 
             _logger.info(
                 "WO %s (%s): %s -> %s | brut=%.0f min | eff=%.2fh => %d j | %d ressource(s) | macro=%s",
@@ -122,8 +132,121 @@ class MrpProduction(models.Model):
         return True
 
     # ============================================================
-    # BUTTON "PLANIFIER" (MO) -> push macro to WO dates for gantt
+    # ENTRY POINT FROM REPLANIFIER (date_fin custom -> backward)
     # ============================================================
+    def compute_macro_schedule_from_date_fin(self):
+        """
+        Appelé par le bouton Replanifier (via action_apply_replan_preview).
+        - Source : x_studio_date_de_fin (saisi par l'utilisateur)
+        - Bloque si x_studio_date_de_fin > so_date_de_livraison_prevu
+        - Calcule backward depuis x_studio_date_de_fin
+        - Écrit macro_planned_start + date_start + date_finished sur chaque WO
+        - Met à jour dates OF + transfert composants
+        """
+        self.ensure_one()
+        from odoo.exceptions import UserError, ValidationError
+
+        # 1) Récupérer x_studio_date_de_fin
+        x_end = (
+            getattr(self, 'x_studio_date_de_fin', False)
+            or getattr(self, 'x_studio_date_fin', False)
+        )
+        if not x_end:
+            raise UserError(_("La date de fin de fabrication (x_studio_date_de_fin) n'est pas renseignée sur l'OF."))
+
+        # Convertir en date si nécessaire
+        from datetime import date as date_type
+        if not isinstance(x_end, date_type):
+            x_end = fields.Date.to_date(x_end)
+
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        if not workorders:
+            raise UserError(_("Aucune opération active à replanifier sur cet OF."))
+
+        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+
+        # 2) Récupérer la date de livraison client
+        delivery_dt, sale_order = self._get_macro_target_date()
+
+        # 3) Blocage si date de fin fab > date de livraison
+        if delivery_dt:
+            delivery_date = delivery_dt.date() if hasattr(delivery_dt, 'date') else delivery_dt
+            if x_end > delivery_date:
+                days_late = (x_end - delivery_date).days
+                raise ValidationError(_(
+                    "⚠️ BLOCAGE : La date de fin de fabrication dépasse la date de livraison client !\n\n"
+                    "Date de fin fab :    %s\n"
+                    "Date de livraison :  %s\n"
+                    "Retard :             %d jours\n\n"
+                    "Modifiez la date de fin ou négociez la date de livraison avant de replanifier."
+                ) % (
+                    x_end.strftime('%d/%m/%Y'),
+                    delivery_date.strftime('%d/%m/%Y'),
+                    days_late,
+                ))
+
+        # 4) Convertir x_end en datetime fin de journée
+        last_wc_sorted = workorders[-1].workcenter_id
+        end_fab_dt = self._evening_dt(x_end, last_wc_sorted) if last_wc_sorted \
+            else datetime.combine(x_end, time(17, 0))
+
+        _logger.info("MO %s : REPLANIFIER depuis x_studio_date_de_fin=%s → end_fab_dt=%s",
+                     self.name, x_end, end_fab_dt)
+
+        # 5) Backward : dernière opération → première
+        end_fab_day = x_end
+        last_wc = workorders[-1].workcenter_id
+        current_end_day = self._previous_or_same_working_day(end_fab_day, last_wc)
+
+        for wo in workorders.sorted(
+            lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True
+        ):
+            wc = wo.workcenter_id
+            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
+            hours_per_day = cal.hours_per_day or 7.8
+
+            duration_hours, nb_resources = self._get_effective_duration_hours(wo)
+            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
+
+            last_day = self._previous_or_same_working_day(current_end_day, wc)
+            first_day = last_day
+            for _ in range(required_days - 1):
+                first_day = self._previous_working_day(first_day, wc)
+
+            macro_dt = self._morning_dt(first_day, wc)
+            end_dt = self._evening_dt(last_day, wc)
+
+            if "macro_planned_start" in wo._fields:
+                write_vals = {
+                    "macro_planned_start": macro_dt,
+                    "date_start": macro_dt,
+                    "date_finished": end_dt,
+                }
+                if "x_nb_resources" in wo._fields:
+                    write_vals["x_nb_resources"] = nb_resources
+                wo.with_context(
+                    mail_notrack=True,
+                    skip_macro_recalc=True,
+                    skip_shift_chain=True,
+                    allow_wo_clear=True,
+                ).write(write_vals)
+
+            _logger.info(
+                "WO %s (%s): %s -> %s | eff=%.2fh | %d j | macro=%s",
+                wo.name, wc.display_name, first_day, last_day,
+                duration_hours, required_days, macro_dt
+            )
+
+            current_end_day = self._previous_working_day(first_day, wc)
+
+        # 6) Recaler les dates OF + transfert composants
+        self._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
+        self._update_components_picking_dates()
+
+        _logger.info("MO %s : REPLANIFIER terminé", self.name)
+        return True
+
+
     def button_plan(self):
         """
         Phase 2 (clic sur Planifier) :
@@ -1135,28 +1258,39 @@ class MrpProduction(models.Model):
 
     # ── Batch macro replan ────────────────────────────────────────────────────
     def _get_macro_target_date(self):
-        """Retourne (delivery_dt, sale_order) pour le recalcul macro."""
+        """Retourne (delivery_dt, sale_order) pour le recalcul macro.
+        Priorité : so_date_de_livraison_prevu > commitment_date > date_deadline
+        """
         self.ensure_one()
         sale_order = False
         if self.procurement_group_id:
             sale_order = self.env['sale.order'].search([
                 ('procurement_group_id', '=', self.procurement_group_id.id)
             ], limit=1)
+        # Pas de SO → fallback via x_studio_mtn_mrp_sale_order
+        if not sale_order:
+            sale_order = getattr(self, 'x_studio_mtn_mrp_sale_order', False)
+
         delivery_dt = False
         if sale_order:
+            # Priorité 1 : date de livraison prévue custom (so_date_de_livraison_prevu)
             raw = (
                 getattr(sale_order, 'so_date_de_livraison_prevu', False)
                 or getattr(sale_order, 'x_studio_date_de_livraison_prevu', False)
-                or sale_order.commitment_date
             )
             if raw:
                 delivery_dt = fields.Datetime.to_datetime(raw)
+            # Priorité 2 : commitment_date Odoo
+            if not delivery_dt and sale_order.commitment_date:
+                delivery_dt = fields.Datetime.to_datetime(sale_order.commitment_date)
+
+        # Priorité 3 : date_deadline de l'OF
         if not delivery_dt and self.date_deadline:
             delivery_dt = fields.Datetime.to_datetime(self.date_deadline)
+        # Priorité 4 : date_finished de l'OF
         if not delivery_dt and getattr(self, 'date_finished', False):
             delivery_dt = fields.Datetime.to_datetime(self.date_finished)
-        if not delivery_dt and getattr(self, 'macro_forced_end', False):
-            delivery_dt = fields.Datetime.to_datetime(self.macro_forced_end)
+
         return delivery_dt, sale_order
 
     def _is_macro_batch_eligible(self):
@@ -1243,33 +1377,46 @@ class MrpProduction(models.Model):
         return self.action_open_replan_preview()
 
     def _build_replan_preview_payload(self):
-        from odoo.exceptions import UserError
+        from odoo.exceptions import UserError, ValidationError
         self.ensure_one()
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        if not workorders:
-            raise UserError(_("Aucune opération à recalculer."))
 
         # Date de fin fab custom
         x_end = (
             getattr(self, 'x_studio_date_de_fin', False)
             or getattr(self, 'x_studio_date_fin', False)
         )
-        if x_end:
-            from datetime import date as date_type
-            if isinstance(x_end, date_type) and not isinstance(x_end, datetime):
-                wos_sorted = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-                last_wc = wos_sorted[-1].workcenter_id if wos_sorted else False
-                fixed_end_dt = self._evening_dt(x_end, last_wc) if last_wc else datetime.combine(x_end, time(17, 0))
-            else:
-                fixed_end_dt = fields.Datetime.to_datetime(x_end)
-        else:
-            fixed_end_dt = (
-                getattr(self, "macro_forced_end", False)
-                or self.date_deadline
-                or getattr(self, "date_finished", False)
-            )
-        if not fixed_end_dt:
-            raise UserError(_("Aucune date de fin n'est définie sur l'OF. Renseignez le champ 'Date de fin'."))
+        if not x_end:
+            raise UserError(_("La date de fin de fabrication n'est pas renseignée sur l'OF."))
+
+        from datetime import date as date_type
+        if not isinstance(x_end, date_type):
+            x_end = fields.Date.to_date(x_end)
+
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
+        if not workorders:
+            raise UserError(_("Aucune opération active à replanifier."))
+
+        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+
+        # Date de livraison client
+        delivery_dt, sale_order = self._get_macro_target_date()
+
+        # Blocage immédiat si retard
+        if delivery_dt:
+            delivery_date = delivery_dt.date() if hasattr(delivery_dt, 'date') else delivery_dt
+            if x_end > delivery_date:
+                days_late = (x_end - delivery_date).days
+                raise ValidationError(_(
+                    "⚠️ BLOCAGE : La date de fin de fabrication dépasse la date de livraison client !\n\n"
+                    "Date de fin fab :    %s\n"
+                    "Date de livraison :  %s\n"
+                    "Retard :             %d jours\n\n"
+                    "Modifiez la date de fin ou négociez la date de livraison avant de replanifier."
+                ) % (
+                    x_end.strftime('%d/%m/%Y'),
+                    delivery_date.strftime('%d/%m/%Y'),
+                    days_late,
+                ))
 
         def _fmt(dt):
             if not dt:
@@ -1282,40 +1429,36 @@ class MrpProduction(models.Model):
             except Exception:
                 return str(dt)[:10]
 
-        # ── Calcul à sec des dates (sans écrire en base) ──────────────────────
-        # On simule le backward pour afficher les dates dans le popup
-        # Le vrai calcul avec écriture se fait au clic OK via action_apply_replan_preview
-        end_day = fields.Datetime.to_datetime(fixed_end_dt).date()
-        wos_sorted = workorders.sorted(
-            lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id),
-            reverse=True
-        )
-        current_end_day = end_day
+        # Calcul à sec des dates pour le popup (sans écrire en base)
+        end_fab_day = x_end
+        last_wc = workorders[-1].workcenter_id
+        current_end_day = self._previous_or_same_working_day(end_fab_day, last_wc)
         first_start_day = None
-        import math as _math
 
-        for wo in wos_sorted:
+        for wo in workorders.sorted(
+            lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True
+        ):
             wc = wo.workcenter_id
             if not wc:
                 continue
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
             hours_per_day = cal.hours_per_day or 7.8
             duration_hours, _ = self._get_effective_duration_hours(wo)
-            required_days = max(1, int(_math.ceil(duration_hours / hours_per_day)))
+            required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
             last_day = self._previous_or_same_working_day(current_end_day, wc)
             first_day = last_day
             for _ in range(required_days - 1):
                 first_day = self._previous_working_day(first_day, wc)
             first_start_day = first_day
-            current_end_day = first_day - timedelta(days=1)
+            current_end_day = self._previous_working_day(first_day, wc)
 
-        # Date de début OF calculée
-        new_start = self._morning_dt(first_start_day, workorders[0].workcenter_id) if first_start_day else None
+        # Date début OF
+        first_wc = workorders[0].workcenter_id
+        new_start = self._morning_dt(first_start_day, first_wc) if first_start_day else None
 
-        # Date transfert composants = 4 jours ouvrés avant new_start
+        # Date transfert = 4 jours ouvrés avant début fab
         transfer_day = first_start_day
         if transfer_day:
-            first_wc = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))[0].workcenter_id
             for _ in range(4):
                 transfer_day = self._previous_working_day(transfer_day, first_wc)
 
@@ -1330,24 +1473,16 @@ class MrpProduction(models.Model):
         po_data = [{
             "name": po.name or "",
             "partner": po.partner_id.display_name or "",
-            "date_planned": fields.Datetime.to_string(po.date_planned) if po.date_planned else "",
+            "date_planned": str(po.date_planned)[:10] if po.date_planned else "",
         } for po in purchase_orders]
-
-        # Date livraison client
-        delivery_dt, _ = self._get_macro_target_date()
 
         return {
             "production_name": self.display_name or self.name or "",
-            "date_fin_fab": _fmt(x_end or fixed_end_dt),
+            "date_fin_fab": _fmt(x_end),
             "date_start": _fmt(new_start),
             "transfer_date": _fmt(datetime.combine(transfer_day, time(7, 30)) if transfer_day else None),
             "date_livraison": _fmt(delivery_dt) if delivery_dt else "-",
-            "retard": bool(
-                delivery_dt and fixed_end_dt
-                and fields.Datetime.to_datetime(fixed_end_dt).date() > (
-                    delivery_dt.date() if hasattr(delivery_dt, 'date') else delivery_dt
-                )
-            ),
+            "retard": False,  # déjà bloqué au-dessus si retard
             "purchase_orders": po_data,
         }
 
@@ -1425,74 +1560,9 @@ class MrpProduction(models.Model):
         )
 
     def action_apply_replan_preview(self, payload=None):
-        from odoo.exceptions import UserError
+        """Appelé au clic OK du popup de prévisualisation."""
         self.ensure_one()
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ("done", "cancel"))
-        if not workorders:
-            raise UserError(_("Aucune opération à recalculer."))
-
-        # Même logique : partir de x_studio_date_de_fin
-        x_end = (
-            getattr(self, 'x_studio_date_de_fin', False)
-            or getattr(self, 'x_studio_date_fin', False)
-        )
-        if x_end:
-            from datetime import date as date_type
-            if isinstance(x_end, date_type) and not isinstance(x_end, datetime):
-                wos_sorted = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
-                last_wc = wos_sorted[-1].workcenter_id if wos_sorted else False
-                fixed_end_dt = self._evening_dt(x_end, last_wc) if last_wc else datetime.combine(x_end, time(17, 0))
-            else:
-                fixed_end_dt = fields.Datetime.to_datetime(x_end)
-        else:
-            fixed_end_dt = (
-                getattr(self, "macro_forced_end", False)
-                or self.date_deadline
-                or getattr(self, "date_finished", False)
-            )
-        if not fixed_end_dt:
-            raise UserError(_("Aucune date de fin n'est définie sur l'OF."))
-
-        ctx = self.with_context(skip_macro_recalc=True)
-
-        # Étape 1 : calculer et écrire macro_planned_start sur chaque WO
-        ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
-
-        # Étape 2 : flush pour garantir que les macros sont en base
-        workorders.flush_recordset()
-
-        # Étape 3 : écrire date_start/date_finished directement (sans passer par
-        # apply_macro_to_workorders_dates qui déclenche button_plan → button_unplan → macro=False)
-        import math as _math
-        for wo in workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id)):
-            if not wo.macro_planned_start:
-                continue
-            wc = wo.workcenter_id
-            cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
-            hours_per_day = cal.hours_per_day or 7.8
-            duration_hours, _ = self._get_effective_duration_hours(wo)
-            required_days = max(1, int(_math.ceil(duration_hours / hours_per_day)))
-            start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
-            last_day = start_day
-            for _ in range(required_days - 1):
-                last_day = self._next_working_day(last_day, wc)
-            start_dt = self._morning_dt(start_day, wc)
-            end_dt = self._evening_dt(last_day, wc)
-            wo.with_context(
-                skip_macro_recalc=True,
-                skip_shift_chain=True,
-                allow_wo_clear=True,
-                mail_notrack=True,
-            ).write({'date_start': start_dt, 'date_finished': end_dt})
-
-        # Étape 4 : recaler les dates OF et transferts
-        ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
-        ctx._update_components_picking_dates()
-
-        workorders.flush_recordset()
-        self.flush_recordset()
-        workorders.invalidate_recordset(["macro_planned_start", "date_start", "date_finished"])
-        self.invalidate_recordset(["date_start", "date_finished", "date_deadline"])
+        self.compute_macro_schedule_from_date_fin()
         return True
 
     def _apply_replan_real(self, payload=None):
