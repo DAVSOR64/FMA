@@ -1,18 +1,15 @@
-# -*- coding: utf-8 -*-
 {
-    'name': 'FMA - KPI Visu Atelier',
-    'version': '17.0.1.0.0',
-    'category': 'Manufacturing',
-    'summary': 'Visu atelier avec retard d'avancement cumulé par poste',
-    'author': 'ODOVIZE',
-    'depends': ['mrp', 'fma_mrp_planning'],
-    'data': [
-        'security/ir.model.access.csv',
-        'data/cron.xml',
-        'views/mrp_daily_snapshot_views.xml',
-        'views/menu.xml',
+    "name": "FMA KPI Visu Atelier",
+    "version": "1.0",
+    "author": "PAXO CONSULTING",
+    "category": "Manufacturing",
+    "summary": "Visu atelier avec retard d'avancement cumulé par poste",
+    "description": "Suivi des ordres de travail avec calcul du retard d'avancement et cumul par poste",
+    "depends": ["mrp"],
+    "data": [
+        "views/mrp_kpi_views.xml",
     ],
-    'installable': True,
-    'application': False,
-    'license': 'LGPL-3',
+    "installable": True,
+    "application": False,
+    "license": "LGPL-3",
 }
