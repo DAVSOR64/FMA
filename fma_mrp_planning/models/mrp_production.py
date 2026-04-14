@@ -468,7 +468,7 @@ class MrpProduction(models.Model):
 
         for production in self:
             for wo in production.workorder_ids.sorted(
-                key=lambda w: (w.macro_planned_start or w.date_start or production.date_planned_start or fields.Datetime.now())
+                key=lambda w: (w.macro_planned_start or w.date_start or fields.Datetime.now())
             ):
                 macro_start = wo.macro_planned_start
                 if not macro_start:
@@ -488,10 +488,10 @@ class MrpProduction(models.Model):
                     'date_finished': end_dt,
                 }
 
-                if 'date_planned_start' in wo._fields:
-                    vals['date_planned_start'] = start_dt
-                if 'date_planned_finished' in wo._fields:
-                    vals['date_planned_finished'] = end_dt
+                #if 'date_planned_start' in wo._fields:
+                #    vals['date_planned_start'] = start_dt
+                #if 'date_planned_finished' in wo._fields:
+                #    vals['date_planned_finished'] = end_dt
 
                 wo.write(vals)
 
