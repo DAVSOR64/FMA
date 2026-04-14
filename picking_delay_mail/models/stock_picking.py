@@ -28,7 +28,7 @@ class StockPicking(models.Model):
         if not sale_order:
             raise UserError("Aucun SO lié.")
 
-        contact = sale_order.main_contact_principal
+        contact = sale_order.main_contact_id
         if not contact:
             raise UserError("Pas de contact principal.")
 
@@ -37,7 +37,7 @@ class StockPicking(models.Model):
 
         # >>> REMPLACE ICI PAR TON TEMPLATE <<<
         template = self.env.ref(
-            "MON_MODULE.MON_XML_ID_TEMPLATE_RETARD",
+            "custom.mail_template_retard_livraison",
             raise_if_not_found=False
         )
 
