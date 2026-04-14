@@ -473,7 +473,7 @@ class MrpProduction(models.Model):
             sorted_wos = production.workorder_ids.filtered(
                 lambda w: w.state not in ('done', 'cancel') and w.macro_planned_start
             ).sorted(
-                key=lambda w: (w.macro_planned_start or w.date_start or production.date_planned_start or fields.Datetime.now(), w.id)
+                key=lambda w: (w.macro_planned_start or w.date_start or fields.Datetime.now(), w.id)
             )
 
             for wo in sorted_wos:
@@ -496,10 +496,10 @@ class MrpProduction(models.Model):
                     'date_start': start_dt,
                     'date_finished': end_dt,
                 }
-                if 'date_planned_start' in wo._fields:
-                    vals['date_planned_start'] = start_dt
-                if 'date_planned_finished' in wo._fields:
-                    vals['date_planned_finished'] = end_dt
+                #if 'date_planned_start' in wo._fields:
+                #    vals['date_planned_start'] = start_dt
+                #if 'date_planned_finished' in wo._fields:
+                #    vals['date_planned_finished'] = end_dt
                 if 'x_nb_resources' in wo._fields:
                     vals['x_nb_resources'] = nb_resources or 1
 
