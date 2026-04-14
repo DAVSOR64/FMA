@@ -560,14 +560,14 @@ class MrpProduction(models.Model):
         res = super(MrpProduction, self.with_context(allow_wo_clear=True)).button_unplan()
 
         # Nettoyer nos dates macro (sinon elles "reviennent" au prochain recalcul)
-        for mo in self:
-            try:
-                mo.workorder_ids.with_context(skip_macro_recalc=True, mail_notrack=True).write({
-                    "macro_planned_start": False,
-                    "macro_planned_finished": False,
-                })
-            except Exception:
-                _logger.exception("Erreur nettoyage macro_planned_start lors de la déprogrammation sur %s", mo.name)
+        #for mo in self:
+        #    try:
+        #        mo.workorder_ids.with_context(skip_macro_recalc=True, mail_notrack=True).write({
+        #            "macro_planned_start": False,
+        #            "macro_planned_finished": False,
+        #        })
+        #    except Exception:
+        #        _logger.exception("Erreur nettoyage macro_planned_start lors de la déprogrammation sur %s", mo.name)
 
         return res
 
