@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Sous-menu dans Fabrication → Analyse -->
-    <menuitem
-        id="menu_mrp_daily_snapshot"
-        name="Retard Atelier"
-        parent="mrp.menu_mrp_reporting"
-        action="action_mrp_daily_snapshot"
-        sequence="50"/>
+    <menuitem id="menu_mrp_daily_snapshot" name="Visu Atelier" parent="mrp.menu_mrp_reporting" action="action_mrp_daily_snapshot" sequence="50"/>
 </odoo>

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Cron snapshot quotidien retard atelier — 23H30 -->
     <record id="cron_mrp_daily_snapshot" model="ir.cron">
-        <field name="name">FMA - Snapshot quotidien retard atelier (23H30)</field>
+        <field name="name">FMA - Visu atelier quotidienne (23H30)</field>
         <field name="model_id" ref="model_mrp_daily_snapshot"/>
         <field name="state">code</field>
         <field name="code">model.cron_compute_daily_snapshot()</field>
