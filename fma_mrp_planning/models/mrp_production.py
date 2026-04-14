@@ -600,24 +600,68 @@ class MrpProduction(models.Model):
             self._set_wo_planning_dates(wo, start_dt, end_dt)
 
     def _set_wo_planning_dates(self, wo, start_dt, end_dt):
+        """Pose les dates réelles des OT lors du clic sur Programmer.
+
+        On écrit toujours les champs réels visibles dans l'UI (Lancer / Fin),
+        et on complète aussi les champs planifiés quand ils existent.
+        """
         vals = {}
-        # Champs planifiés (selon version)
+
+        # Champs réels visibles dans les OT / gantt atelier
+        if "date_start" in wo._fields:
+            vals["date_start"] = start_dt
+        if "date_finished" in wo._fields:
+            vals["date_finished"] = end_dt
+
+        # Champs planifiés complémentaires selon la version Odoo
         if "date_planned_start" in wo._fields:
             vals["date_planned_start"] = start_dt
         if "date_planned_finished" in wo._fields:
             vals["date_planned_finished"] = end_dt
-    
-        # Fallback (certaines versions)
-        if not vals:
-            if "date_start" in wo._fields:
-                vals["date_start"] = start_dt
-            if "date_finished" in wo._fields:
-                vals["date_finished"] = end_dt
-    
+
         if vals:
-            # skip_shift_chain : évite que le write WO déclenche _shift_workorders_after
-            # skip_macro_recalc : évite un recalcul macro en boucle
-            wo.with_context(mail_notrack=True, skip_shift_chain=True, skip_macro_recalc=True).write(vals)
+            wo.with_context(
+                mail_notrack=True,
+                skip_shift_chain=True,
+                skip_macro_recalc=True,
+            ).write(vals)
+
+            # Fallback SQL si l'ORM ne persiste pas bien les dates réelles
+            wo.invalidate_recordset([f for f in ("date_start", "date_finished", "date_planned_start", "date_planned_finished") if f in wo._fields])
+            missing_real = (
+                ("date_start" in wo._fields and not wo.date_start) or
+                ("date_finished" in wo._fields and not wo.date_finished)
+            )
+            if missing_real:
+                sets = []
+                params = []
+
+                def _add(col, val):
+                    self.env.cr.execute(
+                        """
+                        SELECT 1
+                          FROM information_schema.columns
+                         WHERE table_name = 'mrp_workorder'
+                           AND column_name = %s
+                        """,
+                        (col,)
+                    )
+                    if self.env.cr.fetchone():
+                        sets.append(f"{col} = %s")
+                        params.append(fields.Datetime.to_string(val) if val else None)
+
+                _add('date_start', start_dt)
+                _add('date_finished', end_dt)
+                _add('date_planned_start', start_dt)
+                _add('date_planned_finished', end_dt)
+                if sets:
+                    params.append(wo.id)
+                    sql = "UPDATE mrp_workorder SET %s WHERE id = %%s" % ", ".join(sets)
+                    self.env.cr.execute(sql, params)
+                    _logger.warning(
+                        "BUTTON_PLAN fallback SQL | WO %s (id=%s) | start=%s | end=%s",
+                        wo.name, wo.id, start_dt, end_dt
+                    )
 
 
     # ============================================================
