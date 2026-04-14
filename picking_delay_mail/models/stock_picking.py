@@ -37,7 +37,7 @@ class StockPicking(models.Model):
 
         # >>> REMPLACE ICI PAR TON TEMPLATE <<<
         template = self.env.ref(
-            "custom.mail_template_retard_livraison",
+            "__custom__.info_retard",
             raise_if_not_found=False
         )
 
