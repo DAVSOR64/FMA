@@ -467,19 +467,54 @@ class MrpProduction(models.Model):
         _logger.warning("********** BUTTON_PLAN FROM MACRO **********")
 
         for production in self:
-            for wo in production.workorder_ids.sorted(
+            _logger.warning(
+                "BUTTON_PLAN | OF=%s | nb_workorders=%s | mo_date_start=%s | mo_date_finished=%s",
+                production.name,
+                len(production.workorder_ids),
+                production.date_start,
+                production.date_finished,
+            )
+
+            sorted_wos = production.workorder_ids.sorted(
                 key=lambda w: (w.macro_planned_start or w.date_start or fields.Datetime.now())
-            ):
+            )
+
+            for wo in sorted_wos:
+                _logger.warning(
+                    "BUTTON_PLAN | WO=%s | id=%s | macro_start=%s | date_start=%s | date_finished=%s | state=%s",
+                    wo.name,
+                    wo.id,
+                    wo.macro_planned_start,
+                    wo.date_start,
+                    wo.date_finished,
+                    wo.state,
+                )
+
                 macro_start = wo.macro_planned_start
                 if not macro_start:
+                    _logger.warning(
+                        "BUTTON_PLAN | WO=%s | SKIP car macro_planned_start vide",
+                        wo.name,
+                    )
                     continue
 
-                # Forcer l'heure à 07:30
                 start_dt = macro_start.replace(hour=7, minute=30, second=0, microsecond=0)
 
                 duration_hours, nb_resources = production._get_effective_duration_hours(wo)
+                _logger.warning(
+                    "BUTTON_PLAN | WO=%s | duration_hours=%s | nb_resources=%s",
+                    wo.name,
+                    duration_hours,
+                    nb_resources,
+                )
+
                 if duration_hours <= 0:
                     duration_hours = 0.01
+                    _logger.warning(
+                        "BUTTON_PLAN | WO=%s | durée forcée à %s",
+                        wo.name,
+                        duration_hours,
+                    )
 
                 end_dt = start_dt + timedelta(hours=duration_hours)
 
@@ -493,8 +528,25 @@ class MrpProduction(models.Model):
                 #if 'date_planned_finished' in wo._fields:
                 #    vals['date_planned_finished'] = end_dt
 
+                _logger.warning(
+                    "BUTTON_PLAN | WO=%s | WRITE vals=%s",
+                    wo.name,
+                    vals,
+                )
+
                 wo.write(vals)
 
+                wo.flush_recordset()
+
+                wo_after = wo.sudo().browse(wo.id)
+                _logger.warning(
+                    "BUTTON_PLAN | WO=%s | AFTER WRITE | date_start=%s | date_finished=%s",
+                    wo_after.name,
+                    wo_after.date_start,
+                    wo_after.date_finished,
+                )
+
+        _logger.warning("********** BUTTON_PLAN FROM MACRO END **********")
         return True
 
     def button_unplan(self):
