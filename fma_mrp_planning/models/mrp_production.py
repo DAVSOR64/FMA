@@ -150,23 +150,6 @@ class MrpProduction(models.Model):
             wo.name, wo.id, macro_dt, start_dt, end_dt, nb_resources
         )
 
-    def _write_wo_macro_only(self, wo, macro_dt, end_dt, nb_resources=1):
-        """Écrit uniquement les champs macro pour le macro-planning, sans programmer l'OT."""
-        self.ensure_one()
-        vals = {}
-        if 'macro_planned_start' in wo._fields:
-            vals['macro_planned_start'] = macro_dt
-        if 'macro_planned_finished' in wo._fields:
-            vals['macro_planned_finished'] = end_dt
-        if 'x_nb_resources' in wo._fields:
-            vals['x_nb_resources'] = nb_resources
-        if vals:
-            wo.with_context(
-                mail_notrack=True,
-                skip_macro_recalc=True,
-                skip_shift_chain=True,
-            ).write(vals)
-
     def _write_wo_schedule_debug(self, wo, macro_dt, start_dt, end_dt, nb_resources=1):
         """Écrit les dates OT et pose des traces fortes. Fallback SQL si l'ORM n'écrit rien."""
         self.ensure_one()
@@ -287,7 +270,7 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(first_day, wc)
             end_dt = self._evening_dt(last_day, wc)
 
-            self._write_wo_macro_only(wo, macro_dt, end_dt, nb_resources)
+            self._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources)
 
             _logger.info(
                 "WO %s (%s): %s -> %s | brut=%.0f min | eff=%.2fh => %d j | %d ressource(s) | macro=%s",
@@ -298,8 +281,28 @@ class MrpProduction(models.Model):
             # Décalage "veille ouvrée" entre opérations
             current_end_day = self._previous_working_day(first_day, wc)
 
+        wo_payloads = []
+        for wo in workorders:
+            self.env.cr.execute(
+                "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
+                (wo.id,)
+            )
+            row = self.env.cr.fetchone()
+            wo_payloads.append({
+                'wo': wo,
+                'macro_dt': row[0] if row else False,
+                'start_dt': row[1] if row else False,
+                'end_dt': row[2] if row else False,
+                'nb_resources': getattr(wo, 'x_nb_resources', 1) or 1,
+            })
+            _logger.info("TRACE SALE FINAL SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
+                wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
+
         # ✅ Recaler l'OF depuis les macros WO
         self._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
+
+        # ✅ Réappliquer les OT après update OF
+        self._restore_wo_schedule_after_mo_update(wo_payloads)
 
         # ✅ Recaler les pickings composants depuis le début fab (MO.date_start)
         self._update_components_picking_dates()
@@ -391,7 +394,7 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(first_day, wc)
             end_dt = self._evening_dt(last_day, wc)
 
-            self._write_wo_macro_only(wo, macro_dt, end_dt, nb_resources)
+            self._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources)
 
             _logger.info(
                 "WO %s (%s): %s -> %s | eff=%.2fh | %d j | macro=%s",
@@ -401,29 +404,75 @@ class MrpProduction(models.Model):
 
             current_end_day = self._previous_working_day(first_day, wc)
 
-        # 6) Recaler les dates OF + transfert composants (macro uniquement)
+        # Vérification SQL finale AVANT _update_mo_dates_from_macro + backup
+        wo_payloads = []
+        for wo in workorders:
+            self.env.cr.execute(
+                "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
+                (wo.id,)
+            )
+            row = self.env.cr.fetchone()
+            wo_payloads.append({
+                'wo': wo,
+                'macro_dt': row[0] if row else False,
+                'start_dt': row[1] if row else False,
+                'end_dt': row[2] if row else False,
+                'nb_resources': getattr(wo, 'x_nb_resources', 1) or 1,
+            })
+            _logger.info("TRACE FINAL SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
+                wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
+
+        # 6) Recaler les dates OF + transfert composants
         self._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
+
+        # 7) Restaurer immédiatement les OT écrasés par l'update OF
+        self._restore_wo_schedule_after_mo_update(wo_payloads)
+
         self._update_components_picking_dates()
+
+        # Vérification SQL APRÈS restauration
+        for wo in workorders:
+            self.env.cr.execute(
+                "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
+                (wo.id,)
+            )
+            row = self.env.cr.fetchone()
+            _logger.info("TRACE POST-RESTORE SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
+                wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
 
         _logger.info("MO %s : REPLANIFIER terminé", self.name)
         return True
 
 
     def button_plan(self):
-        """Programmer réellement les OT à partir du macro déjà calculé.
-
-        - prépare les champs planifiés OT depuis les macros
-        - lance la programmation standard Odoo
-        - recale ensuite l'OF sur les dates réelles OT
-        - met à jour les transferts composants
         """
-        _logger.warning("********** button_plan programmation réelle depuis macro **********")
+        Phase 2 (clic sur Planifier) :
+        - Sauvegarde les macro_planned_start AVANT super().button_plan()
+        - Exécute la planif standard Odoo
+        - APRÈS le super, restaure les macros
+        - Réapplique les vraies dates via apply_macro_to_workorders_dates()
+        - Recale OF + transfert composants
+        """
+        _logger.warning("********** button_plan avec restauration macro **********")
+
+        macro_backup = {}
+        end_backup = {}
 
         for production in self:
-            production.with_context(
-                skip_macro_recalc=True,
-                mail_notrack=True,
-            ).apply_macro_to_workorders_dates()
+            end_backup[production.id] = (
+                production.date_deadline
+                or production.date_finished
+                or getattr(production, "date_planned_finished", False)
+            )
+
+            for wo in production.workorder_ids:
+                if wo.macro_planned_start:
+                    macro_backup[wo.id] = {
+                        "macro_planned_start": fields.Datetime.to_datetime(wo.macro_planned_start),
+                        "x_nb_resources": getattr(wo, "x_nb_resources", 1) or 1,
+                    }
+
+        _logger.info("BUTTON_PLAN : sauvegarde %d macros", len(macro_backup))
 
         res = super(MrpProduction, self.with_context(
             skip_macro_recalc=True,
@@ -431,10 +480,42 @@ class MrpProduction(models.Model):
         )).button_plan()
 
         for production in self:
+            workorders = production.workorder_ids.filtered(
+                lambda w: w.state not in ("done", "cancel")
+            )
+
+            # 1) restauration des macros uniquement
+            for wo in workorders:
+                saved = macro_backup.get(wo.id)
+                if not saved:
+                    continue
+
+                vals = {
+                    "macro_planned_start": saved["macro_planned_start"],
+                }
+                if "x_nb_resources" in wo._fields:
+                    vals["x_nb_resources"] = saved["x_nb_resources"]
+
+                wo.with_context(
+                    skip_shift_chain=True,
+                    skip_macro_recalc=True,
+                    mail_notrack=True,
+                ).write(vals)
+
+            # 2) réappliquer les vraies dates depuis les macros
             production.with_context(
                 skip_macro_recalc=True,
                 mail_notrack=True,
-            )._update_mo_dates_from_workorders_dates_only()
+            ).apply_macro_to_workorders_dates()
+
+            # 3) recaler l'OF sur les macros, avec fin forcée identique
+            forced_end_dt = end_backup.get(production.id)
+            production.with_context(
+                skip_macro_recalc=True,
+                mail_notrack=True,
+            )._update_mo_dates_from_macro(forced_end_dt=forced_end_dt)
+
+            # 4) recaler les transferts composants
             production.with_context(
                 skip_macro_recalc=True,
                 mail_notrack=True,
@@ -500,14 +581,22 @@ class MrpProduction(models.Model):
 
     def _set_wo_planning_dates(self, wo, start_dt, end_dt):
         vals = {}
+        # Champs planifiés (selon version)
         if "date_planned_start" in wo._fields:
             vals["date_planned_start"] = start_dt
         if "date_planned_finished" in wo._fields:
             vals["date_planned_finished"] = end_dt
-
-        # Ne pas écrire date_start/date_finished ici : ces champs doivent rester
-        # réservés à la vraie programmation atelier (bouton Programmer / moteur Odoo).
+    
+        # Fallback (certaines versions)
+        if not vals:
+            if "date_start" in wo._fields:
+                vals["date_start"] = start_dt
+            if "date_finished" in wo._fields:
+                vals["date_finished"] = end_dt
+    
         if vals:
+            # skip_shift_chain : évite que le write WO déclenche _shift_workorders_after
+            # skip_macro_recalc : évite un recalcul macro en boucle
             wo.with_context(mail_notrack=True, skip_shift_chain=True, skip_macro_recalc=True).write(vals)
 
 
@@ -894,19 +983,38 @@ class MrpProduction(models.Model):
         return res
 
     def action_replanifier(self):
-        """Bouton « Replanifier » : recalcul macro uniquement, sans programmer les OT."""
+        """Bouton « Replanifier » sur le formulaire OF.
+
+        Recalcule les dates macro de tous les workorders en rétroplanning
+        et met à jour le cache charge. Ouvre le wizard de prévisualisation
+        si le module mrp_replan_workorder_popup est installé, sinon
+        applique directement.
+        """
         self.ensure_one()
+        # Déléguer au popup si disponible
         if hasattr(self, 'action_open_replan_preview'):
             return self.action_open_replan_preview()
-        return self.compute_macro_schedule_from_date_fin()
 
-    def _is_really_planned(self):
-        self.ensure_one()
-        active_wos = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
-        return any(
-            w.state == 'progress' or bool(w.date_start) or bool(w.date_finished)
-            for w in active_wos
+        # Fallback : application directe sans prévisualisation
+        workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
+        if not workorders:
+            raise UserError(_("Aucune opération à replanifier sur cet OF."))
+
+        fixed_end_dt = (
+            getattr(self, 'macro_forced_end', False)
+            or self.date_deadline
+            or getattr(self, 'date_finished', False)
         )
+        if not fixed_end_dt:
+            raise UserError(_("Aucune date de fin définie sur l'OF."))
+
+        ctx = self.with_context(skip_macro_recalc=True)
+        ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
+        ctx.apply_macro_to_workorders_dates()
+        ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
+        ctx._update_components_picking_dates()
+        self._refresh_charge_cache_for_production()
+        return True
 
     @api.model
     def cron_replan_all_productions(self):
@@ -928,10 +1036,6 @@ class MrpProduction(models.Model):
 
         for mo in productions:
             try:
-                if mo._is_really_planned():
-                    stats['ignores'] += 1
-                    continue
-
                 x_end = getattr(mo, 'x_studio_date_de_fin', False) or getattr(mo, 'x_studio_date_fin', False)
                 if not x_end:
                     stats['ignores'] += 1
@@ -943,10 +1047,43 @@ class MrpProduction(models.Model):
                     stats['ignores'] += 1
                     continue
 
-                mo.compute_macro_schedule_from_date_fin()
+                include_progress = not any(w.state == 'progress' for w in mo.workorder_ids)
+                eligible_wos = mo._resequence_workorders_for_planning(
+                    mo._ordered_workorders_for_planning(include_progress=include_progress)
+                )
+                if not eligible_wos:
+                    stats['ignores'] += 1
+                    continue
+
+                last_wc = eligible_wos[-1].workcenter_id
+                end_fab_dt = mo._evening_dt(x_end, last_wc) if last_wc else datetime.combine(x_end, time(17, 0))
+                current_end_day = mo._previous_or_same_working_day(x_end, last_wc)
+                wo_payloads = []
+
+                for wo in eligible_wos.sorted(lambda w: ((w.operation_id.sequence if w.operation_id else 0), w.id), reverse=True):
+                    wc = wo.workcenter_id
+                    cal = wc.resource_calendar_id or mo.env.company.resource_calendar_id
+                    hours_per_day = cal.hours_per_day or 7.8
+                    duration_hours, nb_resources = mo._get_effective_duration_hours(wo)
+                    required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
+
+                    last_day = mo._previous_or_same_working_day(current_end_day, wc)
+                    first_day = last_day
+                    for _ in range(required_days - 1):
+                        first_day = mo._previous_working_day(first_day, wc)
+
+                    macro_dt = mo._morning_dt(first_day, wc)
+                    end_dt = mo._evening_dt(last_day, wc)
+                    mo._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources)
+                    wo_payloads.append({'wo': wo, 'macro_dt': macro_dt, 'start_dt': macro_dt, 'end_dt': end_dt, 'nb_resources': nb_resources})
+                    current_end_day = mo._previous_working_day(first_day, wc)
+
+                mo._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
+                mo._restore_wo_schedule_after_mo_update(wo_payloads)
+                mo._update_components_picking_dates()
                 mo._refresh_charge_cache_for_production()
                 stats['traites'] += 1
-                _logger.info("CRON | %s OK", mo.name)
+                _logger.info("CRON | %s OK (%d OT)", mo.name, len(eligible_wos))
             except Exception as e:
                 stats['erreurs'] += 1
                 _logger.error("CRON | %s ERREUR %s\n%s", mo.name, str(e), traceback.format_exc())
@@ -1152,7 +1289,7 @@ class MrpProduction(models.Model):
                 continue
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
             hours_per_day = cal.hours_per_day or 7.8
-            duration_hours, _ = self._get_effective_duration_hours(wo)
+            duration_hours, duration_source = self._get_effective_duration_hours(wo)
             required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
             last_day = self._previous_or_same_working_day(current_end_day, wc)
             first_day = last_day
