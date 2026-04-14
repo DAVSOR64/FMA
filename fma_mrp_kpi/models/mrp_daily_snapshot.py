@@ -43,6 +43,7 @@ class MrpDailySnapshot(models.Model):
         ('carry_over', 'Glissement'),
         ('future', 'À venir'),
     ], string='Raison')
+    
     cumul_retard_wc = fields.Float(string='Retard cumulé poste (h)', digits=(10, 2))
 
     display_name = fields.Char(string='Libellé', compute='_compute_display_name', store=True)
