@@ -461,7 +461,7 @@ class MrpProduction(models.Model):
 
 
     def button_plan(self):
-        _logger.warning("********** BUTTON_PLAN FROM MACRO **********")
+        _logger.warning("********** BUTTON_PLAN FORCE REAL DATES **********")
 
         for production in self:
             _logger.warning(
@@ -470,46 +470,82 @@ class MrpProduction(models.Model):
                 len(production.workorder_ids),
             )
 
-            sorted_wos = production.workorder_ids.filtered(
-                lambda w: w.state not in ('done', 'cancel') and w.macro_planned_start
-            ).sorted(
-                key=lambda w: (w.macro_planned_start or w.date_start or fields.Datetime.now(), w.id)
+            sorted_wos = production.workorder_ids.sorted(
+                key=lambda w: (w.macro_planned_start or fields.Datetime.now())
             )
 
             for wo in sorted_wos:
-                macro_start = fields.Datetime.to_datetime(wo.macro_planned_start)
+                macro_start = wo.macro_planned_start
                 if not macro_start:
+                    _logger.warning("BUTTON_PLAN | WO=%s | SKIP no macro", wo.name)
                     continue
 
                 start_dt = macro_start.replace(hour=7, minute=30, second=0, microsecond=0)
+
                 duration_hours, nb_resources = production._get_effective_duration_hours(wo)
                 if duration_hours <= 0:
                     duration_hours = 0.01
 
                 end_dt = start_dt + timedelta(hours=duration_hours)
+
                 _logger.warning(
-                    "BUTTON_PLAN | WO=%s | macro=%s | start=%s | end=%s | duration=%.2f | nb_res=%s",
-                    wo.name, wo.macro_planned_start, start_dt, end_dt, duration_hours, nb_resources,
+                    "BUTTON_PLAN | WO=%s | macro=%s | start=%s | end=%s | duration=%s | nb_res=%s",
+                    wo.name, macro_start, start_dt, end_dt, duration_hours, nb_resources
                 )
 
-                vals = {
+                # 1) write ORM
+                wo.sudo().write({
                     'date_start': start_dt,
                     'date_finished': end_dt,
-                }
-                #if 'date_planned_start' in wo._fields:
-                #    vals['date_planned_start'] = start_dt
-                #if 'date_planned_finished' in wo._fields:
-                #    vals['date_planned_finished'] = end_dt
-                if 'x_nb_resources' in wo._fields:
-                    vals['x_nb_resources'] = nb_resources or 1
+                })
 
-                wo.with_context(skip_shift_chain=True, skip_macro_recalc=True, mail_notrack=True).write(vals)
+                # 2) flush + invalidate cache
+                wo.flush_recordset()
+                wo.invalidate_recordset(['date_start', 'date_finished'])
 
-            production.with_context(skip_macro_recalc=True, mail_notrack=True)._update_mo_dates_from_workorders_dates_only()
-            production.with_context(skip_macro_recalc=True, mail_notrack=True)._update_components_picking_dates()
+                # 3) contrôle DB direct
+                self.env.cr.execute("""
+                    SELECT date_start, date_finished
+                    FROM mrp_workorder
+                    WHERE id = %s
+                """, (wo.id,))
+                row = self.env.cr.fetchone()
 
+                _logger.warning(
+                    "BUTTON_PLAN | WO=%s | AFTER ORM DB=%s",
+                    wo.name, row
+                )
+
+                # 4) fallback SQL si l'ORM n'a rien écrit
+                if not row or not row[0] or not row[1]:
+                    self.env.cr.execute("""
+                        UPDATE mrp_workorder
+                        SET date_start = %s,
+                            date_finished = %s,
+                            write_date = NOW(),
+                            write_uid = %s
+                        WHERE id = %s
+                    """, (start_dt, end_dt, self.env.user.id, wo.id))
+
+                    self.env.cr.execute("""
+                        SELECT date_start, date_finished
+                        FROM mrp_workorder
+                        WHERE id = %s
+                    """, (wo.id,))
+                    row2 = self.env.cr.fetchone()
+
+                    _logger.warning(
+                        "BUTTON_PLAN | WO=%s | AFTER SQL DB=%s",
+                        wo.name, row2
+                    )
+
+            # recalcul du booléen si tu l'utilises pour masquer le bouton
+            if 'is_programmed' in production._fields:
+                production._compute_is_programmed()
+
+        _logger.warning("********** BUTTON_PLAN FORCE REAL DATES END **********")
         return True
-
+    
     def button_unplan(self):
         """Déprogrammation standard sans effacer les dates macro."""
         return super(MrpProduction, self.with_context(allow_wo_clear=True)).button_unplan()
