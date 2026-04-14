@@ -7,7 +7,7 @@
     "description": "Suivi des ordres de travail avec calcul du retard d'avancement et cumul par poste",
     "depends": ["mrp"],
     "data": [
-        "views/mrp_kpi_views.xml",
+        "views/mrp_daily_snapshot_views.xml",
     ],
     "installable": True,
     "application": False,
