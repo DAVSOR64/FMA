@@ -464,28 +464,38 @@ class MrpProduction(models.Model):
 
 
     def button_plan(self):
-        _logger.warning("********** BUTTON_PLAN CLEAN **********")
+        _logger.warning("********** BUTTON_PLAN FROM MACRO **********")
 
-        # 1. Sauvegarde uniquement les macros
-        macro_map = {}
-        for wo in self.workorder_ids:
-            macro_map[wo.id] = {
-                'macro_planned_start': wo.macro_planned_start,
-                'macro_planned_finished': wo.macro_planned_finished,
-            }
+        for production in self:
+            for wo in production.workorder_ids.sorted(
+                key=lambda w: (w.macro_planned_start or w.date_planned_start or w.date_start or production.date_planned_start or fields.Datetime.now())
+            ):
+                macro_start = wo.macro_planned_start
+                if not macro_start:
+                    continue
 
-        # 2. Laisser Odoo faire SON boulot
-        res = super().button_plan()
+                # Forcer l'heure à 07:30
+                start_dt = macro_start.replace(hour=7, minute=30, second=0, microsecond=0)
 
-        # 3. Restaurer UNIQUEMENT les macros (PAS les dates réelles)
-        for wo in self.workorder_ids:
-            if wo.id in macro_map:
-                wo.write({
-                    'macro_planned_start': macro_map[wo.id]['macro_planned_start'],
-                    'macro_planned_finished': macro_map[wo.id]['macro_planned_finished'],
-                })
+                duration_hours, nb_resources = production._get_effective_duration_hours(wo)
+                if duration_hours <= 0:
+                    duration_hours = 0.01
 
-        return res
+                end_dt = start_dt + timedelta(hours=duration_hours)
+
+                vals = {
+                    'date_start': start_dt,
+                    'date_finished': end_dt,
+                }
+
+                if 'date_planned_start' in wo._fields:
+                    vals['date_planned_start'] = start_dt
+                if 'date_planned_finished' in wo._fields:
+                    vals['date_planned_finished'] = end_dt
+
+                wo.write(vals)
+
+        return True
 
     def button_unplan(self):
         """Déprogrammation standard + nettoyage de nos macros.
