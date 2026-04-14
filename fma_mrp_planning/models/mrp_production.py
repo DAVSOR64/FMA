@@ -76,7 +76,7 @@ class MrpProduction(models.Model):
     def _debug_log_wo_db_state(self, wo, label):
         """Trace ORM + SQL pour comprendre pourquoi les dates OT ne restent pas."""
         self.ensure_one()
-        field_names = [f for f in ("macro_planned_start", "macro_planned_finished", "date_start", "date_finished") if f in wo._fields]
+        field_names = [f for f in ("macro_planned_start", "date_start", "date_finished") if f in wo._fields]
         try:
             wo.flush_recordset(field_names)
         except Exception:
@@ -113,7 +113,7 @@ class MrpProduction(models.Model):
         except Exception as e:
             _logger.info("TRACE %s | SQL | WO %s (id=%s) | erreur lecture SQL: %s", label, wo.name, wo.id, e)
 
-    def _force_write_wo_dates_sql(self, wo, macro_dt=False, start_dt=False, end_dt=False, nb_resources=False):
+    def _force_write_wo_dates_sql(self, wo, macro_dt=False, macro_end_dt=False, start_dt=False, end_dt=False, nb_resources=False, write_real_dates=True):
         """Fallback SQL si l'ORM n'a pas persisté les dates OT."""
         sets = []
         params = []
@@ -132,10 +132,14 @@ class MrpProduction(models.Model):
                 sets.append(f"{col} = %s")
                 params.append(val)
 
-        _add('macro_planned_start', fields.Datetime.to_string(macro_dt) if macro_dt else False)
-        _add('macro_planned_finished', fields.Datetime.to_string(end_dt) if end_dt else False)
-        _add('date_start', fields.Datetime.to_string(start_dt) if start_dt else False)
-        _add('date_finished', fields.Datetime.to_string(end_dt) if end_dt else False)
+        def _sql_dt(val):
+            return fields.Datetime.to_string(val) if val else None
+
+        _add('macro_planned_start', _sql_dt(macro_dt))
+        _add('macro_planned_finished', _sql_dt(macro_end_dt))
+        if write_real_dates:
+            _add('date_start', _sql_dt(start_dt))
+            _add('date_finished', _sql_dt(end_dt))
         if nb_resources is not False:
             _add('x_nb_resources', nb_resources)
 
@@ -147,16 +151,12 @@ class MrpProduction(models.Model):
         sql = "UPDATE mrp_workorder SET %s WHERE id = %%s" % ", ".join(sets)
         self.env.cr.execute(sql, params)
         _logger.warning(
-            "TRACE FORCE SQL | WO %s (id=%s) | SQL fallback exécuté | macro=%s | start=%s | end=%s | nb=%s",
-            wo.name, wo.id, macro_dt, start_dt, end_dt, nb_resources
+            "TRACE FORCE SQL | WO %s (id=%s) | SQL fallback exécuté | macro=%s | macro_end=%s | start=%s | end=%s | nb=%s | real=%s",
+            wo.name, wo.id, macro_dt, macro_end_dt, start_dt, end_dt, nb_resources, write_real_dates
         )
 
-    def _write_wo_schedule_debug(self, wo, macro_dt, start_dt, end_dt, nb_resources=1, macro_only=False):
-        """Écrit les dates OT et pose des traces fortes.
-
-        En mode macro_only, on ne touche qu'aux champs macro afin de ne pas
-        alimenter le planning réel (Lancer / Fin) avant le bouton Programmer.
-        """
+    def _write_wo_schedule_debug(self, wo, macro_dt, start_dt, end_dt, nb_resources=1, macro_end_dt=False, write_real_dates=True):
+        """Écrit les dates OT et pose des traces fortes. Fallback SQL si l'ORM n'écrit rien."""
         self.ensure_one()
         self._debug_log_wo_db_state(wo, 'BEFORE WRITE')
 
@@ -164,16 +164,15 @@ class MrpProduction(models.Model):
         if 'macro_planned_start' in wo._fields:
             vals['macro_planned_start'] = macro_dt
         if 'macro_planned_finished' in wo._fields:
-            vals['macro_planned_finished'] = end_dt
-        if not macro_only:
-            if 'date_start' in wo._fields:
-                vals['date_start'] = start_dt
-            if 'date_finished' in wo._fields:
-                vals['date_finished'] = end_dt
+            vals['macro_planned_finished'] = macro_end_dt
+        if write_real_dates and 'date_start' in wo._fields:
+            vals['date_start'] = start_dt
+        if write_real_dates and 'date_finished' in wo._fields:
+            vals['date_finished'] = end_dt
         if 'x_nb_resources' in wo._fields:
             vals['x_nb_resources'] = nb_resources
 
-        _logger.info("TRACE WRITE PREPARE | WO %s (id=%s) | vals=%s | macro_only=%s", wo.name, wo.id, vals, macro_only)
+        _logger.info("TRACE WRITE PREPARE | WO %s (id=%s) | vals=%s", wo.name, wo.id, vals)
 
         if vals:
             wo.with_context(
@@ -185,24 +184,20 @@ class MrpProduction(models.Model):
 
         self._debug_log_wo_db_state(wo, 'AFTER ORM WRITE')
 
-        fields_to_check = [f for f in ('macro_planned_start', 'macro_planned_finished', 'date_start', 'date_finished') if f in wo._fields]
-        wo.invalidate_recordset(fields_to_check)
-        missing_macro = ('macro_planned_start' in wo._fields and not wo.macro_planned_start)
-        missing_macro_end = ('macro_planned_finished' in wo._fields and not wo.macro_planned_finished)
-        missing_real = (
-            not macro_only and (
-                ('date_start' in wo._fields and not wo.date_start)
-                or ('date_finished' in wo._fields and not wo.date_finished)
-            )
+        # fallback dur si l'ORM n'a rien laissé en base
+        tracked_fields = [f for f in ('macro_planned_start', 'macro_planned_finished', 'date_start', 'date_finished') if f in wo._fields]
+        wo.invalidate_recordset(tracked_fields)
+        needs_sql = (
+            ('macro_planned_start' in wo._fields and macro_dt and not wo.macro_planned_start)
+            or ('macro_planned_finished' in wo._fields and macro_end_dt and not wo.macro_planned_finished)
         )
-        if missing_macro or missing_macro_end or missing_real:
-            self._force_write_wo_dates_sql(
-                wo,
-                macro_dt,
-                False if macro_only else start_dt,
-                end_dt,
-                nb_resources,
+        if write_real_dates:
+            needs_sql = needs_sql or (
+                ('date_start' in wo._fields and start_dt and not wo.date_start)
+                or ('date_finished' in wo._fields and end_dt and not wo.date_finished)
             )
+        if needs_sql:
+            self._force_write_wo_dates_sql(wo, macro_dt, macro_end_dt, start_dt, end_dt, nb_resources, write_real_dates=write_real_dates)
             self.env.cr.commit()
             self._debug_log_wo_db_state(wo, 'AFTER SQL FALLBACK')
 
@@ -219,7 +214,8 @@ class MrpProduction(models.Model):
                 payload.get('start_dt'),
                 payload.get('end_dt'),
                 payload.get('nb_resources', 1),
-                macro_only=payload.get('macro_only', False),
+                macro_end_dt=payload.get('macro_end_dt'),
+                write_real_dates=payload.get('write_real_dates', True),
             )
         self.env.cr.flush()
 
@@ -289,7 +285,7 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(first_day, wc)
             end_dt = self._evening_dt(last_day, wc)
 
-            self._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources, macro_only=True)
+            self._write_wo_schedule_debug(wo, macro_dt, False, False, nb_resources, macro_end_dt=end_dt, write_real_dates=False)
 
             _logger.info(
                 "WO %s (%s): %s -> %s | brut=%.0f min | eff=%.2fh => %d j | %d ressource(s) | macro=%s",
@@ -303,17 +299,18 @@ class MrpProduction(models.Model):
         wo_payloads = []
         for wo in workorders:
             self.env.cr.execute(
-                "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
+                "SELECT macro_planned_start, macro_planned_finished, date_start, date_finished FROM mrp_workorder WHERE id = %s",
                 (wo.id,)
             )
             row = self.env.cr.fetchone()
             wo_payloads.append({
                 'wo': wo,
                 'macro_dt': row[0] if row else False,
+                'macro_end_dt': row[1] if row else False,
                 'start_dt': False,
-                'end_dt': row[2] if row else False,
+                'end_dt': False,
+                'write_real_dates': False,
                 'nb_resources': getattr(wo, 'x_nb_resources', 1) or 1,
-                'macro_only': True,
             })
             _logger.info("TRACE SALE FINAL SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
                 wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
@@ -338,7 +335,7 @@ class MrpProduction(models.Model):
         - Source : x_studio_date_de_fin (saisi par l'utilisateur)
         - Bloque si x_studio_date_de_fin > so_date_de_livraison_prevu
         - Calcule backward depuis x_studio_date_de_fin
-        - Écrit macro_planned_start + date_start + date_finished sur chaque WO
+        - Écrit macro_planned_start + macro_planned_finished sur chaque WO
         - Met à jour dates OF + transfert composants
         """
         self.ensure_one()
@@ -414,7 +411,7 @@ class MrpProduction(models.Model):
             macro_dt = self._morning_dt(first_day, wc)
             end_dt = self._evening_dt(last_day, wc)
 
-            self._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources, macro_only=True)
+            self._write_wo_schedule_debug(wo, macro_dt, False, False, nb_resources, macro_end_dt=end_dt, write_real_dates=False)
 
             _logger.info(
                 "WO %s (%s): %s -> %s | eff=%.2fh | %d j | macro=%s",
@@ -428,17 +425,18 @@ class MrpProduction(models.Model):
         wo_payloads = []
         for wo in workorders:
             self.env.cr.execute(
-                "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
+                "SELECT macro_planned_start, macro_planned_finished, date_start, date_finished FROM mrp_workorder WHERE id = %s",
                 (wo.id,)
             )
             row = self.env.cr.fetchone()
             wo_payloads.append({
                 'wo': wo,
                 'macro_dt': row[0] if row else False,
+                'macro_end_dt': row[1] if row else False,
                 'start_dt': False,
-                'end_dt': row[2] if row else False,
+                'end_dt': False,
+                'write_real_dates': False,
                 'nb_resources': getattr(wo, 'x_nb_resources', 1) or 1,
-                'macro_only': True,
             })
             _logger.info("TRACE FINAL SQL | WO %s (id=%s) | macro=%s | date_start=%s | date_finished=%s",
                 wo.name, wo.id, row[0] if row else 'NULL', row[1] if row else 'NULL', row[2] if row else 'NULL')
@@ -454,7 +452,7 @@ class MrpProduction(models.Model):
         # Vérification SQL APRÈS restauration
         for wo in workorders:
             self.env.cr.execute(
-                "SELECT macro_planned_start, date_start, date_finished FROM mrp_workorder WHERE id = %s",
+                "SELECT macro_planned_start, macro_planned_finished, date_start, date_finished FROM mrp_workorder WHERE id = %s",
                 (wo.id,)
             )
             row = self.env.cr.fetchone()
@@ -490,7 +488,6 @@ class MrpProduction(models.Model):
                 if wo.macro_planned_start:
                     macro_backup[wo.id] = {
                         "macro_planned_start": fields.Datetime.to_datetime(wo.macro_planned_start),
-                        "macro_planned_finished": fields.Datetime.to_datetime(getattr(wo, "macro_planned_finished", False)) if getattr(wo, "macro_planned_finished", False) else False,
                         "x_nb_resources": getattr(wo, "x_nb_resources", 1) or 1,
                     }
 
@@ -515,8 +512,6 @@ class MrpProduction(models.Model):
                 vals = {
                     "macro_planned_start": saved["macro_planned_start"],
                 }
-                if "macro_planned_finished" in wo._fields:
-                    vals["macro_planned_finished"] = saved.get("macro_planned_finished")
                 if "x_nb_resources" in wo._fields:
                     vals["x_nb_resources"] = saved["x_nb_resources"]
 
@@ -606,16 +601,22 @@ class MrpProduction(models.Model):
 
     def _set_wo_planning_dates(self, wo, start_dt, end_dt):
         vals = {}
+        # Champs planifiés (selon version)
         if "date_planned_start" in wo._fields:
             vals["date_planned_start"] = start_dt
         if "date_planned_finished" in wo._fields:
             vals["date_planned_finished"] = end_dt
-        if "date_start" in wo._fields:
-            vals["date_start"] = start_dt
-        if "date_finished" in wo._fields:
-            vals["date_finished"] = end_dt
-
+    
+        # Fallback (certaines versions)
+        if not vals:
+            if "date_start" in wo._fields:
+                vals["date_start"] = start_dt
+            if "date_finished" in wo._fields:
+                vals["date_finished"] = end_dt
+    
         if vals:
+            # skip_shift_chain : évite que le write WO déclenche _shift_workorders_after
+            # skip_macro_recalc : évite un recalcul macro en boucle
             wo.with_context(mail_notrack=True, skip_shift_chain=True, skip_macro_recalc=True).write(vals)
 
 
@@ -1029,6 +1030,7 @@ class MrpProduction(models.Model):
 
         ctx = self.with_context(skip_macro_recalc=True)
         ctx._recalculate_macro_backward(workorders, end_dt=fixed_end_dt)
+        ctx.apply_macro_to_workorders_dates()
         ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
         ctx._update_components_picking_dates()
         self._refresh_charge_cache_for_production()
@@ -1092,8 +1094,8 @@ class MrpProduction(models.Model):
 
                     macro_dt = mo._morning_dt(first_day, wc)
                     end_dt = mo._evening_dt(last_day, wc)
-                    mo._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources, macro_only=True)
-                    wo_payloads.append({'wo': wo, 'macro_dt': macro_dt, 'start_dt': False, 'end_dt': end_dt, 'nb_resources': nb_resources, 'macro_only': True})
+                    mo._write_wo_schedule_debug(wo, macro_dt, macro_dt, end_dt, nb_resources)
+                    wo_payloads.append({'wo': wo, 'macro_dt': macro_dt, 'start_dt': macro_dt, 'end_dt': end_dt, 'nb_resources': nb_resources})
                     current_end_day = mo._previous_working_day(first_day, wc)
 
                 mo._update_mo_dates_from_macro(forced_end_dt=end_fab_dt)
