@@ -17,6 +17,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='product_id']" position="after">
                 <field name="macro_planned_start" optional="show" string="Macro (début planifié)"/>
+                <field name="macro_planned_finished" optional="show" string="Macro (fin planifiée)"/>
             </xpath>
         </field>
     </record>
