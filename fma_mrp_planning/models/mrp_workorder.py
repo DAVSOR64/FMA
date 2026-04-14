@@ -38,6 +38,11 @@ class MrpWorkorder(models.Model):
         copy=False,
         help="Date de début calculée par le macro planning (rétroplanning).",
     )
+    macro_planned_finished = fields.Datetime(
+        string="Date fin calculée",
+        copy=False,
+        help="Date de fin calculée par le macro planning (rétroplanning).",
+    )
     x_nb_resources = fields.Integer(
         string="Nb ressources",
         default=1,
@@ -159,12 +164,12 @@ class MrpWorkorder(models.Model):
             projet = wo.project_display or ''
             wo.display_name = f"{mo_name} | {projet}" if projet and projet != 'Sans projet' else (mo_name or wo.name)
 
-    @api.depends('macro_planned_start', 'date_start', 'date_finished', 'duration_expected')
+    @api.depends('macro_planned_start', 'macro_planned_finished', 'date_start', 'date_finished', 'duration_expected')
     def _compute_gantt_dates(self):
         for wo in self:
             start = getattr(wo, 'macro_planned_start', False) or wo.date_start
             wo.gantt_date_start = start
-            stop = wo.date_finished
+            stop = getattr(wo, 'macro_planned_finished', False) or wo.date_finished
             if not stop and start and wo.duration_expected:
                 stop = start + timedelta(minutes=wo.duration_expected)
             wo.gantt_date_stop = stop
