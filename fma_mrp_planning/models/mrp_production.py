@@ -464,81 +464,26 @@ class MrpProduction(models.Model):
 
 
     def button_plan(self):
-        """
-        Phase 2 (clic sur Planifier) :
-        - Sauvegarde les macro_planned_start AVANT super().button_plan()
-        - Exécute la planif standard Odoo
-        - APRÈS le super, restaure les macros
-        - Réapplique les vraies dates via apply_macro_to_workorders_dates()
-        - Recale OF + transfert composants
-        """
-        _logger.warning("********** button_plan avec restauration macro **********")
+        _logger.warning("********** BUTTON_PLAN CLEAN **********")
 
-        macro_backup = {}
-        end_backup = {}
+        # 1. Sauvegarde uniquement les macros
+        macro_map = {}
+        for wo in self.workorder_ids:
+            macro_map[wo.id] = {
+                'macro_planned_start': wo.macro_planned_start,
+                'macro_planned_finished': wo.macro_planned_finished,
+            }
 
-        for production in self:
-            end_backup[production.id] = (
-                production.date_deadline
-                or production.date_finished
-                or getattr(production, "date_planned_finished", False)
-            )
+        # 2. Laisser Odoo faire SON boulot
+        res = super().button_plan()
 
-            for wo in production.workorder_ids:
-                if wo.macro_planned_start:
-                    macro_backup[wo.id] = {
-                        "macro_planned_start": fields.Datetime.to_datetime(wo.macro_planned_start),
-                        "x_nb_resources": getattr(wo, "x_nb_resources", 1) or 1,
-                    }
-
-        _logger.info("BUTTON_PLAN : sauvegarde %d macros", len(macro_backup))
-
-        res = super(MrpProduction, self.with_context(
-            skip_macro_recalc=True,
-            in_button_plan=True,
-        )).button_plan()
-
-        for production in self:
-            workorders = production.workorder_ids.filtered(
-                lambda w: w.state not in ("done", "cancel")
-            )
-
-            # 1) restauration des macros uniquement
-            for wo in workorders:
-                saved = macro_backup.get(wo.id)
-                if not saved:
-                    continue
-
-                vals = {
-                    "macro_planned_start": saved["macro_planned_start"],
-                }
-                if "x_nb_resources" in wo._fields:
-                    vals["x_nb_resources"] = saved["x_nb_resources"]
-
-                wo.with_context(
-                    skip_shift_chain=True,
-                    skip_macro_recalc=True,
-                    mail_notrack=True,
-                ).write(vals)
-
-            # 2) réappliquer les vraies dates depuis les macros
-            production.with_context(
-                skip_macro_recalc=True,
-                mail_notrack=True,
-            ).apply_macro_to_workorders_dates()
-
-            # 3) recaler l'OF sur les macros, avec fin forcée identique
-            forced_end_dt = end_backup.get(production.id)
-            production.with_context(
-                skip_macro_recalc=True,
-                mail_notrack=True,
-            )._update_mo_dates_from_macro(forced_end_dt=forced_end_dt)
-
-            # 4) recaler les transferts composants
-            production.with_context(
-                skip_macro_recalc=True,
-                mail_notrack=True,
-            )._update_components_picking_dates()
+        # 3. Restaurer UNIQUEMENT les macros (PAS les dates réelles)
+        for wo in self.workorder_ids:
+            if wo.id in macro_map:
+                wo.write({
+                    'macro_planned_start': macro_map[wo.id]['macro_planned_start'],
+                    'macro_planned_finished': macro_map[wo.id]['macro_planned_finished'],
+                })
 
         return res
 
