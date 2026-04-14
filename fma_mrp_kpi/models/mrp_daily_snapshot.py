@@ -35,11 +35,11 @@ class MrpDailySnapshot(models.Model):
     duration_real_h = fields.Float(string='Durée réelle (h)', digits=(10, 2))
     duration_expected_to_date_h = fields.Float(string='Théorique à date (h)', digits=(10, 2))
 
-    delta_hours = fields.Float(string='Retard avancement (h)', digits=(10, 2), help='Retard d'avancement cumulé de l'OT à la date du snapshot. 0 = pas de retard.')
+    delta_hours = fields.Float(string='Retard avancement (h)', digits=(10, 2), help='Retard d avancement cumulé de l OT à la date du snapshot. 0 = pas de retard.')
     is_late = fields.Boolean(string='En retard')
     is_done = fields.Boolean(string='Terminé')
     capture_reason = fields.Selection([
-        ('planned_today', 'Prévu aujourd'hui'),
+        ('planned_today', 'Prévu aujourd hui'),
         ('carry_over', 'Glissement'),
         ('future', 'À venir'),
     ], string='Raison')
