@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_replan_preview_wizard_form" model="ir.ui.view">
+        <field name="name">mrp.replan.preview.wizard.form</field>
+        <field name="model">mrp.replan.preview.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Prévisualisation replanification">
+                <sheet>
+                    <field name="summary_html" nolabel="1" readonly="1" widget="html"/>
+                    <field name="preview_json" invisible="1"/>
+                    <field name="production_id" invisible="1"/>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" type="object" string="OK" class="btn-primary"/>
+                    <button string="Annuler" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

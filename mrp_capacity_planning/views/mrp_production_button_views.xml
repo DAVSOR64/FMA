@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mrp_production_inherit_replanifier" model="ir.ui.view">
+        <field name="name">mrp.production.form.inherit.replanifier</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <field name="is_programmed" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//button[@name='button_plan']" position="attributes">
+                <attribute name="invisible">state in ('draft', 'done', 'cancel') or is_programmed</attribute>
+            </xpath>
+            <xpath expr="//button[@name='button_unplan']" position="attributes">
+                <attribute name="invisible">state in ('draft', 'done', 'cancel') or not is_programmed</attribute>
+            </xpath>
+
+            <xpath expr="//button[@name='button_plan']" position="after">
+                <button name="action_replanifier"
+                        string="⟳ Replanifier"
+                        type="object"
+                        class="btn-warning"
+                        icon="fa-refresh"
+                        invisible="state in ('draft', 'done', 'cancel')"
+                        help="Recalcule uniquement les dates macro depuis la date de fin fixée."/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_production_inherit_list_replanifier" model="ir.ui.view">
+        <field name="name">mrp.production.tree.inherit.replanifier</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="inside">
+                <field name="is_programmed" column_invisible="1"/>
+                <button name="button_plan" type="object"
+                        string="Programmer" icon="fa-calendar"
+                        class="btn-primary btn-sm"
+                        invisible="state in ('draft', 'done', 'cancel') or is_programmed"/>
+                <button name="button_unplan" type="object"
+                        string="Déprogrammer" icon="fa-calendar-times-o"
+                        class="btn-secondary btn-sm"
+                        invisible="state in ('draft', 'done', 'cancel') or not is_programmed"/>
+                <button name="action_replanifier" type="object"
+                        string="⟳" icon="fa-refresh"
+                        title="Replanifier cet OF"
+                        class="btn-warning btn-sm"
+                        invisible="state in ('draft', 'done', 'cancel')"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
