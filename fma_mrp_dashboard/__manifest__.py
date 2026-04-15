@@ -5,7 +5,7 @@
     'category': 'Manufacturing',
     'summary': 'Tableau de bord capacité vs charge, GANTT planning atelier',
     'author': 'Paxo Consulting',
-    'depends': ['mrp', 'planning', 'hr', 'fma_mrp_planning'],
+    'depends': ['mrp', 'planning', 'hr', 'mrp_capacity_planning'],
     'data': [
         'data/mrp_macro_planning_cron.xml',
         'security/ir.model.access.csv',
