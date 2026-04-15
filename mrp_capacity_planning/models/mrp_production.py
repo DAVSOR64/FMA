@@ -1260,11 +1260,11 @@ class MrpProduction(models.Model):
                 continue
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
             hours_per_day = cal.hours_per_day or 7.8
-            duration_hours, _ = self._get_effective_duration_hours(wo)
+            duration_hours, ignored_nb_resources = self._get_effective_duration_hours(wo)
             required_days = max(1, int(math.ceil(duration_hours / hours_per_day)))
             last_day = self._previous_or_same_working_day(current_end_day, wc)
             first_day = last_day
-            for _ in range(required_days - 1):
+            for day_idx in range(required_days - 1):
                 first_day = self._previous_working_day(first_day, wc)
             first_start_day = first_day
             current_end_day = self._previous_working_day(first_day, wc)
@@ -1276,7 +1276,7 @@ class MrpProduction(models.Model):
         # Date transfert = 4 jours ouvrés avant début fab
         transfer_day = first_start_day
         if transfer_day:
-            for _ in range(4):
+            for transfer_idx in range(4):
                 transfer_day = self._previous_working_day(transfer_day, first_wc)
 
         # POs liés
