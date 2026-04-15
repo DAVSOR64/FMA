@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- CRON 1 — Matin 08h00 -->
+    <record id="cron_replan_all_matin" model="ir.cron">
+        <field name="name">MRP Planning — Recalcul macro + charge (matin 08h)</field>
+        <field name="model_id" ref="mrp.model_mrp_production"/>
+        <field name="state">code</field>
+        <field name="code">model.action_replan_all_productions()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(DateTime.now().replace(hour=8, minute=0, second=0) + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="priority">10</field>
+        <field name="user_id" ref="base.user_root"/>
+    </record>
+
+    <!-- CRON 2 — Midi 12h00 -->
+    <record id="cron_replan_all_midi" model="ir.cron">
+        <field name="name">MRP Planning — Recalcul macro + charge (midi 12h)</field>
+        <field name="model_id" ref="mrp.model_mrp_production"/>
+        <field name="state">code</field>
+        <field name="code">model.action_replan_all_productions()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(DateTime.now().replace(hour=12, minute=0, second=0) + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="priority">10</field>
+        <field name="user_id" ref="base.user_root"/>
+    </record>
+
+    <!-- CRON 3 — Soir 18h00 -->
+    <record id="cron_replan_all_soir" model="ir.cron">
+        <field name="name">MRP Planning — Recalcul macro + charge (soir 18h)</field>
+        <field name="model_id" ref="mrp.model_mrp_production"/>
+        <field name="state">code</field>
+        <field name="code">model.action_replan_all_productions()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(DateTime.now().replace(hour=18, minute=0, second=0) + timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
+        <field name="priority">10</field>
+        <field name="user_id" ref="base.user_root"/>
+    </record>
+
+</odoo>
