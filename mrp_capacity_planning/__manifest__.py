@@ -5,6 +5,7 @@
     'category': 'Manufacturing',
     'summary': 'Planification macro, capacité ressources et réordonnancement FMA',
     'author': 'Paxo Consulting',
+    
     'depends': ['mrp', 'sale_management', 'planning', 'hr', 'hr_holidays', 'stock'],
     'data': [
         'security/ir.model.access.csv',
