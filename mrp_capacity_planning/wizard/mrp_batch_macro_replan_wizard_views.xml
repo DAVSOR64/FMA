@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_batch_macro_replan_wizard_form" model="ir.ui.view">
+        <field name="name">mrp.batch.macro.replan.wizard.form</field>
+        <field name="model">mrp.batch.macro.replan.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Recalculer le macro planning des OF non démarrés">
+                <group>
+                    <group>
+                        <field name="security_days"/>
+                        <field name="mo_count" readonly="1"/>
+                    </group>
+                    <group>
+                        <field name="treated" readonly="1"/>
+                        <field name="skipped_started" readonly="1"/>
+                        <field name="skipped_no_target" readonly="1"/>
+                        <field name="error_count" readonly="1"/>
+                    </group>
+                </group>
+                <group invisible="not result_message">
+                    <field name="result_message" nolabel="1" readonly="1"/>
+                </group>
+                <footer>
+                    <button name="action_run" type="object" string="Lancer le recalcul" class="btn-primary"/>
+                    <button string="Fermer" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mrp_batch_macro_replan_wizard" model="ir.actions.act_window">
+        <field name="name">Recalcul batch OF non démarrés</field>
+        <field name="res_model">mrp.batch.macro.replan.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Menu géré dans views/menu.xml -->
+</odoo>

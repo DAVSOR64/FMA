@@ -1,14 +1,12 @@
 {
-    "name": "MRP FMA Replan Custom V2",
-    "version": "17.0.1.0.1",
-    "summary": "Replanification OF/OT à partir de la date custom de fin",
-    "depends": ["mrp", "purchase", "mail", "mrp_replan_workorder", "sale_management"],
-    "data": [
-        "security/ir.model.access.csv",
-        "views/mrp_production_views.xml",
-        "wizards/mrp_recalc_planif_wizard_views.xml"
-    ],
+    "name": "MRP FMA Replan Custom (Placeholder)",
+    "version": "17.0.1.0.0",
+    "summary": "Module tampon pour compatibilité base clonée",
+    "author": "PAXO CONSULTING",
+    "category": "Manufacturing",
+    "depends": ["mrp"],
+    "data": [],
     "installable": True,
     "application": False,
-    "license": "LGPL-3"
+    "license": "LGPL-3",
 }

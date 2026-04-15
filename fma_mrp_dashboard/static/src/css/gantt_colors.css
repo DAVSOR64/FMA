@@ -1,0 +1,66 @@
+/* ============================================================
+   Couleurs GANTT FMA — Palette custom par poste de travail
+   Odoo 17 — Index FMA :
+     1  → Débit FMA     → Rouge
+     5  → CU (banc) FMA → Orange
+     4  → Usinage FMA   → Violet
+     10 → Montage FMA   → Bleu
+     11 → Vitrage FMA   → Vert
+     3  → Emballage FMA → Ambre
+============================================================ */
+
+.o_gantt_pill.o_gantt_color_1,
+.o_gantt_pill_wrapper .o_gantt_color_1 {
+    background-color: #E53935 !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_2,
+.o_gantt_pill_wrapper .o_gantt_color_2 {
+    background-color: #D81B60 !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_3,
+.o_gantt_pill_wrapper .o_gantt_color_3 {
+    background-color: #F9A825 !important;
+    color: #333 !important;
+}
+.o_gantt_pill.o_gantt_color_4,
+.o_gantt_pill_wrapper .o_gantt_color_4 {
+    background-color: #8E24AA !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_5,
+.o_gantt_pill_wrapper .o_gantt_color_5 {
+    background-color: #FB8C00 !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_6,
+.o_gantt_pill_wrapper .o_gantt_color_6 {
+    background-color: #1565C0 !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_7,
+.o_gantt_pill_wrapper .o_gantt_color_7 {
+    background-color: #00897B !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_8,
+.o_gantt_pill_wrapper .o_gantt_color_8 {
+    background-color: #2E7D32 !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_9,
+.o_gantt_pill_wrapper .o_gantt_color_9 {
+    background-color: #3949AB !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_10,
+.o_gantt_pill_wrapper .o_gantt_color_10 {
+    background-color: #1E88E5 !important;
+    color: #fff !important;
+}
+.o_gantt_pill.o_gantt_color_11,
+.o_gantt_pill_wrapper .o_gantt_color_11 {
+    background-color: #43A047 !important;
+    color: #fff !important;
+}
