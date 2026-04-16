@@ -46,9 +46,9 @@ class MrpWorkorder(models.Model):
     )
     op_sequence = fields.Integer(
         string="Séquence opération",
-        related="operation_id.sequence",
-        store=True,
-        readonly=True,
+        copy=False,
+        index=True,
+        help="Ordre métier des opérations, synchronisé depuis le code du poste de travail.",
     )
 
     project_display = fields.Char(string='Projet', compute='_compute_planning_labels', store=True)
