@@ -65,14 +65,29 @@ class MrpProduction(models.Model):
         workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
         if not include_progress:
             workorders = workorders.filtered(lambda w: w.state != 'progress')
-        return workorders.sorted(lambda w: (self._planning_operation_rank(w), (w.operation_id.sequence if w.operation_id else 0), w.id))
+        self._resequence_workorders_from_workcenter_code()
+        return workorders.sorted(lambda w: (w.op_sequence or 9999, w.id))
+
+    def _resequence_workorders_from_workcenter_code(self):
+        """Recalcule op_sequence depuis le code du poste de travail."""
+        self.ensure_one()
+        for wo in self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel')):
+            code = wo.workcenter_id.code if wo.workcenter_id else False
+            try:
+                seq = int(str(code).strip())
+            except (TypeError, ValueError, AttributeError):
+                seq = 9999
+            if wo.op_sequence != seq:
+                wo.write({'op_sequence': seq})
+        return True
 
     def _resequence_workorders_for_planning(self, workorders):
-        """Sécurise le flux de planning sans modifier les séquences standard Odoo."""
+        """Sécurise le flux de planning et remet op_sequence depuis le code poste."""
         self.ensure_one()
         if not workorders:
             return workorders
-        return workorders.sorted(lambda w: (self._planning_operation_rank(w), (w.operation_id.sequence if w.operation_id else 0), w.id))
+        self._resequence_workorders_from_workcenter_code()
+        return workorders.sorted(lambda w: (w.op_sequence or 9999, w.id))
 
     def _log_wo_dates(self, label, workorders):
         _logger.info("=== %s | MO %s | WO count=%s ===", label, self.name, len(workorders))
@@ -249,8 +264,9 @@ class MrpProduction(models.Model):
             _logger.info("MO %s : aucun WO", self.name)
             return False
 
-        # Tri robuste : séquence opération puis id
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+        # Tri robuste : séquence poste (code workcenter) puis id
+        self._resequence_workorders_from_workcenter_code()
+        workorders = self.workorder_ids.filtered(lambda w: w.id in workorders.ids).sorted(lambda w: (w.op_sequence or 9999, w.id))
 
         # Fin fabrication = livraison - délai sécurité en jours ouvrés (calendrier société)
         end_fab_dt = self._add_working_days_company(delivery_dt, -float(security_days))
@@ -267,7 +283,7 @@ class MrpProduction(models.Model):
         current_end_day = self._previous_or_same_working_day(end_fab_day, last_wc)
 
         # Backward : dernière -> première
-        for wo in workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True):
+        for wo in workorders.sorted(lambda w: (w.op_sequence or 9999, w.id), reverse=True):
             wc = wo.workcenter_id
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
             hours_per_day = cal.hours_per_day or 7.8
@@ -357,7 +373,8 @@ class MrpProduction(models.Model):
         if not workorders:
             raise UserError(_("Aucune opération active à replanifier sur cet OF."))
 
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+        self._resequence_workorders_from_workcenter_code()
+        workorders = self.workorder_ids.filtered(lambda w: w.id in workorders.ids).sorted(lambda w: (w.op_sequence or 9999, w.id))
 
         # 2) Récupérer la date de livraison client
         delivery_dt, sale_order = self._get_macro_target_date()
@@ -393,7 +410,7 @@ class MrpProduction(models.Model):
         current_end_day = self._previous_or_same_working_day(end_fab_day, last_wc)
 
         for wo in workorders.sorted(
-            lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True
+            lambda w: (w.op_sequence or 9999, w.id), reverse=True
         ):
             wc = wo.workcenter_id
             cal = wc.resource_calendar_id or self.env.company.resource_calendar_id
@@ -562,7 +579,8 @@ class MrpProduction(models.Model):
             return
 
         # Tri ordre de fabrication
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+        self._resequence_workorders_from_workcenter_code()
+        workorders = self.workorder_ids.filtered(lambda w: w.id in workorders.ids).sorted(lambda w: (w.op_sequence or 9999, w.id))
 
         for wo in workorders:
             if not wo.macro_planned_start:
@@ -997,6 +1015,7 @@ class MrpProduction(models.Model):
         applique directement.
         """
         self.ensure_one()
+        self._resequence_workorders_from_workcenter_code()
         # Déléguer au popup si disponible
         if hasattr(self, 'action_open_replan_preview'):
             return self.action_open_replan_preview()
@@ -1051,6 +1070,7 @@ class MrpProduction(models.Model):
                     stats['ignores'] += 1
                     continue
 
+                mo._resequence_workorders_from_workcenter_code()
                 mo.with_context(skip_macro_recalc=True).compute_macro_schedule_from_date_fin()
                 mo.with_context(skip_macro_recalc=True, mail_notrack=True)._update_components_picking_dates()
                 mo._refresh_charge_cache_for_production()
@@ -1213,7 +1233,8 @@ class MrpProduction(models.Model):
         if not workorders:
             raise UserError(_("Aucune opération active à replanifier."))
 
-        workorders = workorders.sorted(lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id))
+        self._resequence_workorders_from_workcenter_code()
+        workorders = self.workorder_ids.filtered(lambda w: w.id in workorders.ids).sorted(lambda w: (w.op_sequence or 9999, w.id))
 
         # Date de livraison client
         delivery_dt, sale_order = self._get_macro_target_date()
@@ -1253,7 +1274,7 @@ class MrpProduction(models.Model):
         first_start_day = None
 
         for wo in workorders.sorted(
-            lambda w: (w.operation_id.sequence if w.operation_id else 0, w.id), reverse=True
+            lambda w: (w.op_sequence or 9999, w.id), reverse=True
         ):
             wc = wo.workcenter_id
             if not wc:
