@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_mrp_daily_snapshot" name="Visu Atelier" parent="mrp.menu_mrp_root" action="action_mrp_daily_snapshot" sequence="50"/>
+    <menuitem id="menu_mrp_suivi_prod_root" name="Suivi Prod" parent="mrp.menu_mrp_root" sequence="55"/>
+
+    <menuitem id="menu_mrp_prod_followup_week"
+              name="Charge vs capacité hebdo"
+              parent="menu_mrp_suivi_prod_root"
+              action="action_mrp_prod_followup_week"
+              sequence="10"/>
+
+    <menuitem id="menu_mrp_daily_snapshot"
+              name="Visu Atelier"
+              parent="menu_mrp_suivi_prod_root"
+              action="action_mrp_daily_snapshot"
+              sequence="20"/>
 </odoo>

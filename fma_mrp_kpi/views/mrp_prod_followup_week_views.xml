@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_prod_followup_week_tree" model="ir.ui.view">
+        <field name="name">mrp.prod.followup.week.tree</field>
+        <field name="model">mrp.prod.followup.week</field>
+        <field name="arch" type="xml">
+            <tree string="Suivi Prod" create="false" edit="false" delete="false">
+                <field name="week_start" string="Semaine du"/>
+                <field name="week_label" string="Semaine" optional="hide"/>
+                <field name="scope" string="Niveau"/>
+                <field name="workcenter_name" string="Poste de travail"/>
+                <field name="capacite_semaine" string="Capacité semaine (h)" sum="Total capacité"/>
+                <field name="charge_prevue_semaine" string="Charge prévue semaine (h)" sum="Total prévu"/>
+                <field name="charge_effectuee_semaine" string="Charge effectuée semaine (h)" sum="Total effectué" optional="show"/>
+                <field name="ecart_heures" string="Écart capacité - charge (h)" sum="Total écart"
+                       decoration-danger="ecart_heures &lt; 0"
+                       decoration-success="ecart_heures &gt;= 0"/>
+                <field name="taux_charge" string="Taux (%)" widget="badge"
+                       decoration-danger="taux_charge &gt; 100"
+                       decoration-success="taux_charge &gt;= 80 and taux_charge &lt;= 100"
+                       decoration-warning="taux_charge &lt; 80 and taux_charge &gt; 0"/>
+                <field name="nb_operations" string="# Ops" sum="Total ops" optional="show"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mrp_prod_followup_week_pivot" model="ir.ui.view">
+        <field name="name">mrp.prod.followup.week.pivot</field>
+        <field name="model">mrp.prod.followup.week</field>
+        <field name="arch" type="xml">
+            <pivot string="Suivi Prod hebdo" disable_linking="1">
+                <field name="week_start" type="row"/>
+                <field name="workcenter_name" type="row"/>
+                <field name="capacite_semaine" type="measure"/>
+                <field name="charge_prevue_semaine" type="measure"/>
+                <field name="charge_effectuee_semaine" type="measure"/>
+                <field name="ecart_heures" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mrp_prod_followup_week_search" model="ir.ui.view">
+        <field name="name">mrp.prod.followup.week.search</field>
+        <field name="model">mrp.prod.followup.week</field>
+        <field name="arch" type="xml">
+            <search string="Recherche suivi prod">
+                <field name="week_start"/>
+                <field name="workcenter_id"/>
+                <filter string="Atelier" name="atelier" domain="[('scope', '=', 'atelier')]"/>
+                <filter string="Poste" name="poste" domain="[('scope', '=', 'poste')]"/>
+                <filter string="En surcharge" name="surcharge" domain="[('taux_charge', '&gt;', 100)]"/>
+                <group expand="1" string="Regrouper par">
+                    <filter string="Semaine" name="group_week" context="{'group_by': 'week_start'}"/>
+                    <filter string="Niveau" name="group_scope" context="{'group_by': 'scope'}"/>
+                    <filter string="Poste de travail" name="group_workcenter" context="{'group_by': 'workcenter_name'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mrp_prod_followup_week" model="ir.actions.act_window">
+        <field name="name">Suivi Prod</field>
+        <field name="res_model">mrp.prod.followup.week</field>
+        <field name="view_mode">tree,pivot</field>
+        <field name="search_view_id" ref="view_mrp_prod_followup_week_search"/>
+        <field name="context">{'search_default_atelier': 1}</field>
+    </record>
+</odoo>
