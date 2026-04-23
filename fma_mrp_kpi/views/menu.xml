@@ -3,7 +3,7 @@
     <menuitem id="menu_mrp_suivi_prod_root" name="Suivi Prod" parent="mrp.menu_mrp_root" sequence="55"/>
 
     <menuitem id="menu_mrp_prod_followup_week"
-              name="Charge vs capacité hebdo"
+              name="Charge vs capacité"
               parent="menu_mrp_suivi_prod_root"
               action="action_mrp_prod_followup_week"
               sequence="10"/>

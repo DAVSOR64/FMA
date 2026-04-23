@@ -1,26 +1,26 @@
 # -*- coding: utf-8 -*-
-from odoo import fields, models, tools
+from odoo import api, fields, models, tools
 
 
 class MrpProdFollowupWeek(models.Model):
     _name = "mrp.prod.followup.week"
-    _description = "Suivi Production hebdomadaire"
+    _description = "Suivi Production charge vs capacité"
     _auto = False
-    _order = "week_start desc, scope asc, workcenter_name asc"
+    _rec_name = "week_label"
+    _order = "month_start desc, week_start desc, workcenter_name asc"
 
-    week_start = fields.Date(string="Semaine du", readonly=True)
+    atelier_label = fields.Char(string="Atelier", readonly=True)
+    month_start = fields.Date(string="Mois", readonly=True)
+    month_label = fields.Char(string="Mois", readonly=True)
+    week_start = fields.Date(string="Début semaine", readonly=True)
     week_label = fields.Char(string="Semaine", readonly=True)
-    scope = fields.Selection([
-        ('atelier', 'Atelier'),
-        ('poste', 'Poste'),
-    ], string="Niveau", readonly=True)
     workcenter_id = fields.Many2one('mrp.workcenter', string="Poste de travail", readonly=True)
     workcenter_name = fields.Char(string="Poste de travail", readonly=True)
-    capacite_semaine = fields.Float(string="Capacité semaine (h)", digits=(10, 2), readonly=True)
-    charge_prevue_semaine = fields.Float(string="Charge prévue semaine (h)", digits=(10, 2), readonly=True)
-    charge_effectuee_semaine = fields.Float(string="Charge effectuée semaine (h)", digits=(10, 2), readonly=True)
+    capacite_heures = fields.Float(string="Capacité (h)", digits=(10, 2), readonly=True)
+    charge_prevue_heures = fields.Float(string="Charge prévue (h)", digits=(10, 2), readonly=True)
+    charge_effectuee_heures = fields.Float(string="Charge effectuée (h)", digits=(10, 2), readonly=True)
     ecart_heures = fields.Float(string="Écart capacité - charge (h)", digits=(10, 2), readonly=True)
-    taux_charge = fields.Float(string="Taux charge (%)", digits=(10, 1), readonly=True)
+    taux_charge = fields.Float(string="Taux (%)", digits=(10, 1), readonly=True)
     nb_operations = fields.Integer(string="# Ops", readonly=True)
 
     def init(self):
@@ -29,58 +29,57 @@ class MrpProdFollowupWeek(models.Model):
             CREATE OR REPLACE VIEW {self._table} AS (
                 WITH weekly_poste AS (
                     SELECT
+                        date_trunc('month', c.date)::date AS month_start,
                         date_trunc('week', c.date)::date AS week_start,
                         c.workcenter_id,
                         c.workcenter_name,
-                        SUM(COALESCE(c.capacite_heures, 0)) AS capacite_semaine,
-                        SUM(COALESCE(c.charge_prevue_jour, 0)) AS charge_prevue_semaine,
-                        SUM(COALESCE(c.charge_effectuee_jour, 0)) AS charge_effectuee_semaine,
+                        SUM(COALESCE(c.capacite_heures, 0)) AS capacite_heures,
+                        SUM(COALESCE(c.charge_prevue_jour, 0)) AS charge_prevue_heures,
+                        SUM(COALESCE(c.charge_effectuee_jour, 0)) AS charge_effectuee_heures,
                         SUM(COALESCE(c.nb_operations, 0)) AS nb_operations
                     FROM mrp_capacite_charge c
-                    GROUP BY date_trunc('week', c.date)::date, c.workcenter_id, c.workcenter_name
-                ),
-                weekly_all AS (
-                    SELECT
-                        week_start,
-                        'atelier'::varchar AS scope,
-                        NULL::integer AS workcenter_id,
-                        'ATELIER'::varchar AS workcenter_name,
-                        SUM(capacite_semaine) AS capacite_semaine,
-                        SUM(charge_prevue_semaine) AS charge_prevue_semaine,
-                        SUM(charge_effectuee_semaine) AS charge_effectuee_semaine,
-                        SUM(nb_operations) AS nb_operations
-                    FROM weekly_poste
-                    GROUP BY week_start
-                    UNION ALL
-                    SELECT
-                        week_start,
-                        'poste'::varchar AS scope,
-                        workcenter_id,
-                        workcenter_name,
-                        capacite_semaine,
-                        charge_prevue_semaine,
-                        charge_effectuee_semaine,
-                        nb_operations
-                    FROM weekly_poste
+                    GROUP BY date_trunc('month', c.date)::date,
+                             date_trunc('week', c.date)::date,
+                             c.workcenter_id,
+                             c.workcenter_name
                 )
                 SELECT
-                    ROW_NUMBER() OVER (ORDER BY week_start DESC, scope, COALESCE(workcenter_name, '')) AS id,
+                    ROW_NUMBER() OVER (ORDER BY month_start DESC, week_start DESC, COALESCE(workcenter_name, '')) AS id,
+                    'Atelier'::varchar AS atelier_label,
+                    month_start,
+                    to_char(month_start, 'MM/YYYY') AS month_label,
                     week_start,
                     to_char(week_start, '"W"IW YYYY') AS week_label,
-                    scope,
                     workcenter_id,
                     workcenter_name,
-                    ROUND(capacite_semaine::numeric, 2) AS capacite_semaine,
-                    ROUND(charge_prevue_semaine::numeric, 2) AS charge_prevue_semaine,
-                    ROUND(charge_effectuee_semaine::numeric, 2) AS charge_effectuee_semaine,
-                    ROUND((capacite_semaine - charge_prevue_semaine)::numeric, 2) AS ecart_heures,
+                    ROUND(capacite_heures::numeric, 2) AS capacite_heures,
+                    ROUND(charge_prevue_heures::numeric, 2) AS charge_prevue_heures,
+                    ROUND(charge_effectuee_heures::numeric, 2) AS charge_effectuee_heures,
+                    ROUND((capacite_heures - charge_prevue_heures)::numeric, 2) AS ecart_heures,
                     CASE
-                        WHEN capacite_semaine > 0
-                            THEN ROUND(((charge_prevue_semaine / capacite_semaine) * 100.0)::numeric, 1)
-                        WHEN charge_prevue_semaine > 0 THEN 999
+                        WHEN capacite_heures > 0 THEN ROUND(((charge_prevue_heures / capacite_heures) * 100.0)::numeric, 1)
+                        WHEN charge_prevue_heures > 0 THEN 999
                         ELSE 0
                     END AS taux_charge,
                     nb_operations
-                FROM weekly_all
+                FROM weekly_poste
             )
         """)
+
+    @api.model
+    def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True):
+        res = super().read_group(domain, fields, groupby, offset=offset, limit=limit, orderby=orderby, lazy=lazy)
+        for row in res:
+            capacite = float(row.get('capacite_heures') or 0.0)
+            charge = float(row.get('charge_prevue_heures') or 0.0)
+            effectue = float(row.get('charge_effectuee_heures') or 0.0)
+            row['ecart_heures'] = round(capacite - charge, 2)
+            if capacite > 0:
+                row['taux_charge'] = round((charge / capacite) * 100.0, 1)
+            elif charge > 0:
+                row['taux_charge'] = 999.0
+            else:
+                row['taux_charge'] = 0.0
+            # keep for completeness when group rows don't expose raw computed values
+            row['charge_effectuee_heures'] = round(effectue, 2)
+        return res
