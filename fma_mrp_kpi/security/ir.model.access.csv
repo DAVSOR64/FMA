@@ -1,3 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_mrp_daily_snapshot_user,mrp.daily.snapshot.user,model_mrp_daily_snapshot,mrp.group_mrp_user,1,0,0,0
 access_mrp_daily_snapshot_manager,mrp.daily.snapshot.manager,model_mrp_daily_snapshot,mrp.group_mrp_manager,1,1,1,1
+access_mrp_prod_followup_week_user,mrp.prod.followup.week.user,model_mrp_prod_followup_week,mrp.group_mrp_user,1,0,0,0
+access_mrp_prod_followup_week_manager,mrp.prod.followup.week.manager,model_mrp_prod_followup_week,mrp.group_mrp_manager,1,0,0,0

@@ -59,14 +59,48 @@ class MrpProduction(models.Model):
                 return rank
         return 999
 
+    def _is_workorder_started(self, wo):
+        """Retourne True si l'OT a réellement démarré et ne doit plus être replanifié.
+
+        Attention : dans ce module, date_start peut être une simple date planifiée.
+        On ne s'appuie donc pas dessus seule pour décider qu'une opération est commencée.
+        """
+        self.ensure_one()
+        return bool(
+            wo
+            and (
+                wo.state in ('progress', 'done')
+                or bool(getattr(wo, 'duration', False))
+                or bool(getattr(wo, 'qty_produced', False))
+                or bool(getattr(wo, 'date_finished', False) and wo.state == 'done')
+            )
+        )
+
     def _ordered_workorders_for_planning(self, include_progress=True):
         """Renvoie les OT éligibles au planning dans l'ordre métier, sans rien écrire."""
         self.ensure_one()
         workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
         if not include_progress:
-            workorders = workorders.filtered(lambda w: w.state != 'progress')
+            workorders = workorders.filtered(lambda w: not self._is_workorder_started(w))
         self._resequence_workorders_from_workcenter_code()
         return workorders.sorted(lambda w: (w.op_sequence or 9999, w.id))
+
+    def _get_replannable_workorders_from_date_fin(self):
+        """OT à replanifier quand l'OF a déjà démarré.
+
+        Règle métier :
+        - on ne touche jamais aux OT déjà démarrés / terminés ;
+        - on replanifie uniquement les OT non commencés ;
+        - si un OT a commencé au milieu de la gamme, seuls les suivants non commencés sont recalculés.
+        """
+        self.ensure_one()
+        self._resequence_workorders_from_workcenter_code()
+        active_wos = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))             .sorted(lambda w: (w.op_sequence or 9999, w.id))
+        if not active_wos:
+            return active_wos
+
+        replannable = active_wos.filtered(lambda w: not self._is_workorder_started(w))
+        return replannable.sorted(lambda w: (w.op_sequence or 9999, w.id))
 
     def _resequence_workorders_from_workcenter_code(self):
         """Recalcule op_sequence depuis le code du poste de travail."""
@@ -369,12 +403,9 @@ class MrpProduction(models.Model):
         if not isinstance(x_end, date_type):
             x_end = fields.Date.to_date(x_end)
 
-        workorders = self._resequence_workorders_for_planning(self._ordered_workorders_for_planning(include_progress=True))
+        workorders = self._get_replannable_workorders_from_date_fin()
         if not workorders:
-            raise UserError(_("Aucune opération active à replanifier sur cet OF."))
-
-        self._resequence_workorders_from_workcenter_code()
-        workorders = self.workorder_ids.filtered(lambda w: w.id in workorders.ids).sorted(lambda w: (w.op_sequence or 9999, w.id))
+            raise UserError(_("Aucune opération non commencée à replanifier sur cet OF."))
 
         # 2) Récupérer la date de livraison client
         delivery_dt, sale_order = self._get_macro_target_date()
@@ -667,6 +698,17 @@ class MrpProduction(models.Model):
     
             end_dt = max(end_candidates) if end_candidates else start_dt
     
+        # Si l'OF a déjà démarré / contient des OT terminés, on n'écrit plus les dates natives de l'OF.
+        # Sinon Odoo tente une déplanification standard et bloque avec :
+        # « Certains ordres de travail sont déjà terminés... ».
+        if any(self._is_workorder_started(wo) for wo in self.workorder_ids.filtered(lambda w: w.state != "cancel")):
+            _logger.info(
+                "OF %s : dates natives OF non mises à jour car des OT sont déjà commencés/terminés. "
+                "Les OT non commencés restent recalculés.",
+                self.name,
+            )
+            return
+
         vals = {}
         # Important: éviter de réécrire trop de champs OF, car Odoo 17 peut vider les dates OT.
         if "date_finished" in self._fields:
@@ -1021,9 +1063,9 @@ class MrpProduction(models.Model):
             return self.action_open_replan_preview()
 
         # Fallback : application directe sans prévisualisation
-        workorders = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
+        workorders = self._get_replannable_workorders_from_date_fin()
         if not workorders:
-            raise UserError(_("Aucune opération à replanifier sur cet OF."))
+            raise UserError(_("Aucune opération non commencée à replanifier sur cet OF."))
 
         fixed_end_dt = (
             getattr(self, 'macro_forced_end', False)
@@ -1191,9 +1233,9 @@ class MrpProduction(models.Model):
         import json
         self.ensure_one()
         from odoo.exceptions import UserError
-        workorders = self._resequence_workorders_for_planning(self._ordered_workorders_for_planning(include_progress=True))
+        workorders = self._get_replannable_workorders_from_date_fin()
         if not workorders:
-            raise UserError(_("Aucune opération à recalculer."))
+            raise UserError(_("Aucune opération non commencée à recalculer."))
 
         payload = self._build_replan_preview_payload()
         wiz = self.env["mrp.replan.preview.wizard"].create({
@@ -1229,12 +1271,12 @@ class MrpProduction(models.Model):
         if not isinstance(x_end, date_type):
             x_end = fields.Date.to_date(x_end)
 
-        workorders = self._resequence_workorders_for_planning(self._ordered_workorders_for_planning(include_progress=True))
+        workorders = self._get_replannable_workorders_from_date_fin()
         if not workorders:
-            raise UserError(_("Aucune opération active à replanifier."))
+            raise UserError(_("Aucune opération non commencée à replanifier."))
 
         self._resequence_workorders_from_workcenter_code()
-        workorders = self.workorder_ids.filtered(lambda w: w.id in workorders.ids).sorted(lambda w: (w.op_sequence or 9999, w.id))
+        workorders = workorders.sorted(lambda w: (w.op_sequence or 9999, w.id))
 
         # Date de livraison client
         delivery_dt, sale_order = self._get_macro_target_date()

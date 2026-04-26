@@ -183,21 +183,6 @@
                        decoration-success="solde_heures &lt; 0"
                        decoration-bf="solde_heures != 0"/>
                 
-                <field name="taux_charge" string="📊 Taux (%)"
-                       widget="badge"
-                       decoration-danger="taux_charge &gt; 100"
-                       decoration-success="taux_charge &gt;= 80 and taux_charge &lt;= 100"
-                       decoration-warning="taux_charge &lt; 80 and taux_charge &gt; 0"/>
-                
-                <!-- Cumuls - sans colorisation de ligne -->
-                <field name="cumul_prevu" string="📈 Cumul prévu (h)"/>
-                <field name="cumul_effectue" string="📉 Cumul effectué (h)"/>
-                
-                <field name="ecart" string="🎯 Écart cumul (h)"
-                       decoration-danger="ecart &lt; 0"
-                       decoration-success="ecart &gt;= 0"
-                       decoration-bf="ecart != 0"
-                       widget="monetary" options="{'currency_field': 'False'}"/>
                 
                 <!-- Info -->
                 <field name="nb_operations" string="# Ops" optional="show"/>
@@ -220,7 +205,6 @@
                 <field name="capacite_heures" type="measure"/>
                 <field name="charge_prevue_jour" type="measure"/>
                 <field name="charge_effectuee_jour" type="measure"/>
-                <field name="ecart" type="measure"/>
             </pivot>
         </field>
     </record>
@@ -230,12 +214,6 @@
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
             <search string="Rechercher">
-                <filter string="En surcharge" name="surcharge"
-                        domain="[('taux_charge', '&gt;', 100)]"/>
-                <filter string="Proche saturation (80-100%)" name="alerte"
-                        domain="[('taux_charge', '&gt;=', 80), ('taux_charge', '&lt;=', 100)]"/>
-                <filter string="En retard" name="retard"
-                        domain="[('ecart', '&lt;', 0)]"/>
                 <field name="workcenter_id" string="Poste de travail"/>
                 <field name="date" string="Date"/>
                 <group expand="1" string="Regrouper par">
