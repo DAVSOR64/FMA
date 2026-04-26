@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_prod_followup_week_tree" model="ir.ui.view">
+        <field name="name">mrp.prod.followup.week.tree</field>
+        <field name="model">mrp.prod.followup.week</field>
+        <field name="arch" type="xml">
+            <tree string="Charge vs capacité" create="false" edit="false" delete="false">
+                <field name="atelier_label" string="Atelier" optional="hide"/>
+                <field name="month_label" string="Mois"/>
+                <field name="week_label" string="Semaine"/>
+                <field name="workcenter_name" string="Poste de travail"/>
+                <field name="capacite_heures" string="Capacité (h)" sum="Total capacité"/>
+                <field name="charge_prevue_heures" string="Charge prévue (h)" sum="Total prévu"/>
+                <field name="charge_effectuee_heures" string="Charge effectuée (h)" sum="Total effectué" optional="show"/>
+                <field name="ecart_heures" string="Écart capacité - charge (h)" sum="Total écart"
+                       decoration-danger="ecart_heures &lt; 0"
+                       decoration-success="ecart_heures &gt;= 0"/>
+                <field name="taux_charge" string="Taux (%)" widget="badge"
+                       decoration-danger="taux_charge &gt; 100"
+                       decoration-success="taux_charge &gt;= 80 and taux_charge &lt;= 100"
+                       decoration-warning="taux_charge &gt; 0 and taux_charge &lt; 80"/>
+                <field name="nb_operations" string="# Ops" sum="Total ops" optional="show"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_mrp_prod_followup_week_pivot" model="ir.ui.view">
+        <field name="name">mrp.prod.followup.week.pivot</field>
+        <field name="model">mrp.prod.followup.week</field>
+        <field name="arch" type="xml">
+            <pivot string="Charge vs capacité" disable_linking="1">
+                <field name="month_start" interval="month" type="row"/>
+                <field name="week_start" interval="week" type="row"/>
+                <field name="workcenter_name" type="row"/>
+                <field name="capacite_heures" type="measure"/>
+                <field name="charge_prevue_heures" type="measure"/>
+                <field name="charge_effectuee_heures" type="measure"/>
+                <field name="ecart_heures" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_mrp_prod_followup_week_search" model="ir.ui.view">
+        <field name="name">mrp.prod.followup.week.search</field>
+        <field name="model">mrp.prod.followup.week</field>
+        <field name="arch" type="xml">
+            <search string="Recherche charge vs capacité">
+                <field name="month_start"/>
+                <field name="week_start"/>
+                <field name="workcenter_id"/>
+                <filter string="Mois en cours" name="current_month"
+                        domain="[('month_start', '&gt;=', context_today().strftime('%%Y-%%m-01')), ('month_start', '&lt;', ((context_today() + relativedelta(months=1)).strftime('%%Y-%%m-01')))]"/>
+                <group expand="0" string="Regrouper par">
+                    <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_label'}"/>
+                    <filter string="Mois" name="group_month" context="{'group_by': 'month_start:month'}"/>
+                    <filter string="Semaine" name="group_week" context="{'group_by': 'week_start:week'}"/>
+                    <filter string="Poste" name="group_workcenter" context="{'group_by': 'workcenter_name'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mrp_prod_followup_week" model="ir.actions.act_window">
+        <field name="name">Charge vs capacité</field>
+        <field name="res_model">mrp.prod.followup.week</field>
+        <field name="view_mode">tree,pivot</field>
+        <field name="search_view_id" ref="view_mrp_prod_followup_week_search"/>
+        <field name="context">{'search_default_current_month': 1, 'group_by': ['atelier_label', 'month_start:month', 'week_start:week', 'workcenter_name']}</field>
+        <field name="help" type="html">
+            <p>Cette vue lit directement les données recalculées par Macro Planning / Capacité vs Charge.</p>
+            <p>Après un recalcul capacité/charge, les chiffres de cette vue sont mis à jour automatiquement.</p>
+        </field>
+    </record>
+</odoo>
