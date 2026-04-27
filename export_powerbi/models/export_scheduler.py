@@ -112,7 +112,7 @@ class ExportSFTPScheduler(models.Model):
                 if isinstance(v, (int, float, bool)):
                     return v
                 if isinstance(v, str):
-                    return v
+                    return re.sub(r'[\r\n\t]+', ' ', v).strip()
                 if isinstance(v, (datetime,)):
                     return v.strftime("%Y-%m-%d %H:%M:%S")
                 if isinstance(v, (date,)):
