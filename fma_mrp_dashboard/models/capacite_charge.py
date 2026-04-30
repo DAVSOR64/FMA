@@ -175,21 +175,17 @@ class CapaciteCache(models.Model):
         )
 
     def _get_daily_capacity_map(self, week):
-        """
-        Retourne {date: heures_nettes} pour une semaine de capacité.
+        """Retourne {date: heures_nettes} pour une semaine de capacite.
 
-        Logique : on utilise directement capacity_net (déjà calculé dans mrp.capacity.week,
-        tenant compte du taux d'affectation, des congés, absences, fériés) et on le
-        répartit proportionnellement sur les jours ouvrés de la semaine selon le calendrier.
-
-        Ex : GUILLON 50% → capacity_net=22,50h sur 5 jours ouvrés → 4,50h/jour
-             DESORMEAUX 100% → capacity_net=38,50h sur 5 jours ouvrés → 7,70h/jour
+        Correction : le calcul part des heures reellement ouvrees du calendrier
+        DE LA RESSOURCE, avec les leaves/absences/feries appliques par Odoo.
+        Exemple : semaine 39h avec vendredi ferie 5h => lundi-jeudi a 8,5h
+        et vendredi a 0h, soit 34h nettes.
         """
         calendar = week.override_calendar_id or week.resource_calendar_id
-        if not calendar:
+        if not calendar or not week.week_date:
             return {}
 
-        # capacity_net est LA valeur de référence — déjà nette de tout
         capacity_net = week.capacity_net or 0.0
         if capacity_net <= 0:
             return {}
@@ -197,67 +193,82 @@ class CapaciteCache(models.Model):
         week_start = week.week_date
         week_end = week.week_end_date or (week.week_date + timedelta(days=6))
 
-        # Récupérer les jours ouvrés de la semaine et leurs heures brutes
-        # (pour calculer la proportion de chaque jour)
-        base_map = self._get_working_days(calendar, week_start)
+        resource = self._get_odoo_resource_from_capacity_week(week)
+        base_map = self._get_working_days(calendar, week_start, resource=resource)
         if not base_map:
             return {}
 
-        # Filtrer uniquement les jours dans la fenêtre semaine
-        jours_ouvres = {d: h for d, h in base_map.items() if week_start <= d <= week_end}
+        jours_ouvres = {d: h for d, h in base_map.items() if week_start <= d <= week_end and h > 0}
         if not jours_ouvres:
             return {}
 
-        total_heures_brutes = sum(jours_ouvres.values())
-        if total_heures_brutes <= 0:
+        total_heures_reelles = round(sum(jours_ouvres.values()), 2)
+        if total_heures_reelles <= 0:
             return {}
 
-        # Répartir capacity_net proportionnellement aux heures de chaque jour
-        # (gère les demi-journées, jours fériés qui réduisent la capacité brute d'un jour)
+        if abs(total_heures_reelles - capacity_net) <= 0.05:
+            return {d: round(h, 2) for d, h in jours_ouvres.items()}
+
+        if capacity_net > total_heures_reelles:
+            _logger.warning(
+                '[MacroPlanning] Semaine capacite %s : capacity_net %.2f > calendrier reel %.2f. Conservation calendrier.',
+                week.id, capacity_net, total_heures_reelles
+            )
+            return {d: round(h, 2) for d, h in jours_ouvres.items()}
+
         result = {}
         total_attribue = 0.0
         jours_tries = sorted(jours_ouvres.keys())
-
         for i, jour in enumerate(jours_tries):
             if i < len(jours_tries) - 1:
-                h_jour = round(capacity_net * jours_ouvres[jour] / total_heures_brutes, 2)
+                h_jour = round(capacity_net * jours_ouvres[jour] / total_heures_reelles, 2)
             else:
-                # Dernier jour : prendre le reste pour éviter les erreurs d'arrondi
                 h_jour = round(capacity_net - total_attribue, 2)
             result[jour] = max(0.0, h_jour)
             total_attribue += h_jour
-
         return result
 
-    def _get_working_days(self, calendar, week_date):
-        """Capacité réelle par jour via _work_intervals_batch (fiable, sans pauses)."""
+    def _get_odoo_resource_from_capacity_week(self, week):
+        """Retourne resource.resource si disponible sur la semaine capacite."""
+        for fname in ('resource_id', 'planning_resource_id'):
+            res = getattr(week, fname, False)
+            if res:
+                if getattr(res, '_name', '') == 'resource.resource':
+                    return res
+                linked = getattr(res, 'resource_id', False)
+                if linked and getattr(linked, '_name', '') == 'resource.resource':
+                    return linked
+        employee = getattr(week, 'employee_id', False)
+        if employee and getattr(employee, 'resource_id', False):
+            return employee.resource_id
+        return False
+
+    def _extract_work_intervals(self, calendar, start_dt, end_dt, resource=False):
+        """Compat Odoo : recupere les intervalles avec ou sans resource.resource."""
+        if resource:
+            intervals = calendar._work_intervals_batch(start_dt, end_dt, resources=resource)
+            return intervals.get(resource.id) or intervals.get(resource) or intervals.get(False) or []
+        intervals = calendar._work_intervals_batch(start_dt, end_dt)
+        return intervals.get(False, [])
+
+    def _get_working_days(self, calendar, week_date, resource=False):
+        """Capacite reelle par jour via _work_intervals_batch, leaves incluses."""
         if not calendar:
             return {}
-
         result = {}
-
-        # Fenêtre semaine
         start_dt = datetime.combine(week_date, datetime.min.time())
         end_dt = start_dt + timedelta(days=7)
-
         try:
             start_dt = self._to_utc(start_dt)
             end_dt = self._to_utc(end_dt)
-
-            intervals = calendar._work_intervals_batch(start_dt, end_dt)
-            work_intervals = intervals.get(False, [])
-
+            work_intervals = self._extract_work_intervals(calendar, start_dt, end_dt, resource=resource)
             for start, stop, _meta in work_intervals:
                 day = start.date()
                 hours = (stop - start).total_seconds() / 3600.0
-
                 result[day] = result.get(day, 0.0) + hours
-
         except Exception as e:
-            _logger.error("Erreur calcul calendrier : %s", str(e))
+            _logger.error('Erreur calcul calendrier : %s', str(e))
             return {}
-
-        # arrondi final
         return {d: round(h, 2) for d, h in result.items()}
 
     def _get_calendar_leave_hours_by_day(self, calendar, week_start, week_end):
