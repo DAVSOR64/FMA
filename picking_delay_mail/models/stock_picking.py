@@ -163,7 +163,6 @@ class StockPicking(models.Model):
         ctx = {
             "default_model": "stock.picking",
             "default_res_ids": [self.id],
-            "default_res_id": self.id,
             "default_composition_mode": "comment",
             "force_email": True,
             "default_partner_ids": [(6, 0, [contact.id])],
