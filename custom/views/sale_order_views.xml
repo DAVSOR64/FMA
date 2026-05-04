@@ -103,15 +103,6 @@
                     </group>
                 </page>
 
-                <!-- 🔵 Nouvel onglet : Suivi / Communication affaire -->
-                <page string="Suivi / Communication affaire">
-                    <group string="Communication affaire">
-                        <field name="so_arc_ref"/>
-                        <field name="so_retard_nouvelle_date"/>
-                        <field name="so_retard_motif"/>
-                    </group>
-                </page>
-
             </xpath>
 
         </field>
