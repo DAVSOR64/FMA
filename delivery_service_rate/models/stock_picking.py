@@ -131,7 +131,13 @@ class StockPicking(models.Model):
     @api.depends("delivery_month", "delivered_on_time", "state")
     def _compute_service_rate_percent(self):
         months = set(self.mapped("delivery_month")) - {""}
-        domain = [("state", "=", "done")]
+        
+        domain = [
+            ("state", "=", "done"),
+            "|",
+            ("planned_date_reason", "!=", "customer"),
+            ("planned_date_reason", "=", False),
+        ]
         if months:
             domain.append(("delivery_month", "in", list(months)))
         group_data = self.env["stock.picking"].read_group(
