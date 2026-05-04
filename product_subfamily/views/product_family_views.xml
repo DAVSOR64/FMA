@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <record id="view_product_subfamily_tree" model="ir.ui.view">
-        <field name="name">product.subfamily.tree</field>
-        <field name="model">product.subfamily</field>
+    <record id="view_product_family_tree" model="ir.ui.view">
+        <field name="name">product.family.tree</field>
+        <field name="model">product.family</field>
         <field name="arch" type="xml">
-            <tree string="Sous-familles">
+            <tree string="Familles">
                 <field name="sequence" widget="handle"/>
-                <field name="family_id"/>
                 <field name="name"/>
                 <field name="code"/>
                 <field name="active"/>
@@ -14,14 +13,13 @@
         </field>
     </record>
 
-    <record id="view_product_subfamily_form" model="ir.ui.view">
-        <field name="name">product.subfamily.form</field>
-        <field name="model">product.subfamily</field>
+    <record id="view_product_family_form" model="ir.ui.view">
+        <field name="name">product.family.form</field>
+        <field name="model">product.family</field>
         <field name="arch" type="xml">
-            <form string="Sous-famille">
+            <form string="Famille">
                 <sheet>
                     <group>
-                        <field name="family_id"/>
                         <field name="name"/>
                         <field name="code"/>
                         <field name="sequence"/>
@@ -32,9 +30,9 @@
         </field>
     </record>
 
-    <record id="action_product_subfamily" model="ir.actions.act_window">
-        <field name="name">Sous-familles produits</field>
-        <field name="res_model">product.subfamily</field>
+    <record id="action_product_family" model="ir.actions.act_window">
+        <field name="name">Familles produits</field>
+        <field name="res_model">product.family</field>
         <field name="view_mode">tree,form</field>
     </record>
 </odoo>
