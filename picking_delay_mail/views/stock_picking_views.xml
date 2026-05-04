@@ -11,6 +11,19 @@
                         string="Info retard"
                         class="btn-primary"/>
             </xpath>
+            <xpath expr="//sheet" position="inside">
+                <group string="Information retard" name="delay_mail_info" invisible="1">
+                    <field name="delay_sale_order_id"/>
+                    <field name="delay_arc"/>
+                    <field name="delay_ref_client"/>
+                    <field name="delay_initial_date"/>
+                    <field name="delay_initial_week"/>
+                    <field name="delay_new_date"/>
+                    <field name="delay_new_week"/>
+                    <field name="delay_motif"/>
+                    <field name="delay_designation"/>
+                </group>
+            </xpath>
         </field>
     </record>
 </odoo>

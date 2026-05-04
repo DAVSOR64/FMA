@@ -14,8 +14,6 @@
         "views/sale_delay_reason_views.xml",
         "views/stock_picking_views.xml",
         "data/message_templates.xml",
-        "data/mail_template_retard.xml",
-        "data/mail_template_retard_livraison.xml",
     ],
     "assets": {
         "web.assets_backend": [
