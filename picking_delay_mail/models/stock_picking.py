@@ -163,7 +163,6 @@ class StockPicking(models.Model):
         ctx = {
             "default_model": "stock.picking",
             "default_res_ids": [self.id],
-            "default_res_id": self.id,
             "default_composition_mode": "comment",
             "force_email": True,
             "default_partner_ids": [(6, 0, [contact.id])],
@@ -177,12 +176,11 @@ class StockPicking(models.Model):
                 }
             )
 
-        action = self.env["ir.actions.actions"]._for_xml_id("mail.action_compose_message")
-        action.update(
-            {
-                "name": "Information retard",
-                "target": "new",
-                "context": ctx,
-            }
-        )
-        return action
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Information retard",
+            "res_model": "mail.compose.message",
+            "view_mode": "form",
+            "target": "new",
+            "context": ctx,
+        }
