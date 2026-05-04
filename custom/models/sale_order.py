@@ -115,13 +115,20 @@ class SaleOrder(models.Model):
             sorted_pickings = self.picking_ids.sorted(lambda p: p.scheduled_date or fields.Datetime.from_string("9999-12-31 00:00:00"))
             picking = sorted_pickings[:1]
 
+        # Ancienne semaine = date_deadline du BL
+        # Nouvelle semaine = scheduled_date du BL
+        # Ces valeurs sont recalculées à l'ouverture du mail "Info retard".
         old_date = False
-        if picking and picking.scheduled_date:
-            old_date = picking.scheduled_date.date()
+        if picking and picking.date_deadline:
+            old_date = picking.date_deadline.date()
         elif self.so_date_de_livraison:
             old_date = self.so_date_de_livraison
 
-        new_date = self.so_retard_nouvelle_date or False
+        new_date = False
+        if picking and picking.scheduled_date:
+            new_date = picking.scheduled_date.date()
+        elif self.so_retard_nouvelle_date:
+            new_date = self.so_retard_nouvelle_date
 
         old_week = old_date and str(old_date.isocalendar()[1]) or ""
         new_week = new_date and str(new_date.isocalendar()[1]) or ""

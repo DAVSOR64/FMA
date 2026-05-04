@@ -80,6 +80,7 @@ class StockPicking(models.Model):
 
     @api.depends(
         "sale_id",
+        "date_deadline",
         "scheduled_date",
         "move_ids.sale_line_id.order_id",
         "move_ids.sale_line_id.order_id.so_retard_nouvelle_date",
@@ -96,8 +97,10 @@ class StockPicking(models.Model):
             if sale_order and hasattr(sale_order, "_get_retard_livraison_values"):
                 values = sale_order._get_retard_livraison_values(picking=picking)
             elif sale_order:
-                old_date = picking.scheduled_date.date() if picking.scheduled_date else False
-                new_date = getattr(sale_order, "so_retard_nouvelle_date", False) or False
+                old_date = picking.date_deadline.date() if picking.date_deadline else False
+                new_date = picking.scheduled_date.date() if picking.scheduled_date else False
+                if not new_date:
+                    new_date = getattr(sale_order, "so_retard_nouvelle_date", False) or False
                 values = {
                     "arc": sale_order.name,
                     "ref_client": sale_order.client_order_ref or sale_order.name,
@@ -130,6 +133,11 @@ class StockPicking(models.Model):
 
     def action_open_delay_email(self):
         self.ensure_one()
+
+        # Recalcule explicitement les semaines juste avant l'ouverture
+        # de l'assistant mail, afin que le template standard Odoo récupère
+        # toujours les dates à jour.
+        self._compute_delay_mail_values()
 
         sale_order = self._get_related_sale_order()
         if not sale_order:
