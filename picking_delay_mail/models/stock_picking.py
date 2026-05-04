@@ -9,38 +9,56 @@ class StockPicking(models.Model):
         "sale.order",
         string="Commande liée au retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
     delay_arc = fields.Char(
         string="ARC retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
     delay_ref_client = fields.Char(
         string="Référence client retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
     delay_initial_date = fields.Date(
         string="Date initiale retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
     delay_initial_week = fields.Char(
         string="Semaine initiale retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
     delay_new_date = fields.Date(
         string="Nouvelle date retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
     delay_new_week = fields.Char(
         string="Nouvelle semaine retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
     delay_motif = fields.Char(
         string="Motif retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
     delay_designation = fields.Char(
         string="Désignation retard",
         compute="_compute_delay_mail_values",
+        store=True,
+        readonly=True,
     )
 
     def _get_related_sale_order(self):
