@@ -150,19 +150,39 @@ class StockPicking(models.Model):
         if not contact.email:
             raise UserError("Contact sans email.")
 
+        # Template standard Odoo créé manuellement.
+        # On le recherche par modèle + nom afin d'éviter de dépendre d'un XML ID.
+        template = self.env["mail.template"].search(
+            [
+                ("model", "=", "stock.picking"),
+                ("name", "ilike", "info retard"),
+            ],
+            limit=1,
+        )
+
         ctx = {
             "default_model": "stock.picking",
             "default_res_ids": [self.id],
+            "default_res_id": self.id,
             "default_composition_mode": "comment",
             "force_email": True,
             "default_partner_ids": [(6, 0, [contact.id])],
         }
 
-        return {
-            "type": "ir.actions.act_window",
-            "name": "Information retard",
-            "res_model": "mail.compose.message",
-            "view_mode": "form",
-            "target": "new",
-            "context": ctx,
-        }
+        if template:
+            ctx.update(
+                {
+                    "default_use_template": True,
+                    "default_template_id": template.id,
+                }
+            )
+
+        action = self.env["ir.actions.actions"]._for_xml_id("mail.action_compose_message")
+        action.update(
+            {
+                "name": "Information retard",
+                "target": "new",
+                "context": ctx,
+            }
+        )
+        return action
