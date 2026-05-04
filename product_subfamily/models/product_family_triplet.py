@@ -29,15 +29,19 @@ class ProductFamilyTriplet(models.Model):
         domain="[('subfamily_id', '=', subfamily_id)]",
         ondelete="cascade",
     )
-    analytic_account_sale_id = fields.Many2one(
-        "account.analytic.account",
-        string="Compte analytique vente",
+    income_account_id = fields.Many2one(
+        "account.account",
+        string="Compte de revenus",
         required=True,
+        domain="[('deprecated', '=', False)]",
+        help="Compte de revenus à affecter sur la catégorie produit générée.",
     )
-    analytic_account_purchase_id = fields.Many2one(
-        "account.analytic.account",
-        string="Compte analytique achat",
+    expense_account_id = fields.Many2one(
+        "account.account",
+        string="Compte de charges",
         required=True,
+        domain="[('deprecated', '=', False)]",
+        help="Compte de charges à affecter sur la catégorie produit générée.",
     )
     categ_id = fields.Many2one(
         "product.category",
@@ -92,8 +96,8 @@ class ProductFamilyTriplet(models.Model):
     def _prepare_generated_category_values(self):
         self.ensure_one()
         vals = {
-            "analytic_account_sale_id": self.analytic_account_sale_id.id,
-            "analytic_account_purchase_id": self.analytic_account_purchase_id.id,
+            "property_account_income_categ_id": self.income_account_id.id,
+            "property_account_expense_categ_id": self.expense_account_id.id,
         }
         if "property_cost_method" in self.env["product.category"]._fields:
             vals["property_cost_method"] = "average"
@@ -124,8 +128,8 @@ class ProductFamilyTriplet(models.Model):
             "family_id",
             "subfamily_id",
             "subsubfamily_id",
-            "analytic_account_sale_id",
-            "analytic_account_purchase_id",
+            "income_account_id",
+            "expense_account_id",
         } & set(vals):
             self._ensure_generated_category()
             products = self.env["product.template"].search([

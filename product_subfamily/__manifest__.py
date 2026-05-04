@@ -1,14 +1,14 @@
 {
     "name": "Product Family Triplet",
-    "summary": "Famille / Sous-famille / Sous-sous-famille avec création automatique des catégories et analytique",
+    "summary": "Famille / Sous-famille / Sous-sous-famille avec création automatique des catégories comptables",
     "version": "3.0",
     "author": "ALEBOR",
     "license": "LGPL-3",
     "depends": [
         "product",
         "stock",
+        "account",
         "stock_account",
-        "analytic",
         "mail",
     ],
     "data": [

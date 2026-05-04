@@ -1,4 +1,3 @@
-from . import product_category
 from . import product_family
 from . import product_subfamily
 from . import product_subsubfamily

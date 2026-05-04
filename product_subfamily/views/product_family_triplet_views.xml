@@ -8,8 +8,8 @@
                 <field name="family_id"/>
                 <field name="subfamily_id"/>
                 <field name="subsubfamily_id"/>
-                <field name="analytic_account_sale_id"/>
-                <field name="analytic_account_purchase_id"/>
+                <field name="income_account_id"/>
+                <field name="expense_account_id"/>
                 <field name="categ_id" readonly="1"/>
                 <field name="active"/>
             </tree>
@@ -27,9 +27,9 @@
                         <field name="subfamily_id" domain="[('family_id', '=', family_id)]"/>
                         <field name="subsubfamily_id" domain="[('subfamily_id', '=', subfamily_id)]"/>
                     </group>
-                    <group string="Analytique et catégorie générée">
-                        <field name="analytic_account_sale_id"/>
-                        <field name="analytic_account_purchase_id"/>
+                    <group string="Comptabilité et catégorie générée">
+                        <field name="income_account_id"/>
+                        <field name="expense_account_id"/>
                         <field name="categ_id" readonly="1"/>
                         <field name="active"/>
                     </group>
