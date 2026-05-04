@@ -73,24 +73,12 @@ class SaleOrder(models.Model):
         return res
 
     def action_post_chat_template(self):
-        """
-        Publie le modèle dans le chat + envoie un mail aux partenaires liés.
-
-        Si le nom du modèle contient 'retard', on génère un message spécial
-        de retard de livraison avec les dates / motif.
-        """
+        """Publie le modèle sélectionné dans le chatter, sans génération de mail de retard."""
         for order in self:
             template = order.chat_template_id
             if not template:
                 continue
 
-            # Détection du modèle "Retard de livraison" par le nom
-            if template.name and 'retard' in template.name.lower():
-                body = order._build_retard_livraison_body()
-            else:
-                body = template.body
-
-            # Destinataire : contact principal s'il existe, sinon le client
             partner_ids = []
             if order.main_contact_id:
                 partner_ids.append(order.main_contact_id.id)
@@ -98,84 +86,62 @@ class SaleOrder(models.Model):
                 partner_ids.append(order.partner_id.id)
 
             order.message_post(
-                body=body,
+                body=template.body,
                 subtype_xmlid="mail.mt_comment",
                 message_type="comment",
                 partner_ids=partner_ids,
                 email_layout_xmlid="mail.mail_notification_light",
             )
 
-    def _build_retard_livraison_body(self):
-        """Construit le message HTML pour le retard de livraison."""
+    def _get_retard_livraison_values(self, picking=False):
+        """Retourne les valeurs de retard réutilisables par le BL / template mail.
+
+        Le module `picking_delay_mail` s'appuie sur cette méthode pour exposer
+        les semaines directement sur `stock.picking`, sans dupliquer le template
+        mail dans ce module custom.
+        """
         self.ensure_one()
 
-        # ARC = numéro de commande (A25-xx-xxxxx)
-        arc = self.name
+        arc = self.so_arc_ref or self.name
 
-        # Référence = suffixe du projet mtn (ex: "A25-12-04272 STARSSJO" => "STARSSJO")
         ref_client = ""
         if getattr(self, "x_studio_projet", False) and self.x_studio_projet.name:
             proj_name = self.x_studio_projet.name
-            if " " in proj_name:
-                ref_client = proj_name.split(" ", 1)[1]
-            else:
-                ref_client = proj_name
+            ref_client = proj_name.split(" ", 1)[1] if " " in proj_name else proj_name
         else:
-            # fallback
             ref_client = self.client_order_ref or self.so_commande_client or self.name
 
-        # Date initiale : priorité scheduled_date (1er picking), sinon so_date_de_livraison
-        picking = False
-        if self.picking_ids:
-            sorted_pickings = self.picking_ids.sorted('scheduled_date')
-            picking = sorted_pickings[0] if sorted_pickings else False
+        if not picking and self.picking_ids:
+            sorted_pickings = self.picking_ids.sorted(lambda p: p.scheduled_date or fields.Datetime.from_string("9999-12-31 00:00:00"))
+            picking = sorted_pickings[:1]
 
+        # Ancienne semaine = date_deadline du BL
+        # Nouvelle semaine = scheduled_date du BL
+        # Ces valeurs sont recalculées à l'ouverture du mail "Info retard".
         old_date = False
-        if picking and picking.scheduled_date:
-            old_date = picking.scheduled_date.date()
+        if picking and picking.date_deadline:
+            old_date = picking.date_deadline.date()
         elif self.so_date_de_livraison:
             old_date = self.so_date_de_livraison
 
-        old_week = ''
-        if old_date:
-            old_week = str(old_date.isocalendar()[1])
+        new_date = False
+        if picking and picking.scheduled_date:
+            new_date = picking.scheduled_date.date()
+        elif self.so_retard_nouvelle_date:
+            new_date = self.so_retard_nouvelle_date
 
-        # Nouvelle semaine = basée sur la nouvelle date saisie
-        new_week = ''
-        if self.so_retard_nouvelle_date:
-            new_week = str(self.so_retard_nouvelle_date.isocalendar()[1])
+        old_week = old_date and str(old_date.isocalendar()[1]) or ""
+        new_week = new_date and str(new_date.isocalendar()[1]) or ""
 
-        motif = self.so_retard_motif or '—'
-
-        body = f"""
-        <p><b>RETARD DE LIVRAISON</b></p>
-
-        <p>Madame, Monsieur,</p>
-
-        <p>
-            Votre commande r&eacute;f&eacute;rence : <b>{ref_client}</b><br/>
-            Correspondant &agrave; notre ARC : <b>{arc}</b><br/>
-        </p>
-
-        <p>
-            Qui devait &ecirc;tre livr&eacute;e <b>semaine {old_week or 'XX'}</b>
-            doit &ecirc;tre report&eacute;e &agrave; la <b>semaine {new_week or 'XX'}</b>.
-        </p>
-
-        <p><b>Motif :</b> {motif}</p>
-
-        <p>
-            Mr VOLEAU prendra ult&eacute;rieurement contact avec vous afin de d&eacute;finir
-            les modalit&eacute;s de livraison.<br/>
-            Nous restons &agrave; votre &eacute;coute aux coordonn&eacute;es en signature de ce mail.
-        </p>
-
-        <p>
-            Nous sommes d&eacute;sol&eacute;s de ne pouvoir honorer notre engagement et restons &agrave;
-            votre disposition pour de plus amples explications.
-        </p>
-        """
-        return body
+        return {
+            "arc": arc,
+            "ref_client": ref_client,
+            "old_date": old_date,
+            "old_week": old_week,
+            "new_date": new_date,
+            "new_week": new_week,
+            "motif": self.so_retard_motif or "",
+        }
 
     # ===================== Champs existants =====================
 

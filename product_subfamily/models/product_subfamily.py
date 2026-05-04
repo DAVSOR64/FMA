@@ -3,15 +3,24 @@ from odoo import models, fields
 
 class ProductSubFamily(models.Model):
     _name = "product.subfamily"
-    _description = "Sous catégorie de produit"
-    _order = "product_categ_id, name"
+    _description = "Sous-famille de produit"
+    _order = "family_id, sequence, name"
 
-    name = fields.Char(string="Nom", required=True)
-    product_categ_id = fields.Many2one(
-        "product.category",
-        string="Catégorie de produit",
+    name = fields.Char(string="Sous-famille", required=True)
+    code = fields.Char(string="Code")
+    family_id = fields.Many2one(
+        "product.family",
+        string="Famille",
         required=True,
-        help="Catégorie de produit à laquelle cette sous-famille est rattachée.",
+        ondelete="cascade",
     )
-    code = fields.Char(string="Code", help="Code interne optionnel.")
+    sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
+
+    _sql_constraints = [
+        (
+            "product_subfamily_family_name_uniq",
+            "unique(family_id, name)",
+            "Cette sous-famille existe déjà pour cette famille.",
+        ),
+    ]

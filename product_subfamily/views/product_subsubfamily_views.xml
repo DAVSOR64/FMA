@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_product_subsubfamily_tree" model="ir.ui.view">
+        <field name="name">product.subsubfamily.tree</field>
+        <field name="model">product.subsubfamily</field>
+        <field name="arch" type="xml">
+            <tree string="Sous-sous-familles">
+                <field name="sequence" widget="handle"/>
+                <field name="family_id"/>
+                <field name="subfamily_id"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_product_subsubfamily_form" model="ir.ui.view">
+        <field name="name">product.subsubfamily.form</field>
+        <field name="model">product.subsubfamily</field>
+        <field name="arch" type="xml">
+            <form string="Sous-sous-famille">
+                <sheet>
+                    <group>
+                        <field name="subfamily_id"/>
+                        <field name="family_id" readonly="1"/>
+                        <field name="name"/>
+                        <field name="code"/>
+                        <field name="sequence"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_product_subsubfamily" model="ir.actions.act_window">
+        <field name="name">Sous-sous-familles produits</field>
+        <field name="res_model">product.subsubfamily</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>
