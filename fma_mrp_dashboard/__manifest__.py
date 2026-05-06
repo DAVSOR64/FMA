@@ -12,10 +12,9 @@
         'views/capacite_charge_views.xml',
         'views/capacite_operateur_views.xml',
         'views/mrp_workorder_gantt_views.xml',
-        'views/menu.xml',
         'views/mrp_production_workorder_times_views.xml',
+        'views/menu.xml',
     ],
-    
     'assets': {
         'web.assets_backend': [
             'fma_mrp_dashboard/static/src/css/gantt_colors.css',
