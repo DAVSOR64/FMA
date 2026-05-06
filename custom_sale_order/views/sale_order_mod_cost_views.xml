@@ -1,0 +1,18 @@
+<odoo>
+    <record id="view_order_form_mod_real_cost" model="ir.ui.view">
+        <field name="name">sale.order.form.mod.real.cost</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Analyse financière MOD" name="analyse_financiere_mod_odoo">
+                    <group string="Coût réel main d'œuvre Odoo">
+                        <field name="so_heures_mod_reelles_odoo" widget="float_time" readonly="1"/>
+                        <field name="so_cout_mod_reel_odoo" readonly="1"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

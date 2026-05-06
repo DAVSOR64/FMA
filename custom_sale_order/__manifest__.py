@@ -1,23 +1,12 @@
 # -*- coding: utf-8 -*-
-{
-    "name": "custom_sale_order",
-    "summary": """
-        Custome doc sale order""",
-    "description": """
-        This modul customize the sale_order odf
-    """,
-    "author": "My Company",
-    "category": "Uncategorized",
-    "version": "17.0.1.0.1",
-    # any module necessary for this one to work correctly
-    "depends": ["sale", "custom"],
-    # always loaded
-    "data": [
-        # 'security/ir.model.access.csv',
-        #'views/views.xml',
-        "views/sales_order.xml",
-    ],
-    "installable": True,
-    "application": True,
-    "license": "LGPL-3",
-}
+{'application': True,
+ 'author': 'My Company',
+ 'category': 'Uncategorized',
+ 'data': ['views/sales_order.xml', 'views/sale_order_mod_cost_views.xml'],
+ 'depends': ['sale', 'custom', 'mrp', 'mrp_workorder', 'hr'],
+ 'description': '\n        This modul customize the sale_order odf\n    ',
+ 'installable': True,
+ 'license': 'LGPL-3',
+ 'name': 'custom_sale_order',
+ 'summary': '\n        Custome doc sale order',
+ 'version': '17.0.1.0.1'}
