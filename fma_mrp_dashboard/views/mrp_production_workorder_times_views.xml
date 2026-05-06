@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_mrp_production_form_workorder_operator_time" model="ir.ui.view">
-        <field name="name">mrp.production.form.workorder.operator.time</field>
-        <field name="model">mrp.production</field>
-        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
-        <field name="priority">100</field>
+    <record id="view_mrp_workorder_tree_operator_time" model="ir.ui.view">
+        <field name="name">mrp.workorder.tree.operator.time</field>
+        <field name="model">mrp.workorder</field>
+        <field name="inherit_id" ref="mrp.mrp_production_workorder_tree_editable_view"/>
+        <field name="priority">200</field>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='workorder_ids']//field[@name='duration']" position="after">
-                <field name="x_operator_time_spent" string="Temps opérateur" widget="float_time" readonly="1"/>
+            <xpath expr="//field[@name='duration']" position="after">
+                <field name="x_operator_time_spent"
+                       string="Temps opérateur"
+                       widget="float_time"
+                       readonly="1"
+                       optional="show"/>
             </xpath>
         </field>
     </record>
