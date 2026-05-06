@@ -151,7 +151,10 @@ class MrpCapacityWeek(models.Model):
                 continue
             try:
                 dt_start, dt_end = rec._get_week_utc(calendar)
-                hours = rec._compute_calendar_hours(calendar, dt_start, dt_end)
+                # Capacité théorique du calendrier applicable, AVANT absences.
+                # Les jours fériés / congés / maladies sont déduits séparément
+                # dans _compute_absences, pour éviter les doubles déductions.
+                hours = rec._work_hours_on_calendar(calendar, dt_start, dt_end)
                 rate = (rec.allocation_rate or 100.0) / 100.0
                 rec.capacity_standard = round(hours * rate, 2)
             except Exception as e:
@@ -163,7 +166,8 @@ class MrpCapacityWeek(models.Model):
         for rec in self:
             rec.is_overridden = bool(rec.capacity_override > 0 or rec.override_calendar_id)
 
-    @api.depends('capacity_resource_id', 'week_date', 'allocation_rate')
+    @api.depends('capacity_resource_id', 'week_date', 'allocation_rate',
+                 'override_calendar_id', 'resource_calendar_id', 'employee_id')
     def _compute_absences(self):
         for rec in self:
             if not rec.capacity_resource_id or not rec.week_date:
@@ -174,54 +178,86 @@ class MrpCapacityWeek(models.Model):
                 continue
 
             calendar = rec.override_calendar_id or rec.resource_calendar_id
+            if not calendar:
+                rec.hours_public_holiday = 0.0
+                rec.hours_leaves = 0.0
+                rec.hours_sick = 0.0
+                rec.hours_absence_total = 0.0
+                continue
+
             dt_start, dt_end = rec._get_week_utc(calendar)
             rate = (rec.allocation_rate or 100.0) / 100.0
             employee = rec.employee_id
 
-            # 1. Jours fériés société
+            # 1. Jours fériés / fermetures société.
+            # Important : on compte uniquement les heures ouvrées impactées
+            # par la fermeture, jamais la durée brute 00:00 → 23:59.
             h_holiday = 0.0
-            if calendar:
-                holidays = self.env['resource.calendar.leaves'].search([
-                    ('calendar_id', '=', calendar.id),
-                    ('resource_id', '=', False),
-                    ('date_from', '<=', fields.Datetime.to_string(dt_end)),
-                    ('date_to', '>=', fields.Datetime.to_string(dt_start)),
-                ])
-                for h in holidays:
-                    h_holiday += self._overlap_hours(h.date_from, h.date_to, dt_start, dt_end)
+            holidays = self.env['resource.calendar.leaves'].search([
+                ('calendar_id', '=', calendar.id),
+                ('resource_id', '=', False),
+                ('date_from', '<=', fields.Datetime.to_string(dt_end)),
+                ('date_to', '>=', fields.Datetime.to_string(dt_start)),
+            ])
+            public_periods = []
+            for h in holidays:
+                leave_start = max(h.date_from, dt_start)
+                leave_end = min(h.date_to, dt_end)
+                if leave_start < leave_end:
+                    public_periods.append((leave_start, leave_end))
+                    h_holiday += rec._work_hours_on_calendar(calendar, leave_start, leave_end)
 
-            # 2. Congés validés (tous types sauf maladie)
-            h_leave = 0.0
-            if employee:
-                leaves = self.env['hr.leave'].search([
-                    ('employee_id', '=', employee.id),
-                    ('state', '=', 'validate'),
-                    ('holiday_status_id.time_type', 'not in', ['sick']),
-                    ('date_from', '<=', fields.Datetime.to_string(dt_end)),
-                    ('date_to', '>=', fields.Datetime.to_string(dt_start)),
-                ])
-                for l in leaves:
-                    h_leave += self._leave_hours_in_week(l, dt_start, dt_end)
-
-            # 3. Arrêts maladie
+            # 2. Arrêts maladie validés.
             h_sick = 0.0
+            sick_types = self.env['hr.leave.type']
             if employee:
                 sick_types = self.env['hr.leave.type'].search([
                     '|',
                     ('time_type', '=', 'sick'),
                     ('name', 'ilike', 'maladie'),
                 ])
-                sick_domain = [
+                if sick_types:
+                    sick_leaves = self.env['hr.leave'].search([
+                        ('employee_id', '=', employee.id),
+                        ('state', '=', 'validate'),
+                        ('holiday_status_id', 'in', sick_types.ids),
+                        ('date_from', '<=', fields.Datetime.to_string(dt_end)),
+                        ('date_to', '>=', fields.Datetime.to_string(dt_start)),
+                    ])
+                    for s in sick_leaves:
+                        leave_start = max(s.date_from, dt_start)
+                        leave_end = min(s.date_to, dt_end)
+                        if leave_start < leave_end:
+                            # On exclut les jours fériés pour éviter de déduire deux fois.
+                            h_sick += rec._work_hours_on_calendar(
+                                calendar, leave_start, leave_end,
+                                exclude_periods=public_periods,
+                            )
+
+            # 3. Congés validés hors maladie.
+            h_leave = 0.0
+            if employee:
+                leave_domain = [
                     ('employee_id', '=', employee.id),
                     ('state', '=', 'validate'),
                     ('date_from', '<=', fields.Datetime.to_string(dt_end)),
                     ('date_to', '>=', fields.Datetime.to_string(dt_start)),
                 ]
                 if sick_types:
-                    sick_domain.append(('holiday_status_id', 'in', sick_types.ids))
-                    for s in self.env['hr.leave'].search(sick_domain):
-                        h_sick += self._leave_hours_in_week(s, dt_start, dt_end)
-                h_leave = max(0.0, h_leave - h_sick)
+                    leave_domain.append(('holiday_status_id', 'not in', sick_types.ids))
+                else:
+                    leave_domain.append(('holiday_status_id.time_type', '!=', 'sick'))
+
+                leaves = self.env['hr.leave'].search(leave_domain)
+                for l in leaves:
+                    leave_start = max(l.date_from, dt_start)
+                    leave_end = min(l.date_to, dt_end)
+                    if leave_start < leave_end:
+                        # On exclut les jours fériés pour éviter de déduire deux fois.
+                        h_leave += rec._work_hours_on_calendar(
+                            calendar, leave_start, leave_end,
+                            exclude_periods=public_periods,
+                        )
 
             rec.hours_public_holiday = round(h_holiday * rate, 2)
             rec.hours_leaves = round(h_leave * rate, 2)
@@ -277,32 +313,79 @@ class MrpCapacityWeek(models.Model):
         sunday_utc = tz.localize(sunday).astimezone(pytz.utc).replace(tzinfo=None)
         return monday_utc, sunday_utc
 
+    def _as_utc_naive(self, value):
+        """Convertit un datetime aware/naive en UTC naive pour les comparaisons."""
+        if not value:
+            return value
+        if value.tzinfo:
+            return value.astimezone(pytz.utc).replace(tzinfo=None)
+        return value
+
+    def _work_intervals_on_calendar(self, calendar, dt_start, dt_end):
+        """
+        Retourne les intervalles de travail du calendrier entre dt_start/dt_end,
+        sans tenir compte des congés publics. Les absences sont calculées ensuite.
+        """
+        if not calendar or not dt_start or not dt_end or dt_start >= dt_end:
+            return []
+        try:
+            tz = pytz.timezone(calendar.tz or 'UTC')
+            start_aware = pytz.utc.localize(dt_start).astimezone(tz) if not dt_start.tzinfo else dt_start.astimezone(tz)
+            end_aware = pytz.utc.localize(dt_end).astimezone(tz) if not dt_end.tzinfo else dt_end.astimezone(tz)
+
+            try:
+                intervals_batch = calendar._work_intervals_batch(
+                    start_aware, end_aware, compute_leaves=False,
+                )
+            except TypeError:
+                # Compatibilité si la signature locale ne supporte pas compute_leaves.
+                intervals_batch = calendar._attendance_intervals_batch(start_aware, end_aware)
+
+            result = []
+            for _key, interval_list in intervals_batch.items():
+                for start, stop, _meta in interval_list:
+                    start_utc = self._as_utc_naive(start)
+                    stop_utc = self._as_utc_naive(stop)
+                    if stop_utc > start_utc:
+                        result.append((start_utc, stop_utc))
+            return result
+        except Exception as e:
+            _logger.warning('[MrpCapacity] Erreur intervalles calendrier [%s] : %s', calendar.display_name, e)
+            return []
+
+    def _work_hours_on_calendar(self, calendar, dt_start, dt_end, exclude_periods=None):
+        """
+        Calcule les heures ouvrées impactées par une période.
+        - Utilise les horaires du calendrier applicable à la ressource/semaine.
+        - Ne compte jamais les durées brutes type 00:00 → 23:59.
+        - exclude_periods permet d'éviter les doubles déductions
+          ex : congé personnel qui tombe pendant un jour férié.
+        """
+        if not calendar or not dt_start or not dt_end or dt_start >= dt_end:
+            return 0.0
+
+        exclude_periods = exclude_periods or []
+        total_seconds = 0.0
+        for work_start, work_end in self._work_intervals_on_calendar(calendar, dt_start, dt_end):
+            start = max(work_start, dt_start)
+            end = min(work_end, dt_end)
+            if end <= start:
+                continue
+            seconds = (end - start).total_seconds()
+            for ex_start, ex_end in exclude_periods:
+                ex_s = max(start, ex_start)
+                ex_e = min(end, ex_end)
+                if ex_e > ex_s:
+                    seconds -= (ex_e - ex_s).total_seconds()
+            total_seconds += max(0.0, seconds)
+        return total_seconds / 3600.0
+
     def _compute_calendar_hours(self, calendar, dt_start, dt_end):
         """
-        Calcule les heures de travail brutes sur la période.
-        Compatible Odoo 17 — utilise _work_intervals_batch.
+        Compatibilité ancienne méthode : retourne les heures ouvrées du calendrier
+        avant absences. Conserve le nom pour les autres appels éventuels.
         """
-        try:
-            # Méthode Odoo 17 : _work_intervals_batch
-            # Retourne un dict {resource_id: Intervals}
-            # Sans ressource = on passe None pour avoir le calendrier brut
-            tz = pytz.timezone(calendar.tz or 'UTC')
-            dt_start_tz = pytz.utc.localize(dt_start).astimezone(tz)
-            dt_end_tz = pytz.utc.localize(dt_end).astimezone(tz)
-
-            intervals = calendar._work_intervals_batch(
-                dt_start_tz, dt_end_tz,
-            )
-            # intervals est un dict, la clé False ou 0 = pas de ressource spécifique
-            total_hours = 0.0
-            for key, interval_list in intervals.items():
-                for start, stop, _meta in interval_list:
-                    total_hours += (stop - start).total_seconds() / 3600.0
-            return total_hours
-        except Exception as e:
-            _logger.warning('[MrpCapacity] _work_intervals_batch failed: %s — fallback', e)
-            # Fallback : calcul manuel depuis les attendance lines du calendrier
-            return self._compute_hours_from_attendance(calendar)
+        return self._work_hours_on_calendar(calendar, dt_start, dt_end)
 
     def _compute_hours_from_attendance(self, calendar):
         """
