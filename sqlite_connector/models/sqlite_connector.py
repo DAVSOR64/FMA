@@ -1507,7 +1507,7 @@ class SqliteConnector(models.Model):
                     if rowOpe[6] is not None and rowOpe[6] == 4 :
                         name = 'Usinage'  + ' ' + eticom
                     else:
-                        if rowOpe[6] is not None and (rowOpe[6] == 6 OR rowOpe[6] == 11):
+                        if rowOpe[6] is not None and rowOpe[6] in (6, 11):
                             name = 'Montage'  + ' ' + eticom
                         else:
                             if rowOpe[6] is not None and rowOpe[6] == 10 :
