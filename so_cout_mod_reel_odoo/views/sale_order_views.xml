@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_so_cout_mod_reel_odoo" model="ir.ui.view">
+        <field name="name">sale.order.form.so.cout.mod.reel.odoo</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="priority">200</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='payment_term_id']" position="after">
+                <field name="so_heures_mod_reelles_odoo" readonly="1" widget="float_time"/>
+                <field name="so_cout_mod_reel_odoo" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
