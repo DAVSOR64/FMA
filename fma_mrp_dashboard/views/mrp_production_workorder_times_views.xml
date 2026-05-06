@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Disabled: the production form workorder list is inherited by enterprise/custom views.
-         Add x_operator_time_spent in the exact workorder_ids subview once the right parent view is identified. -->
+    <record id="view_mrp_production_form_workorder_operator_time" model="ir.ui.view">
+        <field name="name">mrp.production.form.workorder.operator.time</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='workorder_ids']//field[@name='duration']" position="after">
+                <field name="x_operator_time_spent" string="Temps opérateur" widget="float_time" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
 </odoo>
