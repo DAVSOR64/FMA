@@ -1507,14 +1507,11 @@ class SqliteConnector(models.Model):
                     if rowOpe[6] is not None and rowOpe[6] == 4 :
                         name = 'Usinage'  + ' ' + eticom
                     else:
-                        if rowOpe[6] is not None and rowOpe[6] == 6 :
+                        if rowOpe[6] is not None and (rowOpe[6] == 6 OR rowOpe[6] == 11):
                             name = 'Montage'  + ' ' + eticom
                         else:
                             if rowOpe[6] is not None and rowOpe[6] == 10 :
                                 name = 'Vitrage'  + ' ' + eticom
-                            else:
-                                if rowOpe[6] is not None and rowOpe[6] == 11 :
-                                    name = 'Emballage'  + ' ' + eticom
             _logger.warning("**********Qty ********* %s " % str(Qty) )
             _logger.warning("**********Name ********* %s " % str(name) )
             _logger.warning("**********Elevation******** %s " % str(rowOpe[5]) )
@@ -1533,7 +1530,6 @@ class SqliteConnector(models.Model):
             'Usinage': 30,
             'Montage': 40,
             'Vitrage': 50,
-            'Emballage': 60,
         }
         
         for ope, data in aggregated_data.items():
