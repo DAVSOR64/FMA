@@ -15,6 +15,7 @@
         'views/menu.xml',
         'views/mrp_production_workorder_times_views.xml',
     ],
+    
     'assets': {
         'web.assets_backend': [
             'fma_mrp_dashboard/static/src/css/gantt_colors.css',
