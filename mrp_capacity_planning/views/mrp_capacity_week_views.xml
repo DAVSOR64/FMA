@@ -15,14 +15,14 @@
                 <field name="resource_calendar_id" optional="show" readonly="1" string="Calendrier base"/>
                 <field name="override_calendar_id" optional="show" string="Calendrier semaine"/>
                 <field name="capacity_standard" optional="show" readonly="1" string="Standard (H)"/>
-                <field name="capacity_override" optional="show" string="Surchargé (H)"/>
+                <field name="capacity_override" optional="hide" string="Surchargé (H)"/>
                 <field name="hours_public_holiday" optional="hide" readonly="1" string="Fériés (H)"/>
                 <field name="hours_leaves" optional="hide" readonly="1" string="Congés (H)"/>
                 <field name="hours_sick" optional="hide" readonly="1" string="Maladie (H)"/>
                 <field name="hours_absence_total" optional="show" readonly="1" string="Absences (H)"/>
                 <field name="capacity_net" optional="show" readonly="1" string="Nette (H)"/>
-                <field name="hours_planned" optional="show" string="Charge (H)"/>
-                <field name="delta" optional="show" readonly="1" string="Delta (H)"/>
+                <field name="hours_planned" optional="hide" string="Charge (H)"/>
+                <field name="delta" optional="hide" readonly="1" string="Delta (H)"/>
                 <field name="note" optional="show"/>
                 <field name="is_overridden" column_invisible="1"/>
                 <field name="color" column_invisible="1"/>
@@ -75,27 +75,24 @@
                                    string="Calendrier alternatif cette semaine"
                                    help="Choisissez un calendrier différent pour cette semaine uniquement (ex: semaine à 43H au lieu de 39H). La capacité standard se recalcule automatiquement."/>
                             <field name="capacity_standard" readonly="1"
-                                   string="Standard (H)"
-                                   help="Calculé depuis le calendrier alternatif si défini, sinon depuis le calendrier de base. Non modifiable — changez le calendrier pour l'ajuster."/>
-                            <field name="capacity_override"
-                                   string="Surchargé (H)"
-                                   help="Valeur brute forcée sans passer par un calendrier. À utiliser uniquement si aucun calendrier ne correspond. Laissez à 0 pour utiliser le calendrier."/>
+                                   string="Calendrier applicable (H)"
+                                   help="Heures théoriques du calendrier applicable cette semaine, avant jours fériés, congés et maladie."/>
                         </group>
                         <group>
-                            <field name="capacity_net" readonly="1" class="o_field_highlight"/>
-                            <field name="hours_planned"/>
-                            <field name="delta" readonly="1"/>
+                            <field name="capacity_net" readonly="1" class="o_field_highlight"
+                                   string="Capacité nette (H)"
+                                   help="Capacité nette = Calendrier applicable - jours fériés - congés - maladie."/>
                         </group>
                     </group>
 
                     <group string="Absences déduites automatiquement">
                         <group>
-                            <field name="hours_public_holiday" readonly="1"/>
-                            <field name="hours_leaves" readonly="1"/>
+                            <field name="hours_public_holiday" readonly="1" string="Jours fériés / fermeture (H)"/>
+                            <field name="hours_leaves" readonly="1" string="Congés validés (H)"/>
                         </group>
                         <group>
-                            <field name="hours_sick" readonly="1"/>
-                            <field name="hours_absence_total" readonly="1"/>
+                            <field name="hours_sick" readonly="1" string="Arrêts maladie (H)"/>
+                            <field name="hours_absence_total" readonly="1" string="Total absences déduites (H)"/>
                         </group>
                     </group>
 
