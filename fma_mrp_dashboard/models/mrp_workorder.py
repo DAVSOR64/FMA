@@ -30,6 +30,18 @@ class MrpWorkorder(models.Model):
         store=True,
     )
 
+    x_operator_time_spent = fields.Float(
+        string='Temps opérateur',
+        compute='_compute_x_operator_time_spent',
+        store=True,
+        help="Somme des temps saisis dans le suivi des temps de l'ordre de travail.",
+    )
+
+    @api.depends('time_ids.duration')
+    def _compute_x_operator_time_spent(self):
+        for wo in self:
+            wo.x_operator_time_spent = sum(wo.time_ids.mapped('duration'))
+
     @api.depends('production_id', 'project_display')
     def _compute_gantt_label(self):
         for wo in self:

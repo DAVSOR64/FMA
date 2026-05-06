@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Colonne visible dans l'onglet Ordres de travail des OF.
+         On hérite de la vraie liste mrp.workorder utilisée par les OT. -->
+    <record id="view_mrp_workorder_tree_operator_time" model="ir.ui.view">
+        <field name="name">mrp.workorder.tree.operator.time</field>
+        <field name="model">mrp.workorder</field>
+        <field name="inherit_id" ref="mrp.mrp_production_workorder_tree_editable_view"/>
+        <field name="priority">999</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='duration']" position="after">
+                <field name="x_operator_time_spent"
+                       string="Temps opérateur"
+                       widget="float_time"
+                       readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_mrp_production_form_workorder_operator_time_inline_studio" model="ir.ui.view">
+        <field name="name">mrp.production.form.workorder.operator.time.inline.studio</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="studio_customization.odoo_studio_mrp_prod_2c5fdfc8-01c7-429a-aaa2-45f9922a0b42"/>
+        <field name="priority">9999</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='workorder_ids']/tree/field[@name='duration']" position="after">
+                <field name="x_operator_time_spent"
+                       string="Temps opérateur"
+                       widget="float_time"
+                       readonly="1"
+                       sum="Temps opérateur"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
+
