@@ -6,6 +6,7 @@ from odoo.exceptions import UserError
 class MrpAddComponentNeedWizard(models.TransientModel):
     _name = "mrp.add.component.need.wizard"
     _description = "Ajouter un besoin composant sur un OF"
+    _auto = True
 
     production_id = fields.Many2one(
         "mrp.production",
