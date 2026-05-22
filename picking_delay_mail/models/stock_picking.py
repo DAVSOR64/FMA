@@ -160,12 +160,44 @@ class StockPicking(models.Model):
             limit=1,
         )
 
+        cc_emails = []
+
+        # Bureau d'étude : champ Studio Many2one vers res.users.
+        be_user = getattr(sale_order, "x_studio_bureau_dtude", False)
+        if be_user:
+            be_email = be_user.email or be_user.partner_id.email
+            if be_email:
+                cc_emails.append(be_email)
+
+        # Commercial : champ Studio Char contenant le nom du commercial.
+        # On recherche l'employé correspondant pour récupérer son e-mail.
+        commercial_name = getattr(sale_order, "x_studio_commercial_1", False)
+        if commercial_name:
+            employee = self.env["hr.employee"].search(
+                [("name", "ilike", commercial_name.strip())],
+                limit=1,
+            )
+            if employee:
+                commercial_email = (
+                    employee.work_email
+                    or employee.user_id.email
+                    or employee.user_id.partner_id.email
+                )
+                if commercial_email:
+                    cc_emails.append(commercial_email)
+
+        # Déduplication en conservant l'ordre.
+        cc_emails = list(dict.fromkeys(cc_emails))
+
         ctx = {
             "default_model": "stock.picking",
             "default_res_ids": [self.id],
             "default_composition_mode": "comment",
             "force_email": True,
+            # Destinataire principal : contact principal du SO.
             "default_partner_ids": [(6, 0, [contact.id])],
+            # Copies dynamiques : BE + commercial, uniquement si e-mail trouvé.
+            "default_email_cc": ",".join(cc_emails),
         }
 
         if template:
