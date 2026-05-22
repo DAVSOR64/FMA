@@ -1342,19 +1342,75 @@ class MrpProduction(models.Model):
             for transfer_idx in range(4):
                 transfer_day = self._previous_working_day(transfer_day, first_wc)
 
-        # POs liés
-        purchase_orders = self.env["purchase.order"]
+        # Commandes d'achat liées à l'OF
+        #
+        # Ancienne logique : recherche uniquement via
+        # ("move_dest_ids.group_id", "=", self.procurement_group_id.id).
+        # Chez FMA, ce lien n'est pas toujours porté sur les mouvements issus des
+        # lignes d'achat, donc le popup pouvait rester vide alors que des appros
+        # existaient bien pour l'OF.
+        #
+        # On sécurise donc la recherche avec plusieurs chemins :
+        #   1) lien direct par groupe d'approvisionnement sur les mouvements ;
+        #   2) lien par groupe sur la commande d'achat si le champ existe ;
+        #   3) fallback par origine contenant le numéro d'OF.
+        #
+        # La date affichée vient de la ligne d'achat (date_planned), car elle est
+        # plus fiable que la commande d'achat pour une date de livraison article.
+        po_data = []
+        po_lines = self.env["purchase.order.line"]
+        pol_model = self.env["purchase.order.line"]
+        po_model = self.env["purchase.order"]
+
+        def _safe_search_po_lines(domain):
+            try:
+                return pol_model.search(domain)
+            except Exception as e:
+                _logger.info(
+                    "Recherche lignes achat ignorée pour OF %s | domaine=%s | erreur=%s",
+                    self.name, domain, e
+                )
+                return pol_model
+
         if self.procurement_group_id:
-            po_lines = self.env["purchase.order.line"].search([
+            # Chemin standard quand les mouvements de la ligne d'achat sont bien
+            # rattachés au groupe d'approvisionnement de l'OF.
+            po_lines |= _safe_search_po_lines([
                 ("move_dest_ids.group_id", "=", self.procurement_group_id.id),
             ])
-            purchase_orders = po_lines.mapped("order_id")
 
-        po_data = [{
-            "name": po.name or "",
-            "partner": po.partner_id.display_name or "",
-            "date_planned": str(po.date_planned)[:10] if po.date_planned else "",
-        } for po in purchase_orders]
+            # Selon les versions / flux Odoo, le groupe peut être porté par la PO.
+            if "group_id" in po_model._fields:
+                po_lines |= _safe_search_po_lines([
+                    ("order_id.group_id", "=", self.procurement_group_id.id),
+                ])
+
+        # Fallback robuste : les achats générés depuis un besoin OF reprennent
+        # généralement le numéro d'OF dans l'origine.
+        if self.name:
+            po_lines |= _safe_search_po_lines([
+                ("order_id.origin", "ilike", self.name),
+            ])
+
+        # Dernier fallback : lien direct entre les mouvements composants de l'OF
+        # et les mouvements destinations de la ligne d'achat.
+        if self.move_raw_ids:
+            po_lines |= _safe_search_po_lines([
+                ("move_dest_ids", "in", self.move_raw_ids.ids),
+            ])
+
+        seen_po_line_ids = set()
+        for line in po_lines.sorted(
+            lambda l: (l.date_planned or fields.Datetime.now(), l.order_id.name or "", l.id)
+        ):
+            if line.id in seen_po_line_ids:
+                continue
+            seen_po_line_ids.add(line.id)
+            po_data.append({
+                "name": line.order_id.name or "",
+                "partner": line.order_id.partner_id.display_name or "",
+                "date_planned": str(line.date_planned)[:10] if line.date_planned else "",
+            })
 
         return {
             "production_name": self.display_name or self.name or "",
