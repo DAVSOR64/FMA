@@ -61,62 +61,6 @@ class StockPicking(models.Model):
         readonly=True,
     )
 
-    delay_email_cc = fields.Char(
-        string="Emails en copie retard",
-        compute="_compute_delay_mail_values",
-        store=True,
-        readonly=True,
-    )
-
-
-
-    def _get_delay_cc_emails(self, sale_order, contact=False):
-        """Retourne les emails en copie pour le mail d'info retard.
-
-        Règles FMA :
-        - BE : sale.order.x_studio_bureau_dtude, Many2one vers res.users
-        - Commercial : sale.order.x_studio_commercial_1, Char contenant le nom
-          d'un employé ayant une adresse email renseignée
-        """
-        self.ensure_one()
-        cc_emails = []
-
-        def _add_email(email):
-            email = (email or "").strip()
-            if not email:
-                return
-            # On évite de remettre le client principal en copie.
-            if contact and contact.email and email.lower() == contact.email.strip().lower():
-                return
-            if email.lower() not in [e.lower() for e in cc_emails]:
-                cc_emails.append(email)
-
-        # Chargé BE : champ Studio Many2one vers res.users.
-        be_user = getattr(sale_order, "x_studio_bureau_dtude", False)
-        if be_user:
-            _add_email(be_user.email)
-            if hasattr(be_user, "partner_id") and be_user.partner_id:
-                _add_email(be_user.partner_id.email)
-
-        # Commercial : champ Studio Char contenant le nom de l'employé.
-        commercial_name = (getattr(sale_order, "x_studio_commercial_1", False) or "").strip()
-        if commercial_name:
-            Employee = self.env["hr.employee"].sudo()
-
-            # Priorité à une égalité insensible à la casse, puis fallback en ilike.
-            employee = Employee.search([("name", "=ilike", commercial_name)], limit=1)
-            if not employee:
-                employee = Employee.search([("name", "ilike", commercial_name)], limit=1)
-
-            if employee:
-                _add_email(employee.work_email)
-                if employee.user_id:
-                    _add_email(employee.user_id.email)
-                    if employee.user_id.partner_id:
-                        _add_email(employee.user_id.partner_id.email)
-
-        return cc_emails
-
     def _get_related_sale_order(self):
         self.ensure_one()
 
@@ -141,8 +85,6 @@ class StockPicking(models.Model):
         "move_ids.sale_line_id.order_id",
         "move_ids.sale_line_id.order_id.so_retard_nouvelle_date",
         "move_ids.sale_line_id.order_id.so_date_de_livraison",
-        "move_ids.sale_line_id.order_id.x_studio_bureau_dtude",
-        "move_ids.sale_line_id.order_id.x_studio_commercial_1",
     )
     def _compute_delay_mail_values(self):
         for picking in self:
@@ -189,13 +131,6 @@ class StockPicking(models.Model):
             picking.delay_motif = motif
             picking.delay_designation = designation
 
-            contact = False
-            if sale_order:
-                contact = getattr(sale_order, "main_contact_id", False) or sale_order.partner_id
-                picking.delay_email_cc = ",".join(picking._get_delay_cc_emails(sale_order, contact=contact))
-            else:
-                picking.delay_email_cc = ""
-
     def action_open_delay_email(self):
         self.ensure_one()
 
@@ -215,8 +150,6 @@ class StockPicking(models.Model):
         if not contact.email:
             raise UserError("Contact sans email.")
 
-        cc_emails = self._get_delay_cc_emails(sale_order, contact=contact)
-
         # Template standard Odoo créé manuellement.
         # On le recherche par modèle + nom afin d'éviter de dépendre d'un XML ID.
         template = self.env["mail.template"].search(
@@ -227,13 +160,71 @@ class StockPicking(models.Model):
             limit=1,
         )
 
+        # Destinataires dynamiques :
+        # - client/contact principal : sale.order.main_contact_id
+        # - bureau d'étude : sale.order.x_studio_bureau_dtude (res.users)
+        # - commercial : sale.order.x_studio_commercial_1 (nom dans un champ Char)
+        partner_ids = [contact.id]
+
+        # Bureau d'étude : many2one vers res.users.
+        be_user = getattr(sale_order, "x_studio_bureau_dtude", False)
+        if be_user and be_user.partner_id and be_user.partner_id.email:
+            partner_ids.append(be_user.partner_id.id)
+
+        # Commercial : champ Char contenant le nom du commercial.
+        commercial_name = getattr(sale_order, "x_studio_commercial_1", False)
+        if commercial_name:
+            employee = self.env["hr.employee"].search(
+                [("name", "=", commercial_name)],
+                limit=1,
+            )
+            if not employee:
+                employee = self.env["hr.employee"].search(
+                    [("name", "ilike", commercial_name)],
+                    limit=1,
+                )
+
+            if employee:
+                # Selon les versions Odoo / configuration RH, le partenaire peut être porté par :
+                # - work_contact_id : contact professionnel de l'employé,
+                # - user_id.partner_id : utilisateur lié,
+                # - address_home_id : contact privé, en dernier recours uniquement.
+                commercial_partner = False
+
+                if hasattr(employee, "work_contact_id") and employee.work_contact_id:
+                    commercial_partner = employee.work_contact_id
+                elif employee.user_id and employee.user_id.partner_id:
+                    commercial_partner = employee.user_id.partner_id
+                elif employee.address_home_id:
+                    commercial_partner = employee.address_home_id
+
+                # Si aucun partenaire n'est trouvé mais qu'un email existe sur l'employé,
+                # on recherche un res.partner correspondant afin de pouvoir l'ajouter
+                # dans le même champ destinataire que le client.
+                commercial_email = (
+                    employee.work_email
+                    or employee.user_id.email
+                    or (commercial_partner.email if commercial_partner else False)
+                )
+
+                if not commercial_partner and commercial_email:
+                    commercial_partner = self.env["res.partner"].search(
+                        [("email", "=", commercial_email)],
+                        limit=1,
+                    )
+
+                if commercial_partner and commercial_partner.email:
+                    partner_ids.append(commercial_partner.id)
+
+        # Déduplication en conservant l'ordre.
+        partner_ids = list(dict.fromkeys(partner_ids))
+
         ctx = {
             "default_model": "stock.picking",
             "default_res_ids": [self.id],
             "default_composition_mode": "comment",
             "force_email": True,
-            "default_partner_ids": [(6, 0, [contact.id])],
-            "default_email_cc": ",".join(cc_emails),
+            "default_partner_ids": [(6, 0, partner_ids)],
         }
 
         if template:
