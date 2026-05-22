@@ -120,12 +120,57 @@ class MrpAddComponentNeedWizard(models.TransientModel):
 
         move = self.env["stock.move"].create(move_vals)
 
-        # Sur un OF déjà confirmé, on confirme explicitement le nouveau mouvement.
-        # Cela permet aux routes MTO/Achat/Fabrication de s'appliquer quand elles existent.
+        # Sur un OF déjà confirmé, créer le composant ne relance pas toujours les approvisionnements.
+        # On confirme le mouvement, puis on lance explicitement procurement.group.run() lorsque
+        # le produit est MTO ou lorsqu'il manque du stock sur l'emplacement source et qu'une route
+        # d'achat/fabrication existe. Le mouvement créé est passé en move_dest_ids afin que le RFQ/PO
+        # généré reste chaîné à l'OF et au SO via le procurement group.
         try:
             move._action_confirm(merge=False)
         except TypeError:
             move._action_confirm()
+
+        routes = self.env["stock.route"].browse(list(set(route_ids))) if route_ids else self.env["stock.route"]
+        route_rules = routes.mapped("rule_ids")
+        has_mto_route = any(rule.procure_method == "make_to_order" for rule in route_rules)
+        has_supply_route = any(rule.action in ("buy", "manufacture") for rule in route_rules)
+
+        available_qty = 0.0
+        try:
+            available_qty = self.env["stock.quant"]._get_available_quantity(product, location_src)
+        except Exception:
+            available_qty = 0.0
+
+        should_run_procurement = has_mto_route or (has_supply_route and available_qty < self.product_qty)
+
+        if should_run_procurement:
+            warehouse = production.picking_type_id.warehouse_id
+            procurement_values = {
+                "company_id": production.company_id,
+                "group_id": group,
+                "warehouse_id": warehouse,
+                "date_planned": self.date_planned or fields.Datetime.now(),
+                "date_deadline": self.date_planned or fields.Datetime.now(),
+                "move_dest_ids": move,
+                "priority": getattr(production, "priority", "0") or "0",
+            }
+            if routes:
+                procurement_values["route_ids"] = routes
+
+            procurement = self.env["procurement.group"].Procurement(
+                product,
+                self.product_qty,
+                self.product_uom_id,
+                location_src,
+                move.name,
+                production.origin or production.name,
+                production.company_id,
+                procurement_values,
+            )
+            try:
+                self.env["procurement.group"].run([procurement], raise_user_error=False)
+            except TypeError:
+                self.env["procurement.group"].run([procurement])
 
         # Réservation immédiate si du stock est disponible.
         try:
