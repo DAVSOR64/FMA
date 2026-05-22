@@ -20,6 +20,7 @@
         'wizard/mrp_replan_preview_wizard_views.xml',
         'wizard/mrp_batch_macro_replan_wizard_views.xml',
         'wizard/generate_weeks_wizard_views.xml',
+        'wizard/mrp_add_component_need_wizard_views.xml',
         'views/menu.xml',
     ],
     'installable': True,

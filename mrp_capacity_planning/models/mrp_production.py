@@ -30,6 +30,22 @@ class MrpProduction(models.Model):
             active_wos = production.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
             production.is_programmed = any(w.date_start or w.date_finished for w in active_wos)
 
+
+    def action_open_add_component_need_wizard(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Ajouter un besoin"),
+            "res_model": "mrp.add.component.need.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "active_model": "mrp.production",
+                "active_id": self.id,
+                "default_production_id": self.id,
+            },
+        }
+
     def _is_really_programmed(self):
         self.ensure_one()
         active_wos = self.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
