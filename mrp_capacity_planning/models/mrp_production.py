@@ -1342,42 +1342,64 @@ class MrpProduction(models.Model):
             for transfer_idx in range(4):
                 transfer_day = self._previous_working_day(transfer_day, first_wc)
 
-        # ---------------------------------------------------------
-        # Commandes d\'approvisionnement liées à l\'OF
-        # ---------------------------------------------------------
-
-        po_data = []
+        # Commandes d'achat liées à l'OF
+        # Objectif : afficher 1 ligne par commande d'achat dans le popup,
+        # sans afficher le détail des lignes d'achat.
+        #
+        # Important : selon les versions/configurations Odoo, le lien entre l'OF
+        # et l'achat peut être porté par les mouvements de stock, le groupe
+        # d'approvisionnement de la commande d'achat, ou seulement par l'origine.
+        purchase_orders = self.env["purchase.order"]
 
         if self.procurement_group_id:
+            PurchaseOrderLine = self.env["purchase.order.line"]
+            po_lines = PurchaseOrderLine
 
-            po_lines = self.env["purchase.order.line"].search([
-                '|',
-                ('group_id', '=', self.procurement_group_id.id),
-                ('order_id.group_id', '=', self.procurement_group_id.id),
-            ])
+            search_domains = [
+                # Cas standard d'origine du module : ligne d'achat reliée au besoin de l'OF
+                [("move_dest_ids.group_id", "=", self.procurement_group_id.id)],
+                # Cas fréquent : le groupe est porté par la commande d'achat
+                [("order_id.group_id", "=", self.procurement_group_id.id)],
+                # Sécurité supplémentaire : certains flux gardent seulement l'OF en origine
+                [("order_id.origin", "ilike", self.name)],
+            ]
 
-            # fallback via origin
-            if not po_lines:
-                po_lines = self.env["purchase.order.line"].search([
-                    ('order_id.origin', 'ilike', self.name)
-                ])
+            for domain in search_domains:
+                try:
+                    found_lines = PurchaseOrderLine.search(domain)
+                except Exception:
+                    # On ignore uniquement le domaine non compatible avec la version Odoo
+                    found_lines = PurchaseOrderLine
+                po_lines |= found_lines
 
             purchase_orders = po_lines.mapped("order_id")
 
-            for po in purchase_orders:
+            # Fallback complémentaire directement sur purchase.order si aucune ligne n'a été trouvée.
+            if not purchase_orders:
+                po_domains = [
+                    [("group_id", "=", self.procurement_group_id.id)],
+                    [("origin", "ilike", self.name)],
+                ]
+                for domain in po_domains:
+                    try:
+                        purchase_orders |= self.env["purchase.order"].search(domain)
+                    except Exception:
+                        pass
 
-                planned_dates = po.order_line.mapped("date_planned")
-                planned_date = min(planned_dates) if planned_dates else False
+        po_data = []
+        for po in purchase_orders:
+            planned_dates = po.order_line.filtered(lambda line: line.date_planned).mapped("date_planned")
+            planned_date = min(planned_dates) if planned_dates else False
 
-                po_data.append({
-                    "name": po.name or "",
-                    "partner": po.partner_id.display_name or "",
-                    "date_planned": (
-                        str(planned_date)[:10]
-                        if planned_date else ""
-                    ),
-                    "state": po.state or "",
-                })
+            # Fallback si une customisation porte aussi la date au niveau de la commande.
+            if not planned_date and "date_planned" in po._fields:
+                planned_date = po.date_planned
+
+            po_data.append({
+                "name": po.name or "",
+                "partner": po.partner_id.display_name or "",
+                "date_planned": str(planned_date)[:10] if planned_date else "",
+            })
 
         return {
             "production_name": self.display_name or self.name or "",
@@ -1390,16 +1412,6 @@ class MrpProduction(models.Model):
         }
 
     def _render_replan_preview_html(self, payload):
-        def _fmt_po_date(dt_str):
-            if not dt_str:
-                return "-"
-            try:
-                return str(dt_str)[:10].replace('-', '/').split('/')
-                d = str(dt_str)[:10].split('-')
-                return f"{d[2]}/{d[1]}/{d[0]}"
-            except Exception:
-                return str(dt_str)[:10]
-
         def _fmt_date(dt_str):
             if not dt_str:
                 return "-"
