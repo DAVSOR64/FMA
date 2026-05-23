@@ -10,6 +10,7 @@ class MrpProdFollowupWeek(models.Model):
     _order = "month_start desc, week_start desc, atelier_label asc, workcenter_name asc"
 
     atelier_id = fields.Many2one("fma.atelier", string="Atelier", readonly=True)
+    atelier_id = fields.Many2one("fma.atelier", string="Atelier", readonly=True)
     atelier_label = fields.Char(string="Atelier", readonly=True)
     month_start = fields.Date(string="Mois", readonly=True)
     month_label = fields.Char(string="Mois", readonly=True)
@@ -32,6 +33,7 @@ class MrpProdFollowupWeek(models.Model):
                     SELECT
                         date_trunc('month', c.date)::date AS month_start,
                         date_trunc('week', c.date)::date AS week_start,
+                        c.atelier_id,
                         c.atelier_id,
                         c.workcenter_id,
                         c.workcenter_name,

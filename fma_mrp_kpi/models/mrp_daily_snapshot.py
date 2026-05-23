@@ -9,10 +9,11 @@ _logger = logging.getLogger(__name__)
 class MrpDailySnapshot(models.Model):
     _name = 'mrp.daily.snapshot'
     _description = 'Snapshot quotidien visu atelier'
-    _order = 'snapshot_date desc, workcenter_id, production_id'
+    _order = 'snapshot_date desc, atelier_id, workcenter_id, production_id'
     _rec_name = 'display_name'
 
     snapshot_date = fields.Date(string='Date snapshot', required=True, index=True)
+    atelier_id = fields.Many2one('fma.atelier', string='Atelier', index=True)
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', required=True, index=True)
     workorder_id = fields.Many2one('mrp.workorder', string='Ordre de travail', required=True, index=True, ondelete='cascade')
     production_id = fields.Many2one('mrp.production', string='Ordre de fabrication', related='workorder_id.production_id', store=True)
@@ -48,13 +49,14 @@ class MrpDailySnapshot(models.Model):
 
     display_name = fields.Char(string='Libellé', compute='_compute_display_name', store=True)
 
-    @api.depends('snapshot_date', 'workcenter_id', 'wo_name')
+    @api.depends('snapshot_date', 'atelier_id', 'workcenter_id', 'wo_name')
     def _compute_display_name(self):
         for rec in self:
             date_str = rec.snapshot_date.strftime('%d/%m/%Y') if rec.snapshot_date else '-'
+            atelier = rec.atelier_id.name or '-'
             wc = rec.workcenter_id.name or '-'
             wo = rec.wo_name or '-'
-            rec.display_name = f"{date_str} | {wc} | {wo}"
+            rec.display_name = f"{date_str} | {atelier} | {wc} | {wo}"
 
     _sql_constraints = [
         ('unique_snapshot_wo_date', 'UNIQUE(snapshot_date, workorder_id)', 'Un seul snapshot par OT et par journée.'),
@@ -172,6 +174,7 @@ class MrpDailySnapshot(models.Model):
 
         return {
             'snapshot_date': today,
+            'atelier_id': wo.production_id.atelier_id.id if wo.production_id and wo.production_id.atelier_id else False,
             'workcenter_id': wo.workcenter_id.id,
             'workorder_id': wo.id,
             'wo_name': wo.name,
@@ -192,21 +195,22 @@ class MrpDailySnapshot(models.Model):
     @api.model
     def _compute_cumul_retard(self, today):
         today_snaps = self.search([('snapshot_date', '=', today)])
-        wc_ids = today_snaps.mapped('workcenter_id').ids
-        for wc_id in wc_ids:
+        keys = set((s.atelier_id.id or False, s.workcenter_id.id) for s in today_snaps)
+        for atelier_id, wc_id in keys:
             self.env.cr.execute(
                 """
                 SELECT COALESCE(SUM(delta_hours), 0)
                 FROM mrp_daily_snapshot
-                WHERE workcenter_id = %s
+                WHERE COALESCE(atelier_id, 0) = COALESCE(%s, 0)
+                  AND workcenter_id = %s
                   AND snapshot_date <= %s
                   AND delta_hours > 0
                 """,
-                (wc_id, today),
+                (atelier_id, wc_id, today),
             )
             row = self.env.cr.fetchone()
             cumul = float(row[0] or 0.0) if row else 0.0
-            today_snaps.filtered(lambda s: s.workcenter_id.id == wc_id).write({'cumul_retard_wc': cumul})
+            today_snaps.filtered(lambda snap: (snap.atelier_id.id or False) == atelier_id and snap.workcenter_id.id == wc_id).write({'cumul_retard_wc': cumul})
 
     @api.model
     def action_recompute_today(self):

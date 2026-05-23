@@ -16,6 +16,13 @@ class PlanningRole(models.Model):
         string='Poste de travail lié',
         help='Lier ce rôle Planning au poste de travail pour le calcul de capacité',
     )
+    atelier_id = fields.Many2one(
+        'fma.atelier',
+        string='Atelier',
+        index=True,
+        ondelete='set null',
+        help='Atelier métier lié au rôle Planning pour filtrer/regrouper la capacité.',
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

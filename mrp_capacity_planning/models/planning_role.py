@@ -18,3 +18,11 @@ class PlanningRole(models.Model):
         help='Poste de travail MRP associé à ce rôle de planification',
         ondelete='set null',
     )
+
+    atelier_id = fields.Many2one(
+        'fma.atelier',
+        string='Atelier',
+        index=True,
+        ondelete='set null',
+        help='Atelier métier associé au rôle Planning pour ventiler la capacité et les restitutions.',
+    )

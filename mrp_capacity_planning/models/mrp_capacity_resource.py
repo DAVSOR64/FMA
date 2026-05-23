@@ -26,7 +26,6 @@ class MrpCapacityResource(models.Model):
     employee_id = fields.Many2one(
         'hr.employee',
         string='Ressource (employé)',
-        required=True,
         index=True,
         ondelete='cascade',
     )
@@ -50,7 +49,6 @@ class MrpCapacityResource(models.Model):
     atelier_id = fields.Many2one(
         'fma.atelier',
         string='Atelier',
-        required=True,
         index=True,
         ondelete='restrict',
         help='Atelier auquel cette ressource est affectée. Sert à sommer la capacité par atelier.'
@@ -60,7 +58,6 @@ class MrpCapacityResource(models.Model):
     workcenter_id = fields.Many2one(
         'mrp.workcenter',
         string='Poste de travail',
-        required=True,
         index=True,
         ondelete='cascade',
     )

@@ -32,6 +32,7 @@
                 <field name="month_start" interval="month" type="row"/>
                 <field name="week_start" interval="week" type="row"/>
                 <field name="atelier_id" type="row"/>
+                <field name="atelier_id" type="row"/>
                 <field name="workcenter_name" type="row"/>
                 <field name="capacite_heures" type="measure"/>
                 <field name="charge_prevue_heures" type="measure"/>
@@ -48,6 +49,7 @@
             <search string="Recherche charge vs capacité">
                 <field name="month_start"/>
                 <field name="week_start"/>
+                <field name="atelier_id"/>
                 <field name="atelier_id"/>
                 <field name="workcenter_id"/>
                 <filter string="Mois en cours" name="current_month"
@@ -67,7 +69,7 @@
         <field name="res_model">mrp.prod.followup.week</field>
         <field name="view_mode">tree,pivot</field>
         <field name="search_view_id" ref="view_mrp_prod_followup_week_search"/>
-        <field name="context">{'search_default_current_month': 1, 'group_by': ['atelier_label', 'month_start:month', 'week_start:week', 'workcenter_name']}</field>
+        <field name="context">{'search_default_current_month': 1, 'group_by': ['atelier_id', 'month_start:month', 'week_start:week', 'workcenter_name']}</field>
         <field name="help" type="html">
             <p>Cette vue lit directement les données recalculées par Macro Planning / Capacité vs Charge.</p>
             <p>Après un recalcul capacité/charge, les chiffres de cette vue sont mis à jour automatiquement.</p>

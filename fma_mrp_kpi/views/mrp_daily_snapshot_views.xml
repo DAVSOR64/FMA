@@ -11,6 +11,7 @@
                 <field name="is_done" invisible="1"/>
                 <field name="production_id" invisible="1"/>
                 <field name="snapshot_date"/>
+                <field name="atelier_id"/>
                 <field name="workcenter_id"/>
                 <field name="mo_name" string="OF"/>
                 <field name="wo_name" string="Opération"/>
@@ -33,6 +34,7 @@
         <field name="model">mrp.daily.snapshot</field>
         <field name="arch" type="xml">
             <pivot string="Visu Atelier par poste">
+                <field name="atelier_id" type="row"/>
                 <field name="workcenter_id" type="row"/>
                 <field name="snapshot_date" type="col"/>
                 <field name="delta_hours" type="measure"/>
@@ -49,6 +51,7 @@
         <field name="arch" type="xml">
             <graph string="Visu Atelier" type="bar" stacked="1">
                 <field name="snapshot_date" type="row"/>
+                <field name="atelier_id" type="col"/>
                 <field name="workcenter_id" type="col"/>
                 <field name="delta_hours" type="measure"/>
             </graph>
@@ -61,6 +64,8 @@
         <field name="arch" type="xml">
             <search string="Recherche visu atelier">
                 <field name="snapshot_date"/>
+                <field name="atelier_id"/>
+                <field name="atelier_id"/>
                 <field name="workcenter_id"/>
                 <field name="mo_name"/>
                 <field name="wo_name"/>
@@ -72,6 +77,7 @@
                 <filter string="En cours / à l'heure" name="in_time_open" domain="[('is_done', '=', False), ('is_late', '=', False)]"/>
                 <separator/>
                 <group expand="1" string="Regrouper par">
+                    <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="group_wc" context="{'group_by': 'workcenter_id'}"/>
                     <filter string="Date" name="group_date" context="{'group_by': 'snapshot_date'}"/>
                     <filter string="OF" name="group_mo" context="{'group_by': 'production_id'}"/>

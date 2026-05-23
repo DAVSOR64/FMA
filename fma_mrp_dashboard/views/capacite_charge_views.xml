@@ -48,7 +48,6 @@
             <tree string="Cache charge (debug)" create="false" edit="false">
                 <field name="date" string="Date"/>
                 <field name="atelier_id" string="Atelier"/>
-                <field name="atelier_id" string="Atelier"/>
                 <field name="workcenter_name" string="Poste"/>
                 <field name="workorder_id" string="Ordre travail"/>
                 <field name="production_id" string="OF"/>
@@ -68,7 +67,6 @@
                 <field name="date" string="Date"/>
                 <group expand="1" string="Regrouper par">
                     <filter string="Date" name="group_date" context="{'group_by': 'date'}"/>
-                    <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="group_workcenter" context="{'group_by': 'workcenter_name'}"/>
                     <filter string="OF" name="group_production" context="{'group_by': 'production_id'}"/>
