@@ -19,13 +19,14 @@ _logger = logging.getLogger(__name__)
 class MrpCapacityResource(models.Model):
     _name = 'mrp.capacity.resource'
     _description = 'Affectation ressource → poste de travail'
-    _order = 'atelier_id, workcenter_id, employee_id'
+    _order = 'workcenter_id, employee_id'
     _rec_name = 'display_name'
 
     # ── Ressource ──────────────────────────────────────────────────────────────
     employee_id = fields.Many2one(
         'hr.employee',
         string='Ressource (employé)',
+        required=True,
         index=True,
         ondelete='cascade',
     )
@@ -45,19 +46,11 @@ class MrpCapacityResource(models.Model):
              'Ex: employé à 35H mais affecté à un poste 39H ou 43H.',
     )
 
-    # ── Atelier métier ────────────────────────────────────────────────────────
-    atelier_id = fields.Many2one(
-        'fma.atelier',
-        string='Atelier',
-        index=True,
-        ondelete='restrict',
-        help='Atelier auquel cette ressource est affectée. Sert à sommer la capacité par atelier.'
-    )
-
     # ── Poste de travail ───────────────────────────────────────────────────────
     workcenter_id = fields.Many2one(
         'mrp.workcenter',
         string='Poste de travail',
+        required=True,
         index=True,
         ondelete='cascade',
     )
@@ -84,15 +77,14 @@ class MrpCapacityResource(models.Model):
         compute='_compute_capacity_week_count',
     )
 
-    @api.depends('employee_id', 'atelier_id', 'workcenter_id', 'allocation_rate', 'resource_calendar_id')
+    @api.depends('employee_id', 'workcenter_id', 'allocation_rate', 'resource_calendar_id')
     def _compute_display_name(self):
         for rec in self:
             emp = rec.employee_id.name or '?'
-            atelier = rec.atelier_id.display_name or '?'
             wc = rec.workcenter_id.name or '?'
             cal = rec.resource_calendar_id.name or '?'
             rate = f' — {int(rec.allocation_rate)}%' if rec.allocation_rate != 100 else ''
-            rec.display_name = f'{emp} → {atelier} / {wc} [{cal}]{rate}'
+            rec.display_name = f'{emp} → {wc} [{cal}]{rate}'
 
     def _compute_capacity_week_count(self):
         for rec in self:

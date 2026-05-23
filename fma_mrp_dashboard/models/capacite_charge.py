@@ -16,13 +16,6 @@ class PlanningRole(models.Model):
         string='Poste de travail lié',
         help='Lier ce rôle Planning au poste de travail pour le calcul de capacité',
     )
-    atelier_id = fields.Many2one(
-        'fma.atelier',
-        string='Atelier',
-        index=True,
-        ondelete='set null',
-        help='Atelier métier lié au rôle Planning pour filtrer/regrouper la capacité.',
-    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -34,7 +27,6 @@ class CapaciteCache(models.Model):
     _description = 'Cache capacité planning par poste/jour'
     _auto = True
 
-    atelier_id = fields.Many2one('fma.atelier', string='Atelier', index=True, ondelete='cascade')
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', index=True, ondelete='cascade')
     workcenter_name = fields.Char(string='Nom poste')
     date = fields.Date(string='Date', index=True)
@@ -69,7 +61,7 @@ class CapaciteCache(models.Model):
             _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines mrp.capacity.week', len(weeks))
 
             for week in weeks:
-                if not week.atelier_id or not week.workcenter_id or not week.week_date:
+                if not week.workcenter_id or not week.week_date:
                     continue
 
                 daily_hours = self._get_daily_capacity_map(week)
@@ -77,10 +69,9 @@ class CapaciteCache(models.Model):
                     continue
 
                 for jour, capacite_jour in daily_hours.items():
-                    key = (week.atelier_id.id, week.workcenter_id.id, jour)
+                    key = (week.workcenter_id.id, jour)
                     if key not in aggregated:
                         aggregated[key] = {
-                            'atelier_id': week.atelier_id.id,
                             'workcenter_id': week.workcenter_id.id,
                             'workcenter_name': week.workcenter_id.name,
                             'date': jour,
@@ -95,24 +86,24 @@ class CapaciteCache(models.Model):
         # ── Source 2 : fallback calendrier pour les dates sans capacité ────────
         # Récupérer toutes les dates/postes présents dans le cache charge
         self.env.cr.execute("""
-            SELECT DISTINCT atelier_id, workcenter_id, date
+            SELECT DISTINCT workcenter_id, date
             FROM mrp_workorder_charge_cache
-            ORDER BY atelier_id, workcenter_id, date
+            ORDER BY workcenter_id, date
         """)
         charge_keys = self.env.cr.fetchall()
 
         if charge_keys:
             # Dates manquantes = dates de charge sans entrée capacité
-            missing_keys = [(atelier_id, wc_id, d) for atelier_id, wc_id, d in charge_keys if (atelier_id, wc_id, d) not in aggregated]
+            missing_keys = [(wc_id, d) for wc_id, d in charge_keys if (wc_id, d) not in aggregated]
             _logger.info('[MacroPlanning] %d clés charge sans capacité → fallback calendrier', len(missing_keys))
 
             # Grouper par workcenter pour éviter de recalculer le calendrier N fois
             from collections import defaultdict
             missing_by_wc = defaultdict(set)
-            for atelier_id, wc_id, d in missing_keys:
-                missing_by_wc[(atelier_id, wc_id)].add(d)
+            for wc_id, d in missing_keys:
+                missing_by_wc[wc_id].add(d)
 
-            for (atelier_id, wc_id), dates in missing_by_wc.items():
+            for wc_id, dates in missing_by_wc.items():
                 wc = self.env['mrp.workcenter'].browse(wc_id)
                 if not wc.exists():
                     continue
@@ -121,10 +112,9 @@ class CapaciteCache(models.Model):
                 if not calendar:
                     # Pas de calendrier : on met 0 pour que la ligne existe
                     for d in dates:
-                        key = (atelier_id, wc_id, d)
+                        key = (wc_id, d)
                         if key not in aggregated:
                             aggregated[key] = {
-                                'atelier_id': atelier_id,
                                 'workcenter_id': wc_id,
                                 'workcenter_name': wc.name,
                                 'date': d,
@@ -153,11 +143,10 @@ class CapaciteCache(models.Model):
                         heures_par_jour[jour] = heures_par_jour.get(jour, 0) + (stop - start).total_seconds() / 3600.0
 
                     for d in dates:
-                        key = (atelier_id, wc_id, d)
+                        key = (wc_id, d)
                         if key not in aggregated:
                             h = round(heures_par_jour.get(d, 0.0) * nb_resources, 2)
                             aggregated[key] = {
-                                'atelier_id': atelier_id,
                                 'workcenter_id': wc_id,
                                 'workcenter_name': wc.name,
                                 'date': d,
@@ -167,10 +156,9 @@ class CapaciteCache(models.Model):
                 except Exception as e:
                     _logger.error('[MacroPlanning] Fallback calendrier workcenter %s : %s', wc_id, e)
                     for d in dates:
-                        key = (atelier_id, wc_id, d)
+                        key = (wc_id, d)
                         if key not in aggregated:
                             aggregated[key] = {
-                                'atelier_id': atelier_id,
                                 'workcenter_id': wc_id,
                                 'workcenter_name': wc.name,
                                 'date': d,
@@ -372,7 +360,6 @@ class WorkorderChargeCache(models.Model):
 
     workorder_id = fields.Many2one('mrp.workorder', string='Ordre de travail', index=True, ondelete='cascade')
     production_id = fields.Many2one('mrp.production', string='OF', related='workorder_id.production_id', store=True)
-    atelier_id = fields.Many2one('fma.atelier', string='Atelier', index=True, ondelete='cascade')
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', index=True, ondelete='cascade')
     workcenter_name = fields.Char(string='Nom poste')
     date = fields.Date(string='Date', index=True)
@@ -465,7 +452,6 @@ class WorkorderChargeCache(models.Model):
             if not calendar:
                 vals_list.append({
                     'workorder_id': wo.id,
-                    'atelier_id': wo.production_id.atelier_id.id if wo.production_id.atelier_id else False,
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_debut,
@@ -489,7 +475,6 @@ class WorkorderChargeCache(models.Model):
                 if not work_intervals:
                     vals_list.append({
                         'workorder_id': wo.id,
-                    'atelier_id': wo.production_id.atelier_id.id if wo.production_id.atelier_id else False,
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': date_debut,
@@ -508,7 +493,6 @@ class WorkorderChargeCache(models.Model):
                 if not heures_calendrier_par_jour:
                     vals_list.append({
                         'workorder_id': wo.id,
-                    'atelier_id': wo.production_id.atelier_id.id if wo.production_id.atelier_id else False,
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': date_debut,
@@ -531,7 +515,6 @@ class WorkorderChargeCache(models.Model):
                     if charge_ce_jour > 0:
                         vals_list.append({
                             'workorder_id': wo.id,
-                    'atelier_id': wo.production_id.atelier_id.id if wo.production_id.atelier_id else False,
                             'workcenter_id': wo.workcenter_id.id,
                             'workcenter_name': wo.workcenter_id.name,
                             'date': jour,
@@ -545,7 +528,6 @@ class WorkorderChargeCache(models.Model):
                     dernier_jour = jours_tries[-1] if jours_tries else date_debut
                     vals_list.append({
                         'workorder_id': wo.id,
-                    'atelier_id': wo.production_id.atelier_id.id if wo.production_id.atelier_id else False,
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': dernier_jour,
@@ -558,7 +540,6 @@ class WorkorderChargeCache(models.Model):
                 _logger.error('Erreur workorder %s : %s\n%s', wo.id, str(e), traceback.format_exc())
                 vals_list.append({
                     'workorder_id': wo.id,
-                    'atelier_id': wo.production_id.atelier_id.id if wo.production_id.atelier_id else False,
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_debut,
@@ -689,7 +670,6 @@ class CapaciteChargeDetail(models.Model):
     _order = 'date asc, workcenter_name asc'
 
     date = fields.Date(string='Date', readonly=True)
-    atelier_id = fields.Many2one('fma.atelier', string='Atelier', readonly=True)
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', readonly=True)
     workcenter_name = fields.Char(string='Poste', readonly=True)
     production_id = fields.Many2one('mrp.production', string='OF', readonly=True)
@@ -762,7 +742,6 @@ class CapaciteChargeDetail(models.Model):
             SELECT
                 cum.id                                      AS id,
                 cum.date,
-                wcc.atelier_id,
                 wcc.workcenter_id,
                 {wc_name}                                   AS workcenter_name,
                 wo.production_id,
@@ -808,7 +787,6 @@ class CapaciteCharge(models.Model):
     _order = 'date asc, workcenter_id asc'
 
     date = fields.Date(string='Date', readonly=True)
-    atelier_id = fields.Many2one('fma.atelier', string='Atelier', readonly=True)
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', readonly=True)
     workcenter_name = fields.Char(string='Poste', readonly=True)
     nb_personnes = fields.Integer(string='Personnes', readonly=True)
@@ -847,19 +825,16 @@ class CapaciteCharge(models.Model):
             CREATE OR REPLACE VIEW mrp_capacite_charge AS (
             WITH effectue_par_jour AS (
                 SELECT 
-                    mp.atelier_id,
                     wo.workcenter_id,
                     DATE(wop.date_start) AS date,
                     SUM(COALESCE(wop.duration, 0)) / 60.0 AS effectue_heures
                 FROM mrp_workcenter_productivity wop
                 JOIN mrp_workorder wo ON wo.id = wop.workorder_id
-                JOIN mrp_production mp ON mp.id = wo.production_id
                 WHERE wop.date_start IS NOT NULL
-                GROUP BY mp.atelier_id, wo.workcenter_id, DATE(wop.date_start)
+                GROUP BY wo.workcenter_id, DATE(wop.date_start)
             ),
             charge AS (
                 SELECT
-                    wcc.atelier_id,
                     wcc.workcenter_id,
                     wcc.date,
                     COUNT(DISTINCT wcc.workorder_id)                AS nb_operations,
@@ -869,29 +844,26 @@ class CapaciteCharge(models.Model):
                 FROM mrp_workorder_charge_cache wcc
                 JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
                 LEFT JOIN effectue_par_jour epj 
-                    ON epj.atelier_id = wcc.atelier_id
-                    AND epj.workcenter_id = wcc.workcenter_id 
+                    ON epj.workcenter_id = wcc.workcenter_id 
                     AND epj.date = wcc.date
-                GROUP BY wcc.atelier_id, wcc.workcenter_id, wcc.date, epj.effectue_heures
+                GROUP BY wcc.workcenter_id, wcc.date, epj.effectue_heures
             ),
             capacite AS (
                 SELECT 
-                    atelier_id,
                     workcenter_id, 
                     date,
                     SUM(capacite_heures) AS capacite_heures,
                     MAX(nb_personnes) AS nb_personnes
                 FROM mrp_capacite_cache
-                GROUP BY atelier_id, workcenter_id, date
+                GROUP BY workcenter_id, date
             ),
             all_keys AS (
-                SELECT atelier_id, workcenter_id, date FROM charge
+                SELECT workcenter_id, date FROM charge
                 UNION
-                SELECT atelier_id, workcenter_id, date FROM capacite
+                SELECT workcenter_id, date FROM capacite
             ),
             with_cumuls AS (
                 SELECT
-                    ak.atelier_id,
                     ak.workcenter_id,
                     ak.date,
                     COALESCE(cap.capacite_heures, 0)            AS capacite_heures,
@@ -901,22 +873,21 @@ class CapaciteCharge(models.Model):
                     COALESCE(ch.charge_prevue_jour, 0)          AS charge_prevue_jour,
                     COALESCE(ch.charge_effectuee_jour, 0)       AS charge_effectuee_jour,
                     SUM(COALESCE(ch.charge_prevue_jour, 0)) OVER (
-                        PARTITION BY ak.atelier_id, ak.workcenter_id 
+                        PARTITION BY ak.workcenter_id 
                         ORDER BY ak.date 
                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
                     ) AS cumul_prevu,
                     SUM(COALESCE(ch.charge_effectuee_jour, 0)) OVER (
-                        PARTITION BY ak.atelier_id, ak.workcenter_id 
+                        PARTITION BY ak.workcenter_id 
                         ORDER BY ak.date 
                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
                     ) AS cumul_effectue
                 FROM all_keys ak
-                LEFT JOIN charge   ch  ON ch.atelier_id = ak.atelier_id AND ch.workcenter_id  = ak.workcenter_id AND ch.date = ak.date
-                LEFT JOIN capacite cap ON cap.atelier_id = ak.atelier_id AND cap.workcenter_id = ak.workcenter_id AND cap.date = ak.date
+                LEFT JOIN charge   ch  ON ch.workcenter_id  = ak.workcenter_id AND ch.date = ak.date
+                LEFT JOIN capacite cap ON cap.workcenter_id = ak.workcenter_id AND cap.date = ak.date
             )
             SELECT
-                ROW_NUMBER() OVER (ORDER BY date, atelier_id, workcenter_id) AS id,
-                atelier_id,
+                ROW_NUMBER() OVER (ORDER BY date, workcenter_id) AS id,
                 workcenter_id,
                 (SELECT {wc_name} FROM mrp_workcenter wc WHERE wc.id = workcenter_id) AS workcenter_name,
                 date,

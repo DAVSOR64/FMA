@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'FMA - Dashboard Capacité & Charge',
-    'version': '17.0.1.0.2',
+    'version': '17.0.1.0.0',
     'category': 'Manufacturing',
     'summary': 'Tableau de bord capacité vs charge, GANTT planning atelier',
     'author': 'Paxo Consulting',
-    'depends': ['mrp', 'planning', 'hr', 'mrp_capacity_planning', 'fma_atelier'],
+    'depends': ['mrp', 'planning', 'hr', 'mrp_capacity_planning'],
     'data': [
         'data/mrp_macro_planning_cron.xml',
         'security/ir.model.access.csv',
