@@ -11,6 +11,7 @@
 
                 <field name="name"/>
                 <field name="project_display"/>
+                <field name="atelier_id"/>
                 <field name="workcenter_id"/>
                 <field name="production_id"/>
 
@@ -25,6 +26,9 @@
                         domain="[('state', 'in', ['pending', 'ready', 'waiting'])]"/>
 
                 <group expand="1" string="Regrouper par">
+                    <filter string="Atelier"
+                            name="group_atelier"
+                            context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste de travail"
                             name="group_workcenter"
                             context="{'group_by': 'workcenter_id'}"/>
@@ -52,7 +56,7 @@
                 string="Planning Atelier"
                 date_start="gantt_date_start"
                 date_stop="gantt_date_stop"
-                default_group_by="project_display,workcenter_id"
+                default_group_by="atelier_id,workcenter_id"
                 color="color_index"
                 default_scale="month"
                 precision="{'day': 'day:half', 'week': 'day:half', 'month': 'day:half'}"
@@ -62,6 +66,7 @@
                 <field name="gantt_label"/>
                 <field name="name"/>
                 <field name="project_display"/>
+                <field name="atelier_id"/>
                 <field name="workcenter_id"/>
                 <field name="production_id"/>
                 <field name="gantt_date_start"/>
@@ -90,6 +95,7 @@
 
                 <field name="production_id" string="OF"/>
                 <field name="project_display" string="Projet"/>
+                <field name="atelier_id" string="Atelier"/>
                 <field name="name" string="Opération"/>
                 <field name="workcenter_id" string="Poste"/>
                 <field name="gantt_date_start" string="Début planifié"/>
@@ -117,7 +123,7 @@
         </field>
 
         <!-- Groupement par poste par défaut -->
-        <field name="context">{'group_by': ['workcenter_id', 'production_id'], 'search_default_future': 1}</field>
+        <field name="context">{'group_by': ['atelier_id', 'workcenter_id', 'production_id'], 'search_default_future': 1}</field>
 
         <field name="search_view_id" ref="view_mrp_workorder_planning_search"/>
 

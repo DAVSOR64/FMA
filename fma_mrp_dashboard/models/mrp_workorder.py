@@ -24,6 +24,16 @@ class MrpWorkorder(models.Model):
         store=True,
     )
 
+    atelier_id = fields.Many2one(
+        'fma.atelier',
+        string='Atelier',
+        related='production_id.atelier_id',
+        store=True,
+        readonly=True,
+        index=True,
+        help="Atelier de l'OF utilisé pour filtrer et regrouper le macro-planning.",
+    )
+
     gantt_label = fields.Char(
         string='Label GANTT',
         compute='_compute_gantt_label',
