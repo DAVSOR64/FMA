@@ -17,6 +17,7 @@
                 pill_label="True"
             >
                 <field name="employee_id"/>
+                <field name="atelier_id"/>
                 <field name="workcenter_id"/>
                 <field name="week_label"/>
                 <field name="week_number"/>

@@ -6,7 +6,7 @@
     'summary': 'Planification macro, capacité ressources et réordonnancement FMA',
     'author': 'Paxo Consulting',
     
-    'depends': ['mrp', 'sale_management', 'planning', 'hr', 'hr_holidays', 'stock', 'purchase_stock'],
+    'depends': ['mrp', 'sale_management', 'planning', 'hr', 'hr_holidays', 'stock', 'purchase_stock', 'fma_atelier'],
     'data': [
         'security/ir.model.access.csv',
         'data/cron.xml',
