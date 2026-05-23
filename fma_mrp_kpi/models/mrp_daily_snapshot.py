@@ -16,6 +16,7 @@ class MrpDailySnapshot(models.Model):
     workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', required=True, index=True)
     workorder_id = fields.Many2one('mrp.workorder', string='Ordre de travail', required=True, index=True, ondelete='cascade')
     production_id = fields.Many2one('mrp.production', string='Ordre de fabrication', related='workorder_id.production_id', store=True)
+    atelier_id = fields.Many2one('fma.atelier', string='Atelier', related='workorder_id.production_id.atelier_id', store=True, index=True)
 
     wo_name = fields.Char(string='Opération')
     mo_name = fields.Char(string='OF')

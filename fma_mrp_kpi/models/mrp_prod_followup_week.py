@@ -9,6 +9,7 @@ class MrpProdFollowupWeek(models.Model):
     _rec_name = "week_label"
     _order = "month_start desc, week_start desc, workcenter_name asc"
 
+    atelier_id = fields.Many2one("fma.atelier", string="Atelier", readonly=True)
     atelier_label = fields.Char(string="Atelier", readonly=True)
     month_start = fields.Date(string="Mois", readonly=True)
     month_label = fields.Char(string="Mois", readonly=True)
@@ -31,6 +32,8 @@ class MrpProdFollowupWeek(models.Model):
                     SELECT
                         date_trunc('month', c.date)::date AS month_start,
                         date_trunc('week', c.date)::date AS week_start,
+                        c.atelier_id,
+                        COALESCE(a.name, 'Sans atelier') AS atelier_label,
                         c.workcenter_id,
                         c.workcenter_name,
                         SUM(COALESCE(c.capacite_heures, 0)) AS capacite_heures,
@@ -38,14 +41,18 @@ class MrpProdFollowupWeek(models.Model):
                         SUM(COALESCE(c.charge_effectuee_jour, 0)) AS charge_effectuee_heures,
                         SUM(COALESCE(c.nb_operations, 0)) AS nb_operations
                     FROM mrp_capacite_charge c
+                    LEFT JOIN fma_atelier a ON a.id = c.atelier_id
                     GROUP BY date_trunc('month', c.date)::date,
                              date_trunc('week', c.date)::date,
+                             c.atelier_id,
+                             COALESCE(a.name, 'Sans atelier'),
                              c.workcenter_id,
                              c.workcenter_name
                 )
                 SELECT
-                    ROW_NUMBER() OVER (ORDER BY month_start DESC, week_start DESC, COALESCE(workcenter_name, '')) AS id,
-                    'Atelier'::varchar AS atelier_label,
+                    ROW_NUMBER() OVER (ORDER BY month_start DESC, week_start DESC, COALESCE(atelier_label, ''), COALESCE(workcenter_name, '')) AS id,
+                    atelier_id,
+                    atelier_label,
                     month_start,
                     to_char(month_start, 'MM/YYYY') AS month_label,
                     week_start,
