@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'FMA - Planning & Capacité',
-    'version': '17.0.1.0.5',
+    'version': '17.0.1.0.6',
     'category': 'Manufacturing',
     'summary': 'Planification macro, capacité ressources et réordonnancement FMA',
     'author': 'Paxo Consulting',
@@ -10,6 +10,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/cron.xml',
+        'views/fma_atelier_views.xml',
         'views/mrp_capacity_resource_views.xml',
         'views/mrp_capacity_week_views.xml',
         'views/mrp_capacity_week_gantt.xml',

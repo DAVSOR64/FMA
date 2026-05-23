@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <tree string="Affectations ressources" editable="bottom">
                 <field name="employee_id"/>
+                <field name="atelier_id"/>
                 <field name="workcenter_id"/>
                 <field name="resource_calendar_id"/>
                 <field name="allocation_rate" optional="show"/>
@@ -45,6 +46,7 @@
                             <field name="allocation_rate" widget="percentage"/>
                         </group>
                         <group string="Poste &amp; Calendrier">
+                            <field name="atelier_id"/>
                             <field name="workcenter_id"/>
                             <!-- Calendrier choisi ici — indépendant du RH -->
                             <field name="resource_calendar_id"
@@ -75,10 +77,12 @@
         <field name="arch" type="xml">
             <search>
                 <field name="employee_id"/>
+                <field name="atelier_id"/>
                 <field name="workcenter_id"/>
                 <field name="resource_calendar_id"/>
                 <filter string="Actif" name="active" domain="[('active','=',True)]"/>
                 <group string="Grouper par">
+                    <filter string="Atelier" name="by_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="by_wc" context="{'group_by': 'workcenter_id'}"/>
                     <filter string="Ressource" name="by_emp" context="{'group_by': 'employee_id'}"/>
                 </group>

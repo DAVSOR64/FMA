@@ -8,6 +8,12 @@
               parent="mrp.menu_mrp_root"
               sequence="60"/>
 
+    <menuitem id="menu_fma_atelier"
+              name="Ateliers"
+              parent="menu_fma_planning_root"
+              action="action_fma_atelier"
+              sequence="5"/>
+
     <!-- Ressources & Postes -->
     <menuitem id="menu_mrp_capacity_resource"
               name="Ressources &amp; Postes"
