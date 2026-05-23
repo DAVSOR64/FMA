@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import api, fields, models
+from odoo import fields, models
 
 
 class FmaAtelier(models.Model):
@@ -21,9 +21,9 @@ class FmaAtelier(models.Model):
     responsible_id = fields.Many2one('hr.employee', string='Responsable')
     note = fields.Text(string='Note')
 
-    display_name = fields.Char(compute='_compute_display_name', store=True)
-
-    @api.depends('name', 'code')
-    def _compute_display_name(self):
+    def name_get(self):
+        result = []
         for rec in self:
-            rec.display_name = '[%s] %s' % (rec.code, rec.name) if rec.code else rec.name
+            name = '[%s] %s' % (rec.code, rec.name) if rec.code else rec.name
+            result.append((rec.id, name))
+        return result
