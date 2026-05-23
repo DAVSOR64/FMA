@@ -18,6 +18,15 @@ class MrpProduction(models.Model):
         copy=False,
         help="Date de fin de fabrication imposée (livraison - délai de sécurité)."
     )
+    atelier_id = fields.Many2one(
+        'fma.atelier',
+        string='Atelier',
+        index=True,
+        tracking=True,
+        copy=False,
+        help='Atelier métier utilisé pour ventiler la charge macro-planning et capacité. Ne crée pas de stock ni de transit.'
+    )
+
     is_programmed = fields.Boolean(
         string="Programmé",
         compute="_compute_is_programmed",

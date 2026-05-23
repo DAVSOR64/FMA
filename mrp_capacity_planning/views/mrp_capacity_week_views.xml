@@ -10,6 +10,7 @@
                 decoration-warning="is_overridden and delta >= 0"
                 decoration-muted="hours_absence_total > 0 and delta >= 0 and not is_overridden">
                 <field name="employee_id" optional="show" readonly="1"/>
+                <field name="atelier_id" optional="show" readonly="1"/>
                 <field name="workcenter_id" optional="show" readonly="1"/>
                 <field name="week_label" string="Semaine" optional="show" readonly="1"/>
                 <field name="resource_calendar_id" optional="show" readonly="1" string="Calendrier base"/>
@@ -57,6 +58,7 @@
                         <group string="Affectation">
                             <field name="capacity_resource_id" readonly="1"/>
                             <field name="employee_id" readonly="1"/>
+                            <field name="atelier_id" readonly="1"/>
                             <field name="workcenter_id" readonly="1"/>
                         </group>
                         <group string="Période">
@@ -132,6 +134,7 @@
                 <separator/>
                 <group string="Grouper par">
                     <filter string="Ressource" name="by_emp" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Atelier" name="by_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="by_wc" context="{'group_by': 'workcenter_id'}"/>
                     <filter string="Semaine" name="by_week" context="{'group_by': 'week_date:week'}"/>
                 </group>

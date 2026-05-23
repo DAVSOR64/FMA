@@ -7,8 +7,9 @@ class MrpProdFollowupWeek(models.Model):
     _description = "Suivi Production charge vs capacité"
     _auto = False
     _rec_name = "week_label"
-    _order = "month_start desc, week_start desc, workcenter_name asc"
+    _order = "month_start desc, week_start desc, atelier_label asc, workcenter_name asc"
 
+    atelier_id = fields.Many2one("fma.atelier", string="Atelier", readonly=True)
     atelier_label = fields.Char(string="Atelier", readonly=True)
     month_start = fields.Date(string="Mois", readonly=True)
     month_label = fields.Char(string="Mois", readonly=True)
@@ -31,6 +32,7 @@ class MrpProdFollowupWeek(models.Model):
                     SELECT
                         date_trunc('month', c.date)::date AS month_start,
                         date_trunc('week', c.date)::date AS week_start,
+                        c.atelier_id,
                         c.workcenter_id,
                         c.workcenter_name,
                         SUM(COALESCE(c.capacite_heures, 0)) AS capacite_heures,
@@ -40,12 +42,14 @@ class MrpProdFollowupWeek(models.Model):
                     FROM mrp_capacite_charge c
                     GROUP BY date_trunc('month', c.date)::date,
                              date_trunc('week', c.date)::date,
+                             c.atelier_id,
                              c.workcenter_id,
                              c.workcenter_name
                 )
                 SELECT
-                    ROW_NUMBER() OVER (ORDER BY month_start DESC, week_start DESC, COALESCE(workcenter_name, '')) AS id,
-                    'Atelier'::varchar AS atelier_label,
+                    ROW_NUMBER() OVER (ORDER BY month_start DESC, week_start DESC, COALESCE(atelier_id, 0), COALESCE(workcenter_name, '')) AS id,
+                    atelier_id,
+                    COALESCE((SELECT name FROM fma_atelier fa WHERE fa.id = atelier_id), 'Sans atelier')::varchar AS atelier_label,
                     month_start,
                     to_char(month_start, 'MM/YYYY') AS month_label,
                     week_start,

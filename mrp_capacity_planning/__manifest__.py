@@ -10,6 +10,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/cron.xml',
+        'views/fma_atelier_views.xml',
         'views/mrp_capacity_resource_views.xml',
         'views/mrp_capacity_week_views.xml',
         'views/mrp_capacity_week_gantt.xml',
