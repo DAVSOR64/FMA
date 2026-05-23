@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fma_atelier_tree" model="ir.ui.view">
+        <field name="name">fma.atelier.tree</field>
+        <field name="model">fma.atelier</field>
+        <field name="arch" type="xml">
+            <tree string="Ateliers">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="calendar_id"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_fma_atelier_form" model="ir.ui.view">
+        <field name="name">fma.atelier.form</field>
+        <field name="model">fma.atelier</field>
+        <field name="arch" type="xml">
+            <form string="Atelier">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_productions"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-cogs">
+                            <field name="production_count" widget="statinfo" string="OF"/>
+                        </button>
+                    </div>
+
+                    <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger" invisible="active"/>
+
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="calendar_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="color" widget="color_picker"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Notes">
+                            <field name="note" placeholder="Notes internes sur l'atelier..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fma_atelier_search" model="ir.ui.view">
+        <field name="name">fma.atelier.search</field>
+        <field name="model">fma.atelier</field>
+        <field name="arch" type="xml">
+            <search string="Ateliers">
+                <field name="name"/>
+                <field name="code"/>
+                <filter name="active" string="Actifs" domain="[('active','=',True)]"/>
+                <filter name="inactive" string="Archivés" domain="[('active','=',False)]"/>
+                <group expand="0" string="Regrouper par">
+                    <filter name="group_company" string="Société" context="{'group_by':'company_id'}" groups="base.group_multi_company"/>
+                    <filter name="group_calendar" string="Calendrier" context="{'group_by':'calendar_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fma_atelier" model="ir.actions.act_window">
+        <field name="name">Ateliers</field>
+        <field name="res_model">fma.atelier</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_fma_atelier_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+
+    <!-- Menu volontairement placé dans Fabrication > Configuration -->
+    <menuitem id="menu_fma_atelier"
+              name="Ateliers"
+              parent="mrp.menu_mrp_configuration"
+              action="action_fma_atelier"
+              sequence="95"/>
+</odoo>
