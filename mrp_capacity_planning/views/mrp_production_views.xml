@@ -15,7 +15,6 @@
                   decoration-muted="state in ('done','cancel')">
                 <field name="name" string="N° OF"/>
                 <field name="product_id" string="Produit"/>
-                <field name="atelier_id" string="Atelier" optional="show"/>
                 <field name="product_qty" string="Qté" optional="show"/>
                 <field name="date_start" string="Début fab." widget="date"/>
                 <field name="date_finished" string="Fin fab." widget="date"/>
@@ -50,18 +49,6 @@
             (5, 0, 0),
             (0, 0, {'view_mode': 'tree', 'view_id': ref('view_mrp_production_planning_tree')}),
         ]"/>
-    </record>
-
-
-    <record id="view_mrp_production_form_atelier" model="ir.ui.view">
-        <field name="name">mrp.production.form.atelier</field>
-        <field name="model">mrp.production</field>
-        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name='product_id']" position="after">
-                <field name="atelier_id" options="{'no_create_edit': False}"/>
-            </xpath>
-        </field>
     </record>
 
 </odoo>
