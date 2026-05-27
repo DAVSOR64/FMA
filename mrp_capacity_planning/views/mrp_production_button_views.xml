@@ -25,6 +25,13 @@
                         icon="fa-refresh"
                         invisible="state in ('draft', 'done', 'cancel')"
                         help="Recalcule uniquement les dates macro depuis la date de fin fixée."/>
+                <button name="action_open_add_component_need_wizard"
+                        string="+ Besoin"
+                        type="object"
+                        class="btn-secondary"
+                        icon="fa-plus"
+                        invisible="state in ('draft', 'done', 'cancel')"
+                        help="Ajouter un article manquant ou complémentaire comme besoin composant de cet OF."/>
             </xpath>
         </field>
     </record>
@@ -48,6 +55,11 @@
                         string="⟳" icon="fa-refresh"
                         title="Replanifier cet OF"
                         class="btn-warning btn-sm"
+                        invisible="state in ('draft', 'done', 'cancel')"/>
+                <button name="action_open_add_component_need_wizard" type="object"
+                        string="+ Besoin" icon="fa-plus"
+                        title="Ajouter un besoin sur cet OF"
+                        class="btn-secondary btn-sm"
                         invisible="state in ('draft', 'done', 'cancel')"/>
             </xpath>
         </field>

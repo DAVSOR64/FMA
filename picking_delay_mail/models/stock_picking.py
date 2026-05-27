@@ -160,12 +160,71 @@ class StockPicking(models.Model):
             limit=1,
         )
 
+        # Destinataires dynamiques :
+        # - client/contact principal : sale.order.main_contact_id
+        # - bureau d'étude : sale.order.x_studio_bureau_dtude (res.users)
+        # - commercial : sale.order.x_studio_commercial_1 (nom dans un champ Char)
+        partner_ids = [contact.id]
+
+        # Bureau d'étude : many2one vers res.users.
+        be_user = getattr(sale_order, "x_studio_bureau_dtude", False)
+        if be_user and be_user.partner_id and be_user.partner_id.email:
+            partner_ids.append(be_user.partner_id.id)
+
+        # Commercial : champ Char contenant le nom du commercial.
+        commercial_name = getattr(sale_order, "x_studio_commercial_1", False)
+        if commercial_name:
+            employee = self.env["hr.employee"].search(
+                [("name", "=", commercial_name)],
+                limit=1,
+            )
+            if not employee:
+                employee = self.env["hr.employee"].search(
+                    [("name", "ilike", commercial_name)],
+                    limit=1,
+                )
+
+            if employee:
+                # Selon les versions Odoo / configuration RH, le partenaire peut être porté par :
+                # - work_contact_id : contact professionnel de l'employé,
+                # - user_id.partner_id : utilisateur lié,
+                # - address_home_id : contact privé, en dernier recours uniquement.
+                commercial_partner = False
+
+                if hasattr(employee, "work_contact_id") and employee.work_contact_id:
+                    commercial_partner = employee.work_contact_id
+                elif employee.user_id and employee.user_id.partner_id:
+                    commercial_partner = employee.user_id.partner_id
+                elif employee.address_home_id:
+                    commercial_partner = employee.address_home_id
+
+                # Si aucun partenaire n'est trouvé mais qu'un email existe sur l'employé,
+                # on recherche un res.partner correspondant afin de pouvoir l'ajouter
+                # dans le même champ destinataire que le client.
+                commercial_email = (
+                    employee.work_email
+                    or employee.user_id.email
+                    or (commercial_partner.email if commercial_partner else False)
+                )
+
+                if not commercial_partner and commercial_email:
+                    commercial_partner = self.env["res.partner"].search(
+                        [("email", "=", commercial_email)],
+                        limit=1,
+                    )
+
+                if commercial_partner and commercial_partner.email:
+                    partner_ids.append(commercial_partner.id)
+
+        # Déduplication en conservant l'ordre.
+        partner_ids = list(dict.fromkeys(partner_ids))
+
         ctx = {
             "default_model": "stock.picking",
             "default_res_ids": [self.id],
             "default_composition_mode": "comment",
             "force_email": True,
-            "default_partner_ids": [(6, 0, [contact.id])],
+            "default_partner_ids": [(6, 0, partner_ids)],
         }
 
         if template:

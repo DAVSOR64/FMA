@@ -28,6 +28,10 @@ class MrpCapacityWeek(models.Model):
         related='capacity_resource_id.employee_id',
         store=True, string='Ressource', index=True,
     )
+    atelier_id = fields.Many2one(
+        related='capacity_resource_id.atelier_id',
+        store=True, string='Atelier', index=True,
+    )
     workcenter_id = fields.Many2one(
         related='capacity_resource_id.workcenter_id',
         store=True, string='Poste de travail', index=True,
@@ -269,13 +273,14 @@ class MrpCapacityWeek(models.Model):
         for rec in self:
             rec.delta = round(rec.capacity_net - rec.hours_planned, 2)
 
-    @api.depends('employee_id', 'workcenter_id', 'week_label')
+    @api.depends('employee_id', 'atelier_id', 'workcenter_id', 'week_label')
     def _compute_display_name(self):
         for rec in self:
             emp = rec.employee_id.name or '?'
+            atelier = rec.atelier_id.name or 'Sans atelier'
             wc = rec.workcenter_id.name or '?'
             week = rec.week_label or '?'
-            rec.display_name = f'{emp} / {wc} — {week}'
+            rec.display_name = f'{emp} / {atelier} / {wc} — {week}'
 
     def _compute_color(self):
         for rec in self:

@@ -6,3 +6,4 @@ access_mrp_capacity_week_manager,mrp.capacity.week manager,model_mrp_capacity_we
 access_mrp_capacity_generate_wizard,mrp.capacity.generate.wizard,model_mrp_capacity_generate_wizard,mrp.group_mrp_user,1,1,1,1
 access_mrp_replan_preview_wizard,mrp.replan.preview.wizard,model_mrp_replan_preview_wizard,mrp.group_mrp_user,1,1,1,1
 access_mrp_batch_macro_replan_wizard,mrp.batch.macro.replan.wizard,model_mrp_batch_macro_replan_wizard,base.group_user,1,1,1,1
+access_mrp_add_component_need_wizard_user,mrp.add.component.need.wizard user,model_mrp_add_component_need_wizard,mrp.group_mrp_user,1,1,1,1

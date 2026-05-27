@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'FMA - Planning & Capacité',
-    'version': '17.0.1.0.0',
+    'version': '17.0.1.0.5',
     'category': 'Manufacturing',
     'summary': 'Planification macro, capacité ressources et réordonnancement FMA',
     'author': 'Paxo Consulting',
     
-    'depends': ['mrp', 'sale_management', 'planning', 'hr', 'hr_holidays', 'stock'],
+    'depends': ['mrp', 'sale_management', 'planning', 'hr', 'hr_holidays', 'stock', 'purchase_stock', 'fma_atelier'],
     'data': [
         'security/ir.model.access.csv',
         'data/cron.xml',
@@ -20,6 +20,7 @@
         'wizard/mrp_replan_preview_wizard_views.xml',
         'wizard/mrp_batch_macro_replan_wizard_views.xml',
         'wizard/generate_weeks_wizard_views.xml',
+        'wizard/mrp_add_component_need_wizard_views.xml',
         'views/menu.xml',
     ],
     'installable': True,
