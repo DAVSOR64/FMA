@@ -45,12 +45,12 @@ class CapaciteCache(models.Model):
         """
         Recalcule la capacité par poste/jour.
 
-        Source 1 (prioritaire) : mrp.capacity.week — capacité nette avec congés/absences
-        Source unique : mrp.capacity.week — capacité nette avec congés/absences.
+        Source unique : mrp.capacity.week, issue des affectations actives
+        mrp.capacity.resource (Ressources & Postes).
 
-        Important : on ne crée plus de capacité à partir du calendrier du poste de travail.
-        Si un poste a de la charge mais aucune ressource/capacité définie dans
-        Ressources & Postes, il doit apparaître avec une capacité à 0 h.
+        IMPORTANT : on ne fabrique jamais de capacité depuis le calendrier du
+        poste de travail ou depuis une charge OF. Si un poste a de la charge
+        mais aucune ressource affectée active, il doit rester à 0 h de capacité.
         """
         self.search([]).unlink()
 
@@ -58,11 +58,25 @@ class CapaciteCache(models.Model):
 
         # ── Source 1 : mrp.capacity.week ──────────────────────────────────────
         if 'mrp.capacity.week' in self.env:
-            weeks = self.env['mrp.capacity.week'].search([])
+            weeks = self.env['mrp.capacity.week'].search([
+                ('capacity_resource_id.active', '=', True),
+                ('capacity_net', '>', 0),
+            ])
             _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines mrp.capacity.week', len(weeks))
 
             for week in weeks:
-                if not week.workcenter_id or not week.week_date:
+                if not week.workcenter_id or not week.week_date or not week.capacity_resource_id:
+                    continue
+
+                # Sécurité : on ignore les semaines hors validité de l'affectation.
+                # Odoo garde parfois d'anciennes semaines générées si l'affectation
+                # a été modifiée ; elles ne doivent plus alimenter la capacité.
+                capacity_resource = week.capacity_resource_id
+                if not capacity_resource.active:
+                    continue
+                if capacity_resource.date_start and week.week_end_date and week.week_end_date < capacity_resource.date_start:
+                    continue
+                if capacity_resource.date_end and week.week_date and week.week_date > capacity_resource.date_end:
                     continue
 
                 daily_hours = self._get_daily_capacity_map(week)
@@ -80,48 +94,32 @@ class CapaciteCache(models.Model):
                             'date': jour,
                             'capacite_heures': 0.0,
                             'nb_personnes': 0,
-                            '_resource_ids': set(),
+                            '_person_ids': set(),
                         }
                     aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
-                    resource_key = week.capacity_resource_id.id if week.capacity_resource_id else (week.employee_id.id if week.employee_id else week.id)
-                    aggregated[key]['_resource_ids'].add(resource_key)
-                    aggregated[key]['nb_personnes'] = len(aggregated[key]['_resource_ids'])
+                    if week.employee_id:
+                        aggregated[key]['_person_ids'].add(week.employee_id.id)
+                    else:
+                        # Fallback technique si aucune fiche employé n'est liée.
+                        aggregated[key]['_person_ids'].add(('capacity_resource', week.capacity_resource_id.id))
+                    aggregated[key]['nb_personnes'] = len(aggregated[key]['_person_ids'])
         else:
             _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — fallback calendrier uniquement')
 
-        # ── Dates de charge sans capacité : création d'une ligne à 0 h ────────
-        # On garde la ligne visible dans le tableau, mais on n'invente pas de capacité
-        # depuis le calendrier du poste. La capacité doit venir uniquement des
-        # affectations Ressources & Postes / mrp.capacity.week.
-        self.env.cr.execute("""
-            SELECT DISTINCT atelier_id, workcenter_id, date
-            FROM mrp_workorder_charge_cache
-            ORDER BY atelier_id, workcenter_id, date
-        """)
-        charge_keys = self.env.cr.fetchall()
-
-        missing_keys = [(atelier_id, wc_id, d) for atelier_id, wc_id, d in charge_keys if (atelier_id, wc_id, d) not in aggregated]
-        if missing_keys:
-            _logger.info('[MacroPlanning] %d clés charge sans capacité → capacité forcée à 0 h', len(missing_keys))
-
-        for atelier_id, wc_id, d in missing_keys:
-            wc = self.env['mrp.workcenter'].browse(wc_id)
-            aggregated[(atelier_id, wc_id, d)] = {
-                'atelier_id': atelier_id,
-                'workcenter_id': wc_id,
-                'workcenter_name': wc.name if wc.exists() else '',
-                'date': d,
-                'capacite_heures': 0.0,
-                'nb_personnes': 0,
-                '_resource_ids': set(),
-            }
+        # ── Pas de fallback calendrier ───────────────────────────────────────
+        # Ancien comportement supprimé : le code créait une capacité à partir
+        # du calendrier du poste dès qu'il trouvait de la charge. Cela donnait
+        # de la capacité sur des postes non paramétrés dans Ressources & Postes
+        # comme CU (banc) FMA. La vue Capacité vs Charge sait déjà afficher
+        # la charge seule grâce à mrp_workorder_charge_cache ; la capacité
+        # restera donc à 0 si aucune affectation active n'existe.
 
         if aggregated:
-            vals_to_create = []
+            values = []
             for vals in aggregated.values():
-                vals.pop('_resource_ids', None)
-                vals_to_create.append(vals)
-            self.create(vals_to_create)
+                vals.pop('_person_ids', None)
+                values.append(vals)
+            self.create(values)
 
         _logger.info(
             '[MacroPlanning] REFRESH CAPACITE TERMINÉ : %d entrées poste/jour créées',
