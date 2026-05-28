@@ -46,11 +46,11 @@ class CapaciteCache(models.Model):
         Recalcule la capacité par poste/jour.
 
         Source 1 (prioritaire) : mrp.capacity.week — capacité nette avec congés/absences
-        Source 2 (fallback)    : calendrier du workcenter × nb_resources configurées,
-                                 pour les dates de charge qui n'ont pas de semaine capacité.
+        Source unique : mrp.capacity.week — capacité nette avec congés/absences.
 
-        On couvre TOUTES les dates présentes dans mrp_workorder_charge_cache,
-        afin que le tableau ne montre jamais 0 capacité faute de données.
+        Important : on ne crée plus de capacité à partir du calendrier du poste de travail.
+        Si un poste a de la charge mais aucune ressource/capacité définie dans
+        Ressources & Postes, il doit apparaître avec une capacité à 0 h.
         """
         self.search([]).unlink()
 
@@ -80,14 +80,19 @@ class CapaciteCache(models.Model):
                             'date': jour,
                             'capacite_heures': 0.0,
                             'nb_personnes': 0,
+                            '_resource_ids': set(),
                         }
                     aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
-                    aggregated[key]['nb_personnes'] += 1
+                    resource_key = week.capacity_resource_id.id if week.capacity_resource_id else (week.employee_id.id if week.employee_id else week.id)
+                    aggregated[key]['_resource_ids'].add(resource_key)
+                    aggregated[key]['nb_personnes'] = len(aggregated[key]['_resource_ids'])
         else:
             _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — fallback calendrier uniquement')
 
-        # ── Source 2 : fallback calendrier pour les dates sans capacité ────────
-        # Récupérer toutes les dates/postes présents dans le cache charge
+        # ── Dates de charge sans capacité : création d'une ligne à 0 h ────────
+        # On garde la ligne visible dans le tableau, mais on n'invente pas de capacité
+        # depuis le calendrier du poste. La capacité doit venir uniquement des
+        # affectations Ressources & Postes / mrp.capacity.week.
         self.env.cr.execute("""
             SELECT DISTINCT atelier_id, workcenter_id, date
             FROM mrp_workorder_charge_cache
@@ -95,85 +100,28 @@ class CapaciteCache(models.Model):
         """)
         charge_keys = self.env.cr.fetchall()
 
-        if charge_keys:
-            # Dates manquantes = dates de charge sans entrée capacité
-            missing_keys = [(atelier_id, wc_id, d) for atelier_id, wc_id, d in charge_keys if (atelier_id, wc_id, d) not in aggregated]
-            _logger.info('[MacroPlanning] %d clés charge sans capacité → fallback calendrier', len(missing_keys))
+        missing_keys = [(atelier_id, wc_id, d) for atelier_id, wc_id, d in charge_keys if (atelier_id, wc_id, d) not in aggregated]
+        if missing_keys:
+            _logger.info('[MacroPlanning] %d clés charge sans capacité → capacité forcée à 0 h', len(missing_keys))
 
-            # Grouper par workcenter pour éviter de recalculer le calendrier N fois
-            from collections import defaultdict
-            missing_by_wc = defaultdict(set)
-            for atelier_id, wc_id, d in missing_keys:
-                missing_by_wc[(atelier_id, wc_id)].add(d)
-
-            for (atelier_id, wc_id), dates in missing_by_wc.items():
-                wc = self.env['mrp.workcenter'].browse(wc_id)
-                if not wc.exists():
-                    continue
-
-                calendar = wc.resource_calendar_id
-                if not calendar:
-                    # Pas de calendrier : on met 0 pour que la ligne existe
-                    for d in dates:
-                        key = (atelier_id, wc_id, d)
-                        if key not in aggregated:
-                            aggregated[key] = {
-                                'atelier_id': atelier_id,
-                                'workcenter_id': wc_id,
-                                'workcenter_name': wc.name,
-                                'date': d,
-                                'capacite_heures': 0.0,
-                                'nb_personnes': 0,
-                            }
-                    continue
-
-                # Nombre de ressources configurées sur ce workcenter
-                # (capacity = nb_resources × heures_calendrier_jour)
-                nb_resources = max(1, int(getattr(wc, 'default_capacity', 1) or 1))
-
-                # Calculer les heures par jour sur la plage nécessaire
-                min_date = min(dates)
-                max_date = max(dates)
-                start_dt = self._to_utc(datetime.combine(min_date, datetime.min.time()))
-                end_dt = self._to_utc(datetime.combine(max_date + timedelta(days=1), datetime.min.time()))
-
-                try:
-                    intervals = calendar._work_intervals_batch(start_dt, end_dt)
-                    work_intervals = intervals.get(False, [])
-
-                    heures_par_jour = {}
-                    for start, stop, _meta in work_intervals:
-                        jour = start.date()
-                        heures_par_jour[jour] = heures_par_jour.get(jour, 0) + (stop - start).total_seconds() / 3600.0
-
-                    for d in dates:
-                        key = (atelier_id, wc_id, d)
-                        if key not in aggregated:
-                            h = round(heures_par_jour.get(d, 0.0) * nb_resources, 2)
-                            aggregated[key] = {
-                                'atelier_id': atelier_id,
-                                'workcenter_id': wc_id,
-                                'workcenter_name': wc.name,
-                                'date': d,
-                                'capacite_heures': h,
-                                'nb_personnes': nb_resources,
-                            }
-                except Exception as e:
-                    _logger.error('[MacroPlanning] Fallback calendrier workcenter %s : %s', wc_id, e)
-                    for d in dates:
-                        key = (atelier_id, wc_id, d)
-                        if key not in aggregated:
-                            aggregated[key] = {
-                                'atelier_id': atelier_id,
-                                'workcenter_id': wc_id,
-                                'workcenter_name': wc.name,
-                                'date': d,
-                                'capacite_heures': 0.0,
-                                'nb_personnes': 0,
-                            }
+        for atelier_id, wc_id, d in missing_keys:
+            wc = self.env['mrp.workcenter'].browse(wc_id)
+            aggregated[(atelier_id, wc_id, d)] = {
+                'atelier_id': atelier_id,
+                'workcenter_id': wc_id,
+                'workcenter_name': wc.name if wc.exists() else '',
+                'date': d,
+                'capacite_heures': 0.0,
+                'nb_personnes': 0,
+                '_resource_ids': set(),
+            }
 
         if aggregated:
-            self.create(list(aggregated.values()))
+            vals_to_create = []
+            for vals in aggregated.values():
+                vals.pop('_resource_ids', None)
+                vals_to_create.append(vals)
+            self.create(vals_to_create)
 
         _logger.info(
             '[MacroPlanning] REFRESH CAPACITE TERMINÉ : %d entrées poste/jour créées',
