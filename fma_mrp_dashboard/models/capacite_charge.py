@@ -43,40 +43,37 @@ class CapaciteCache(models.Model):
 
     def refresh(self):
         """
-        Recalcule la capacité par poste/jour.
+        Recalcule la capacité par poste/jour pour le menu Macro Planning /
+        Capacité vs Charge.
 
-        Source unique : mrp.capacity.week, issue des affectations actives
-        mrp.capacity.resource (Ressources & Postes).
+        Règle métier importante : la capacité vient UNIQUEMENT des affectations
+        mrp.capacity.resource / mrp.capacity.week.
 
-        IMPORTANT : on ne fabrique jamais de capacité depuis le calendrier du
-        poste de travail ou depuis une charge OF. Si un poste a de la charge
-        mais aucune ressource affectée active, il doit rester à 0 h de capacité.
+        On ne doit jamais recréer une capacité depuis le calendrier du poste de
+        travail quand il existe uniquement de la charge. Ainsi, un poste comme
+        "CU (banc) FMA" avec des OF planifiés mais sans ressource affectée
+        ressort avec Capacité = 0 h et une surcharge visible.
         """
         self.search([]).unlink()
 
         aggregated = {}
+        resource_ids_by_key = {}
 
-        # ── Source 1 : mrp.capacity.week ──────────────────────────────────────
+        # ── Source unique : mrp.capacity.week issue des Ressources & Postes ───
         if 'mrp.capacity.week' in self.env:
             weeks = self.env['mrp.capacity.week'].search([
                 ('capacity_resource_id.active', '=', True),
-                ('capacity_net', '>', 0),
             ])
-            _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines mrp.capacity.week', len(weeks))
+            _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines mrp.capacity.week actives', len(weeks))
 
             for week in weeks:
                 if not week.workcenter_id or not week.week_date or not week.capacity_resource_id:
                     continue
 
-                # Sécurité : on ignore les semaines hors validité de l'affectation.
-                # Odoo garde parfois d'anciennes semaines générées si l'affectation
-                # a été modifiée ; elles ne doivent plus alimenter la capacité.
-                capacity_resource = week.capacity_resource_id
-                if not capacity_resource.active:
-                    continue
-                if capacity_resource.date_start and week.week_end_date and week.week_end_date < capacity_resource.date_start:
-                    continue
-                if capacity_resource.date_end and week.week_date and week.week_date > capacity_resource.date_end:
+                # Sécurité anti-capacité fantôme : une semaine générée avant une
+                # modification de dates ne doit plus contribuer hors période de
+                # validité de l'affectation.
+                if not self._capacity_week_is_valid(week):
                     continue
 
                 daily_hours = self._get_daily_capacity_map(week)
@@ -84,6 +81,9 @@ class CapaciteCache(models.Model):
                     continue
 
                 for jour, capacite_jour in daily_hours.items():
+                    if not self._capacity_resource_is_valid_on_date(week.capacity_resource_id, jour):
+                        continue
+
                     atelier_id = week.atelier_id.id if getattr(week, 'atelier_id', False) else False
                     key = (atelier_id, week.workcenter_id.id, jour)
                     if key not in aggregated:
@@ -94,37 +94,81 @@ class CapaciteCache(models.Model):
                             'date': jour,
                             'capacite_heures': 0.0,
                             'nb_personnes': 0,
-                            '_person_ids': set(),
                         }
-                    aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
-                    if week.employee_id:
-                        aggregated[key]['_person_ids'].add(week.employee_id.id)
-                    else:
-                        # Fallback technique si aucune fiche employé n'est liée.
-                        aggregated[key]['_person_ids'].add(('capacity_resource', week.capacity_resource_id.id))
-                    aggregated[key]['nb_personnes'] = len(aggregated[key]['_person_ids'])
-        else:
-            _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — fallback calendrier uniquement')
+                        resource_ids_by_key[key] = set()
 
-        # ── Pas de fallback calendrier ───────────────────────────────────────
-        # Ancien comportement supprimé : le code créait une capacité à partir
-        # du calendrier du poste dès qu'il trouvait de la charge. Cela donnait
-        # de la capacité sur des postes non paramétrés dans Ressources & Postes
-        # comme CU (banc) FMA. La vue Capacité vs Charge sait déjà afficher
-        # la charge seule grâce à mrp_workorder_charge_cache ; la capacité
-        # restera donc à 0 si aucune affectation active n'existe.
+                    aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
+                    resource_ids_by_key[key].add(week.capacity_resource_id.id)
+        else:
+            _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — capacité à 0')
+
+        # Compte les vraies affectations ressources uniques, pas les lignes semaine.
+        for key, resource_ids in resource_ids_by_key.items():
+            aggregated[key]['nb_personnes'] = len(resource_ids)
+
+        # ── Charge sans capacité : créer une ligne à 0 h, sans fallback calendrier
+        # L'objectif est de voir les postes chargés mais non capacitaires.
+        self.env.cr.execute("""
+            SELECT DISTINCT atelier_id, workcenter_id, date
+            FROM mrp_workorder_charge_cache
+            ORDER BY atelier_id, workcenter_id, date
+        """)
+        charge_keys = self.env.cr.fetchall()
+
+        missing_keys = [(atelier_id, wc_id, d) for atelier_id, wc_id, d in charge_keys if (atelier_id, wc_id, d) not in aggregated]
+        if missing_keys:
+            _logger.info(
+                '[MacroPlanning] %d clés avec charge mais sans ressource capacité → capacité forcée à 0 h',
+                len(missing_keys)
+            )
+
+        for atelier_id, wc_id, d in missing_keys:
+            wc = self.env['mrp.workcenter'].browse(wc_id)
+            if not wc.exists():
+                continue
+            aggregated[(atelier_id, wc_id, d)] = {
+                'atelier_id': atelier_id,
+                'workcenter_id': wc_id,
+                'workcenter_name': wc.name,
+                'date': d,
+                'capacite_heures': 0.0,
+                'nb_personnes': 0,
+            }
 
         if aggregated:
-            values = []
-            for vals in aggregated.values():
-                vals.pop('_person_ids', None)
-                values.append(vals)
-            self.create(values)
+            self.create(list(aggregated.values()))
 
         _logger.info(
             '[MacroPlanning] REFRESH CAPACITE TERMINÉ : %d entrées poste/jour créées',
             len(aggregated)
         )
+
+    def _capacity_week_is_valid(self, week):
+        """Vérifie qu'une semaine capacité est encore dans la période de validité
+        de son affectation Ressources & Postes.
+        """
+        res = week.capacity_resource_id
+        if not res or not res.active:
+            return False
+
+        week_start = week.week_date
+        week_end = week.week_end_date or (week.week_date + timedelta(days=6))
+
+        if res.date_start and week_end < res.date_start:
+            return False
+        if res.date_end and week_start > res.date_end:
+            return False
+        return True
+
+    def _capacity_resource_is_valid_on_date(self, capacity_resource, day):
+        """Vérifie la validité de l'affectation pour une date précise."""
+        if not capacity_resource or not capacity_resource.active:
+            return False
+        if capacity_resource.date_start and day < capacity_resource.date_start:
+            return False
+        if capacity_resource.date_end and day > capacity_resource.date_end:
+            return False
+        return True
 
     def _get_daily_capacity_map(self, week):
         """Retourne {date: heures_nettes} pour une semaine de capacite.
