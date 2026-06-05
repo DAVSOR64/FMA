@@ -264,6 +264,15 @@ class AccountMove(models.Model):
                 items_grouped_by_account = list(items_grouped_by_account)
                 centre_de_frais = move.x_studio_centre_de_frais or ""
                 ana = f"{section}{centre_de_frais}{activite}"
+                
+                final_analytic = analytic_code or analytic_code_po
+
+                if not final_analytic:
+                    if section == "REG":
+                        final_analytic = "A STOCKS"
+                    elif section == "REM":
+                        final_analytic = "B STOCKS"
+                
                 grouped_items.append(
                     {
                         "journal": journal,
@@ -274,10 +283,8 @@ class AccountMove(models.Model):
                         "account_code": account_code,
                         'mode_de_reglement': move.x_studio_mode_de_reglement_1,
                         "name_and_customer_name": f" {move.partner_id.name} {name_invoice}",
-                        "payment_reference": analytic_code or analytic_code_po,
-                        "section_axe2": analytic_code.replace("-", "")[:10]
-                        if analytic_code
-                        else analytic_code_po.replace("-", "")[:10],
+                        "payment_reference": final_analytic,
+                        "section_axe2": final_analytic.replace("-", "")[:10]
                         "section": ana,
                         "section_axe3": str("999999999999"),
                         "debit": formatted_debit,
