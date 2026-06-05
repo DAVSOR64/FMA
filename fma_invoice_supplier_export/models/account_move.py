@@ -284,7 +284,7 @@ class AccountMove(models.Model):
                         'mode_de_reglement': move.x_studio_mode_de_reglement_1,
                         "name_and_customer_name": f" {move.partner_id.name} {name_invoice}",
                         "payment_reference": final_analytic,
-                        "section_axe2": final_analytic.replace("-", "")[:10]
+                        "section_axe2": final_analytic.replace("-", "")[:10],
                         "section": ana,
                         "section_axe3": str("999999999999"),
                         "debit": formatted_debit,
