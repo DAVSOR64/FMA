@@ -15,9 +15,6 @@ class ResPartner(models.Model):
     _inherit = "res.partner"
 
     is_included_in_supplier_export_file = fields.Boolean()
-    attachment_ids = fields.Many2many(
-        "ir.attachment", "partner_attachment_rel", string="Attachments"
-    )
     # Below field is yet to be used, for now considered as ''
     encours_max = fields.Char()
 
