@@ -108,22 +108,16 @@ class ResPartner(models.Model):
     part_decision = fields.Char(string="ASSURANCE-CREDIT")
     part_code_tiers = fields.Integer(string="Code Tiers")
 
-    @api.model
-    def create(self, vals):
-        # Vérifier si le contact est une société
-        if vals.get("is_company", False):
-            # Récupérer la dernière valeur de 'part_code_tiers' parmi les sociétés uniquement
-            last_record = self.search(
-                [("is_company", "=", True)], order="part_code_tiers desc", limit=1
-            )
-            last_code = last_record.part_code_tiers if last_record else 0
-            new_code = last_code + 1
-
-            # Attribuer la nouvelle valeur de 'part_code_tiers'
-            vals["part_code_tiers"] = new_code
-
-        # Appel de la méthode create de la super-classe avec les valeurs modifiées
-        return super(ResPartner, self).create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get("is_company", False):
+                last_record = self.search(
+                    [("is_company", "=", True)], order="part_code_tiers desc", limit=1
+                )
+                last_code = last_record.part_code_tiers if last_record else 0
+                vals["part_code_tiers"] = last_code + 1
+        return super(ResPartner, self).create(vals_list)
 
     def _prepare_order(self):
         order_vals = super(ResPartner, self)._prepare_order()

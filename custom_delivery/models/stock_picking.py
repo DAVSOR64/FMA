@@ -70,13 +70,14 @@ class PickingColisageLine(models.Model):
     #     ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique !'),
     # ]
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         """Permet de suivre les créations d'enregistrements dans le fil de discussion Odoo"""
-        res = super(PickingColisageLine, self).create(vals)
-        message = "Ligne de colisage créée : %s" % res.so_repere
-        res.picking_id.message_post(body=message)
-        return res
+        records = super(PickingColisageLine, self).create(vals_list)
+        for res in records:
+            message = "Ligne de colisage créée : %s" % res.so_repere
+            res.picking_id.message_post(body=message)
+        return records
 
     def write(self, vals):
         """Permet de suivre les modifications dans le fil de discussion Odoo"""
@@ -103,13 +104,14 @@ class PickingPaletteLine(models.Model):
     depth = fields.Float(string="Profondeur (mm)", tracking=True)
     height = fields.Float(string="Hauteur (mm)", tracking=True)
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         """Suivi des créations dans le fil de discussion Odoo"""
-        res = super(PickingPaletteLine, self).create(vals)
-        message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
-        res.picking_id.message_post(body=message)
-        return res
+        records = super(PickingPaletteLine, self).create(vals_list)
+        for res in records:
+            message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
+            res.picking_id.message_post(body=message)
+        return records
 
     def write(self, vals):
         """Suivi des modifications dans le fil de discussion Odoo"""

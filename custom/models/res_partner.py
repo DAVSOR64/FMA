@@ -129,27 +129,19 @@ class ResPartner(models.Model):
         string="Attachments",
     )
 
-    @api.model
-    def create(self, vals):
-        # Vérifie si le booléen est coché
-        if vals.get("x_studio_gneration_n_compte_1", False):
-            # Récupère la dernière valeur de x_studio_compte (chez les sociétés uniquement)
-            last_record = self.search(
-                [("is_company", "=", True), ("x_studio_compte", "!=", False)],
-                order="x_studio_compte desc",
-                limit=1,
-            )
-            last_code = last_record.x_studio_compte if last_record else 0
-            new_code = last_code + 1
-
-            # Attribue la nouvelle valeur de x_studio_compte
-            vals["x_studio_compte"] = new_code
-
-            # Décoche le booléen (pratique)
-            vals["x_studio_gneration_n_compte_1"] = False
-
-        # Appel de la méthode parent
-        return super(ResPartner, self).create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get("x_studio_gneration_n_compte_1", False):
+                last_record = self.search(
+                    [("is_company", "=", True), ("x_studio_compte", "!=", False)],
+                    order="x_studio_compte desc",
+                    limit=1,
+                )
+                last_code = last_record.x_studio_compte if last_record else 0
+                vals["x_studio_compte"] = last_code + 1
+                vals["x_studio_gneration_n_compte_1"] = False
+        return super(ResPartner, self).create(vals_list)
 
     def write(self, vals):
         for partner in self:

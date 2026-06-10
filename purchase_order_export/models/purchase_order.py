@@ -424,12 +424,13 @@ class PurchaseOrderLaquageLine(models.Model):
         ),
     ]
 
-    @api.model
-    def create(self, vals):
-        res = super(PurchaseOrderLaquageLine, self).create(vals)
-        message = _("Ligne de laquage créée : %s") % (res.so_repere or "")
-        res.order_id.message_post(body=message)
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super(PurchaseOrderLaquageLine, self).create(vals_list)
+        for res in records:
+            message = _("Ligne de laquage créée : %s") % (res.so_repere or "")
+            res.order_id.message_post(body=message)
+        return records
 
     def write(self, vals):
         _logger.warning("********** write PurchaseOrderLaquageLine *********")
