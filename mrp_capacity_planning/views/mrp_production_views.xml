@@ -9,7 +9,7 @@
         <field name="name">mrp.production.planning.tree</field>
         <field name="model">mrp.production</field>
         <field name="arch" type="xml">
-            <tree string="Planning OF"
+            <list string="Planning OF"
                   create="false" edit="true" delete="false"
                   decoration-danger="date_deadline and date_finished and date_finished > date_deadline"
                   decoration-muted="state in ('done','cancel')">
@@ -31,7 +31,7 @@
                         string="⟳ Replanifier" icon="fa-refresh"
                         class="btn-warning btn-sm"
                         invisible="state in ('done', 'cancel')"/>
-            </tree>
+            </list>
         </field>
     </record>
 

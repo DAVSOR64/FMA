@@ -4,7 +4,7 @@
         <field name="name">mrp.daily.snapshot.list</field>
         <field name="model">mrp.daily.snapshot</field>
         <field name="arch" type="xml">
-            <tree string="Visu Atelier"
+            <list string="Visu Atelier"
                   decoration-danger="is_late and not is_done"
                   decoration-warning="is_late and is_done"
                   decoration-success="is_done and not is_late">
@@ -25,7 +25,7 @@
                 <field name="delta_hours" string="Retard (h)"/>
                 <field name="is_late" string="Retard"/>
                 <field name="cumul_retard_wc" string="Retard cumulé poste (h)"/>
-            </tree>
+            </list>
         </field>
     </record>
 

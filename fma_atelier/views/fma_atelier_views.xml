@@ -4,14 +4,14 @@
         <field name="name">fma.atelier.tree</field>
         <field name="model">fma.atelier</field>
         <field name="arch" type="xml">
-            <tree string="Ateliers">
+            <list string="Ateliers">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="code"/>
                 <field name="calendar_id"/>
                 <field name="company_id" groups="base.group_multi_company"/>
                 <field name="active"/>
-            </tree>
+            </list>
         </field>
     </record>
 

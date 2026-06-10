@@ -5,11 +5,11 @@
         <field name="name">affair.chat.template.tree</field>
         <field name="model">affair.chat.template</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="name"/>
                 <field name="code"/>
                 <field name="active"/>
-            </tree>
+            </list>
         </field>
     </record> 
 

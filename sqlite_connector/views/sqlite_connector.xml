@@ -5,11 +5,11 @@
             <field name="name">sqlite.connector.tree</field>
             <field name="model">sqlite.connector</field>
             <field name="arch" type="xml">
-                <tree>
+                <list>
                     <field name="description"/>
                     <field name="date"/>
                     <field name="state"/>
-                </tree>
+                </list>
             </field>
         </record>
 
@@ -35,11 +35,11 @@
                         <notebook>
                             <page name="Error Logs" string="Logs">
                                 <field name="ir_log_ids" readonly="1">
-                                    <tree create="false" edit="false">
+                                    <list create="false" edit="false">
                                         <field name="name"/>
                                         <field name="path"/>
                                         <field name="message"/>
-                                    </tree>
+                                    </list>
                                 </field>
                             </page>
                         </notebook>

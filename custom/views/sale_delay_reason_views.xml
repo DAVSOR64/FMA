@@ -6,10 +6,10 @@
       <field name="name">sale.delay.category.tree</field>
       <field name="model">sale.delay.category</field>
       <field name="arch" type="xml">
-        <tree>
+        <list>
           <field name="name"/>
           <field name="active"/>
-        </tree>
+        </list>
       </field>
     </record>
 
@@ -39,11 +39,11 @@
       <field name="name">sale.delay.reason.tree</field>
       <field name="model">sale.delay.reason</field>
       <field name="arch" type="xml">
-        <tree>
+        <list>
           <field name="name"/>
           <field name="category_id"/>
           <field name="active"/>
-        </tree>
+        </list>
       </field>
     </record>
 

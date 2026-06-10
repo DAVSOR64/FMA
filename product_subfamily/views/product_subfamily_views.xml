@@ -4,13 +4,13 @@
         <field name="name">product.subfamily.tree</field>
         <field name="model">product.subfamily</field>
         <field name="arch" type="xml">
-            <tree string="Sous-familles">
+            <list string="Sous-familles">
                 <field name="sequence" widget="handle"/>
                 <field name="family_id"/>
                 <field name="name"/>
                 <field name="code"/>
                 <field name="active"/>
-            </tree>
+            </list>
         </field>
     </record>
 

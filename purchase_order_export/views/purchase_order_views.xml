@@ -48,11 +48,11 @@
                 <page string="Infos Laquage">
                     <group>
                         <field name="laquage_line_ids">
-                            <tree editable="bottom">
+                            <list editable="bottom">
                                 <field name="so_repere"/>
                                 <field name="so_qte_commandee"/>
                                 <field name="so_reliquat"/>
-                            </tree>
+                            </list>
                             <form>
                                 <group>
                                     <field name="so_repere"/>

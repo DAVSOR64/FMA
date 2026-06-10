@@ -4,7 +4,7 @@
         <field name="name">product.family.triplet.tree</field>
         <field name="model">product.family.triplet</field>
         <field name="arch" type="xml">
-            <tree string="Triplets produits">
+            <list string="Triplets produits">
                 <field name="family_id"/>
                 <field name="subfamily_id"/>
                 <field name="subsubfamily_id"/>
@@ -12,7 +12,7 @@
                 <field name="expense_account_id"/>
                 <field name="categ_id" readonly="1"/>
                 <field name="active"/>
-            </tree>
+            </list>
         </field>
     </record>
 

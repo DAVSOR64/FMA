@@ -87,7 +87,7 @@
         <field name="name">mrp.workorder.planning.tree</field>
         <field name="model">mrp.workorder</field>
         <field name="arch" type="xml">
-            <tree string="Planning Atelier"
+            <list string="Planning Atelier"
                   decoration-success="state == 'done'"
                   decoration-info="state == 'progress'"
                   decoration-warning="state in ['pending', 'ready', 'waiting']"
@@ -103,7 +103,7 @@
                 <field name="duration_expected" string="Durée prévue (min)"/>
                 <field name="state" string="Statut"/>
 
-            </tree>
+            </list>
         </field>
     </record>
 

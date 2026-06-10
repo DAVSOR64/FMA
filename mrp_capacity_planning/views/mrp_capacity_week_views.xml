@@ -5,7 +5,7 @@
         <field name="name">mrp.capacity.week.list</field>
         <field name="model">mrp.capacity.week</field>
         <field name="arch" type="xml">
-            <tree string="Capacité hebdomadaire" editable="bottom"
+            <list string="Capacité hebdomadaire" editable="bottom"
                 decoration-danger="delta &lt; 0"
                 decoration-warning="is_overridden and delta >= 0"
                 decoration-muted="hours_absence_total > 0 and delta >= 0 and not is_overridden">
@@ -27,7 +27,7 @@
                 <field name="note" optional="show"/>
                 <field name="is_overridden" column_invisible="1"/>
                 <field name="color" column_invisible="1"/>
-            </tree>
+            </list>
         </field>
     </record>
 

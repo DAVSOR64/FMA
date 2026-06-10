@@ -5,7 +5,7 @@
         <field name="name">mrp.capacity.resource.list</field>
         <field name="model">mrp.capacity.resource</field>
         <field name="arch" type="xml">
-            <tree string="Affectations ressources" editable="bottom">
+            <list string="Affectations ressources" editable="bottom">
                 <field name="employee_id"/>
                 <field name="atelier_id" optional="show"/>
                 <field name="workcenter_id"/>
@@ -19,7 +19,7 @@
                         icon="fa-calendar" title="Voir les semaines" class="btn-sm"/>
                 <button name="action_generate_weeks" type="object"
                         icon="fa-magic" title="Générer les semaines" class="btn-sm"/>
-            </tree>
+            </list>
         </field>
     </record>
 

@@ -4,12 +4,12 @@
         <field name="name">product.family.tree</field>
         <field name="model">product.family</field>
         <field name="arch" type="xml">
-            <tree string="Familles">
+            <list string="Familles">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="code"/>
                 <field name="active"/>
-            </tree>
+            </list>
         </field>
     </record>
 

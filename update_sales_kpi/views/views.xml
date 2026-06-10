@@ -6,11 +6,11 @@
       <field name="name">update_sales_kpi list</field>
       <field name="model">update_sales_kpi.update_sales_kpi</field>
       <field name="arch" type="xml">
-        <tree>
+        <list>
           <field name="name"/>
           <field name="value"/>
           <field name="value2"/>
-        </tree>
+        </list>
       </field>
     </record>
 -->

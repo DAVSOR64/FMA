@@ -6,11 +6,11 @@
       <field name="name">custom_sale_order list</field>
       <field name="model">custom_sale_order.custom_sale_order</field>
       <field name="arch" type="xml">
-        <tree>
+        <list>
           <field name="name"/>
           <field name="value"/>
           <field name="value2"/>
-        </tree>
+        </list>
       </field>
     </record>
 -->

@@ -4,7 +4,7 @@
         <field name="name">mrp.prod.followup.week.tree</field>
         <field name="model">mrp.prod.followup.week</field>
         <field name="arch" type="xml">
-            <tree string="Charge vs capacité" create="false" edit="false" delete="false">
+            <list string="Charge vs capacité" create="false" edit="false" delete="false">
                 <field name="atelier_id" string="Atelier" optional="show"/>
                 <field name="month_label" string="Mois"/>
                 <field name="week_label" string="Semaine"/>
@@ -20,7 +20,7 @@
                        decoration-success="taux_charge &gt;= 80 and taux_charge &lt;= 100"
                        decoration-warning="taux_charge &gt; 0 and taux_charge &lt; 80"/>
                 <field name="nb_operations" string="# Ops" sum="Total ops" optional="show"/>
-            </tree>
+            </list>
         </field>
     </record>
 

@@ -31,7 +31,7 @@
     <field name="name">kpi.delivery.billing.tree</field>
     <field name="model">kpi.delivery.billing</field>
     <field name="arch" type="xml">
-      <tree create="false" edit="false">
+      <list create="false" edit="false">
         <field name="sale_order_name"/>
         <field name="scheduled_datetime"/>
         <field name="month_date"/>
@@ -52,7 +52,7 @@
 
         <!-- ── Stock / MRP ───────────────────── -->
         <field name="amount_stock_consumed"           sum="Total" optional="show"/>
-      </tree>
+      </list>
     </field>
   </record>
 

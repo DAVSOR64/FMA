@@ -9,7 +9,7 @@
         <field name="name">mrp.capacite.charge.operateur.list</field>
         <field name="model">mrp.capacite.charge.operateur</field>
         <field name="arch" type="xml">
-            <tree string="Charge par opérateur"
+            <list string="Charge par opérateur"
                   create="false" edit="false" delete="false"
                   decoration-danger="charge_heures &gt; 8"
                   decoration-warning="charge_heures &gt;= 6 and charge_heures &lt;= 8"
@@ -25,7 +25,7 @@
                 <field name="workcenter_id" column_invisible="1"/>
                 <button name="action_voir_detail" type="object"
                         string="Détail" icon="fa-list"/>
-            </tree>
+            </list>
         </field>
     </record>
 
