@@ -9,13 +9,8 @@ class SaleOrder(models.Model):
     _inherit = "sale.order"
 
     state = fields.Selection(
-        [
-            ("draft", "Devis"),
-            ("sent", "Devis Envoyé"),
+        selection_add=[
             ("validated", "Validé"),
-            ("sale", "Bon de Commande"),
-            ("done", "Terminé"),
-            ("cancel", "Annulé"),
         ],
         default="draft",
         string="Statut",

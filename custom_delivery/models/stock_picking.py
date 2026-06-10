@@ -56,14 +56,14 @@ class PickingColisageLine(models.Model):
     _log_access = True  # Active l'historique des accès (qui a modifié et quand)
 
     picking_id = fields.Many2one("stock.picking", string="Colisage", ondelete="cascade")
-    so_repere = fields.Char(string="Réf./Repère", track_visibility="onchange")
-    so_designation = fields.Char(string="Désignation", track_visibility="onchange")
-    so_largeur = fields.Float(string="Largeur", track_visibility="onchange")
-    so_hauteur = fields.Float(string="Hauteur", track_visibility="onchange")
+    so_repere = fields.Char(string="Réf./Repère", tracking=True)
+    so_designation = fields.Char(string="Désignation", tracking=True)
+    so_largeur = fields.Float(string="Largeur", tracking=True)
+    so_hauteur = fields.Float(string="Hauteur", tracking=True)
     so_qte_commandee = fields.Integer(
-        string="Qté Commandée", track_visibility="onchange"
+        string="Qté Commandée", tracking=True
     )
-    so_qte_livree = fields.Integer(string="Qté Livrée", track_visibility="onchange")
+    so_qte_livree = fields.Integer(string="Qté Livrée", tracking=True)
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
     # _sql_constraints = [
@@ -98,10 +98,10 @@ class PickingPaletteLine(models.Model):
     _log_access = True  # Active l'historique des accès
 
     picking_id = fields.Many2one("stock.picking", string="Palette", ondelete="cascade")
-    qty = fields.Integer(string="Quantité", track_visibility="onchange")
-    length = fields.Float(string="Longueur (mm)", track_visibility="onchange")
-    depth = fields.Float(string="Profondeur (mm)", track_visibility="onchange")
-    height = fields.Float(string="Hauteur (mm)", track_visibility="onchange")
+    qty = fields.Integer(string="Quantité", tracking=True)
+    length = fields.Float(string="Longueur (mm)", tracking=True)
+    depth = fields.Float(string="Profondeur (mm)", tracking=True)
+    height = fields.Float(string="Hauteur (mm)", tracking=True)
 
     @api.model
     def create(self, vals):
