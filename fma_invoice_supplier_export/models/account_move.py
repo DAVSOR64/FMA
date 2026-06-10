@@ -10,7 +10,6 @@ import logging
 
 from odoo import api, fields, models
 from odoo.tools.misc import groupby
-from odoo.addons.web.controllers.main import CSVExport
 
 _logger = logging.getLogger(__name__)
 
@@ -18,10 +17,10 @@ _logger = logging.getLogger(__name__)
 class AccountMove(models.Model):
     _inherit = "account.move"
 
-    is_file_txt_created = fields.Boolean("Fichier généré")
-    file_txt_creation_time = fields.Datetime()
-    ftp_file_synced_time = fields.Datetime()
-    is_file_synced_to_ftp = fields.Boolean()
+    is_txt_created = fields.Boolean("Fichier généré")
+    txt_creation_time = fields.Datetime()
+    ftp_synced_time = fields.Datetime()
+    is_synced_to_ftp = fields.Boolean()
 
     def action_view_journal_items(self):
         self.ensure_one()
@@ -33,8 +32,8 @@ class AccountMove(models.Model):
         domain = [("move_id", "=", self.id)]
         return {
             "name": "Journal Items",
-            "view_mode": "tree",
-            "views": [(self.env.ref("account.view_move_line_tree").id, "tree")],
+            "view_mode": "list",
+            "views": [(self.env.ref("account.view_move_line_tree").id, "list")],
             "res_model": "account.move.line",
             "type": "ir.actions.act_window",
             "target": "current",

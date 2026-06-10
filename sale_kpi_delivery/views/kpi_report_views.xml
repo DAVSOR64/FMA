@@ -129,7 +129,7 @@
   <record id="action_kpi_delivery" model="ir.actions.act_window">
     <field name="name">KPI Affaire (Vente / Appro / Stock)</field>
     <field name="res_model">kpi.delivery.billing</field>
-    <field name="view_mode">pivot,graph,tree</field>
+    <field name="view_mode">pivot,graph,list</field>
     <field name="context">{'search_default_flt_to_invoice_or_no': 1}</field>
     <field name="search_view_id" ref="view_kpi_delivery_search"/>
   </record>

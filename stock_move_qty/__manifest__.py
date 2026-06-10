@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Stock Move Quantity Before/After',
-    'version': '17.0.1.0.1',
+    'version': '18.0.1.0.1',
     'category': 'Inventory',
     'summary': 'Affiche la quantité avant et après sur les mouvements de stock',
     'description': """

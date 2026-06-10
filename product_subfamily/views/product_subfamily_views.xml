@@ -35,6 +35,6 @@
     <record id="action_product_subfamily" model="ir.actions.act_window">
         <field name="name">Sous-familles produits</field>
         <field name="res_model">product.subfamily</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 </odoo>

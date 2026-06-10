@@ -114,7 +114,7 @@
     <record id="action_mrp_workorder_planning_gantt" model="ir.actions.act_window">
         <field name="name">Planning Atelier</field>
         <field name="res_model">mrp.workorder</field>
-        <field name="view_mode">gantt,tree</field>
+        <field name="view_mode">gantt,list</field>
 
         <!-- Tous les WOs actifs avec une date de début calculée -->
         <field name="domain">
@@ -130,7 +130,7 @@
         <field name="view_ids" eval="[
             (5, 0, 0),
             (0, 0, {'view_mode': 'gantt', 'view_id': ref('view_mrp_workorder_planning_gantt')}),
-            (0, 0, {'view_mode': 'tree',  'view_id': ref('view_mrp_workorder_planning_tree')})
+            (0, 0, {'view_mode': 'list',  'view_id': ref('view_mrp_workorder_planning_tree')})
         ]"/>
 
     </record>

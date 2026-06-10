@@ -35,13 +35,13 @@ class DeliveryReportExcel(http.Controller):
 
         # Remplir les données du bon de livraison
         row = 1
-        for move in picking.move_lines:
+        for move in picking.move_ids:
             worksheet.write(row, 0, picking.name)
             worksheet.write(row, 1, picking.partner_id.name or "")
             worksheet.write(row, 2, str(picking.scheduled_date) or "")
             worksheet.write(row, 3, move.product_id.name or "")
             worksheet.write(row, 4, move.product_uom_qty or 0)
-            worksheet.write(row, 5, move.quantity_done or 0)
+            worksheet.write(row, 5, move.quantity or 0)
             row += 1
 
         # Fermer le workbook pour finaliser l'écriture

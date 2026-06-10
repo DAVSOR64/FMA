@@ -9,7 +9,7 @@
             Task: 4115364
         """,
     "author": "Odoo PS",
-    "version": "17.0.1.0.1",
+    "version": "18.0.1.0.1",
     "depends": ["account_accountant"],
     "data": [
         "data/ir_cron.xml",

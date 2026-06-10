@@ -810,7 +810,7 @@ class CapaciteCharge(models.Model):
             'type': 'ir.actions.act_window',
             'name': 'Détail — %s %s' % (self.workcenter_name, self.date),
             'res_model': 'mrp.capacite.charge.detail',
-            'view_mode': 'tree',
+            'view_mode': 'list',
             'domain': [
                 ('atelier_id', '=', self.atelier_id.id if self.atelier_id else False),
                 ('workcenter_id', '=', self.workcenter_id.id),
@@ -946,7 +946,7 @@ class CapaciteChargeOperateur(models.Model):
             'type': 'ir.actions.act_window',
             'name': 'Détail — %s %s' % (self.employee_name, self.date),
             'res_model': 'mrp.capacite.charge.detail',
-            'view_mode': 'tree',
+            'view_mode': 'list',
             'domain': [
                 ('operateurs', 'like', self.employee_name),
                 ('date', '=', str(self.date)),

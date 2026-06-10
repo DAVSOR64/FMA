@@ -34,7 +34,7 @@
     <record id="action_affair_chat_template" model="ir.actions.act_window">
         <field name="name">Modèles de messages d'affaire</field>
         <field name="res_model">affair.chat.template</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <!-- ENSUITE le menu qui référence l'action -->

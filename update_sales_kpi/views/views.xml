@@ -20,7 +20,7 @@
     <record model="ir.actions.act_window" id="update_sales_kpi.action_window">
       <field name="name">update_sales_kpi window</field>
       <field name="res_model">update_sales_kpi.update_sales_kpi</field>
-      <field name="view_mode">tree,form</field>
+      <field name="view_mode">list,form</field>
     </record>
 -->
 

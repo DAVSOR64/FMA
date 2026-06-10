@@ -33,6 +33,6 @@
     <record id="action_product_family" model="ir.actions.act_window">
         <field name="name">Familles produits</field>
         <field name="res_model">product.family</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 </odoo>

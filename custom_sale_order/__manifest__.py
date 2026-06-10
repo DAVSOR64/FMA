@@ -9,4 +9,4 @@
  'license': 'LGPL-3',
  'name': 'custom_sale_order',
  'summary': '\n        Custome doc sale order',
- 'version': '17.0.1.0.1'}
+ 'version': '18.0.1.0.1'}

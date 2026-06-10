@@ -65,7 +65,7 @@
     <record id="action_mrp_prod_followup_week" model="ir.actions.act_window">
         <field name="name">Charge vs capacité</field>
         <field name="res_model">mrp.prod.followup.week</field>
-        <field name="view_mode">tree,pivot</field>
+        <field name="view_mode">list,pivot</field>
         <field name="search_view_id" ref="view_mrp_prod_followup_week_search"/>
         <field name="context">{'search_default_current_month': 1, 'group_by': ['atelier_id', 'month_start:month', 'week_start:week', 'workcenter_name']}</field>
         <field name="help" type="html">

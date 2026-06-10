@@ -20,7 +20,7 @@
     <record model="ir.actions.act_window" id="custom_delivery_attachement.action_window">
       <field name="name">custom_delivery_attachement window</field>
       <field name="res_model">custom_delivery_attachement.custom_delivery_attachement</field>
-      <field name="view_mode">tree,form</field>
+      <field name="view_mode">list,form</field>
     </record>
 -->
 

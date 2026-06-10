@@ -1,6 +1,6 @@
 {
     "name": "Picking Delay Mail",
-    "version": "17.0.1.0.2",
+    "version": "18.0.1.0.2",
     "summary": "Envoi de mail de retard depuis le BL",
     "category": "Inventory/Inventory",
     "depends": ["stock", "sale_management", "mail", "custom"],

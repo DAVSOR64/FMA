@@ -56,7 +56,7 @@
         <record id="action_sqlite_files_tree" model="ir.actions.act_window">
             <field name="name">SQLite Imports</field>
             <field name="res_model">sqlite.connector</field>
-            <field name="view_mode">tree,form</field>
+            <field name="view_mode">list,form</field>
             <field name="domain">[]</field>
         </record>
         <menuitem id="menu_sqlite_connector_root" name="SQLite Connector" sequence="10"/>
