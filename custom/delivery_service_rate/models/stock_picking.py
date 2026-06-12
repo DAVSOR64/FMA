@@ -134,16 +134,13 @@ class StockPicking(models.Model):
         domain = [("state", "=", "done")]
         if months:
             domain.append(("delivery_month", "in", list(months)))
-        group_data = self.env["stock.picking"].read_group(
+        group_data = self.env["stock.picking"]._read_group(
             domain=domain,
-            fields=["delivered_on_time"],
             groupby=["delivery_month", "delivered_on_time"],
+            aggregates=["__count"],
         )
         stats = {}
-        for entry in group_data:
-            month = entry["delivery_month"]
-            count = entry["__count"]
-            on_time = entry.get("delivered_on_time")
+        for (month, on_time, count) in group_data:
             stats.setdefault(month, {"total": 0, "on_time": 0})
             stats[month]["total"] += count
             if on_time:

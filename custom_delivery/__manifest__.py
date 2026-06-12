@@ -10,7 +10,7 @@
     "author": "My Company",
     "website": "http://www.yourcompany.com",
     "category": "Uncategorized",
-    "version": "18.0.1.0.1",
+    "version": "19.0.1.0.1",
     "license": "LGPL-3",
     # any module necessary for this one to work correctly
     "depends": ["base", "stock", "custom"],

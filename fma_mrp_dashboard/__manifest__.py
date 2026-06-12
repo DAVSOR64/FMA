@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'FMA - Dashboard Capacité & Charge',
-    'version': '18.0.1.0.0',
+    'version': '19.0.1.0.0',
     'category': 'Manufacturing',
     'summary': 'Tableau de bord capacité vs charge, GANTT planning atelier',
     'author': 'Paxo Consulting',

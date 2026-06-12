@@ -74,8 +74,8 @@ class MrpProdFollowupWeek(models.Model):
         """)
 
     @api.model
-    def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True):
-        res = super().read_group(domain, fields, groupby, offset=offset, limit=limit, orderby=orderby, lazy=lazy)
+    def formatted_read_group(self, domain, groupby=(), aggregates=(), having=(), offset=0, limit=None, order=None):
+        res = super().formatted_read_group(domain, groupby, aggregates, having=having, offset=offset, limit=limit, order=order)
         for row in res:
             capacite = float(row.get('capacite_heures') or 0.0)
             charge = float(row.get('charge_prevue_heures') or 0.0)

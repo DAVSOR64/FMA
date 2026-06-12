@@ -1,7 +1,7 @@
 {
     "name": "Product Family Triplet",
     "summary": "Famille / Sous-famille / Sous-sous-famille avec création automatique des catégories comptables",
-    "version": "3.0",
+    "version": "19.0.3.0.0",
     "author": "ALEBOR",
     "license": "LGPL-3",
     "depends": [

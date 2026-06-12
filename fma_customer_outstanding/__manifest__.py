@@ -10,7 +10,7 @@
             Task: 4101724
         """,
     "author": "Odoo PS",
-    "version": "18.0.1.0.2",
+    "version": "19.0.1.0.2",
     "depends": ["contacts", "fma_sale_order_custom"],
     "data": [
         "data/ir_cron.xml",

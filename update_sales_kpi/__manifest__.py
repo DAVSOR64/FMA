@@ -7,7 +7,7 @@
         Update real KPI with the MRP
     """,
     "category": "Uncategorized",
-    "version": "18.0.1.0.1",
+    "version": "19.0.1.0.1",
     # any module necessary for this one to work correctly
     "depends": ["base", "sale", "mrp", "custom"],
     # always loaded
