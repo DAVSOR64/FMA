@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "update_sales_kpi",
+    "author": "Paxo Consulting",
     "summary": """
        update Kpis from Sale orders""",
     "description": """

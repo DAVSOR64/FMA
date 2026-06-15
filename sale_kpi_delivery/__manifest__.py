@@ -1,5 +1,6 @@
 {
     "name": "KPI Facturation / Appro / Stock",
+    "author": "Paxo Consulting",
     "version": "19.0.2.0.0",
     "category": "Sales/Reporting",
     "summary": (
