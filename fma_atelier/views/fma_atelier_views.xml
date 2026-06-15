@@ -70,7 +70,7 @@
                 <field name="code"/>
                 <filter name="active" string="Actifs" domain="[('active','=',True)]"/>
                 <filter name="inactive" string="Archivés" domain="[('active','=',False)]"/>
-                <group string="Regrouper par">
+                <group>
                     <filter name="group_company" string="Société" context="{'group_by':'company_id'}" groups="base.group_multi_company"/>
                     <filter name="group_calendar" string="Calendrier" context="{'group_by':'calendar_id'}"/>
                 </group>

@@ -81,7 +81,7 @@
                 <field name="workcenter_id"/>
                 <field name="resource_calendar_id"/>
                 <filter string="Actif" name="active" domain="[('active','=',True)]"/>
-                <group string="Grouper par">
+                <group>
                     <filter string="Atelier" name="by_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="by_wc" context="{'group_by': 'workcenter_id'}"/>
                     <filter string="Ressource" name="by_emp" context="{'group_by': 'employee_id'}"/>

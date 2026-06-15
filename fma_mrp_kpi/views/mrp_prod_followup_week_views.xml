@@ -52,7 +52,7 @@
                 <field name="workcenter_id"/>
                 <filter string="Mois en cours" name="current_month"
                         domain="[('month_start', '&gt;=', context_today().strftime('%%Y-%%m-01')), ('month_start', '&lt;', ((context_today() + relativedelta(months=1)).strftime('%%Y-%%m-01')))]"/>
-                <group string="Regrouper par">
+                <group>
                     <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Mois" name="group_month" context="{'group_by': 'month_start:month'}"/>
                     <filter string="Semaine" name="group_week" context="{'group_by': 'week_start:week'}"/>

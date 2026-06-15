@@ -66,7 +66,7 @@
                 <field name="workorder_id" string="Ordre travail"/>
                 <field name="production_id" string="OF"/>
                 <field name="date" string="Date"/>
-                <group string="Regrouper par">
+                <group>
                     <filter string="Date" name="group_date" context="{'group_by': 'date'}"/>
                     <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="group_workcenter" context="{'group_by': 'workcenter_name'}"/>
@@ -224,7 +224,7 @@
                 <field name="atelier_id" string="Atelier"/>
                 <field name="workcenter_id" string="Poste de travail"/>
                 <field name="date" string="Date"/>
-                <group string="Regrouper par">
+                <group>
                     <filter string="Mois" name="group_month"
                             context="{'group_by': 'date:month'}"/>
                     <filter string="Semaine" name="group_week"

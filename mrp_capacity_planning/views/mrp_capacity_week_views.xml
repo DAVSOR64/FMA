@@ -133,7 +133,7 @@
                 <filter string="En surcharge" name="overloaded"
                     domain="[('delta', '&lt;', 0)]"/>
                 <separator/>
-                <group string="Grouper par">
+                <group>
                     <filter string="Atelier" name="by_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Ressource" name="by_emp" context="{'group_by': 'employee_id'}"/>
                     <filter string="Poste" name="by_wc" context="{'group_by': 'workcenter_id'}"/>
