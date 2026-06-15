@@ -11,7 +11,7 @@
         """,
     "author": "Odoo PS",
     "version": "19.0.1.0.1",
-    "depends": ["base_setup", "contacts"],
+    "depends": ["base_setup", "contacts", "custom"],
     "data": [
         "data/ir_cron.xml",
         "view/res_config_settings_views.xml",
