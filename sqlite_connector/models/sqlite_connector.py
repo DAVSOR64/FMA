@@ -9,7 +9,8 @@ import re
 import psycopg2
 
 from odoo.exceptions import UserError
-from odoo import Command, models, fields, registry, SUPERUSER_ID, api, _
+from odoo import Command, models, fields, SUPERUSER_ID, api, _
+from odoo.modules.registry import Registry as registry
 from datetime import datetime, timedelta
 
 _logger = logging.getLogger(__name__)
