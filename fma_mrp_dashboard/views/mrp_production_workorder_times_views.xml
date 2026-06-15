@@ -22,7 +22,7 @@
         <field name="inherit_id" ref="studio_customization.odoo_studio_mrp_prod_2c5fdfc8-01c7-429a-aaa2-45f9922a0b42"/>
         <field name="priority">9999</field>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='workorder_ids']/tree/field[@name='duration']" position="after">
+            <xpath expr="//field[@name='workorder_ids']/list/field[@name='duration']" position="after">
                 <field name="x_operator_time_spent"
                        string="Temps opérateur"
                        widget="float_time"
