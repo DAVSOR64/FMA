@@ -54,13 +54,10 @@ class FmaAtelier(models.Model):
         string="Notes",
     )
 
-    _sql_constraints = [
-        (
-            "code_company_uniq",
-            "unique(code, company_id)",
-            "Le code atelier doit être unique par société.",
-        ),
-    ]
+    _code_company_uniq = models.Constraint(
+        'unique(code, company_id)',
+        'Le code atelier doit être unique par société.',
+    )
 
     @api.depends("name")
     def _compute_production_count(self):

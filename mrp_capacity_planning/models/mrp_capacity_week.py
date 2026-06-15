@@ -111,10 +111,10 @@ class MrpCapacityWeek(models.Model):
     color = fields.Integer(compute='_compute_color')
     note = fields.Char(string='Note')
 
-    _sql_constraints = [
-        ('unique_resource_week', 'UNIQUE(capacity_resource_id, week_date)',
-         'Une seule ligne de capacité par affectation et par semaine.'),
-    ]
+    _unique_resource_week = models.Constraint(
+        'UNIQUE(capacity_resource_id, week_date)',
+        'Une seule ligne de capacité par affectation et par semaine.',
+    )
 
     # ══════════════════════════════════════════════════════════════════════════
     # COMPUTES

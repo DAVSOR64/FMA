@@ -11,6 +11,7 @@ class ProductFamily(models.Model):
     sequence = fields.Integer(default=10)
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        ("product_family_name_uniq", "unique(name)", "Cette famille existe déjà."),
-    ]
+    _product_family_name_uniq = models.Constraint(
+        'unique(name)',
+        'Cette famille existe déjà.',
+    )

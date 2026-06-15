@@ -11,7 +11,8 @@ import psycopg2
 import xlsxwriter
 from io import BytesIO
 
-from odoo import SUPERUSER_ID, api, fields, models, registry, _
+from odoo import SUPERUSER_ID, api, fields, models, _
+from odoo.modules.registry import Registry as registry
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
@@ -416,13 +417,10 @@ class PurchaseOrderLaquageLine(models.Model):
     so_palette_depth = fields.Float(string="Profondeur Palette")
     so_palette_height = fields.Float(string="Hauteur Palette")
 
-    _sql_constraints = [
-        (
-            "so_repere_unique",
-            "UNIQUE(so_repere)",
-            "La référence doit être unique pour une ligne de laquage !",
-        ),
-    ]
+    _so_repere_unique = models.Constraint(
+        'UNIQUE(so_repere)',
+        'La référence doit être unique pour une ligne de laquage !',
+    )
 
     @api.model_create_multi
     def create(self, vals_list):

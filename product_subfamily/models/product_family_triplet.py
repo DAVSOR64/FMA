@@ -52,13 +52,10 @@ class ProductFamilyTriplet(models.Model):
     )
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        (
-            "product_family_triplet_uniq",
-            "unique(family_id, subfamily_id, subsubfamily_id)",
-            "Ce triplet famille / sous-famille / sous-sous-famille existe déjà.",
-        ),
-    ]
+    _product_family_triplet_uniq = models.Constraint(
+        'unique(family_id, subfamily_id, subsubfamily_id)',
+        'Ce triplet famille / sous-famille / sous-sous-famille existe déjà.',
+    )
 
     @api.depends("family_id", "subfamily_id", "subsubfamily_id")
     def _compute_display_name(self):

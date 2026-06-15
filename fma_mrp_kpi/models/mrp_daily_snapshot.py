@@ -57,9 +57,10 @@ class MrpDailySnapshot(models.Model):
             wo = rec.wo_name or '-'
             rec.display_name = f"{date_str} | {wc} | {wo}"
 
-    _sql_constraints = [
-        ('unique_snapshot_wo_date', 'UNIQUE(snapshot_date, workorder_id)', 'Un seul snapshot par OT et par journée.'),
-    ]
+    _unique_snapshot_wo_date = models.Constraint(
+        'UNIQUE(snapshot_date, workorder_id)',
+        'Un seul snapshot par OT et par journée.',
+    )
 
     @api.model
     def cron_compute_daily_snapshot(self):
