@@ -169,7 +169,7 @@ class MrpWorkorder(models.Model):
                 stop = start + timedelta(minutes=wo.duration_expected)
             wo.gantt_date_stop = stop
 
-    @api.depends('production_id', 'production_id.name', 'production_id.origin', 'production_id.procurement_group_id')
+    @api.depends('production_id', 'production_id.name', 'production_id.origin')
     def _compute_planning_labels(self):
         SaleOrder = self.env['sale.order']
         for wo in self:

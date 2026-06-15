@@ -122,7 +122,6 @@ class MrpWorkorder(models.Model):
         'production_id',
         'production_id.name',
         'production_id.origin',
-        'production_id.procurement_group_id',
     )
     def _compute_planning_labels(self):
         SaleOrder = self.env['sale.order']
