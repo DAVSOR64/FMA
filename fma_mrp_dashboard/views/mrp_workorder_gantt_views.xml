@@ -25,7 +25,7 @@
                         name="waiting"
                         domain="[('state', 'in', ['pending', 'ready', 'waiting'])]"/>
 
-                <group expand="1" string="Regrouper par">
+                <group string="Regrouper par">
                     <filter string="Atelier"
                             name="group_atelier"
                             context="{'group_by': 'atelier_id'}"/>

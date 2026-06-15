@@ -79,7 +79,7 @@
                         domain="[('date', '&gt;=', context_today().strftime('%Y-%m-%d')),
                                  ('date', '&lt;=', (context_today() + relativedelta(weeks=3)).strftime('%Y-%m-%d'))]"/>
                 <separator/>
-                <group expand="1" string="Regrouper par">
+                <group string="Regrouper par">
                     <filter string="Opérateur" name="group_employee"
                             context="{'group_by': 'employee_name'}"/>
                     <filter string="Poste" name="group_workcenter"

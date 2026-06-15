@@ -113,7 +113,7 @@
                 domain="[('amount_stock_consumed','>',0)]"/>
 
         <separator/>
-        <group expand="0" string="Regrouper par">
+        <group string="Regrouper par">
           <filter string="Affaire"             name="grp_so"     context="{'group_by':'sale_order_name'}"/>
           <filter string="Mois"                name="grp_month"  context="{'group_by':'month_date'}"/>
           <filter string="Semaine"             name="grp_week"   context="{'group_by':'iso_week'}"/>

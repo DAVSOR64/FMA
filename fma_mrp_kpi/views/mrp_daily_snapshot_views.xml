@@ -74,7 +74,7 @@
                 <filter string="Terminés à temps" name="done_on_time" domain="[('is_done', '=', True), ('is_late', '=', False)]"/>
                 <filter string="En cours / à l'heure" name="in_time_open" domain="[('is_done', '=', False), ('is_late', '=', False)]"/>
                 <separator/>
-                <group expand="1" string="Regrouper par">
+                <group string="Regrouper par">
                     <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="group_wc" context="{'group_by': 'workcenter_id'}"/>
                     <filter string="Date" name="group_date" context="{'group_by': 'snapshot_date'}"/>
