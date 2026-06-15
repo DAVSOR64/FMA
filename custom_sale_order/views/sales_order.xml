@@ -193,7 +193,7 @@
                                 <span class="text-nowrap" t-out="doc.format_amount(line.price_unit)" />
                                 € </td>
                             <td class="text-end">
-                                <span t-field="line.tax_id" />
+                                <span t-field="line.tax_ids" />
                             </td>
                             <td class="text-end o_price_total">
                                 <span class="text-nowrap" t-field="line.price_subtotal" />
@@ -249,7 +249,7 @@
                             <t t-set="tax_details" t-value="{}" />
                             <!-- Itérer sur les lignes de facture pour calculer les montants de TVA -->
                             <t t-foreach="doc.order_line" t-as="line">
-                                <t t-foreach="line.tax_id" t-as="tax">
+                                <t t-foreach="line.tax_ids" t-as="tax">
                                     <t t-set="tax_amount"
                                         t-value="tax_details.get(tax.name, 0) + (line.price_subtotal * tax.amount / 100)" />
                                     <t t-set="tax_details"

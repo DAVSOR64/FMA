@@ -26,7 +26,7 @@ class SaleOrder(models.Model):
         "order_line.qty_to_invoice",
         "order_line.price_unit",
         "order_line.discount",
-        "order_line.tax_id",
+        "order_line.tax_ids",
         "order_line.display_type",
         "order_line.product_id",
         "currency_id",
@@ -43,7 +43,7 @@ class SaleOrder(models.Model):
                 qty = line.qty_to_invoice or 0.0
                 price_net = line.price_unit * (1.0 - (line.discount or 0.0) / 100.0)
 
-                taxes = line.tax_id
+                taxes = line.tax_ids
                 fpos = order.fiscal_position_id
                 if fpos and taxes:
                     # Compatibilité : certaines versions n'acceptent pas product/partner

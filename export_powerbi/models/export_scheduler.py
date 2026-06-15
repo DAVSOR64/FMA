@@ -570,8 +570,8 @@ class ExportSFTPScheduler(models.Model):
                         (getattr(l, "price_unit", 0.0) or 0.0)
                         * (1 - (getattr(l, "discount", 0.0) or 0.0) / 100.0)
                     )),
-                    ", ".join([t.name for t in getattr(l, "tax_id", [])])
-                    if getattr(l, "tax_id", False)
+                    ", ".join([t.name for t in getattr(l, "tax_ids", [])])
+                    if getattr(l, "tax_ids", False)
                     else "",
                     to_float(getattr(l, "price_subtotal", 0.0) or 0.0),
                     to_float(getattr(l, "price_tax", 0.0) or 0.0),
