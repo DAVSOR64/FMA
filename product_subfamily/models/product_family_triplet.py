@@ -33,14 +33,12 @@ class ProductFamilyTriplet(models.Model):
         "account.account",
         string="Compte de revenus",
         required=True,
-        domain="[('deprecated', '=', False)]",
         help="Compte de revenus à affecter sur la catégorie produit générée.",
     )
     expense_account_id = fields.Many2one(
         "account.account",
         string="Compte de charges",
         required=True,
-        domain="[('deprecated', '=', False)]",
         help="Compte de charges à affecter sur la catégorie produit générée.",
     )
     categ_id = fields.Many2one(
