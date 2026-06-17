@@ -200,53 +200,109 @@ class HubspotWebhookExport(models.AbstractModel):
         url = params.get_param("hubspot_export.webhook_url")
         login = params.get_param("hubspot_export.basic_auth_login")
         password = params.get_param("hubspot_export.basic_auth_password")
+        batch_size = self._get_batch_size()
 
         if not url:
             raise UserError(_("L'URL du webhook n'est pas configurée."))
         if not login or not password:
             raise UserError(_("L'identifiant ou le mot de passe Basic Auth n'est pas configuré."))
 
-        record_count = len(payload.get("data", [])) if isinstance(payload, dict) else len(payload)
+        records = self._extract_payload_records(payload)
+        total_count = len(records)
 
-        try:
-            response = requests.post(
-                url,
-                auth=(login, password),
-                json=payload,
-                timeout=60,
-                headers={"Content-Type": "application/json"},
-            )
-            success = 200 <= response.status_code < 300
-
+        if not total_count:
             self._create_log(
                 export_type=export_type,
-                status="success" if success else "error",
-                record_count=record_count,
-                response_code=response.status_code,
-                message=response.text[:2000],
+                status="success",
+                record_count=0,
+                response_code=0,
+                message=_("Aucune donnée à exporter."),
                 payload=payload,
             )
-
-            if not success:
-                raise UserError(_("Erreur webhook %s : %s") % (response.status_code, response.text[:500]))
-
             return True
 
-        except requests.RequestException as exc:
-            self._create_log(
-                export_type=export_type,
-                status="error",
-                record_count=record_count,
-                response_code=0,
-                message=str(exc),
-                payload=payload,
-            )
-            _logger.exception("Erreur lors de l'export HubSpot")
-            raise UserError(_("Erreur lors de l'appel au webhook : %s") % exc)
+        for batch_number, batch_records in enumerate(self._chunk_records(records, batch_size), start=1):
+            batch_payload = self._build_batch_payload(payload, batch_records)
+            batch_count = len(batch_records)
+            message_prefix = _("Lot %(batch_number)s - %(batch_count)s/%(total_count)s enregistrements") % {
+                "batch_number": batch_number,
+                "batch_count": batch_count,
+                "total_count": total_count,
+            }
+
+            try:
+                response = requests.post(
+                    url,
+                    auth=(login, password),
+                    json=batch_payload,
+                    timeout=60,
+                    headers={"Content-Type": "application/json"},
+                )
+                success = 200 <= response.status_code < 300
+
+                self._create_log(
+                    export_type=export_type,
+                    status="success" if success else "error",
+                    record_count=batch_count,
+                    response_code=response.status_code,
+                    message="%s\n%s" % (message_prefix, response.text[:2000]),
+                    payload=batch_payload,
+                )
+
+                if not success:
+                    raise UserError(
+                        _("Erreur webhook %(code)s sur %(prefix)s : %(message)s") % {
+                            "code": response.status_code,
+                            "prefix": message_prefix,
+                            "message": response.text[:500],
+                        }
+                    )
+
+            except requests.RequestException as exc:
+                self._create_log(
+                    export_type=export_type,
+                    status="error",
+                    record_count=batch_count,
+                    response_code=0,
+                    message="%s\n%s" % (message_prefix, str(exc)),
+                    payload=batch_payload,
+                )
+                _logger.exception("Erreur lors de l'export HubSpot")
+                raise UserError(_("Erreur lors de l'appel au webhook : %s") % exc)
+
+        return True
 
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
+
+    @api.model
+    def _get_batch_size(self):
+        value = self.env["ir.config_parameter"].sudo().get_param("hubspot_export.batch_size", "100")
+        try:
+            batch_size = int(value)
+        except (TypeError, ValueError):
+            batch_size = 100
+        return max(batch_size, 1)
+
+    @api.model
+    def _extract_payload_records(self, payload):
+        if isinstance(payload, dict):
+            return payload.get("data", []) or []
+        return payload or []
+
+    @api.model
+    def _build_batch_payload(self, original_payload, batch_records):
+        if isinstance(original_payload, dict):
+            batch_payload = dict(original_payload)
+            batch_payload["data"] = batch_records
+            return batch_payload
+        return batch_records
+
+    @api.model
+    def _chunk_records(self, records, batch_size):
+        for index in range(0, len(records), batch_size):
+            yield records[index:index + batch_size]
 
     @api.model
     def _create_log(self, export_type, status, record_count, response_code, message, payload):
