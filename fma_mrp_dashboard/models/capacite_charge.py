@@ -411,19 +411,15 @@ class WorkorderChargeCache(models.Model):
             if not wo.workcenter_id:
                 continue
             
-            # Charge en heures homme.
-            # Important : la durée macro de l'opération peut être divisée par x_nb_resources
-            # pour obtenir le délai calendrier, mais la charge à comparer à la capacité reste :
-            # heures opératoires brutes = durée effective × nombre de ressources.
-            nb_resources = max(1, int(getattr(wo, 'x_nb_resources', 1) or 1))
+            # Charge restante TOTALE en heures, divisée par le nombre de ressources
+            nb_resources = max(1, getattr(wo, 'x_nb_resources', 1) or 1)
             if wo.state in ('pending', 'ready', 'waiting'):
-                charge_restante_totale = (wo.duration_expected or 0) / 60.0
+                charge_restante_totale = (wo.duration_expected or 0) / 60.0 / nb_resources
             else:
-                # En cours : charge restante en heures homme.
-                # wo.duration est déjà le temps saisi en minutes opérateur dans Odoo.
+                # En cours : charge restante = prévu - réalisé
                 charge_restante_totale = max(
                     (wo.duration_expected or 0) - (wo.duration or 0), 0
-                ) / 60.0
+                ) / 60.0 / nb_resources
             
             if charge_restante_totale <= 0:
                 _logger.debug('WO %s : charge nulle, ignoré', wo.id)
@@ -510,9 +506,7 @@ class WorkorderChargeCache(models.Model):
                     if charge_restante <= 0:
                         break
 
-                    # On répartit la charge en heures homme : si l'opération est prévue
-                    # avec 3 ressources, une journée de 7,8 h représente 23,4 h de charge possible.
-                    capacite_jour = heures_calendrier_par_jour[jour] * nb_resources
+                    capacite_jour = heures_calendrier_par_jour[jour]
                     charge_ce_jour = min(charge_restante, capacite_jour)
 
                     if charge_ce_jour > 0:

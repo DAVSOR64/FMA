@@ -1124,6 +1124,21 @@ class MrpProduction(models.Model):
         self._refresh_charge_cache_for_production()
         return True
 
+    def _refresh_charge_cache_for_production(self):
+        """Rafraichit les caches Macro Planning apres planification d'un OF.
+
+        Ordre important : charge d'abord, puis capacite.
+        La capacite ajoute ensuite les lignes a 0 h pour les postes charges sans ressource.
+        """
+        try:
+            if 'mrp.workorder.charge.cache' in self.env:
+                self.env['mrp.workorder.charge.cache'].refresh()
+            if 'mrp.capacite.cache' in self.env:
+                self.env['mrp.capacite.cache'].refresh()
+        except Exception as e:
+            _logger.error("Erreur refresh caches macro planning OF %s : %s", self.mapped('name'), e)
+        return True
+
     @api.model
     def cron_replan_all_productions(self):
         """
