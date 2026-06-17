@@ -1,10 +1,13 @@
+# -*- coding: utf-8 -*-
 {
-    'name': 'FMA MRP Planning Compatibility Shim',
-    'version': '1.0.0',
-    'summary': 'Compatibility bridge for legacy module name fma_mrp_planning',
-    'depends': ['mrp_capacity_planning'],
+    'name': 'FMA MRP Planning',
+    'version': '17.0.1.0.0',
+    'category': 'Manufacturing',
+    'summary': 'Compatibility module for legacy FMA MRP Planning dependency',
+    'description': 'Empty compatibility shim kept installable to satisfy existing database/module dependencies.',
+    'depends': ['base'],
+    'data': [],
     'installable': True,
     'application': False,
-    'auto_install': False,
     'license': 'LGPL-3',
 }
