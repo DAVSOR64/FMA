@@ -3,27 +3,23 @@
    ===================================================== */
 
 .o_admin_user {
-    background: #dbeafe !important;
-    border-left: 8px solid #2563eb !important;
-    border-radius: 6px;
+    background: #eef6ff !important;
+    border-left: 6px solid #2563eb !important;
 }
 
 .o_admin_user .fw-bold {
-    color: #1d4ed8 !important;
-    font-size: 18px !important;
+    font-size: 15px !important;
     font-weight: 700 !important;
+    color: #1e40af !important;
+    line-height: 1.2;
 }
 
-.o_admin_user::before {
-    content: "👤 CONNECTÉ";
-    display: block;
-    background: #2563eb;
-    color: white;
-    font-weight: bold;
-    text-align: center;
-    padding: 4px;
-    margin-bottom: 6px;
-    border-radius: 4px;
+.o_admin_user .fw-bold::after {
+    content: " ● CONNECTÉ";
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
 }
 
 /* =====================================================
@@ -45,4 +41,5 @@
     text-align: center;
     padding: 4px;
     margin-bottom: 6px;
+    font-size: 12px;
 }
