@@ -1,0 +1,28 @@
+/*
+ * FMA - Shop Floor active workorder highlighting
+ *
+ * Odoo Shop Floor adds the class `o_active` on the currently active workorder card.
+ * This CSS makes the active card visible without overriding OWL components.
+ */
+
+.o_mrp_display_record.o_active {
+    background: #e8fff0 !important;
+    border-left: 12px solid #16a34a !important;
+    box-shadow: 0 0 12px rgba(22, 163, 74, 0.35) !important;
+}
+
+.o_mrp_display_record.o_active::before {
+    content: "▶ EN COURS";
+    display: block;
+    background: #16a34a;
+    color: #fff;
+    font-weight: 700;
+    text-align: center;
+    padding: 4px 8px;
+    border-radius: 4px 4px 0 0;
+    letter-spacing: 0.03em;
+}
+
+.o_mrp_display_record.o_active .card-header {
+    background: #d1fae5 !important;
+}
