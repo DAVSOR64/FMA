@@ -1,28 +1,48 @@
-/*
- * FMA - Shop Floor active workorder highlighting
- *
- * Odoo Shop Floor adds the class `o_active` on the currently active workorder card.
- * This CSS makes the active card visible without overriding OWL components.
- */
+/* =====================================================
+   OPERATEUR CONNECTE
+   ===================================================== */
+
+.o_admin_user {
+    background: #dbeafe !important;
+    border-left: 8px solid #2563eb !important;
+    border-radius: 6px;
+}
+
+.o_admin_user .fw-bold {
+    color: #1d4ed8 !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+}
+
+.o_admin_user::before {
+    content: "👤 CONNECTÉ";
+    display: block;
+    background: #2563eb;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    padding: 4px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+}
+
+/* =====================================================
+   OT EN COURS
+   ===================================================== */
 
 .o_mrp_display_record.o_active {
     background: #e8fff0 !important;
-    border-left: 12px solid #16a34a !important;
-    box-shadow: 0 0 12px rgba(22, 163, 74, 0.35) !important;
+    border-left: 10px solid #00a651 !important;
+    box-shadow: 0 0 8px rgba(0,166,81,.25);
 }
 
 .o_mrp_display_record.o_active::before {
     content: "▶ EN COURS";
     display: block;
-    background: #16a34a;
-    color: #fff;
-    font-weight: 700;
+    background: #00a651;
+    color: white;
+    font-weight: bold;
     text-align: center;
-    padding: 4px 8px;
-    border-radius: 4px 4px 0 0;
-    letter-spacing: 0.03em;
-}
-
-.o_mrp_display_record.o_active .card-header {
-    background: #d1fae5 !important;
+    padding: 4px;
+    margin-bottom: 6px;
 }
