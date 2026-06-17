@@ -841,53 +841,75 @@ class MrpProduction(models.Model):
     # ============================================================
     def _get_effective_duration_hours(self, wo):
         """
-        Retourne (duration_hours_effective, nb_resources) pour un workorder,
-        en appliquant les règles de capacité par poste (x_capacite_par_poste).
+        Retourne (duration_hours_effective, nb_resources) pour un workorder.
 
-        Logique :
-        - On récupère la durée brute du WO en heures
-        - On cherche une règle active sur le workcenter :
-            duration_min <= duration_hours < duration_max  (duration_max=0 => illimité)
-        - Si trouvée : duration_effective = duration_hours / nb_resources
-        - Sinon : durée brute, 1 ressource
+        IMPORTANT FMA :
+        - wo.duration_expected est en minutes dans Odoo MRP.
+        - les règles Studio x_studio_dure_min / x_studio_dure_max peuvent avoir été saisies
+          en minutes (ex : 4800 = 80 h) ou en heures.
+        - pour la PLANIFICATION calendrier : durée effective = durée brute / nb ressources.
+        - pour la CHARGE macro-planning : la charge reste la durée brute en heures-homme.
         """
-        duration_minutes = wo.duration_expected or 0.0
+        duration_minutes = float(wo.duration_expected or 0.0)
         duration_hours = duration_minutes / 60.0
 
         wc = wo.workcenter_id
-        if not wc or 'x_capacite_par_poste' not in self.env:
+        if not wc:
+            _logger.info(
+                "CAPACITY_RULE | WO=%s | aucun poste | duration_minutes=%.2f | duration_hours=%.2f | nb=1",
+                wo.name, duration_minutes, duration_hours
+            )
             return duration_hours, 1
 
-        def _rule_value_to_hours(value):
-            """Les champs Studio de règle peuvent être saisis en heures ou en minutes.
+        try:
+            Rule = self.env['x_capacite_par_poste']
+        except Exception:
+            _logger.info(
+                "CAPACITY_RULE | WO=%s | modèle x_capacite_par_poste absent | wc=%s | duration_minutes=%.2f | duration_hours=%.2f | nb=1",
+                wo.name, wc.display_name, duration_minutes, duration_hours
+            )
+            return duration_hours, 1
 
-            Sur FMA, on a des cas comme 4800 pour 4800 minutes = 80 h.
-            Si on compare directement 80 h avec 4800, la règle ne matche jamais.
-            Convention robuste : au-delà de 24, on considère que la valeur est en minutes.
+        def _threshold_to_minutes(value):
+            """Convertit un seuil de règle en minutes.
+
+            FMA a des règles saisies en minutes (4800). Par sécurité, si la valeur
+            est <= 24, on accepte aussi une saisie en heures (ex : 8, 24).
             """
             value = float(value or 0.0)
-            return value / 60.0 if value > 24.0 else value
+            if value <= 0:
+                return 0.0
+            return value * 60.0 if value <= 24.0 else value
 
-        # Chercher la règle correspondante.
-        # On trie du seuil mini le plus haut au plus bas pour prendre la règle
-        # la plus spécifique si plusieurs règles couvrent la même durée.
-        rules = self.env['x_capacite_par_poste'].search([
-            ('x_studio_poste', '=', wc.id),
-        ]).sorted(lambda r: _rule_value_to_hours(r.x_studio_dure_min), reverse=True)
+        rules = Rule.search([('x_studio_poste', '=', wc.id)])
+        _logger.info(
+            "CAPACITY_RULE | WO=%s | wc=%s(%s) | duration_expected=%.2f min = %.2f h | rules_found=%s",
+            wo.name, wc.display_name, wc.id, duration_minutes, duration_hours, len(rules)
+        )
+
+        # Règle la plus spécifique d'abord : seuil mini le plus haut.
+        rules = rules.sorted(lambda r: _threshold_to_minutes(r.x_studio_dure_min), reverse=True)
 
         matched_rule = None
         for rule in rules:
-            d_min = _rule_value_to_hours(rule.x_studio_dure_min)
-            d_max = _rule_value_to_hours(rule.x_studio_dure_max)
+            d_min_min = _threshold_to_minutes(rule.x_studio_dure_min)
+            d_max_min = _threshold_to_minutes(rule.x_studio_dure_max)
+            nb_res = int(rule.x_studio_nbre_ressources or 1)
 
-            if duration_hours >= d_min and (not d_max or duration_hours < d_max):
+            _logger.info(
+                "CAPACITY_RULE_CHECK | WO=%s | rule=%s | raw_min=%s raw_max=%s => min=%.2f min max=%.2f min | nb=%s | duration=%.2f min",
+                wo.name, rule.id, rule.x_studio_dure_min, rule.x_studio_dure_max,
+                d_min_min, d_max_min, nb_res, duration_minutes
+            )
+
+            if duration_minutes >= d_min_min and (not d_max_min or duration_minutes < d_max_min):
                 matched_rule = rule
                 break
 
         if not matched_rule:
-            _logger.info(
-                "WO %s (%s) | durée brute=%.2fh | aucune règle capacité trouvée",
-                wo.name, wc.display_name, duration_hours
+            _logger.warning(
+                "CAPACITY_RULE_NO_MATCH | WO=%s | wc=%s(%s) | duration=%.2f min %.2f h | nb=1",
+                wo.name, wc.display_name, wc.id, duration_minutes, duration_hours
             )
             return duration_hours, 1
 
@@ -895,10 +917,9 @@ class MrpProduction(models.Model):
         effective_hours = duration_hours / nb_resources
 
         _logger.info(
-            "WO %s (%s) | durée brute=%.2fh | règle: %.0f-%.0fh => %d ressources | durée effective=%.2fh",
-            wo.name, wc.display_name,
-            duration_hours,
-            matched_rule.x_studio_dure_min, matched_rule.x_studio_dure_max,
+            "CAPACITY_RULE_MATCH | WO=%s | wc=%s(%s) | duration=%.2f min %.2f h | rule=%s min=%s max=%s | nb=%s | effective=%.2f h",
+            wo.name, wc.display_name, wc.id, duration_minutes, duration_hours,
+            matched_rule.id, matched_rule.x_studio_dure_min, matched_rule.x_studio_dure_max,
             nb_resources, effective_hours
         )
 
