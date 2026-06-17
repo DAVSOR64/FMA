@@ -22,3 +22,9 @@ class ResConfigSettings(models.TransientModel):
         config_parameter="hubspot_export.only_updated",
         default=False,
     )
+    hubspot_batch_size = fields.Integer(
+        string="Taille des lots d'export",
+        config_parameter="hubspot_export.batch_size",
+        default=100,
+        help="Nombre d'enregistrements envoyés par appel au webhook. Exemple : 100 pour envoyer les données par lots de 100.",
+    )
