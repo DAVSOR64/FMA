@@ -411,12 +411,16 @@ class WorkorderChargeCache(models.Model):
             if not wo.workcenter_id:
                 continue
             
-            # Charge restante TOTALE en heures, divisée par le nombre de ressources
+            # Durée de planning restante en heures calendrier/opération.
+            # IMPORTANT : duration_expected est stocké en minutes Odoo.
+            # x_nb_resources indique combien de ressources travaillent en parallèle.
+            # Pour positionner l'opération dans le temps, on divise par nb_resources.
+            # Pour la charge capacité vs charge, on stocke ensuite des heures-homme : heures_jour * nb_resources.
             nb_resources = max(1, getattr(wo, 'x_nb_resources', 1) or 1)
             if wo.state in ('pending', 'ready', 'waiting'):
                 charge_restante_totale = (wo.duration_expected or 0) / 60.0 / nb_resources
             else:
-                # En cours : charge restante = prévu - réalisé
+                # En cours : durée restante planning = (prévu - réalisé) / nb ressources
                 charge_restante_totale = max(
                     (wo.duration_expected or 0) - (wo.duration or 0), 0
                 ) / 60.0 / nb_resources
@@ -436,8 +440,8 @@ class WorkorderChargeCache(models.Model):
             
             # Date de début de l'opération
             date_start_operation = self._get_wo_date_start(wo)
-            _logger.debug('WO %s (%s) : date_start=%s charge=%.2fh', 
-                         wo.id, wo.name, date_start_operation, charge_restante_totale)
+            _logger.debug('WO %s (%s) : date_start=%s duree_planning=%.2fh nb_resources=%s charge_homme=%.2fh', 
+                         wo.id, wo.name, date_start_operation, charge_restante_totale, nb_resources, charge_restante_totale * nb_resources)
             
             if not date_start_operation:
                 continue
@@ -452,7 +456,7 @@ class WorkorderChargeCache(models.Model):
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_debut,
-                    'charge_prevue_heures': charge_restante_totale,
+                    'charge_prevue_heures': round(charge_restante_totale * nb_resources, 2),
                     'employee_ids': [(6, 0, employee_ids)],
                 })
                 continue
@@ -475,7 +479,7 @@ class WorkorderChargeCache(models.Model):
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': date_debut,
-                        'charge_prevue_heures': charge_restante_totale,
+                        'charge_prevue_heures': round(charge_restante_totale * nb_resources, 2),
                         'employee_ids': [(6, 0, employee_ids)],
                     })
                     continue
@@ -493,7 +497,7 @@ class WorkorderChargeCache(models.Model):
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': date_debut,
-                        'charge_prevue_heures': charge_restante_totale,
+                        'charge_prevue_heures': round(charge_restante_totale * nb_resources, 2),
                         'employee_ids': [(6, 0, employee_ids)],
                     })
                     continue
@@ -515,7 +519,7 @@ class WorkorderChargeCache(models.Model):
                             'workcenter_id': wo.workcenter_id.id,
                             'workcenter_name': wo.workcenter_id.name,
                             'date': jour,
-                            'charge_prevue_heures': round(charge_ce_jour, 2),
+                            'charge_prevue_heures': round(charge_ce_jour * nb_resources, 2),
                             'employee_ids': [(6, 0, employee_ids)],
                         })
                         charge_restante -= charge_ce_jour
@@ -528,7 +532,7 @@ class WorkorderChargeCache(models.Model):
                         'workcenter_id': wo.workcenter_id.id,
                         'workcenter_name': wo.workcenter_id.name,
                         'date': dernier_jour,
-                        'charge_prevue_heures': round(charge_restante, 2),
+                        'charge_prevue_heures': round(charge_restante * nb_resources, 2),
                         'employee_ids': [(6, 0, employee_ids)],
                     })
                     _logger.warning('WO %s : charge restante %.2fh après 90 jours', wo.id, charge_restante)
@@ -540,7 +544,7 @@ class WorkorderChargeCache(models.Model):
                     'workcenter_id': wo.workcenter_id.id,
                     'workcenter_name': wo.workcenter_id.name,
                     'date': date_debut,
-                    'charge_prevue_heures': charge_restante_totale,
+                    'charge_prevue_heures': round(charge_restante_totale * nb_resources, 2),
                     'employee_ids': [(6, 0, employee_ids)],
                 })
             
