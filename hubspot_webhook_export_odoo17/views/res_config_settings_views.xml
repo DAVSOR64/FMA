@@ -13,14 +13,12 @@
                         <setting string="Identifiant Basic Auth">
                             <field name="hubspot_basic_auth_login"/>
                         </setting>
+                        
                         <setting string="Mot de passe Basic Auth">
                             <field name="hubspot_basic_auth_password" password="1"/>
                         </setting>
                         <setting string="Périmètre export">
                             <field name="hubspot_export_only_updated"/>
-                        </setting>
-                        <setting string="Taille des lots">
-                            <field name="hubspot_batch_size"/>
                         </setting>
                     </block>
                 </app>

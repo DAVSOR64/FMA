@@ -5,10 +5,16 @@ from odoo import api, fields, models
 class StockPicking(models.Model):
     _inherit = "stock.picking"
 
-    planned_date_reason = fields.Char(
-        string="Motif changement date prévue",
-        copy=False,
+    planned_date_reason = fields.Selection(
+    [
+        ("supplier", "Fournisseur"),
+        ("internal", "Cause interne"),
+        ("customer", "Client"),
+    ],
+    string="Motif changement date",
+    copy=False,
     )
+    
     planned_date_changed = fields.Boolean(
         string="Date prévue modifiée",
         copy=False,
