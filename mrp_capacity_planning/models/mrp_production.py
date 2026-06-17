@@ -858,26 +858,40 @@ class MrpProduction(models.Model):
         if not wc or 'x_capacite_par_poste' not in self.env:
             return duration_hours, 1
 
-        # Chercher la règle correspondante
+        def _rule_value_to_hours(value):
+            """Les champs Studio de règle peuvent être saisis en heures ou en minutes.
+
+            Sur FMA, on a des cas comme 4800 pour 4800 minutes = 80 h.
+            Si on compare directement 80 h avec 4800, la règle ne matche jamais.
+            Convention robuste : au-delà de 24, on considère que la valeur est en minutes.
+            """
+            value = float(value or 0.0)
+            return value / 60.0 if value > 24.0 else value
+
+        # Chercher la règle correspondante.
+        # On trie du seuil mini le plus haut au plus bas pour prendre la règle
+        # la plus spécifique si plusieurs règles couvrent la même durée.
         rules = self.env['x_capacite_par_poste'].search([
             ('x_studio_poste', '=', wc.id),
-        ])
+        ]).sorted(lambda r: _rule_value_to_hours(r.x_studio_dure_min), reverse=True)
 
         matched_rule = None
         for rule in rules:
-            d_min = rule.x_studio_dure_min or 0.0
-            d_max = rule.x_studio_dure_max or 0.0
-            nb_res = rule.x_studio_nbre_ressources or 1
+            d_min = _rule_value_to_hours(rule.x_studio_dure_min)
+            d_max = _rule_value_to_hours(rule.x_studio_dure_max)
 
-            if duration_hours >= d_min:
-                if d_max == 0.0 or duration_hours < d_max:
-                    matched_rule = rule
-                    break
+            if duration_hours >= d_min and (not d_max or duration_hours < d_max):
+                matched_rule = rule
+                break
 
         if not matched_rule:
+            _logger.info(
+                "WO %s (%s) | durée brute=%.2fh | aucune règle capacité trouvée",
+                wo.name, wc.display_name, duration_hours
+            )
             return duration_hours, 1
 
-        nb_resources = max(1, matched_rule.x_studio_nbre_ressources or 1)
+        nb_resources = max(1, int(matched_rule.x_studio_nbre_ressources or 1))
         effective_hours = duration_hours / nb_resources
 
         _logger.info(

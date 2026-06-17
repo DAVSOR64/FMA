@@ -1,0 +1,12 @@
+<odoo>
+    <record id="ir_cron_hubspot_export_clients_quotes" model="ir.cron">
+        <field name="name">Export HubSpot - Clients et chiffrages</field>
+        <field name="model_id" ref="model_hubspot_webhook_export"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_export_clients_and_quotes()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">False</field>
+    </record>
+</odoo>
