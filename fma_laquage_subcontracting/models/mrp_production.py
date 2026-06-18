@@ -452,6 +452,53 @@ class MrpProduction(models.Model):
         self._ensure_laquage_purchase()
         return True
 
+
+    # -------------------------------------------------------------------------
+    # Intégration avec le smart button Achats standard Odoo / purchase_mrp
+    # -------------------------------------------------------------------------
+    def _get_purchase_orders(self):
+        """Inclut le PO de laquage dans les bons d'achat générés de l'OF.
+
+        Le smart button Achats d'Odoo s'appuie généralement sur cette méthode
+        pour ouvrir les bons d'achat liés à l'OF via les mouvements MTO.
+        Or le laquage est un service : il n'a pas de stock.move destinataire.
+        On ajoute donc explicitement le PO laquage lié par champ Many2one.
+        """
+        try:
+            purchase_orders = super()._get_purchase_orders()
+        except AttributeError:
+            purchase_orders = self.env['purchase.order']
+
+        PurchaseOrder = self.env['purchase.order']
+        for mo in self:
+            if mo.laquage_purchase_id:
+                purchase_orders |= mo.laquage_purchase_id
+            if 'laquage_production_id' in PurchaseOrder._fields:
+                purchase_orders |= PurchaseOrder.search([('laquage_production_id', '=', mo.id)])
+            # Sécurité pour les anciens PO créés avant ajout du champ dédié.
+            purchase_orders |= PurchaseOrder.search([
+                ('origin', 'ilike', mo.name),
+                ('partner_id.is_laquage_supplier', '=', True),
+                ('company_id', '=', mo.company_id.id),
+            ])
+        return purchase_orders
+
+    def _build_replan_preview_payload(self):
+        """Ajoute les achats de laquage au popup de replanification existant."""
+        payload = super()._build_replan_preview_payload()
+        existing_names = {po.get('name') for po in payload.get('purchase_orders', [])}
+        for po in self._get_purchase_orders().filtered(lambda order: order.partner_id.is_laquage_supplier):
+            if po.name in existing_names:
+                continue
+            planned_dates = po.order_line.filtered(lambda line: line.date_planned).mapped('date_planned')
+            planned_date = min(planned_dates) if planned_dates else False
+            payload.setdefault('purchase_orders', []).append({
+                'name': po.name or '',
+                'partner': po.partner_id.display_name or '',
+                'date_planned': str(planned_date)[:10] if planned_date else '',
+            })
+        return payload
+
     def button_mark_done(self):
         for mo in self:
             if mo.laquage_required and mo.laquage_state not in ('returned', 'none'):
