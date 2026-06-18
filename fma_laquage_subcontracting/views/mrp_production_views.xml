@@ -26,7 +26,7 @@
                             <field name="laquage_state" widget="badge"/>
                             <field name="laquage_source_sale_id" readonly="1"/>
                             <field name="laquage_subcontractor_id"/>
-                            <field name="laquage_slot_id"/>
+                            <field name="laquage_slot_id" readonly="1" string="Créneau calculé"/>
                         </group>
                         <group>
                             <field name="laquage_purchase_id" readonly="1"/>

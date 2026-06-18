@@ -13,25 +13,20 @@ class FmaLaquagePlanWizard(models.TransientModel):
         required=True,
         domain=[('is_laquage_supplier', '=', True)],
     )
-    slot_id = fields.Many2one('fma.laquage.slot', string='Créneau', required=True)
     create_purchase = fields.Boolean(string='Créer / vérifier l’achat', default=True)
     replan_now = fields.Boolean(string='Replanifier immédiatement', default=True)
-
-    @api.onchange('subcontractor_id')
-    def _onchange_subcontractor_id(self):
-        self.slot_id = False
-        return {'domain': {'slot_id': [('partner_id', '=', self.subcontractor_id.id), ('active', '=', True)]}}
 
     def action_apply(self):
         self.ensure_one()
         mo = self.production_id
-        # Le poste est fixe : Laquage F2M. L'opérateur ne choisit que le laqueur et le créneau.
+        # Le poste est fixe : Laquage F2M. L'opérateur choisit uniquement le laqueur.
+        # Le créneau est déterminé automatiquement par le rétroplanning.
         wo = mo._ensure_laquage_workorder()
         wo.write({'is_external_laquage': True, 'laquage_state': 'to_plan'})
         mo.write({
             'laquage_required': True,
             'laquage_subcontractor_id': self.subcontractor_id.id,
-            'laquage_slot_id': self.slot_id.id,
+            'laquage_slot_id': False,
             'laquage_state': 'to_plan',
         })
         if self.replan_now:

@@ -94,11 +94,11 @@ class MrpProduction(models.Model):
                     mo.with_context(skip_laquage_sync=True).write(vals)
         return True
 
-    @api.depends('laquage_required', 'laquage_state', 'laquage_subcontractor_id', 'laquage_slot_id')
+    @api.depends('laquage_required', 'laquage_state', 'laquage_subcontractor_id')
     def _compute_laquage_alert_message(self):
         for mo in self:
-            if mo.laquage_required and mo.laquage_state in ('none', 'to_plan') and (not mo.laquage_subcontractor_id or not mo.laquage_slot_id):
-                mo.laquage_alert_message = _('⚠ Laquage requis pour F2M : choisir le sous-traitant et le créneau.')
+            if mo.laquage_required and mo.laquage_state in ('none', 'to_plan') and not mo.laquage_subcontractor_id:
+                mo.laquage_alert_message = _('⚠ Laquage requis pour F2M : choisir le sous-traitant laquage.')
             else:
                 mo.laquage_alert_message = False
 
@@ -268,6 +268,31 @@ class MrpProduction(models.Model):
         delta = (ret - dep) % 7 + (7 * int(slot.return_week_offset or 0))
         return return_day - timedelta(days=delta)
 
+    def _select_laquage_slot_for_deadline(self, subcontractor, latest_return_day):
+        """Choisit automatiquement le meilleur créneau du sous-traitant.
+
+        Le wizard ne demande plus le créneau. Le rétroplanning impose le créneau :
+        on cherche, parmi les créneaux actifs du fournisseur, celui qui permet un
+        retour au plus tard la veille / le jour limite calculé avant le remontage,
+        en gardant le retour le plus tard possible pour ne pas avancer inutilement
+        les opérations précédentes. À retour identique, on garde le départ le plus
+        tardif.
+        """
+        self.ensure_one()
+        slots = subcontractor.laquage_slot_ids.filtered(lambda slot: slot.active)
+        if not slots:
+            raise UserError(_('Aucun créneau actif n’est configuré sur le fournisseur %s.') % subcontractor.display_name)
+
+        candidates = []
+        for slot in slots:
+            return_day = self._previous_weekday_on_or_before(latest_return_day, slot.return_weekday)
+            departure_day = self._compute_slot_departure_from_return(return_day, slot)
+            candidates.append((return_day, departure_day, slot))
+
+        # Dernier retour possible, puis dernier départ possible.
+        candidates.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        return candidates[0]
+
     def action_replanifier_laquage(self):
         """Rétroplanning compatible avec une opération de laquage externe.
 
@@ -301,8 +326,8 @@ class MrpProduction(models.Model):
 
     def _replan_laquage_backward(self):
         self.ensure_one()
-        if not self.laquage_slot_id:
-            raise UserError(_('Sélectionnez d’abord un sous-traitant et un créneau laquage.'))
+        if not self.laquage_subcontractor_id:
+            raise UserError(_('Sélectionnez d’abord un sous-traitant laquage.'))
         laquage_wo = self._get_laquage_workorder()
         if not laquage_wo:
             raise UserError(_('Aucune opération de laquage externe trouvée sur cet OF.'))
@@ -322,8 +347,11 @@ class MrpProduction(models.Model):
         for wo in workorders.sorted(lambda w: (w.op_sequence or 9999, w.id), reverse=True):
             wc = wo.workcenter_id
             if wo.id == laquage_wo.id or wo.is_external_laquage:
-                return_day = self._previous_weekday_on_or_before(current_end_day, self.laquage_slot_id.return_weekday)
-                departure_day = self._compute_slot_departure_from_return(return_day, self.laquage_slot_id)
+                return_day, departure_day, selected_slot = self._select_laquage_slot_for_deadline(
+                    self.laquage_subcontractor_id, current_end_day
+                )
+                if self.laquage_slot_id != selected_slot:
+                    self.with_context(skip_laquage_sync=True).write({'laquage_slot_id': selected_slot.id})
                 start_dt = self._morning_dt(departure_day, wc) if wc else datetime.combine(departure_day, time(7, 30))
                 end_dt = self._morning_dt(return_day, wc) if wc else datetime.combine(return_day, time(7, 30))
                 vals = {
