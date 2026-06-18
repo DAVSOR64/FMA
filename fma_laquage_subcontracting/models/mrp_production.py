@@ -12,7 +12,7 @@ class MrpProduction(models.Model):
     laquage_required = fields.Boolean(string='Laquage requis', copy=False, help="Coché automatiquement si l'OF provient d'une commande client taguée F2M.")
     laquage_source_sale_id = fields.Many2one('sale.order', string='Commande source laquage', copy=False, readonly=True)
     laquage_alert_message = fields.Char(string='Alerte laquage', compute='_compute_laquage_alert_message')
-    laquage_subcontractor_id = fields.Many2one('fma.laquage.subcontractor', string='Sous-traitant laquage', copy=False)
+    laquage_subcontractor_id = fields.Many2one('res.partner', string='Sous-traitant laquage', copy=False, domain=[('is_laquage_supplier', '=', True)])
     laquage_slot_id = fields.Many2one('fma.laquage.slot', string='Créneau laquage', copy=False)
     laquage_purchase_id = fields.Many2one('purchase.order', string='Achat laquage', copy=False, readonly=True)
     laquage_purchase_line_id = fields.Many2one('purchase.order.line', string='Ligne achat laquage', copy=False, readonly=True)
@@ -147,11 +147,11 @@ class MrpProduction(models.Model):
         if wo:
             return wo
         if not workcenter:
-            workcenter = self.env['mrp.workcenter'].search([('name', 'ilike', 'laquage')], limit=1)
+            workcenter = self.env['mrp.workcenter'].search([('name', '=', 'Laquage F2M')], limit=1)
         if not workcenter:
-            raise UserError(_('Aucun poste de travail laquage trouvé. Sélectionnez/créez un poste “Laquage externe F2M”.'))
+            raise UserError(_('Aucun poste de travail “Laquage F2M” trouvé. Créez ce poste de travail dans Fabrication > Configuration > Postes de travail.'))
         vals = {
-            'name': _('Laquage externe F2M'),
+            'name': _('Laquage F2M'),
             'production_id': self.id,
             'workcenter_id': workcenter.id,
             'product_uom_id': self.product_uom_id.id,
@@ -206,7 +206,7 @@ class MrpProduction(models.Model):
 
     def _compute_laquage_qty(self, subcontractor):
         self.ensure_one()
-        field_name = (subcontractor.qty_field_name or '').strip()
+        field_name = (subcontractor.laquage_qty_field_name or '').strip()
         if field_name and field_name in self._fields:
             qty = getattr(self, field_name, 0.0) or 0.0
             if qty:
@@ -218,13 +218,13 @@ class MrpProduction(models.Model):
         subcontractor = self.laquage_subcontractor_id
         if not subcontractor:
             raise UserError(_('Aucun sous-traitant laquage sélectionné.'))
-        if not subcontractor.product_id:
-            raise UserError(_('Le sous-traitant %s n’a pas d’article achat laquage.') % subcontractor.display_name)
+        if not subcontractor.laquage_product_id:
+            raise UserError(_('Le fournisseur %s n’a pas d’article de service laquage renseigné dans l’onglet Laquage F2M.') % subcontractor.display_name)
         if self.laquage_purchase_id and self.laquage_purchase_id.state not in ('cancel',):
             return self.laquage_purchase_id
 
-        partner = subcontractor.partner_id
-        product = subcontractor.product_id
+        partner = subcontractor
+        product = subcontractor.laquage_product_id
         qty = self._compute_laquage_qty(subcontractor)
         planned_date = False
         wo = self._get_laquage_workorder()
@@ -241,7 +241,7 @@ class MrpProduction(models.Model):
                 'name': '%s - %s' % (product.display_name, self.name),
                 'product_qty': qty,
                 'product_uom': product.uom_po_id.id or product.uom_id.id,
-                'price_unit': subcontractor.price_unit or product.standard_price or 0.0,
+                'price_unit': subcontractor.laquage_price_unit or product.standard_price or 0.0,
                 'date_planned': planned_date or fields.Datetime.now(),
             })],
         }

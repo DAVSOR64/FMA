@@ -8,8 +8,7 @@
                 <group>
                     <field name="production_id"/>
                     <field name="subcontractor_id"/>
-                    <field name="slot_id" domain="[('subcontractor_id', '=', subcontractor_id), ('active', '=', True)]"/>
-                    <field name="workcenter_id"/>
+                    <field name="slot_id" domain="[('partner_id', '=', subcontractor_id), ('active', '=', True)]"/>
                     <field name="replan_now"/>
                     <field name="create_purchase"/>
                 </group>

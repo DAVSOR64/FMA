@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <menuitem id="menu_fma_laquage_root" name="Laquage" parent="mrp.menu_mrp_configuration" sequence="80"/>
-    <menuitem id="menu_fma_laquage_subcontractor" name="Sous-traitants laquage" parent="menu_fma_laquage_root" action="action_fma_laquage_subcontractor" sequence="10"/>
+    <menuitem id="menu_fma_laquage_subcontractor" name="Sous-traitants laquage" parent="menu_fma_laquage_root" action="action_fma_laquage_suppliers" sequence="10"/>
 </odoo>

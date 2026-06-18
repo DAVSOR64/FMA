@@ -1,61 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_fma_laquage_subcontractor_tree" model="ir.ui.view">
-        <field name="name">fma.laquage.subcontractor.tree</field>
-        <field name="model">fma.laquage.subcontractor</field>
+    <record id="view_partner_form_laquage_f2m" model="ir.ui.view">
+        <field name="name">res.partner.form.laquage.f2m</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
-            <tree>
-                <field name="sequence" widget="handle"/>
-                <field name="name"/>
-                <field name="partner_id"/>
-                <field name="product_id"/>
-                <field name="price_unit"/>
-                <field name="active"/>
-            </tree>
-        </field>
-    </record>
-
-    <record id="view_fma_laquage_subcontractor_form" model="ir.ui.view">
-        <field name="name">fma.laquage.subcontractor.form</field>
-        <field name="model">fma.laquage.subcontractor</field>
-        <field name="arch" type="xml">
-            <form>
-                <sheet>
+            <xpath expr="//notebook" position="inside">
+                <page string="Laquage F2M" invisible="not supplier_rank and not is_laquage_supplier">
                     <group>
                         <group>
-                            <field name="name"/>
-                            <field name="partner_id"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
-                            <field name="active"/>
+                            <field name="is_laquage_supplier"/>
+                            <field name="laquage_product_id" invisible="not is_laquage_supplier"/>
+                            <field name="laquage_price_unit" invisible="not is_laquage_supplier"/>
+                            <field name="laquage_qty_field_name" invisible="not is_laquage_supplier" placeholder="ex: x_studio_surface_laquage"/>
                         </group>
                         <group>
-                            <field name="product_id"/>
-                            <field name="price_unit"/>
-                            <field name="currency_id" invisible="1"/>
-                            <field name="qty_field_name" placeholder="ex: x_studio_surface_laquage"/>
+                            <label for="laquage_slot_ids" string="Créneaux disponibles" invisible="not is_laquage_supplier"/>
                         </group>
                     </group>
-                    <notebook>
-                        <page string="Créneaux">
-                            <field name="slot_ids">
-                                <tree editable="bottom">
-                                    <field name="active"/>
-                                    <field name="departure_weekday"/>
-                                    <field name="return_weekday"/>
-                                    <field name="return_week_offset"/>
-                                    <field name="duration_days" readonly="1"/>
-                                </tree>
-                            </field>
-                        </page>
-                    </notebook>
-                </sheet>
-            </form>
+                    <field name="laquage_slot_ids" invisible="not is_laquage_supplier">
+                        <tree editable="bottom">
+                            <field name="active"/>
+                            <field name="departure_weekday"/>
+                            <field name="return_weekday"/>
+                            <field name="return_week_offset"/>
+                            <field name="duration_days" readonly="1"/>
+                        </tree>
+                    </field>
+                </page>
+            </xpath>
         </field>
     </record>
 
-    <record id="action_fma_laquage_subcontractor" model="ir.actions.act_window">
+    <record id="action_fma_laquage_suppliers" model="ir.actions.act_window">
         <field name="name">Sous-traitants laquage</field>
-        <field name="res_model">fma.laquage.subcontractor</field>
+        <field name="res_model">res.partner</field>
         <field name="view_mode">tree,form</field>
+        <field name="domain">[('is_laquage_supplier', '=', True)]</field>
+        <field name="context">{'default_is_laquage_supplier': True, 'default_supplier_rank': 1}</field>
     </record>
 </odoo>
