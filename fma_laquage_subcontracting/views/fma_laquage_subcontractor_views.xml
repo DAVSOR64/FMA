@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fma_laquage_subcontractor_tree" model="ir.ui.view">
+        <field name="name">fma.laquage.subcontractor.tree</field>
+        <field name="model">fma.laquage.subcontractor</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="product_id"/>
+                <field name="price_unit"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_fma_laquage_subcontractor_form" model="ir.ui.view">
+        <field name="name">fma.laquage.subcontractor.form</field>
+        <field name="model">fma.laquage.subcontractor</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="partner_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="product_id"/>
+                            <field name="price_unit"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="qty_field_name" placeholder="ex: x_studio_surface_laquage"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Créneaux">
+                            <field name="slot_ids">
+                                <tree editable="bottom">
+                                    <field name="active"/>
+                                    <field name="departure_weekday"/>
+                                    <field name="return_weekday"/>
+                                    <field name="return_week_offset"/>
+                                    <field name="duration_days" readonly="1"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fma_laquage_subcontractor" model="ir.actions.act_window">
+        <field name="name">Sous-traitants laquage</field>
+        <field name="res_model">fma.laquage.subcontractor</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

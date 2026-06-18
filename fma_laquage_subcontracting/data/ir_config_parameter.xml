@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="ir_config_parameter_laquage_trigger_sale_tag" model="ir.config_parameter">
+        <field name="key">fma_laquage_subcontracting.trigger_sale_tag</field>
+        <field name="value">F2M</field>
+    </record>
+</odoo>
