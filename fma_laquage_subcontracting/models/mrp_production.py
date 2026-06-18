@@ -453,35 +453,105 @@ class MrpProduction(models.Model):
         return True
 
 
+
+    def _get_laquage_and_standard_purchase_orders(self):
+        """Retourne les achats standard de l'OF + l'achat de laquage.
+
+        Le smart button natif Achats d'un OF Odoo/purchase_mrp ne récupère
+        généralement que les PO issus des mouvements composants MTO. Le laquage
+        est un service, donc il n'a pas de mouvement stock destinataire. On force
+        ici la liste avec notre champ dédié + origin/group_id.
+        """
+        PurchaseOrder = self.env['purchase.order']
+        PurchaseOrderLine = self.env['purchase.order.line']
+        orders = PurchaseOrder
+        for mo in self:
+            if mo.laquage_purchase_id:
+                orders |= mo.laquage_purchase_id
+            if 'laquage_production_id' in PurchaseOrder._fields:
+                orders |= PurchaseOrder.search([('laquage_production_id', '=', mo.id)])
+            if 'laquage_production_id' in PurchaseOrderLine._fields:
+                orders |= PurchaseOrderLine.search([('laquage_production_id', '=', mo.id)]).mapped('order_id')
+            # Achats standard reliés à l'OF par groupe ou mouvements MTO.
+            if mo.procurement_group_id:
+                if 'group_id' in PurchaseOrder._fields:
+                    orders |= PurchaseOrder.search([('group_id', '=', mo.procurement_group_id.id)])
+                domains = []
+                if 'move_dest_ids' in PurchaseOrderLine._fields:
+                    domains.append([('move_dest_ids.group_id', '=', mo.procurement_group_id.id)])
+                if 'group_id' in PurchaseOrder._fields:
+                    domains.append([('order_id.group_id', '=', mo.procurement_group_id.id)])
+                domains.append([('order_id.origin', 'ilike', mo.name)])
+                for domain in domains:
+                    try:
+                        orders |= PurchaseOrderLine.search(domain).mapped('order_id')
+                    except Exception:
+                        pass
+            if mo.name:
+                orders |= PurchaseOrder.search([('origin', 'ilike', mo.name), ('company_id', '=', mo.company_id.id)])
+        return orders
+
+    def _action_view_purchase_orders_with_laquage(self):
+        """Action liste PO compatible avec plusieurs noms de boutons Odoo."""
+        self.ensure_one()
+        orders = self._get_laquage_and_standard_purchase_orders()
+        action = {
+            'type': 'ir.actions.act_window',
+            'name': _('Bon de commande généré de %s') % (self.display_name or self.name),
+            'res_model': 'purchase.order',
+            'view_mode': 'tree,form',
+            'domain': [('id', 'in', orders.ids)],
+            'context': dict(self.env.context, create=False),
+        }
+        if len(orders) == 1:
+            action.update({
+                'view_mode': 'form',
+                'res_id': orders.id,
+                'views': [(False, 'form')],
+            })
+        return action
+
+    # Noms possibles selon version/module Odoo pour le smart button Achats OF.
+    def action_view_purchase_orders(self):
+        return self._action_view_purchase_orders_with_laquage()
+
+    def action_view_purchase_order(self):
+        return self._action_view_purchase_orders_with_laquage()
+
+    def action_view_mrp_production_purchaseorders(self):
+        return self._action_view_purchase_orders_with_laquage()
+
+    def action_view_mrp_production_purchase_orders(self):
+        return self._action_view_purchase_orders_with_laquage()
+
+    def action_view_purchase(self):
+        return self._action_view_purchase_orders_with_laquage()
+
+    def _compute_purchase_order_count(self):
+        """Étend le compteur natif si le champ existe dans la base."""
+        try:
+            super()._compute_purchase_order_count()
+        except AttributeError:
+            pass
+        for mo in self:
+            count = len(mo._get_laquage_and_standard_purchase_orders())
+            for fname in ('purchase_order_count', 'purchase_count'):
+                if fname in mo._fields:
+                    try:
+                        setattr(mo, fname, count)
+                    except Exception:
+                        pass
+
     # -------------------------------------------------------------------------
     # Intégration avec le smart button Achats standard Odoo / purchase_mrp
     # -------------------------------------------------------------------------
     def _get_purchase_orders(self):
-        """Inclut le PO de laquage dans les bons d'achat générés de l'OF.
-
-        Le smart button Achats d'Odoo s'appuie généralement sur cette méthode
-        pour ouvrir les bons d'achat liés à l'OF via les mouvements MTO.
-        Or le laquage est un service : il n'a pas de stock.move destinataire.
-        On ajoute donc explicitement le PO laquage lié par champ Many2one.
-        """
+        # Méthode utilisée par certains modules : on renvoie la liste complète.
         try:
             purchase_orders = super()._get_purchase_orders()
         except AttributeError:
             purchase_orders = self.env['purchase.order']
-
-        PurchaseOrder = self.env['purchase.order']
-        for mo in self:
-            if mo.laquage_purchase_id:
-                purchase_orders |= mo.laquage_purchase_id
-            if 'laquage_production_id' in PurchaseOrder._fields:
-                purchase_orders |= PurchaseOrder.search([('laquage_production_id', '=', mo.id)])
-            # Sécurité pour les anciens PO créés avant ajout du champ dédié.
-            purchase_orders |= PurchaseOrder.search([
-                ('origin', 'ilike', mo.name),
-                ('partner_id.is_laquage_supplier', '=', True),
-                ('company_id', '=', mo.company_id.id),
-            ])
-        return purchase_orders
+        return purchase_orders | self._get_laquage_and_standard_purchase_orders()
 
     def _build_replan_preview_payload(self):
         """Ajoute les achats de laquage au popup de replanification existant."""
