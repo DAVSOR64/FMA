@@ -25,6 +25,7 @@ class FmaLaquagePlanWizard(models.TransientModel):
     def action_apply(self):
         self.ensure_one()
         mo = self.production_id
+        # Le poste est fixe : Laquage F2M. L'opérateur ne choisit que le laqueur et le créneau.
         wo = mo._ensure_laquage_workorder()
         wo.write({'is_external_laquage': True, 'laquage_state': 'to_plan'})
         mo.write({

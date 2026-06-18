@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="purchase_order_form_laquage_f2m" model="ir.ui.view">
+        <field name="name">purchase.order.form.laquage.f2m</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='order_line']//tree//field[@name='date_planned']" position="after">
+                <field name="laquage_production_id" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

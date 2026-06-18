@@ -231,20 +231,27 @@ class MrpProduction(models.Model):
         if wo and wo.laquage_departure_planned:
             planned_date = wo.laquage_departure_planned
 
+        line_vals = {
+            'product_id': product.id,
+            'name': '%s - %s' % (product.display_name, self.name),
+            'product_qty': qty,
+            'product_uom': product.uom_po_id.id or product.uom_id.id,
+            'price_unit': subcontractor.laquage_price_unit or product.standard_price or 0.0,
+            'date_planned': planned_date or fields.Datetime.now(),
+        }
+        if 'laquage_production_id' in self.env['purchase.order.line']._fields:
+            line_vals['laquage_production_id'] = self.id
+
         po_vals = {
             'partner_id': partner.id,
             'company_id': self.company_id.id,
             'origin': self.name,
             'date_order': fields.Datetime.now(),
-            'order_line': [(0, 0, {
-                'product_id': product.id,
-                'name': '%s - %s' % (product.display_name, self.name),
-                'product_qty': qty,
-                'product_uom': product.uom_po_id.id or product.uom_id.id,
-                'price_unit': subcontractor.laquage_price_unit or product.standard_price or 0.0,
-                'date_planned': planned_date or fields.Datetime.now(),
-            })],
+            'order_line': [(0, 0, line_vals)],
         }
+        if self.procurement_group_id and 'group_id' in self.env['purchase.order']._fields:
+            # Permet de retrouver le PO depuis l'OF comme les achats MTO du même groupe d'approvisionnement.
+            po_vals['group_id'] = self.procurement_group_id.id
         po = self.env['purchase.order'].create(po_vals)
         line = po.order_line[:1]
         self.write({'laquage_purchase_id': po.id, 'laquage_purchase_line_id': line.id})
@@ -271,6 +278,27 @@ class MrpProduction(models.Model):
             mo._replan_laquage_backward()
         return True
 
+
+    def _get_laquage_planning_end_date(self):
+        """Retourne la vraie date de fin fabrication utilisée par le rétroplanning F2M.
+
+        Priorité au champ Studio affiché sur l'OF : x_studio_date_de_fin.
+        Si ce champ est vide mais qu'une date standard existe, on la remonte dans
+        le champ Studio pour éviter l'écran "Date de fin" vide côté opérateur.
+        """
+        self.ensure_one()
+        x_end = getattr(self, 'x_studio_date_de_fin', False) or getattr(self, 'x_studio_date_fin', False)
+        fallback = False
+        for fname in ('date_finished', 'date_deadline', 'date_planned_finished'):
+            if fname in self._fields and getattr(self, fname, False):
+                fallback = getattr(self, fname)
+                break
+        if not x_end and fallback:
+            x_end = fallback
+            if 'x_studio_date_de_fin' in self._fields:
+                self.with_context(skip_laquage_sync=True).write({'x_studio_date_de_fin': fields.Date.to_date(fallback)})
+        return x_end
+
     def _replan_laquage_backward(self):
         self.ensure_one()
         if not self.laquage_slot_id:
@@ -279,7 +307,7 @@ class MrpProduction(models.Model):
         if not laquage_wo:
             raise UserError(_('Aucune opération de laquage externe trouvée sur cet OF.'))
 
-        x_end = getattr(self, 'x_studio_date_de_fin', False) or getattr(self, 'x_studio_date_fin', False) or self.date_finished or self.date_deadline
+        x_end = self._get_laquage_planning_end_date()
         if not x_end:
             raise UserError(_('Renseignez une date de fin fabrication avant de replanifier.'))
         if not isinstance(x_end, date_type):
