@@ -5,6 +5,10 @@
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <field name="supplier_rank" invisible="1"/>
+                <field name="is_laquage_supplier" invisible="1"/>
+            </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Laquage F2M" invisible="not supplier_rank and not is_laquage_supplier">
                     <group>
