@@ -342,7 +342,7 @@ class MrpProduction(models.Model):
                 required_days = max(1, int(math.ceil(duration_hours / (hours_per_day or 7.8))))
                 last_day = self._previous_or_same_working_day(current_end_day, wc)
                 first_day = last_day
-                for _ in range(required_days - 1):
+                for day_idx in range(required_days - 1):
                     first_day = self._previous_working_day(first_day, wc)
                 start_dt = self._morning_dt(first_day, wc) if wc else datetime.combine(first_day, time(7, 30))
                 end_dt = self._evening_dt(last_day, wc) if wc else datetime.combine(last_day, time(17, 0))
