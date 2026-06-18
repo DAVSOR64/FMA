@@ -213,6 +213,47 @@ class MrpProduction(models.Model):
                 return qty
         return self.product_qty or 1.0
 
+
+    def _get_laquage_purchase_picking_type(self):
+        """Retourne le type de réception achat du même entrepôt que l'OF.
+
+        Sans ça, Odoo prend parfois le type de réception par défaut de la société,
+        ce qui crée la réception sur le mauvais warehouse.
+        """
+        self.ensure_one()
+        warehouse = False
+        if self.picking_type_id and self.picking_type_id.warehouse_id:
+            warehouse = self.picking_type_id.warehouse_id
+        if not warehouse and self.location_src_id:
+            warehouse = self.env['stock.warehouse'].search([
+                ('company_id', '=', self.company_id.id),
+                ('view_location_id', 'parent_of', self.location_src_id.id),
+            ], limit=1)
+        if warehouse and warehouse.in_type_id:
+            return warehouse.in_type_id
+        return self.env['stock.picking.type'].search([
+            ('code', '=', 'incoming'),
+            ('company_id', '=', self.company_id.id),
+        ], limit=1)
+
+    def _get_laquage_purchase_links_vals(self):
+        """Champs de liaison OF utilisables selon les modules installés.
+
+        On renseigne notre champ dédié + d'éventuels champs déjà présents dans
+        les modules FMA/MTO, sans planter si le champ n'existe pas.
+        """
+        self.ensure_one()
+        po_vals = {}
+        pol_vals = {}
+        if 'laquage_production_id' in self.env['purchase.order']._fields:
+            po_vals['laquage_production_id'] = self.id
+        if 'laquage_production_id' in self.env['purchase.order.line']._fields:
+            pol_vals['laquage_production_id'] = self.id
+        for fname in ('production_id', 'mrp_production_id', 'x_mrp_production_id', 'x_production_id'):
+            if fname in self.env['purchase.order.line']._fields:
+                pol_vals[fname] = self.id
+        return po_vals, pol_vals
+
     def _ensure_laquage_purchase(self):
         self.ensure_one()
         subcontractor = self.laquage_subcontractor_id
@@ -220,16 +261,14 @@ class MrpProduction(models.Model):
             raise UserError(_('Aucun sous-traitant laquage sélectionné.'))
         if not subcontractor.laquage_product_id:
             raise UserError(_('Le fournisseur %s n’a pas d’article de service laquage renseigné dans l’onglet Laquage F2M.') % subcontractor.display_name)
-        if self.laquage_purchase_id and self.laquage_purchase_id.state not in ('cancel',):
-            return self.laquage_purchase_id
 
         partner = subcontractor
         product = subcontractor.laquage_product_id
         qty = self._compute_laquage_qty(subcontractor)
-        planned_date = False
         wo = self._get_laquage_workorder()
-        if wo and wo.laquage_departure_planned:
-            planned_date = wo.laquage_departure_planned
+        planned_date = wo.laquage_return_planned or wo.laquage_departure_planned or fields.Datetime.now() if wo else fields.Datetime.now()
+        picking_type = self._get_laquage_purchase_picking_type()
+        po_link_vals, pol_link_vals = self._get_laquage_purchase_links_vals()
 
         line_vals = {
             'product_id': product.id,
@@ -237,10 +276,28 @@ class MrpProduction(models.Model):
             'product_qty': qty,
             'product_uom': product.uom_po_id.id or product.uom_id.id,
             'price_unit': subcontractor.laquage_price_unit or product.standard_price or 0.0,
-            'date_planned': planned_date or fields.Datetime.now(),
+            'date_planned': planned_date,
+            **pol_link_vals,
         }
-        if 'laquage_production_id' in self.env['purchase.order.line']._fields:
-            line_vals['laquage_production_id'] = self.id
+
+        # Si un achat existe déjà, on le remet à jour au lieu d'en créer un autre.
+        if self.laquage_purchase_id and self.laquage_purchase_id.state not in ('cancel',):
+            po = self.laquage_purchase_id
+            vals_update = {**po_link_vals}
+            if picking_type:
+                vals_update['picking_type_id'] = picking_type.id
+            if self.procurement_group_id and 'group_id' in po._fields:
+                vals_update['group_id'] = self.procurement_group_id.id
+            if vals_update:
+                po.write(vals_update)
+            line = self.laquage_purchase_line_id or po.order_line.filtered(lambda line: line.product_id == product)[:1]
+            if line:
+                line.write(line_vals)
+                self.write({'laquage_purchase_line_id': line.id})
+            else:
+                line = self.env['purchase.order.line'].create(dict(line_vals, order_id=po.id))
+                self.write({'laquage_purchase_line_id': line.id})
+            return po
 
         po_vals = {
             'partner_id': partner.id,
@@ -248,7 +305,10 @@ class MrpProduction(models.Model):
             'origin': self.name,
             'date_order': fields.Datetime.now(),
             'order_line': [(0, 0, line_vals)],
+            **po_link_vals,
         }
+        if picking_type:
+            po_vals['picking_type_id'] = picking_type.id
         if self.procurement_group_id and 'group_id' in self.env['purchase.order']._fields:
             # Permet de retrouver le PO depuis l'OF comme les achats MTO du même groupe d'approvisionnement.
             po_vals['group_id'] = self.procurement_group_id.id
