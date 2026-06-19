@@ -179,30 +179,98 @@ class MrpProduction(models.Model):
         }
 
     def action_laquage_sent(self):
+        """Enregistre le départ réel chez le laqueur.
+
+        Après cette action, l'opération est réellement partie : on ne doit plus
+        proposer Planifier/Replanifier laquage. Le PO reçoit aussi la date
+        réelle pour le suivi fournisseur.
+        """
         for mo in self:
             wo = mo._get_laquage_workorder()
+            if not wo:
+                raise UserError(_('Aucune opération de laquage trouvée.'))
+            if mo.laquage_state != 'planned':
+                raise UserError(_('Le laquage doit être planifié avant de pouvoir être envoyé.'))
             now = fields.Datetime.now()
-            vals = {'laquage_state': 'sent'}
+            wo_vals = {'laquage_state': 'sent'}
             if 'laquage_departure_real' in wo._fields and not wo.laquage_departure_real:
-                vals['laquage_departure_real'] = now
-            if wo:
-                wo.write(vals)
-            mo.laquage_state = 'sent'
+                wo_vals['laquage_departure_real'] = now
+            wo.write(wo_vals)
+            mo.write({'laquage_state': 'sent'})
+
+            if mo.laquage_purchase_id:
+                po_vals = {}
+                if 'laquage_sent_date' in mo.laquage_purchase_id._fields:
+                    po_vals['laquage_sent_date'] = now
+                if 'laquage_status' in mo.laquage_purchase_id._fields:
+                    po_vals['laquage_status'] = 'sent'
+                if po_vals:
+                    mo.laquage_purchase_id.write(po_vals)
+                mo.laquage_purchase_id.message_post(
+                    body=_('Départ laquage enregistré depuis l’OF %s le %s.') % (mo.display_name, fields.Datetime.to_string(now))
+                )
             mo.message_post(body=_('Laquage envoyé chez le sous-traitant le %s.') % fields.Datetime.to_string(now))
         return True
 
     def action_laquage_returned(self):
+        """Enregistre le retour réel et alerte si le planning doit être revu.
+
+        Le bouton disparaît immédiatement car l'état passe à returned.
+        Si la date réelle est différente de la date prévue, on affiche une
+        notification pour inviter l'utilisateur à lancer le bouton Replanifier
+        standard de l'OF, et non Replanifier laquage.
+        """
+        notification = False
         for mo in self:
             wo = mo._get_laquage_workorder()
+            if not wo:
+                raise UserError(_('Aucune opération de laquage trouvée.'))
+            if mo.laquage_state != 'sent':
+                raise UserError(_('Le laquage doit être envoyé avant de pouvoir enregistrer le retour.'))
             now = fields.Datetime.now()
-            vals = {'laquage_state': 'returned'}
-            if wo and not wo.laquage_return_real:
-                vals['laquage_return_real'] = now
-            if wo:
-                wo.write(vals)
-            mo.laquage_state = 'returned'
-            mo.message_post(body=_('Retour laquage enregistré le %s.') % fields.Datetime.to_string(now))
-        return True
+            wo_vals = {'laquage_state': 'returned'}
+            if not wo.laquage_return_real:
+                wo_vals['laquage_return_real'] = now
+            wo.write(wo_vals)
+            mo.write({'laquage_state': 'returned'})
+
+            if mo.laquage_purchase_id:
+                po_vals = {}
+                if 'laquage_return_date' in mo.laquage_purchase_id._fields:
+                    po_vals['laquage_return_date'] = now
+                if 'laquage_status' in mo.laquage_purchase_id._fields:
+                    po_vals['laquage_status'] = 'returned'
+                if po_vals:
+                    mo.laquage_purchase_id.write(po_vals)
+                mo.laquage_purchase_id.message_post(
+                    body=_('Retour laquage enregistré depuis l’OF %s le %s.') % (mo.display_name, fields.Datetime.to_string(now))
+                )
+
+            planned = wo.laquage_return_planned
+            message = _('Retour laquage enregistré le %s.') % fields.Datetime.to_string(now)
+            notif_type = 'success'
+            if planned:
+                planned_date = fields.Datetime.to_datetime(planned).date()
+                real_date = fields.Datetime.to_datetime(now).date()
+                delta = (real_date - planned_date).days
+                if delta < 0:
+                    message = _('Retour laquage enregistré avec %s jour(s) d’avance. Lancez le bouton Replanifier de l’OF si vous voulez avancer les opérations restantes.') % abs(delta)
+                    notif_type = 'warning'
+                elif delta > 0:
+                    message = _('⚠ Retour laquage enregistré avec %s jour(s) de retard. Lancez le bouton Replanifier de l’OF pour recalculer les opérations restantes.') % delta
+                    notif_type = 'danger'
+            mo.message_post(body=message)
+            notification = {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Retour laquage'),
+                    'message': message,
+                    'type': notif_type,
+                    'sticky': True,
+                }
+            }
+        return notification or True
 
     def _compute_laquage_qty(self, subcontractor):
         self.ensure_one()
@@ -286,6 +354,8 @@ class MrpProduction(models.Model):
             vals_update = {**po_link_vals}
             if picking_type:
                 vals_update['picking_type_id'] = picking_type.id
+            if 'laquage_status' in po._fields and po.laquage_status not in ('sent', 'returned'):
+                vals_update['laquage_status'] = 'to_send'
             if self.procurement_group_id and 'group_id' in po._fields:
                 vals_update['group_id'] = self.procurement_group_id.id
             if vals_update:
@@ -309,6 +379,8 @@ class MrpProduction(models.Model):
         }
         if picking_type:
             po_vals['picking_type_id'] = picking_type.id
+        if 'laquage_status' in self.env['purchase.order']._fields:
+            po_vals['laquage_status'] = 'to_send'
         if self.procurement_group_id and 'group_id' in self.env['purchase.order']._fields:
             # Permet de retrouver le PO depuis l'OF comme les achats MTO du même groupe d'approvisionnement.
             po_vals['group_id'] = self.procurement_group_id.id

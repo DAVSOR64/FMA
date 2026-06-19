@@ -7,6 +7,9 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='partner_ref']" position="after">
                 <field name="laquage_production_id" readonly="1"/>
+                <field name="laquage_status" readonly="1"/>
+                <field name="laquage_sent_date" readonly="1"/>
+                <field name="laquage_return_date" readonly="1"/>
             </xpath>
             <xpath expr="//field[@name='order_line']//tree//field[@name='date_planned']" position="after">
                 <field name="laquage_production_id" optional="hide"/>

@@ -6,9 +6,9 @@
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//button[@name='button_plan']" position="after">
-                <button name="action_open_laquage_plan_wizard" type="object" string="Planifier laquage" icon="fa-paint-brush" class="btn-primary" invisible="not laquage_required or state in ('draft','done','cancel')"/>
-                <button name="action_replanifier_laquage" type="object" string="Replanifier laquage" icon="fa-refresh" class="btn-warning" invisible="not laquage_required or state in ('draft','done','cancel')"/>
-                <button name="action_laquage_sent" type="object" string="Envoyé laquage" icon="fa-truck" class="btn-secondary" invisible="laquage_state not in ('planned','to_plan') or state in ('draft','done','cancel')"/>
+                <button name="action_open_laquage_plan_wizard" type="object" string="Planifier laquage" icon="fa-paint-brush" class="btn-primary" invisible="not laquage_required or laquage_state in ('sent','returned') or state in ('draft','done','cancel')"/>
+                <button name="action_replanifier_laquage" type="object" string="Replanifier laquage" icon="fa-refresh" class="btn-warning" invisible="not laquage_required or laquage_state in ('sent','returned') or state in ('draft','done','cancel')"/>
+                <button name="action_laquage_sent" type="object" string="Envoyé laquage" icon="fa-truck" class="btn-secondary" invisible="laquage_state != 'planned' or state in ('draft','done','cancel')"/>
                 <button name="action_laquage_returned" type="object" string="Retour laquage" icon="fa-check" class="btn-success" invisible="laquage_state != 'sent' or state in ('draft','done','cancel')"/>
             </xpath>
             <xpath expr="//sheet" position="inside">
