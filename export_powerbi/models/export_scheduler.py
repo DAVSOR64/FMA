@@ -172,19 +172,50 @@ class ExportSFTPScheduler(models.Model):
             except (TypeError, ValueError):
                 return 0.0
         def create_attachment(filepath, name):
+            """Crée une pièce jointe de contrôle sans accumulation.
+
+            - Quand on lance seulement l'envoi SFTP, le contexte
+              export_powerbi_no_attachment=True désactive la création de PJ.
+            - Quand on lance la génération manuelle, on crée/remplace une seule PJ
+              par nom de fichier. Cela permet de vérifier les CSV dans Odoo sans
+              recréer des milliers de pièces jointes historiques.
+            """
+            if self.env.context.get("export_powerbi_no_attachment"):
+                _logger.info(
+                    "[Export Power BI] Pièce jointe ignorée pour %s "
+                    "(contexte export_powerbi_no_attachment=True)",
+                    name,
+                )
+                return
+
+            Attachment = self.env["ir.attachment"].sudo()
+
+            # Nettoyage ciblé : on remplace l'ancien CSV du même nom au lieu
+            # d'empiler une nouvelle pièce jointe à chaque export.
+            old_attachments = Attachment.search([
+                ("res_model", "=", "export.sftp.scheduler"),
+                ("name", "=", name),
+            ])
+            if old_attachments:
+                _logger.info(
+                    "[Export Power BI] Suppression de %s ancienne(s) PJ pour %s",
+                    len(old_attachments),
+                    name,
+                )
+                old_attachments.unlink()
+
             with open(filepath, "rb") as f:
                 file_content = f.read()
-            self.env["ir.attachment"].create(
-                {
-                    "name": name,
-                    "type": "binary",
-                    "datas": base64.b64encode(file_content).decode(),
-                    "res_model": "export.sftp.scheduler",
-                    "res_id": 0,
-                    "mimetype": "text/csv",
-                }
-            )
-            _logger.info(f"[Export Power BI] Pièce jointe créée : {name}")
+
+            Attachment.create({
+                "name": name,
+                "type": "binary",
+                "datas": base64.b64encode(file_content).decode(),
+                "res_model": "export.sftp.scheduler",
+                "res_id": 0,
+                "mimetype": "text/csv",
+            })
+            _logger.info("[Export Power BI] Pièce jointe créée/remplacée : %s", name)
 
         try:
             # ==================== Clients ====================
@@ -1288,7 +1319,7 @@ class ExportSFTPScheduler(models.Model):
         """
         _logger.info("[Export Power BI] Generation forcee avant envoi SFTP")
         try:
-            self.cron_generate_files()
+            self.with_context(export_powerbi_no_attachment=True).cron_generate_files()
         except Exception as e:
             _logger.exception("[Export Power BI] Echec generation avant envoi SFTP: %s", e)
             # On continue quand même l'envoi des anciens fichiers si le dossier en contient.
