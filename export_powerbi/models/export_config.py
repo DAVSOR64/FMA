@@ -1,4 +1,4 @@
-from odoo import fields, models, _
+from odoo import fields, models
 
 
 class ResConfigSettings(models.TransientModel):
@@ -16,32 +16,3 @@ class ResConfigSettings(models.TransientModel):
     sftp_server_file_path = fields.Char(
         config_parameter="fma_powerbi_export.sftp_server_file_path"
     )
-
-
-    def action_generate_powerbi_files(self):
-        self.ensure_one()
-        self.env["export.sftp.scheduler"].sudo().cron_generate_files()
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": _("Export Power BI"),
-                "message": _("Les fichiers Power BI ont été générés en pièces jointes et dans le dossier temporaire."),
-                "type": "success",
-                "sticky": False,
-            },
-        }
-
-    def action_send_powerbi_files_to_sftp(self):
-        self.ensure_one()
-        self.env["export.sftp.scheduler"].sudo().cron_send_files_to_sftp()
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": _("Export Power BI"),
-                "message": _("Envoi SFTP lancé. Consultez les logs pour le détail."),
-                "type": "success",
-                "sticky": False,
-            },
-        }

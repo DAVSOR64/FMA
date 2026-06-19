@@ -14,10 +14,6 @@
                                     Setup the SFTP server configurations for powerbi export.
                                 </div>
                                 <div class="content-group" id="sftp_settings_group">
-                                    <div class="mt16">
-                                        <button name="action_generate_powerbi_files" type="object" string="Générer les fichiers maintenant" class="btn-primary"/>
-                                        <button name="action_send_powerbi_files_to_sftp" type="object" string="Envoyer au SFTP" class="btn-secondary ms-2"/>
-                                    </div>
                                     <div class="mt16 row">
                                         <label for="sftp_server_host" string="SFTP Server Host" class="col-5 o_light_label"/>
                                         <field name="sftp_server_host" class="col-7"/>
