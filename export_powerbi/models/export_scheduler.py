@@ -55,6 +55,7 @@ class ExportSFTPScheduler(models.Model):
     @api.model
     def cron_generate_files(self):
         """Génère les fichiers Excel pour clients, commandes, factures, et les stocke en pièces jointes"""
+        _logger.info("[Export Power BI] DEMARRAGE generation fichiers")
         today = datetime.now().strftime("%Y%m%d")
         temp_dir = self._get_or_create_temp_dir()
         _logger.info(f"[Export Power BI] Dossier d'export : {temp_dir}")
@@ -1139,6 +1140,7 @@ class ExportSFTPScheduler(models.Model):
                 )
                 create_attachment(component_file, os.path.basename(component_file))
                 _logger.info("[Export Power BI] OF_COMPONENTS: %s lignes", len(component_data))
+                _logger.info("[Export Power BI] Fichiers MRP générés: OF.csv, OF_OPERATIONS.csv, OF_COMPONENTS.csv")
             except Exception as e:
                 _logger.exception("[Export Power BI] ERREUR section OF_COMPONENTS: %s", e)
 
@@ -1278,7 +1280,18 @@ class ExportSFTPScheduler(models.Model):
 
     @api.model
     def cron_send_files_to_sftp(self):
-        """Envoie les fichiers Excel/CSV générés vers le serveur SFTP."""
+        """Génère les fichiers puis les envoie vers le serveur SFTP.
+
+        Important FMA : certains environnements n'exécutent qu'une seule action planifiée
+        (l'envoi SFTP). On force donc la génération juste avant l'envoi afin que les nouveaux
+        fichiers OF.csv, OF_OPERATIONS.csv et OF_COMPONENTS.csv soient toujours présents.
+        """
+        _logger.info("[Export Power BI] Generation forcee avant envoi SFTP")
+        try:
+            self.cron_generate_files()
+        except Exception as e:
+            _logger.exception("[Export Power BI] Echec generation avant envoi SFTP: %s", e)
+            # On continue quand même l'envoi des anciens fichiers si le dossier en contient.
 
         # 🔐 Paramètres SFTP - À ADAPTER AVEC VOS VALEURS SÉCURISÉES
         ICP = self.env["ir.config_parameter"].sudo()

@@ -1,6 +1,6 @@
 {
     "name": "Export PowerBI",
-    "version": "17.0.1.1",
+    "version": "17.0.1.3",
     
     "summary": "Export clients, commandes, factures vers SFTP pour Power BI",
     "depends": ["base", "sale", "account", "purchase", "stock", "mrp", "custom"],
