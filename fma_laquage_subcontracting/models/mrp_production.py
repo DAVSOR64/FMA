@@ -268,6 +268,10 @@ class MrpProduction(models.Model):
                     'message': message,
                     'type': notif_type,
                     'sticky': True,
+                    # Force le rechargement de la fiche OF après fermeture de la notification.
+                    # Sans cela, l'état est bien passé à returned côté serveur,
+                    # mais le header garde parfois les anciens boutons en cache côté client.
+                    'next': {'type': 'ir.actions.client', 'tag': 'reload'},
                 }
             }
         return notification or True
