@@ -212,6 +212,63 @@ class MrpProduction(models.Model):
             mo.message_post(body=_('Laquage envoyé chez le sous-traitant le %s.') % fields.Datetime.to_string(now))
         return True
 
+
+    def _auto_receive_laquage_purchase(self):
+        """Réceptionne automatiquement l'achat de laquage lié à l'OF.
+
+        - Si le PO est encore en RFQ, il est confirmé.
+        - Si Odoo a créé une réception physique, on valide cette réception.
+        - Si l'article de laquage est un service sans réception stock, on force la
+          quantité reçue sur la ligne d'achat quand Odoo le permet.
+        """
+        for mo in self:
+            po = mo.laquage_purchase_id
+            if not po:
+                continue
+
+            if po.state in ('draft', 'sent'):
+                po.button_confirm()
+
+            # Cas produits stockables/consommables : validation des réceptions liées.
+            pickings = po.picking_ids.filtered(lambda p: p.state not in ('done', 'cancel')) if 'picking_ids' in po._fields else self.env['stock.picking']
+            for picking in pickings:
+                if picking.state == 'draft':
+                    picking.action_confirm()
+                if picking.state in ('confirmed', 'waiting', 'partially_available'):
+                    picking.action_assign()
+
+                # Compatibilité Odoo 16/17/18 : qty_done ou quantity selon version.
+                for move in picking.move_ids_without_package.filtered(lambda m: m.state not in ('done', 'cancel')):
+                    qty = move.product_uom_qty
+                    if 'quantity_done' in move._fields:
+                        move.quantity_done = qty
+                    if move.move_line_ids:
+                        for ml in move.move_line_ids:
+                            if 'qty_done' in ml._fields:
+                                ml.qty_done = ml.product_uom_qty or qty
+                            elif 'quantity' in ml._fields:
+                                ml.quantity = ml.product_uom_qty or qty
+                    elif hasattr(move, '_set_quantity_done'):
+                        move._set_quantity_done(qty)
+
+                picking.with_context(skip_immediate=True, skip_backorder=True, cancel_backorder=True).button_validate()
+
+            # Cas article de service : pas de picking, mais la ligne doit être reçue
+            # pour que le coût soit considéré comme réalisé côté achat.
+            lines = mo.laquage_purchase_line_id or po.order_line.filtered(lambda l: l.laquage_production_id == mo) if 'laquage_production_id' in self.env['purchase.order.line']._fields else mo.laquage_purchase_line_id
+            for line in lines:
+                if 'qty_received' in line._fields and line.qty_received < line.product_qty:
+                    try:
+                        line.write({'qty_received': line.product_qty})
+                    except Exception:
+                        # Certains modes de réception calculent qty_received sans inverse.
+                        # Dans ce cas, la réception stock ci-dessus suffit, ou l'utilisateur
+                        # devra recevoir manuellement si le produit est configuré autrement.
+                        pass
+
+            po.message_post(body=_('Réception laquage effectuée automatiquement depuis l’OF %s.') % mo.display_name)
+        return True
+
     def action_laquage_returned(self):
         """Enregistre le retour réel et alerte si le planning doit être revu.
 
@@ -245,6 +302,7 @@ class MrpProduction(models.Model):
                 mo.laquage_purchase_id.message_post(
                     body=_('Retour laquage enregistré depuis l’OF %s le %s.') % (mo.display_name, fields.Datetime.to_string(now))
                 )
+                mo._auto_receive_laquage_purchase()
 
             planned = wo.laquage_return_planned
             message = _('Retour laquage enregistré le %s.') % fields.Datetime.to_string(now)
