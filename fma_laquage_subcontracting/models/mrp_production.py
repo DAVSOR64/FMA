@@ -318,21 +318,20 @@ class MrpProduction(models.Model):
                     message = _('⚠ Retour laquage enregistré avec %s jour(s) de retard. Lancez le bouton Replanifier de l’OF pour recalculer les opérations restantes.') % delta
                     notif_type = 'danger'
             mo.message_post(body=message)
+            wizard = self.env['fma.laquage.return.alert.wizard'].create({
+                'production_id': mo.id,
+                'message': message,
+                'alert_type': notif_type,
+            })
             notification = {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': _('Retour laquage'),
-                    'message': message,
-                    'type': notif_type,
-                    'sticky': True,
-                    # Force le rechargement de la fiche OF après fermeture de la notification.
-                    # Sans cela, l'état est bien passé à returned côté serveur,
-                    # mais le header garde parfois les anciens boutons en cache côté client.
-                    'next': {'type': 'ir.actions.client', 'tag': 'reload'},
-                }
+                'type': 'ir.actions.act_window',
+                'name': _('Retour laquage'),
+                'res_model': 'fma.laquage.return.alert.wizard',
+                'view_mode': 'form',
+                'res_id': wizard.id,
+                'target': 'new',
             }
-        return notification or True
+        return notification or {'type': 'ir.actions.client', 'tag': 'reload'}
 
     def _compute_laquage_qty(self, subcontractor):
         self.ensure_one()
