@@ -10,9 +10,11 @@
                         <setting string="URL webhook">
                             <field name="hubspot_webhook_url" placeholder="https://n8n.showroom-janneau.com/webhook/fma-f2m"/>
                         </setting>
-                        <setting string="Basic Auth">
-                            <field name="hubspot_basic_auth_login"/>
-                            <field name="hubspot_basic_auth_password" password="True"/>
+                        <setting string="Identifiant Basic Auth">
+                            <field name="hubspot_basic_auth_login" placeholder="JanneauFMAF2m"/>
+                        </setting>
+                        <setting string="Mot de passe Basic Auth">
+                            <field name="hubspot_basic_auth_password" password="1" placeholder="Mot de passe"/>
                         </setting>
                         <setting string="Périmètre export">
                             <field name="hubspot_export_only_updated"/>
