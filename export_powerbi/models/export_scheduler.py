@@ -171,19 +171,44 @@ class ExportSFTPScheduler(models.Model):
             except (TypeError, ValueError):
                 return 0.0
         def create_attachment(filepath, name):
+            """Crée/remplace une pièce jointe CSV Power BI.
+
+            Important : on ne conserve qu'une pièce jointe par nom de fichier afin
+            d'éviter l'accumulation massive dans ir_attachment.
+            Les anciens fichiers du même nom sont supprimés avant création du
+            nouveau fichier. On commit après chaque remplacement pour libérer
+            rapidement les verrous sur ir_attachment pendant les exports manuels.
+            """
+            Attachment = self.env["ir.attachment"].sudo().with_context(active_test=False)
+
+            old_attachments = Attachment.search([
+                ("res_model", "=", "export.sftp.scheduler"),
+                ("name", "=", name),
+            ])
+            if old_attachments:
+                _logger.info(
+                    "[Export Power BI] Suppression de %s ancienne(s) pièce(s) jointe(s) : %s",
+                    len(old_attachments),
+                    name,
+                )
+                old_attachments.unlink()
+                self.env.cr.commit()
+
             with open(filepath, "rb") as f:
                 file_content = f.read()
-            self.env["ir.attachment"].create(
-                {
-                    "name": name,
-                    "type": "binary",
-                    "datas": base64.b64encode(file_content).decode(),
-                    "res_model": "export.sftp.scheduler",
-                    "res_id": 0,
-                    "mimetype": "text/csv",
-                }
-            )
-            _logger.info(f"[Export Power BI] Pièce jointe créée : {name}")
+
+            # raw évite une double copie/base64 côté Python, donc consomme moins de mémoire.
+            vals = {
+                "name": name,
+                "type": "binary",
+                "raw": file_content,
+                "res_model": "export.sftp.scheduler",
+                "res_id": 0,
+                "mimetype": "text/csv",
+            }
+            Attachment.create(vals)
+            self.env.cr.commit()
+            _logger.info("[Export Power BI] Pièce jointe créée/remplacée : %s", name)
 
         try:
             # ==================== Clients ====================
@@ -931,6 +956,224 @@ class ExportSFTPScheduler(models.Model):
             except Exception as e:
                 _logger.exception("[Export Power BI] ERREUR section Notes factures: %s", e)
                 
+
+            # ========================================
+            # Ordres de Fabrication (mrp.production) - export batché
+            # ========================================
+            try:
+                production_file = os.path.join(temp_dir, "OF.csv")
+                batch_size = 500
+                total = 0
+                with open(production_file, "w", newline="", encoding="utf-8") as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([
+                        "ID_OF", "OF", "Etat_OF", "ID_Produit_Fini", "Ref_Produit_Fini", "Produit_Fini",
+                        "Quantite", "Unite", "ID_Commande", "Commande", "Ref_Client", "Origine",
+                        "ID_Atelier", "Atelier", "Date_Debut", "Date_Fin", "Date_Fin_Metier",
+                        "Date_Creation", "Date_Modification", "ID_Laqueur", "Laqueur",
+                        "Date_Depart_Laquage_Prevue", "Date_Depart_Laquage_Reelle",
+                        "Date_Retour_Laquage_Prevue", "Date_Retour_Laquage_Reelle",
+                        "ID_PO_Laquage", "PO_Laquage",
+                    ])
+                    last_id = 0
+                    while True:
+                        productions = self.env["mrp.production"].search([("id", ">", last_id)], order="id", limit=batch_size)
+                        if not productions:
+                            break
+                        for mo in productions:
+                            sale = getattr(mo, "sale_id", False)
+                            if not sale:
+                                origin = getattr(mo, "origin", "") or ""
+                                sale = self.env["sale.order"].search([("name", "=", origin)], limit=1) if origin else False
+                            atelier = getattr(mo, "x_atelier_id", False) or getattr(mo, "atelier_id", False) or getattr(mo, "workshop_id", False)
+                            laqueur = getattr(mo, "x_laquage_partner_id", False)
+                            laquage_po = getattr(mo, "x_laquage_purchase_id", False)
+                            date_start = getattr(mo, "date_start", False) or getattr(mo, "date_planned_start", False)
+                            date_finished = getattr(mo, "date_finished", False) or getattr(mo, "date_planned_finished", False)
+                            date_fin_metier = getattr(mo, "x_studio_date_de_fin", False) or getattr(mo, "date_deadline", False)
+                            writer.writerow([_to_cell(cell) for cell in (
+                                mo.id,
+                                mo.name or "",
+                                mo.state or "",
+                                mo.product_id.id if getattr(mo, "product_id", False) else "",
+                                mo.product_id.default_code if getattr(mo, "product_id", False) else "",
+                                mo.product_id.display_name if getattr(mo, "product_id", False) else "",
+                                getattr(mo, "product_qty", 0.0) or 0.0,
+                                mo.product_uom_id.name if getattr(mo, "product_uom_id", False) else "",
+                                sale.id if sale else "",
+                                sale.name if sale else (getattr(mo, "origin", "") or ""),
+                                getattr(sale, "client_order_ref", "") if sale else "",
+                                getattr(mo, "origin", "") or "",
+                                getattr(atelier, "id", "") if atelier else "",
+                                getattr(atelier, "display_name", "") if atelier else "",
+                                date_start,
+                                date_finished,
+                                date_fin_metier,
+                                getattr(mo, "create_date", False),
+                                getattr(mo, "write_date", False),
+                                laqueur.id if laqueur else "",
+                                laqueur.display_name if laqueur else "",
+                                getattr(mo, "x_laquage_depart_date", False) or getattr(mo, "x_laquage_depart_prevue", False) or "",
+                                getattr(mo, "x_laquage_sent_date", False) or getattr(mo, "x_laquage_depart_real_date", False) or "",
+                                getattr(mo, "x_laquage_return_date", False) or getattr(mo, "x_laquage_retour_prevue", False) or "",
+                                getattr(mo, "x_laquage_return_real_date", False) or getattr(mo, "x_laquage_retour_real_date", False) or "",
+                                laquage_po.id if laquage_po else "",
+                                laquage_po.name if laquage_po else "",
+                            )])
+                            total += 1
+                            last_id = mo.id
+                        self.env.clear()
+                create_attachment(production_file, os.path.basename(production_file))
+                _logger.info("[Export Power BI] OF: %s lignes", total)
+            except Exception as e:
+                _logger.exception("[Export Power BI] ERREUR section OF: %s", e)
+
+            # ========================================
+            # Temps de production / opérations OF (mrp.workorder) - export batché
+            # ========================================
+            try:
+                workorder_file = os.path.join(temp_dir, "OF_OPERATIONS.csv")
+                batch_size = 1000
+                total = 0
+                with open(workorder_file, "w", newline="", encoding="utf-8") as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([
+                        "ID_OT", "ID_OF", "OF", "Produit_Fini", "Operation", "ID_Poste", "Poste",
+                        "ID_Employes", "Employes", "Date_Debut_Prevue", "Date_Fin_Prevue",
+                        "Date_Debut_Reelle", "Date_Fin_Reelle", "Temps_Prevu_Min",
+                        "Temps_Reel_Min", "Ecart_Temps_Min", "Etat_OT",
+                    ])
+                    last_id = 0
+                    while True:
+                        workorders = self.env["mrp.workorder"].search([("id", ">", last_id)], order="id", limit=batch_size)
+                        if not workorders:
+                            break
+                        for wo in workorders:
+                            mo = wo.production_id
+                            employee_names = ""
+                            employee_ids = ""
+                            if hasattr(wo, "employee_ids") and wo.employee_ids:
+                                employee_names = ", ".join(wo.employee_ids.mapped("name"))
+                                employee_ids = ", ".join([str(e.id) for e in wo.employee_ids])
+                            elif hasattr(wo, "employee_id") and wo.employee_id:
+                                employee_names = wo.employee_id.name
+                                employee_ids = str(wo.employee_id.id)
+                            date_start = getattr(wo, "date_start", False)
+                            date_finished = getattr(wo, "date_finished", False)
+                            planned_start = getattr(wo, "date_planned_start", False) or date_start
+                            planned_finished = getattr(wo, "date_planned_finished", False) or date_finished
+                            duration_expected = getattr(wo, "duration_expected", 0.0) or 0.0
+                            duration_real = getattr(wo, "duration", 0.0) or 0.0
+                            writer.writerow([_to_cell(cell) for cell in (
+                                wo.id,
+                                mo.id if mo else "",
+                                mo.name if mo else "",
+                                mo.product_id.display_name if mo and getattr(mo, "product_id", False) else "",
+                                wo.name or "",
+                                wo.workcenter_id.id if getattr(wo, "workcenter_id", False) else "",
+                                wo.workcenter_id.display_name if getattr(wo, "workcenter_id", False) else "",
+                                employee_ids,
+                                employee_names,
+                                planned_start,
+                                planned_finished,
+                                date_start,
+                                date_finished,
+                                duration_expected,
+                                duration_real,
+                                duration_real - duration_expected,
+                                wo.state or "",
+                            )])
+                            total += 1
+                            last_id = wo.id
+                        self.env.clear()
+                create_attachment(workorder_file, os.path.basename(workorder_file))
+                _logger.info("[Export Power BI] OF_OPERATIONS: %s lignes", total)
+            except Exception as e:
+                _logger.exception("[Export Power BI] ERREUR section OF_OPERATIONS: %s", e)
+
+            # ========================================
+            # Nomenclature réelle de l'OF / composants à consommer et consommés - export batché
+            # ========================================
+            try:
+                component_file = os.path.join(temp_dir, "OF_COMPONENTS.csv")
+                batch_size = 1000
+                total = 0
+                with open(component_file, "w", newline="", encoding="utf-8") as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([
+                        "ID_Mouvement", "ID_OF", "OF", "Etat_OF", "ID_Produit_Fini", "Ref_Produit_Fini",
+                        "Produit_Fini", "ID_Commande", "Commande", "ID_Composant", "Ref_Composant",
+                        "Composant", "Categorie_Composant", "Unite", "Quantite_A_Consommer",
+                        "Quantite_Consommee", "Ecart_Quantite", "Etat_Mouvement", "ID_Operation",
+                        "Operation", "Lots", "Date_Mouvement", "Date_Debut_OF", "Date_Fin_OF",
+                    ])
+                    last_id = 0
+                    while True:
+                        raw_moves = self.env["stock.move"].search([
+                            ("id", ">", last_id),
+                            ("raw_material_production_id", "!=", False),
+                        ], order="id", limit=batch_size)
+                        if not raw_moves:
+                            break
+                        for move in raw_moves:
+                            mo = move.raw_material_production_id
+                            product = move.product_id
+                            qty_done = 0.0
+                            lots = []
+                            for ml in move.move_line_ids:
+                                qty_done += getattr(ml, "quantity", 0.0) or getattr(ml, "qty_done", 0.0) or 0.0
+                                lot = getattr(ml, "lot_id", False) or getattr(ml, "lot_name", False)
+                                if lot:
+                                    lots.append(getattr(lot, "name", lot))
+                            operation_name = ""
+                            operation_id = ""
+                            workorder = getattr(move, "workorder_id", False)
+                            operation = getattr(move, "operation_id", False)
+                            if workorder:
+                                operation_id = workorder.id
+                                operation_name = workorder.name or ""
+                            elif operation:
+                                operation_id = operation.id
+                                operation_name = operation.name or ""
+                            sale = getattr(mo, "sale_id", False)
+                            if not sale:
+                                origin = getattr(mo, "origin", "") or ""
+                                sale = self.env["sale.order"].search([("name", "=", origin)], limit=1) if origin else False
+                            qty_expected = getattr(move, "product_uom_qty", 0.0) or 0.0
+                            writer.writerow([_to_cell(cell) for cell in (
+                                move.id,
+                                mo.id,
+                                mo.name or "",
+                                mo.state or "",
+                                mo.product_id.id if getattr(mo, "product_id", False) else "",
+                                mo.product_id.default_code if getattr(mo, "product_id", False) else "",
+                                mo.product_id.display_name if getattr(mo, "product_id", False) else "",
+                                sale.id if sale else "",
+                                sale.name if sale else (getattr(mo, "origin", "") or ""),
+                                product.id if product else "",
+                                product.default_code if product else "",
+                                product.display_name if product else "",
+                                product.categ_id.display_name if product and getattr(product, "categ_id", False) else "",
+                                move.product_uom.name if getattr(move, "product_uom", False) else "",
+                                qty_expected,
+                                qty_done,
+                                qty_done - qty_expected,
+                                move.state or "",
+                                operation_id,
+                                operation_name,
+                                ", ".join([str(l) for l in lots]),
+                                getattr(move, "date", False),
+                                getattr(mo, "date_start", False) or getattr(mo, "date_planned_start", False),
+                                getattr(mo, "date_finished", False) or getattr(mo, "date_planned_finished", False),
+                            )])
+                            total += 1
+                            last_id = move.id
+                        self.env.clear()
+                create_attachment(component_file, os.path.basename(component_file))
+                _logger.info("[Export Power BI] OF_COMPONENTS: %s lignes", total)
+            except Exception as e:
+                _logger.exception("[Export Power BI] ERREUR section OF_COMPONENTS: %s", e)
+
             # ========================================
             # Commande Appro (purchase.order)
             # ==========================================

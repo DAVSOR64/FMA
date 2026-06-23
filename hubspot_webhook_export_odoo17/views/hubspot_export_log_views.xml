@@ -57,11 +57,11 @@
               action="hubspot_export_log_action"
               sequence="10"/>
 
-    <record id="action_hubspot_export_clients" model="ir.actions.server">
-        <field name="name">Exporter les clients vers HubSpot</field>
+    <record id="action_hubspot_export_entreprises" model="ir.actions.server">
+        <field name="name">Exporter les entreprises vers HubSpot</field>
         <field name="model_id" ref="base.model_res_partner"/>
         <field name="state">code</field>
-        <field name="code">env["hubspot.webhook.export"].action_export_clients()</field>
+        <field name="code">env["hubspot.webhook.export"].action_export_entreprises()</field>
     </record>
 
     <record id="action_hubspot_export_quotes" model="ir.actions.server">
@@ -70,4 +70,12 @@
         <field name="state">code</field>
         <field name="code">env["hubspot.webhook.export"].action_export_quotes()</field>
     </record>
+
+    <record id="action_hubspot_export_full" model="ir.actions.server">
+        <field name="name">Export HubSpot complet - entreprises et devis</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="state">code</field>
+        <field name="code">env["hubspot.webhook.export"].action_export_all_full()</field>
+    </record>
+
 </odoo>

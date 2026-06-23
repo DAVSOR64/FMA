@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_fma_laquage_slot_user,fma.laquage.slot.user,model_fma_laquage_slot,base.group_user,1,1,1,1
+access_fma_laquage_plan_wizard_user,fma.laquage.plan.wizard.user,model_fma_laquage_plan_wizard,base.group_user,1,1,1,1
+access_fma_laquage_return_alert_wizard_user,fma.laquage.return.alert.wizard.user,model_fma_laquage_return_alert_wizard,base.group_user,1,1,1,1

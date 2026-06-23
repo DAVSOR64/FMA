@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_workorder_tree_laquage" model="ir.ui.view">
+        <field name="name">mrp.workorder.tree.laquage.f2m</field>
+        <field name="model">mrp.workorder</field>
+        <field name="inherit_id" ref="mrp.mrp_production_workorder_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="inside">
+                <field name="is_external_laquage" optional="hide"/>
+                <field name="laquage_state" optional="hide"/>
+                <field name="laquage_departure_planned" optional="hide"/>
+                <field name="laquage_return_planned" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
