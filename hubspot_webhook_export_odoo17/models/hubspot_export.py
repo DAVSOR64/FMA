@@ -17,7 +17,7 @@ class HubspotExportLog(models.Model):
 
     name = fields.Char(required=True)
     export_type = fields.Selection(
-        [("clients", "Clients"), ("quotes", "Chiffrages / Devis")],
+        [("entreprises", "Entreprises"), ("quotes", "Chiffrages / Devis")],
         required=True,
     )
     status = fields.Selection(
@@ -40,86 +40,94 @@ class HubspotWebhookExport(models.AbstractModel):
     # -------------------------------------------------------------------------
 
     @api.model
-    def action_export_clients(self):
-        payload = self._prepare_clients_payload()
-        return self._post_payload("clients", payload)
+    def action_export_entreprises(self, force_full=False):
+        payload = self._prepare_entreprises_payload(force_full=force_full)
+        return self._post_payload("entreprises", payload)
 
     @api.model
-    def action_export_quotes(self):
-        payload = self._prepare_quotes_payload()
+    def action_export_quotes(self, force_full=False):
+        payload = self._prepare_quotes_payload(force_full=force_full)
         return self._post_payload("quotes", payload)
 
     @api.model
-    def cron_export_clients_and_quotes(self):
-        self.action_export_clients()
+    def action_export_all_full(self):
+        """Premier envoi complet : entreprises + devis/commandes."""
+        self.action_export_entreprises(force_full=True)
+        self.action_export_quotes(force_full=True)
+        return True
+
+    @api.model
+    def cron_export_entreprises_and_quotes(self):
+        """Export quotidien. En général : uniquement les modifications si le paramètre est coché."""
+        self.action_export_entreprises()
         self.action_export_quotes()
+        return True
+
+    # Compatibilité avec l'ancienne version du module.
+    @api.model
+    def action_export_clients(self):
+        return self.action_export_entreprises()
+
+    @api.model
+    def cron_export_clients_and_quotes(self):
+        return self.cron_export_entreprises_and_quotes()
 
     # -------------------------------------------------------------------------
-    # Payload clients
+    # Payload entreprises
     # -------------------------------------------------------------------------
 
     @api.model
-    def _prepare_clients_payload(self):
-        partners = self._get_partners_to_export()
-        payload = []
-
-        SaleOrder = self.env["sale.order"].sudo()
+    def _prepare_entreprises_payload(self, force_full=False):
+        partners = self._get_partners_to_export(force_full=force_full)
+        entreprises = []
 
         for partner in partners:
-            commercial_orders = SaleOrder.search_count([
-                ("partner_id", "child_of", partner.id),
-                ("state", "in", ["sale", "done"]),
-            ])
-            quotations = SaleOrder.search_count([
-                ("partner_id", "child_of", partner.id),
-                ("state", "in", ["draft", "sent"]),
-            ])
-
-            created_by = partner.create_uid.name if partner.create_uid else ""
-            tags = ", ".join(partner.category_id.mapped("name"))
-
-            payload.append({
-                "Civilité": partner.title.name or "",
-                "Code Diap": self._safe_get(partner, "x_studio_code_diap"),
-                "Code Tiers": partner.ref or "",
-                "Compte": self._get_receivable_account_code(partner),
-                "Créé le": fields.Date.to_string(partner.create_date.date()) if partner.create_date else "",
-                "Créé par": created_by,
-                "E-mail": partner.email or "",
-                "Nom complet": partner.name or "",
-                "Pays": partner.country_id.name or "",
-                "SIRET": self._safe_get(partner, "siret") or self._safe_get(partner, "x_studio_siret"),
-                "Téléphone": partner.phone or partner.mobile or "",
-                "Ville": partner.city or "",
-                "SIREN": self._safe_get(partner, "x_studio_siren"),
-                "Code postal": partner.zip or "",
-                "Étiquettes": tags,
-                "Nombre de bons de commande": commercial_orders,
-                "Nombre de commandes clients": commercial_orders,
-                "Nom Com": partner.commercial_company_name or "",
-                "Nom": partner.name or "",
-                "Nom d'affichage": partner.display_name or "",
-                "Rue": partner.street or "",
-                "Rue 2": partner.street2 or "",
+            entreprises.append({
+                "odoo_id": partner.id,
+                "client": partner.ref or "",
+                "raison_sociale": partner.commercial_company_name or partner.name or "",
+                "siret": self._get_siret(partner),
+                "siren": self._get_siren(partner),
+                "adresse": self._get_partner_address(partner),
+                "code_postal": partner.zip or "",
+                "ville": partner.city or "",
+                "statut": self._get_partner_status(partner),
+                "date_modification": fields.Date.to_string(partner.write_date.date()) if partner.write_date else "",
             })
 
-        return payload
+        return {"entreprise": entreprises}
 
     @api.model
-    def _get_partners_to_export(self):
-        domain = [("customer_rank", ">", 0), ("active", "=", True)]
-        if self._export_only_updated():
+    def _get_partners_to_export(self, force_full=False):
+        # Sociétés et prospects/clients. On évite les contacts enfants purs pour limiter les doublons.
+        domain = [
+            ("active", "=", True),
+            "|", ("is_company", "=", True), ("parent_id", "=", False),
+            "|", ("customer_rank", ">", 0), ("supplier_rank", "=", 0),
+        ]
+        if self._export_only_updated() and not force_full:
             since = fields.Datetime.now() - timedelta(days=1)
             domain.append(("write_date", ">=", since))
         return self.env["res.partner"].sudo().search(domain)
 
+    @api.model
+    def _get_partner_status(self, partner):
+        if partner.customer_rank and partner.customer_rank > 0:
+            return "client"
+        return "prospect"
+
+    @api.model
+    def _get_partner_address(self, partner):
+        parts = [partner.street or "", partner.street2 or ""]
+        return ", ".join([p for p in parts if p])
+
     # -------------------------------------------------------------------------
-    # Payload devis / chiffrages
+    # Payload devis / commandes
     # -------------------------------------------------------------------------
 
     @api.model
-    def _prepare_quotes_payload(self):
-        orders = self._get_sale_orders_to_export()
+    def _prepare_quotes_payload(self, force_full=False):
+        orders = self._get_sale_orders_to_export(force_full=force_full)
         data = []
 
         for order in orders:
@@ -128,35 +136,36 @@ class HubspotWebhookExport(models.AbstractModel):
             date_envoi = self._get_quotation_sent_date(order)
 
             data.append({
+                "odoo_id": partner.id,
+                "Client": partner.ref or "",
                 "Devis": order.name or "",
-                "Client": partner.ref or str(partner.id),
-                "Activite": self._get_order_activity(order),
-                "Prix": order.amount_total,
-                "Date_Creation": fields.Date.to_string(date_creation) if date_creation else "",
-                "Date_Envoi": fields.Date.to_string(date_envoi) if date_envoi else "",
-                "Message": "",
-                "Chantier": self._get_site_name(order),
-                "SIREN": self._safe_get(partner, "x_studio_siren"),
-                "SIRET": self._safe_get(partner, "siret") or self._safe_get(partner, "x_studio_siret"),
-                "Proprietaire": order.user_id.name or "",
                 "Commande": order.name if order.state in ["sale", "done"] else "",
                 "statut_chiffrage": self._map_order_status(order),
+                "statut_odoo": order.state or "",
+                "Prix": order.amount_total,
+                "SIRET": self._get_siret(partner),
+                "SIREN": self._get_siren(partner),
+                "Chantier": self._get_site_name(order),
+                "Proprietaire": order.user_id.name or "",
+                "Date_Creation": fields.Date.to_string(date_creation) if date_creation else "",
+                "Date_Envoi": fields.Date.to_string(date_envoi) if date_envoi else "",
+                # Champs conservés pour compatibilité avec la première structure reçue.
+                "Activite": self._get_order_activity(order),
+                "Message": "",
             })
 
         return {"data": data}
 
     @api.model
-    def _get_sale_orders_to_export(self):
+    def _get_sale_orders_to_export(self, force_full=False):
         domain = [("state", "in", ["draft", "sent", "sale", "done", "cancel"])]
-        if self._export_only_updated():
+        if self._export_only_updated() and not force_full:
             since = fields.Datetime.now() - timedelta(days=1)
             domain.append(("write_date", ">=", since))
         return self.env["sale.order"].sudo().search(domain)
 
     @api.model
     def _get_quotation_sent_date(self, order):
-        # Odoo ne stocke pas toujours une date d'envoi standard.
-        # On prend la première date d'un message sortant si disponible.
         message = self.env["mail.message"].sudo().search([
             ("model", "=", "sale.order"),
             ("res_id", "=", order.id),
@@ -166,12 +175,10 @@ class HubspotWebhookExport(models.AbstractModel):
 
     @api.model
     def _get_order_activity(self, order):
-        # À adapter si vous avez un champ Studio activité/récap du devis.
         return self._safe_get(order, "x_studio_activite") or order.note or ""
 
     @api.model
     def _get_site_name(self, order):
-        # À adapter selon le champ chantier réellement utilisé.
         return (
             self._safe_get(order, "x_studio_chantier")
             or self._safe_get(order, "x_studio_nom_chantier")
@@ -200,109 +207,62 @@ class HubspotWebhookExport(models.AbstractModel):
         url = params.get_param("hubspot_export.webhook_url")
         login = params.get_param("hubspot_export.basic_auth_login")
         password = params.get_param("hubspot_export.basic_auth_password")
-        batch_size = self._get_batch_size()
 
         if not url:
             raise UserError(_("L'URL du webhook n'est pas configurée."))
         if not login or not password:
             raise UserError(_("L'identifiant ou le mot de passe Basic Auth n'est pas configuré."))
 
-        records = self._extract_payload_records(payload)
-        total_count = len(records)
+        record_count = self._count_payload_records(payload)
 
-        if not total_count:
+        try:
+            response = requests.post(
+                url,
+                auth=(login, password),
+                json=payload,
+                timeout=60,
+                headers={"Content-Type": "application/json"},
+            )
+            success = 200 <= response.status_code < 300
+
             self._create_log(
                 export_type=export_type,
-                status="success",
-                record_count=0,
-                response_code=0,
-                message=_("Aucune donnée à exporter."),
+                status="success" if success else "error",
+                record_count=record_count,
+                response_code=response.status_code,
+                message=response.text[:2000],
                 payload=payload,
             )
+
+            if not success:
+                raise UserError(_("Erreur webhook %s : %s") % (response.status_code, response.text[:500]))
+
             return True
 
-        for batch_number, batch_records in enumerate(self._chunk_records(records, batch_size), start=1):
-            batch_payload = self._build_batch_payload(payload, batch_records)
-            batch_count = len(batch_records)
-            message_prefix = _("Lot %(batch_number)s - %(batch_count)s/%(total_count)s enregistrements") % {
-                "batch_number": batch_number,
-                "batch_count": batch_count,
-                "total_count": total_count,
-            }
-
-            try:
-                response = requests.post(
-                    url,
-                    auth=(login, password),
-                    json=batch_payload,
-                    timeout=60,
-                    headers={"Content-Type": "application/json"},
-                )
-                success = 200 <= response.status_code < 300
-
-                self._create_log(
-                    export_type=export_type,
-                    status="success" if success else "error",
-                    record_count=batch_count,
-                    response_code=response.status_code,
-                    message="%s\n%s" % (message_prefix, response.text[:2000]),
-                    payload=batch_payload,
-                )
-
-                if not success:
-                    raise UserError(
-                        _("Erreur webhook %(code)s sur %(prefix)s : %(message)s") % {
-                            "code": response.status_code,
-                            "prefix": message_prefix,
-                            "message": response.text[:500],
-                        }
-                    )
-
-            except requests.RequestException as exc:
-                self._create_log(
-                    export_type=export_type,
-                    status="error",
-                    record_count=batch_count,
-                    response_code=0,
-                    message="%s\n%s" % (message_prefix, str(exc)),
-                    payload=batch_payload,
-                )
-                _logger.exception("Erreur lors de l'export HubSpot")
-                raise UserError(_("Erreur lors de l'appel au webhook : %s") % exc)
-
-        return True
+        except requests.RequestException as exc:
+            self._create_log(
+                export_type=export_type,
+                status="error",
+                record_count=record_count,
+                response_code=0,
+                message=str(exc),
+                payload=payload,
+            )
+            _logger.exception("Erreur lors de l'export HubSpot")
+            raise UserError(_("Erreur lors de l'appel au webhook : %s") % exc)
 
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
 
     @api.model
-    def _get_batch_size(self):
-        value = self.env["ir.config_parameter"].sudo().get_param("hubspot_export.batch_size", "100")
-        try:
-            batch_size = int(value)
-        except (TypeError, ValueError):
-            batch_size = 100
-        return max(batch_size, 1)
-
-    @api.model
-    def _extract_payload_records(self, payload):
+    def _count_payload_records(self, payload):
         if isinstance(payload, dict):
-            return payload.get("data", []) or []
-        return payload or []
-
-    @api.model
-    def _build_batch_payload(self, original_payload, batch_records):
-        if isinstance(original_payload, dict):
-            batch_payload = dict(original_payload)
-            batch_payload["data"] = batch_records
-            return batch_payload
-        return batch_records
-
-    @api.model
-    def _chunk_records(self, records, batch_size):
-        for index in range(0, len(records), batch_size):
-            yield records[index:index + batch_size]
+            if "data" in payload:
+                return len(payload.get("data") or [])
+            if "entreprise" in payload:
+                return len(payload.get("entreprise") or [])
+        return len(payload) if isinstance(payload, list) else 0
 
     @api.model
     def _create_log(self, export_type, status, record_count, response_code, message, payload):
@@ -327,9 +287,16 @@ class HubspotWebhookExport(models.AbstractModel):
         return ""
 
     @api.model
-    def _get_receivable_account_code(self, partner):
-        prop = partner.property_account_receivable_id
-        return prop.code if prop else ""
+    def _get_siret(self, partner):
+        return self._safe_get(partner, "siret") or self._safe_get(partner, "x_studio_siret") or ""
+
+    @api.model
+    def _get_siren(self, partner):
+        siren = self._safe_get(partner, "x_studio_siren")
+        if siren:
+            return siren
+        siret = self._get_siret(partner)
+        return siret[:9] if siret and len(siret) >= 9 else ""
 
     @api.model
     def _export_only_updated(self):
