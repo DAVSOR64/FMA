@@ -9,9 +9,10 @@
     "summary": "Custom delete button",
     "author": "Odoo PS",
     "version": "19.0.1.0.1",
-    "depends": ["custom"],
+    "depends": ["custom", "hr", "studio_customization"],
     "data": [
         "views/mail_templates.xml",
+        "views/hr_employee_access_fix.xml",
     ],
     "license": "LGPL-3",
 }

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Fix: Access Rights Inconsistency on hr.employee form (Studio customization).
+        - "Print Badge" button depends on field `barcode` (hr.group_hr_user only)
+        - span depends on `is_user_active` (hr.group_hr_user only)
+        Both were visible to base.group_system who cannot read those fields.
+    -->
+    <record id="hr_employee_form_studio_access_fix" model="ir.ui.view">
+        <field name="name">hr.employee.form.studio.access.fix</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="studio_customization.odoo_studio_hr_emplo_77f50555-955f-47ab-a3d8-c686e649c1e2"/>
+        <field name="arch" type="xml">
+            <button name="720" string="Print Badge" position="attributes">
+                <attribute name="groups">hr.group_hr_user</attribute>
+            </button>
+            <span invisible="not user_id or is_user_active" position="attributes">
+                <attribute name="groups">hr.group_hr_user</attribute>
+            </span>
+        </field>
+    </record>
+</odoo>
