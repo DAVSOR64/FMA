@@ -8,11 +8,11 @@
     """,
     "summary": "Custom delete button",
     "author": "Odoo PS",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "depends": ["custom", "hr"],
     "data": [
         "views/mail_templates.xml",
-        "views/hr_employee_access_fix.xml",
     ],
+    "post_init_hook": "post_init_hook",
     "license": "LGPL-3",
 }
