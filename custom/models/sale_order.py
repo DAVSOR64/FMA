@@ -208,7 +208,7 @@ class SaleOrder(models.Model):
     so_date_bon_pour_fab = fields.Date(string="Bon pour Fab. le : ")
     so_date_de_fin_de_production_reel = fields.Date(string="Fin de production du : ")
     so_date_de_livraison = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison', store=True)
-    so_date_de_livraison_prevu = fields.Date(string="Livraison prévue le : ")
+    so_date_de_livraison_prevu = fields.Date(string="Date livraison saisie")
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 
@@ -224,11 +224,11 @@ class SaleOrder(models.Model):
 
     so_prc_marge_brute_devis_display = fields.Char(
         compute='_compute_so_prc_marge_brute_devis_display',
-        string="Marge Brute en % (Devis)"
+        string="Marge Brute % Devis (affiché)"
     )
     so_prc_mcv_devis_display = fields.Char(
         compute='_compute_so_prc_mcv_devis_display',
-        string="M.C.V. en % (Devis)"
+        string="M.C.V. % Devis (affiché)"
     )
 
     @api.depends('so_prc_marge_brute_devis')
@@ -255,11 +255,11 @@ class SaleOrder(models.Model):
 
     so_prc_marge_brute_be_display = fields.Char(
         compute='_compute_so_prc_marge_brute_be_display',
-        string="Marge Brute en % (B.E.)"
+        string="Marge Brute % B.E. (affiché)"
     )
     so_prc_mcv_be_display = fields.Char(
         compute='_compute_so_prc_mcv_be_display',
-        string="M.C.V. en % (B.E.)"
+        string="M.C.V. % B.E. (affiché)"
     )
 
     @api.depends('so_prc_marge_brute_be')
@@ -286,11 +286,11 @@ class SaleOrder(models.Model):
 
     so_prc_marge_brute_reel_display = fields.Char(
         compute='_compute_so_prc_marge_brute_reel_display',
-        string="Marge Brute en % (Réel)"
+        string="Marge Brute % Réel (affiché)"
     )
     so_prc_mcv_reel_display = fields.Char(
         compute='_compute_so_prc_mcv_reel_display',
-        string="M.C.V. en % (Réel)"
+        string="M.C.V. % Réel (affiché)"
     )
 
     @api.depends('so_prc_marge_brute_reel')

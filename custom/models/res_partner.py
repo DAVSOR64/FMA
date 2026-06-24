@@ -116,7 +116,7 @@ class ResPartner(models.Model):
     part_iban = fields.Char(string="IBAN")
     part_affacturage = fields.Boolean(string="Affacturage")
     part_couverture = fields.Boolean(string="ALLIANZ ND COVER")
-    part_date_couverture = fields.Date(string="ALLIANZ ND COVER")
+    part_date_couverture = fields.Date(string="ALLIANZ ND COVER (date)")
     part_montant_couverture = fields.Float(string="ALLIANZ COUVERTURE EULEUR")
     part_decision = fields.Char(string="ASSURANCE-CREDIT")
     part_code_tiers = fields.Integer(string="Code Tiers")

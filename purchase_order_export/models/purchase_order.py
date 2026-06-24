@@ -372,11 +372,11 @@ class PurchaseOrder(models.Model):
     # -------------------------------------------------------------
     # CHAMPS DETAIL LAQUAGE (sur purchase.order)
     # -------------------------------------------------------------
-    so_carton_qty = fields.Integer(string="Qté")
-    so_botte_qty = fields.Integer(string="Qté")
-    so_botte_length = fields.Float(string="Longueur (en m)")
-    so_palette_qty = fields.Integer(string="Qté")
-    so_palette_length = fields.Float(string="Longueur (en m)")
+    so_carton_qty = fields.Integer(string="Qté Cartons")
+    so_botte_qty = fields.Integer(string="Qté Bottes")
+    so_botte_length = fields.Float(string="Longueur Botte (en m)")
+    so_palette_qty = fields.Integer(string="Qté Palettes")
+    so_palette_length = fields.Float(string="Longueur Palette (en m)")
     so_palette_depth = fields.Float(string="Profondeur (en m)")
     so_palette_height = fields.Float(string="Hauteur (en m)")
     so_poids_total = fields.Float(string="Poids (en kg)")

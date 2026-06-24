@@ -6,7 +6,7 @@ class SaleOrder(models.Model):
 
     # Taxes à facturer (TTC - HT calculé via moteur de taxes sur qty_to_invoice)
     amount_to_invoice_tax = fields.Monetary(
-        string="Taxes",
+        string="Taxes à facturer",
         currency_field="currency_id",
         compute="_compute_amount_to_invoice_tax",
         store=True,

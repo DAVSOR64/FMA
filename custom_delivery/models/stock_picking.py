@@ -32,8 +32,8 @@ class StockPicking(models.Model):
         return res
 
     # Champs détail colisage
-    so_carton_qty = fields.Integer(string="Qté")
-    so_botte_qty = fields.Integer(string="Qté")
+    so_carton_qty = fields.Integer(string="Qté Cartons")
+    so_botte_qty = fields.Integer(string="Qté Bottes")
     so_botte_length = fields.Float(string="Longueur (en mm)")
     so_poids_total = fields.Float(string="Poids (en kg)")
 
