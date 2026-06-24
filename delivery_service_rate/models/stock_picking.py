@@ -1,75 +1,32 @@
 # -*- coding: utf-8 -*-
-from odoo import models, fields, api, _
-from odoo.exceptions import UserError
+from odoo import api, fields, models
 
 
 class StockPicking(models.Model):
     _inherit = "stock.picking"
 
-    # ---- Lien vers la commande/devis source ----
-    sale_id = fields.Many2one(
-        "sale.order",
-        string="Commande de vente",
-        compute="_compute_sale_id",
-        store=True,
-        readonly=True,
-    )
-
-    # True si livré avant OU dans la même semaine ISO que la date prévue (SO)
-    delivered_on_time = fields.Boolean(
-        string="Livré à temps",
-        compute="_compute_delivered_on_time",
-        store=True,
-    )
-
-    # AAAA-MM basé sur la date effective (en TZ utilisateur)
-    delivery_month = fields.Char(
-        string="Mois de livraison",
-        compute="_compute_delivery_month",
-        store=True,
-    )
-
-    # % du taux de service du mois (non stocké)
-    service_rate_percent = fields.Float(
-        string="Taux de service (%)",
-        compute="_compute_service_rate_percent",
-        store=False,
-    )
-
-    # --- Motif + indicateurs (gestion modif date planifiée) ---
     planned_date_reason = fields.Selection(
-        selection=[
+        [
             ("supplier", "Fournisseur"),
             ("internal", "Cause interne"),
             ("customer", "Client"),
         ],
-        string="Motif changement",
-        help="Obligatoire si la Date planifiée est modifiée (sur livraison client).",
-        tracking=True,
+        string="Motif changement date prévue",
+        copy=False,
     )
-
     planned_date_changed = fields.Boolean(
-        string="Date planifiée modifiée",
+        string="Date prévue modifiée",
+        copy=False,
         default=False,
-        readonly=True,
-        tracking=True,
     )
-
-    # Livraison client ? (outgoing/customer)
+    require_planned_date_reason = fields.Boolean(
+        string="Motif requis",
+        compute="_compute_require_planned_date_reason",
+    )
     is_customer_delivery = fields.Boolean(
         string="Livraison client",
         compute="_compute_is_customer_delivery",
-        store=True,
-        readonly=True,
     )
-
-    # Helper UI (non stocké) : indique qu'on modifie la date en ce moment
-    require_planned_date_reason = fields.Boolean(
-        compute="_compute_require_planned_date_reason",
-        store=False,
-    )
-
-    # ----- Computes -----
 
     @api.depends("move_ids", "origin")
     def _compute_sale_id(self):
@@ -80,9 +37,7 @@ class StockPicking(models.Model):
                 sale = SaleOrder.search([("name", "=", picking.origin)], limit=1)
             if not sale and picking.move_ids:
                 try:
-                    sale_lines = picking.move_ids.mapped(
-                        "sale_line_id"
-                    )  # si sale_stock absent -> except
+                    sale_lines = picking.move_ids.mapped("sale_line_id")
                     if sale_lines:
                         sale = sale_lines.mapped("order_id")[:1]
                 except Exception:
@@ -131,7 +86,6 @@ class StockPicking(models.Model):
     @api.depends("delivery_month", "delivered_on_time", "state")
     def _compute_service_rate_percent(self):
         months = set(self.mapped("delivery_month")) - {""}
-        
         domain = [
             ("state", "=", "done"),
             "|",
@@ -173,73 +127,30 @@ class StockPicking(models.Model):
 
     @api.depends("picking_type_id.code", "location_dest_id.usage")
     def _compute_is_customer_delivery(self):
-        for rec in self:
-            code = rec.picking_type_id.code if rec.picking_type_id else False
-            usage = rec.location_dest_id.usage if rec.location_dest_id else False
-            rec.is_customer_delivery = (code == "outgoing") or (usage == "customer")
+        for picking in self:
+            picking.is_customer_delivery = picking.picking_type_id.code == "outgoing"
 
-    # ---- Garde-fou serveur : exiger un motif sur livraison client quand la date CHANGE (pas à la création / 1er write)
+    @api.onchange("scheduled_date")
+    def _onchange_scheduled_date_planned_date_reason(self):
+        for picking in self:
+            if (
+                picking.picking_type_id.code == "outgoing"
+                and picking._origin
+                and picking._origin.scheduled_date
+                and picking.scheduled_date
+                and picking.scheduled_date != picking._origin.scheduled_date
+            ):
+                picking.planned_date_changed = True
+                picking.require_planned_date_reason = True
+
     def write(self, vals):
-        planned_date_changed_now = False
-        old_dates_by_id = {}
-
         if "scheduled_date" in vals:
-            new_dt = (
-                fields.Datetime.to_datetime(vals.get("scheduled_date"))
-                if vals.get("scheduled_date")
-                else False
-            )
-            for rec in self:
-                # 1) Si c'est le tout premier write après create, on n'impose pas
-                is_first_write = not bool(rec.write_date) or (
-                    rec.create_date
-                    and rec.write_date
-                    and rec.write_date <= rec.create_date
-                )
-                old_dates_by_id[rec.id] = rec.scheduled_date
-
-                if is_first_write:
-                    # on laisse passer sans contrôle au premier write
-                    continue
-
-                # 2) Contrôle uniquement si véritable changement d'une valeur existante
-                if new_dt and rec.scheduled_date and new_dt != rec.scheduled_date:
-                    planned_date_changed_now = True
-                    if rec.is_customer_delivery:
-                        reason = (
-                            vals.get("planned_date_reason") or rec.planned_date_reason
-                        )
-                        if not reason:
-                            raise UserError(
-                                _(
-                                    "Veuillez sélectionner un 'Motif changement' (Fournisseur, Cause interne ou Client) pour une livraison client."
-                                )
-                            )
-
-        res = super().write(vals)
-
-        if planned_date_changed_now:
-            for rec in self:
-                old_dt = old_dates_by_id.get(rec.id)
-                if old_dt:
-                    if rec.is_customer_delivery:
-                        rec.sudo().write({"planned_date_changed": True})
-                    rec.message_post(
-                        body=_("Date planifiée modifiée : %s → %s%s")
-                        % (
-                            fields.Datetime.to_string(old_dt),
-                            fields.Datetime.to_string(rec.scheduled_date),
-                            (
-                                "<br/>Motif : %s"
-                                % (
-                                    dict(
-                                        rec._fields["planned_date_reason"].selection
-                                    ).get(rec.planned_date_reason, "")
-                                    or "-"
-                                )
-                            )
-                            if rec.is_customer_delivery
-                            else "",
-                        )
-                    )
-        return res
+            for picking in self:
+                if (
+                    picking.picking_type_id.code == "outgoing"
+                    and picking.scheduled_date
+                    and vals.get("scheduled_date")
+                    and str(picking.scheduled_date) != str(vals.get("scheduled_date"))
+                ):
+                    vals.setdefault("planned_date_changed", True)
+        return super().write(vals)

@@ -841,50 +841,75 @@ class MrpProduction(models.Model):
     # ============================================================
     def _get_effective_duration_hours(self, wo):
         """
-        Retourne (duration_hours_effective, nb_resources) pour un workorder,
-        en appliquant les règles de capacité par poste (x_capacite_par_poste).
+        Retourne (duration_hours_effective, nb_resources) pour un workorder.
 
-        Logique :
-        - On récupère la durée brute du WO en heures
-        - On cherche une règle active sur le workcenter :
-            duration_min <= duration_hours < duration_max  (duration_max=0 => illimité)
-        - Si trouvée : duration_effective = duration_hours / nb_resources
-        - Sinon : durée brute, 1 ressource
+        IMPORTANT FMA :
+        - wo.duration_expected est stocké en MINUTES par Odoo MRP.
+          Exemple affiché 4806:00 => 4806 minutes => 80,10 heures.
+        - les règles Studio x_capacite_par_poste sont saisies en HEURES
+          dans x_studio_dure_min / x_studio_dure_max.
+        - on compare donc TOUJOURS duration_expected / 60 avec les seuils Studio.
+        - pour la planification calendrier : durée effective = heures brutes / nb ressources.
+        - pour la charge macro-planning : la charge reste la durée brute en heures-homme.
         """
-        duration_minutes = wo.duration_expected or 0.0
+        duration_minutes = float(wo.duration_expected or 0.0)
         duration_hours = duration_minutes / 60.0
 
         wc = wo.workcenter_id
-        if not wc or 'x_capacite_par_poste' not in self.env:
+        if not wc:
+            _logger.info(
+                "CAPACITY_RULE_NO_WC | WO=%s | duration_expected=%.2f min = %.2f h | nb=1",
+                wo.name, duration_minutes, duration_hours
+            )
             return duration_hours, 1
 
-        # Chercher la règle correspondante
-        rules = self.env['x_capacite_par_poste'].search([
-            ('x_studio_poste', '=', wc.id),
-        ])
+        try:
+            Rule = self.env['x_capacite_par_poste']
+        except Exception:
+            _logger.info(
+                "CAPACITY_RULE_NO_MODEL | WO=%s | wc=%s(%s) | duration_expected=%.2f min = %.2f h | nb=1",
+                wo.name, wc.display_name, wc.id, duration_minutes, duration_hours
+            )
+            return duration_hours, 1
+
+        rules = Rule.search([('x_studio_poste', '=', wc.id)])
+        _logger.info(
+            "CAPACITY_RULE_SEARCH | WO=%s | wc=%s(%s) | duration_expected=%.2f min = %.2f h | rules_found=%s",
+            wo.name, wc.display_name, wc.id, duration_minutes, duration_hours, len(rules)
+        )
+
+        # Les seuils sont saisis en heures : on prend la règle la plus spécifique d'abord.
+        rules = rules.sorted(lambda r: float(r.x_studio_dure_min or 0.0), reverse=True)
 
         matched_rule = None
         for rule in rules:
-            d_min = rule.x_studio_dure_min or 0.0
-            d_max = rule.x_studio_dure_max or 0.0
-            nb_res = rule.x_studio_nbre_ressources or 1
+            d_min_h = float(rule.x_studio_dure_min or 0.0)
+            d_max_h = float(rule.x_studio_dure_max or 0.0)
+            nb_res = max(1, int(rule.x_studio_nbre_ressources or 1))
 
-            if duration_hours >= d_min:
-                if d_max == 0.0 or duration_hours < d_max:
-                    matched_rule = rule
-                    break
+            _logger.info(
+                "CAPACITY_RULE_CHECK | WO=%s | rule=%s | min=%.2f h max=%.2f h | nb=%s | duration=%.2f h",
+                wo.name, rule.id, d_min_h, d_max_h, nb_res, duration_hours
+            )
+
+            if duration_hours >= d_min_h and (not d_max_h or duration_hours < d_max_h):
+                matched_rule = rule
+                break
 
         if not matched_rule:
+            _logger.warning(
+                "CAPACITY_RULE_NO_MATCH | WO=%s | wc=%s(%s) | duration_expected=%.2f min = %.2f h | nb=1",
+                wo.name, wc.display_name, wc.id, duration_minutes, duration_hours
+            )
             return duration_hours, 1
 
-        nb_resources = max(1, matched_rule.x_studio_nbre_ressources or 1)
+        nb_resources = max(1, int(matched_rule.x_studio_nbre_ressources or 1))
         effective_hours = duration_hours / nb_resources
 
         _logger.info(
-            "WO %s (%s) | durée brute=%.2fh | règle: %.0f-%.0fh => %d ressources | durée effective=%.2fh",
-            wo.name, wc.display_name,
-            duration_hours,
-            matched_rule.x_studio_dure_min, matched_rule.x_studio_dure_max,
+            "CAPACITY_RULE_MATCH | WO=%s | wc=%s(%s) | duration_expected=%.2f min = %.2f h | rule=%s min=%s h max=%s h | nb=%s | effective=%.2f h",
+            wo.name, wc.display_name, wc.id, duration_minutes, duration_hours,
+            matched_rule.id, matched_rule.x_studio_dure_min, matched_rule.x_studio_dure_max,
             nb_resources, effective_hours
         )
 
@@ -1097,6 +1122,21 @@ class MrpProduction(models.Model):
         ctx._update_mo_dates_from_macro(forced_end_dt=fixed_end_dt)
         ctx._update_components_picking_dates()
         self._refresh_charge_cache_for_production()
+        return True
+
+    def _refresh_charge_cache_for_production(self):
+        """Rafraichit les caches Macro Planning apres planification d'un OF.
+
+        Ordre important : charge d'abord, puis capacite.
+        La capacite ajoute ensuite les lignes a 0 h pour les postes charges sans ressource.
+        """
+        try:
+            if 'mrp.workorder.charge.cache' in self.env:
+                self.env['mrp.workorder.charge.cache'].refresh()
+            if 'mrp.capacite.cache' in self.env:
+                self.env['mrp.capacite.cache'].refresh()
+        except Exception as e:
+            _logger.error("Erreur refresh caches macro planning OF %s : %s", self.mapped('name'), e)
         return True
 
     @api.model

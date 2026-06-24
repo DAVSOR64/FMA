@@ -1,0 +1,45 @@
+/* =====================================================
+   OPERATEUR CONNECTE
+   ===================================================== */
+
+.o_admin_user {
+    background: #eef6ff !important;
+    border-left: 6px solid #2563eb !important;
+}
+
+.o_admin_user .fw-bold {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #1e40af !important;
+    line-height: 1.2;
+}
+
+.o_admin_user .fw-bold::after {
+    content: " ● CONNECTÉ";
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 4px;
+}
+
+/* =====================================================
+   OT EN COURS
+   ===================================================== */
+
+.o_mrp_display_record.o_active {
+    background: #e8fff0 !important;
+    border-left: 10px solid #00a651 !important;
+    box-shadow: 0 0 8px rgba(0,166,81,.25);
+}
+
+.o_mrp_display_record.o_active::before {
+    content: "▶ EN COURS";
+    display: block;
+    background: #00a651;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    padding: 4px;
+    margin-bottom: 6px;
+    font-size: 12px;
+}

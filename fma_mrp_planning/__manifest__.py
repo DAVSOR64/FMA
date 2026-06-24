@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 {
     'name': 'FMA MRP Planning Compatibility Shim',
     'version': '19.0.1.0.0',
@@ -6,6 +7,5 @@
     'depends': ['mrp_capacity_planning'],
     'installable': True,
     'application': False,
-    'auto_install': False,
     'license': 'LGPL-3',
 }
