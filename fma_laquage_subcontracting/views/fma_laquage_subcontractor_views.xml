@@ -23,7 +23,7 @@
                         </group>
                     </group>
                     <field name="laquage_slot_ids" invisible="not is_laquage_supplier">
-                        <tree editable="bottom">
+                        <list editable="bottom">
                             <field name="active"/>
                             <field name="departure_weekday"/>
                             <field name="return_weekday"/>
@@ -39,7 +39,7 @@
     <record id="action_fma_laquage_suppliers" model="ir.actions.act_window">
         <field name="name">Sous-traitants laquage</field>
         <field name="res_model">res.partner</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="domain">[('is_laquage_supplier', '=', True)]</field>
         <field name="context">{'default_is_laquage_supplier': True, 'default_supplier_rank': 1}</field>
     </record>

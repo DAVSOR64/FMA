@@ -3,7 +3,7 @@
         <field name="name">hubspot.export.log.tree</field>
         <field name="model">hubspot.export.log</field>
         <field name="arch" type="xml">
-            <tree string="Logs export HubSpot" create="false">
+            <list string="Logs export HubSpot" create="false">
                 <field name="create_date"/>
                 <field name="export_type"/>
                 <field name="status"/>
@@ -43,7 +43,7 @@
     <record id="hubspot_export_log_action" model="ir.actions.act_window">
         <field name="name">Logs export HubSpot</field>
         <field name="res_model">hubspot.export.log</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <menuitem id="hubspot_export_menu_root"

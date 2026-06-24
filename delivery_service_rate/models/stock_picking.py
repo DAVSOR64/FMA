@@ -19,6 +19,13 @@ class StockPicking(models.Model):
         copy=False,
         default=False,
     )
+    delivered_on_time = fields.Boolean(
+        string="Delivered On Time",
+        compute="_compute_delivered_on_time",
+        store=True,
+        readonly=True,
+        copy=False,
+    )
     require_planned_date_reason = fields.Boolean(
         string="Motif requis",
         compute="_compute_require_planned_date_reason",
