@@ -35,5 +35,7 @@
     <!-- Menu -->
     <menuitem id="menu_delivery_service_graph_percent"
               name="Taux de service %"
-              action="action_delivery_service_rate_monthly"/>
+              parent="stock.menu_stock_reporting"
+              action="action_delivery_service_rate_monthly"
+              sequence="20"/>
 </odoo>
