@@ -78,7 +78,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr t-foreach="doc.move_ids_without_package" t-as="line" t-if="line.product_id.default_code">
+                    <tr t-foreach="doc.move_ids" t-as="line" t-if="line.product_id.default_code">
                         <td>
                             <span t-field="line.product_id.default_code" />
                         </td>
@@ -107,7 +107,7 @@
             <!-- Poids total -->
             <div class="total_weight_section"
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
-                ⚖️ Poids total : <span t-esc="sum(line.product_id.weight * line.product_uom_qty for line in doc.move_ids_without_package)"/> kg
+                ⚖️ Poids total : <span t-esc="sum(line.product_id.weight * line.product_uom_qty for line in doc.move_ids)"/> kg
             </div>
         </xpath>
     </template>

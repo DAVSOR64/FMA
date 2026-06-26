@@ -90,7 +90,7 @@
                 </thead>
                 <tbody>
                     <!-- Boucle à travers les lignes de mouvement de stock -->
-                    <tr t-foreach="o.move_ids_without_package" t-as="line" t-if="line.product_id.default_code and not line.product_id.default_code.startswith('ECO') and not any(route.sequence == 2 for route in line.product_id.route_ids)">
+                    <tr t-foreach="o.move_ids" t-as="line" t-if="line.product_id.default_code and not line.product_id.default_code.startswith('ECO') and not any(route.sequence == 2 for route in line.product_id.route_ids)">
                         <td>
                             <!-- Référence du produit -->
                             <span t-field="line.product_id.default_code" />
@@ -126,7 +126,7 @@
             <!-- Affichage du poids -->
             <div class="total_weight_section"
                  style="margin-top: 40px; padding: 10px; border: 2px solid black; border-radius: 5px; font-weight: bold; text-align: center;">
-                <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in o.move_ids_without_package)" />
+                <t t-set="total_weight" t-value="sum(line.product_id.weight * line.product_uom_qty for line in o.move_ids)" />
                 ⚖️ Poids total : <span t-field="o.so_poids_total"/> kg
             </div>
             <!-- Pied de page -->

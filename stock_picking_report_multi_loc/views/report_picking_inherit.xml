@@ -20,7 +20,7 @@
     <xpath expr="//table//tbody" position="replace">
       <tbody>
         <!-- On boucle sur les MOVES => affiche aussi les articles non réservés -->
-        <t t-foreach="o.move_ids_without_package" t-as="move">
+        <t t-foreach="o.move_ids" t-as="move">
           <tr>
             <!-- Produit -->
             <td>

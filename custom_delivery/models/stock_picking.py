@@ -20,7 +20,7 @@ class StockPicking(models.Model):
     # Forcer le recalcul après la modification des mouvements
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
-        if "move_ids_without_package" in vals:  # Si les mouvements sont modifiés
+        if "move_ids" in vals:  # Si les mouvements sont modifiés
             # self._compute_reliquat_qty()  # Recalcul du reliquat (commenté car non défini)
             _logger.warning(
                 "Appel à '_compute_reliquat_qty' commenté car la méthode n'est pas définie."

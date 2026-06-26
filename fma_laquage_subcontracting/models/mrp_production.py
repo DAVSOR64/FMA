@@ -238,7 +238,7 @@ class MrpProduction(models.Model):
                     picking.action_assign()
 
                 # Compatibilité Odoo 16/17/18 : qty_done ou quantity selon version.
-                for move in picking.move_ids_without_package.filtered(lambda m: m.state not in ('done', 'cancel')):
+                for move in picking.move_ids.filtered(lambda m: m.state not in ('done', 'cancel')):
                     qty = move.product_uom_qty
                     if 'quantity_done' in move._fields:
                         move.quantity_done = qty
