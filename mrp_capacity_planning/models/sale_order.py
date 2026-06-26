@@ -36,14 +36,18 @@ class SaleOrder(models.Model):
                              order.name, lead_days, commitment_dt)
 
             # 2) Récupérer les OF liés à la commande
-            # Méthode plus robuste que origin=self.name : procurement_group_id
-            productions = self.env['mrp.production'].search([
-                ('procurement_group_id', '=', order.procurement_group_id.id),
-                ('state', 'in', ['draft', 'confirmed']),
-            ])
+            # procurement_group_id n'existe plus sur sale.order en v19 —
+            # on cherche via les pickings de la commande, puis par origin.
+            productions = self.env['mrp.production']
+
+            group_ids = order.picking_ids.mapped('group_id').ids if order.picking_ids else []
+            if group_ids:
+                productions = self.env['mrp.production'].search([
+                    ('procurement_group_id', 'in', group_ids),
+                    ('state', 'in', ['draft', 'confirmed']),
+                ])
 
             if not productions:
-                # fallback si ton flux ne renseigne pas procurement_group_id
                 productions = self.env['mrp.production'].search([
                     ('origin', '=', order.name),
                     ('state', 'in', ['draft', 'confirmed']),
