@@ -32,7 +32,6 @@
                         </t>
                         <span t-field="o.partner_id.zip" /> <span t-field="o.partner_id.city" /><br />
                         ☎️ Téléphone: <span t-field="o.partner_id.phone" /><br />
-                        Mobile: <span t-field="o.partner_id.mobile" /><br />
                     </t>
                 </div>
 
@@ -45,7 +44,6 @@
                     </t>
                     <span t-field="o.sale_id.partner_id.zip" /> <span t-field="o.sale_id.partner_id.city" /><br />
                     ☎️ Téléphone: <span t-field="o.sale_id.partner_id.phone" /><br />
-                     Mobile: <span t-field="o.sale_id.partner_id.mobile" /><br />
                     <img src="/custom_delivery/static/src/img/enveloppe.png" style="height: 16px; width: 16px;" alt="menveloppe" /> <span t-field="o.sale_id.partner_id.email" />
                     <br /><br />
                     <p><strong>Numéro de dossier FMA :</strong> <span t-field="o.origin" /></p>
