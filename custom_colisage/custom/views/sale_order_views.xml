@@ -4,8 +4,8 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <!-- Ajout après les détails du partenaire -->
-            <xpath expr="//sheet//group[@name='partner_details']" position="after">
+            <!-- Insertion avant le notebook (ancre stable v19 — partner_details renommé) -->
+            <xpath expr="//sheet/notebook" position="before">
                 <group string="Chronologie">
                     <group>
                         <field name="so_date_de_reception_devis"/>

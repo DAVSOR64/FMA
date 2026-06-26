@@ -5,8 +5,8 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- On ajoute nos blocs après le group partner_details -->
-            <xpath expr="//sheet//group[@name='partner_details']" position="after">
+            <!-- Insertion avant le notebook (ancre stable v19 — partner_details renommé) -->
+            <xpath expr="//sheet/notebook" position="before">
 
                 <!-- Chronologie -->
                 <group string="Chronologie"> 
