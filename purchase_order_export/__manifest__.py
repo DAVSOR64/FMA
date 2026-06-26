@@ -8,7 +8,7 @@
             Task: 3975517
         """,
     "author": "Odoo PS",
-    "version": "19.0.0.4.0",
+    "version": "19.0.0.5.0",
     "depends": ["purchase", "stock", "custom"],
     "data": [
         "security/ir.model.access.csv",
