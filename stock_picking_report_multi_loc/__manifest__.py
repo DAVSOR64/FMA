@@ -1,7 +1,7 @@
 {
     "name": "Picking Report – Multi Locations (v17)",
     "summary": "Bon de préparation: retire la colonne destination, ajoute 'Emplacements existants', affiche tous les articles.",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "author": "Vous",
     "license": "LGPL-3",
     "depends": ["stock"],
