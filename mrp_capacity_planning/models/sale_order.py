@@ -40,7 +40,9 @@ class SaleOrder(models.Model):
             # on cherche via les pickings de la commande, puis par origin.
             productions = self.env['mrp.production']
 
-            group_ids = order.picking_ids.mapped('group_id').ids if order.picking_ids else []
+            group_ids = []
+            if order.picking_ids and 'group_id' in self.env['stock.picking']._fields:
+                group_ids = order.picking_ids.mapped('group_id').ids
             if group_ids:
                 productions = self.env['mrp.production'].search([
                     ('procurement_group_id', 'in', group_ids),
