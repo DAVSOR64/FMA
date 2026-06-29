@@ -33,9 +33,13 @@
     </record>
 
     <!-- Menu -->
+    <menuitem id="menu_delivery_service_reporting"
+              name="Analyse"
+              parent="stock.menu_stock_root"
+              sequence="5"/>
     <menuitem id="menu_delivery_service_graph_percent"
               name="Taux de service %"
-              parent="stock.menu_stock_reporting"
+              parent="delivery_service_rate.menu_delivery_service_reporting"
               action="action_delivery_service_rate_monthly"
               sequence="20"/>
 </odoo>
