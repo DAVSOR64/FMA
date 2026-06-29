@@ -10,7 +10,7 @@
                 <field name="record_count"/>
                 <field name="response_code"/>
                 <field name="message"/>
-            </tree>
+            </list>
         </field>
     </record>
 

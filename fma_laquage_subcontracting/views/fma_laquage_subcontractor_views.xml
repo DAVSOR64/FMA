@@ -29,7 +29,7 @@
                             <field name="return_weekday"/>
                             <field name="return_week_offset"/>
                             <field name="duration_days" readonly="1"/>
-                        </tree>
+                        </list>
                     </field>
                 </page>
             </xpath>
