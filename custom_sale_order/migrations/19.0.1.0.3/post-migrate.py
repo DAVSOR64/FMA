@@ -1,5 +1,6 @@
 import re
 from odoo import api, SUPERUSER_ID
+from odoo.exceptions import ValidationError
 
 
 def migrate(cr, version):
@@ -10,6 +11,8 @@ def migrate(cr, version):
     migration ensures QWeb report templates (e.g. sale.report_saleorder_document,
     id=1010) are also patched — they have no model set on ir.ui.view and were
     therefore missed by the original model-filtered migration.
+    Views that fail validation after the rename are skipped (they belong to
+    standard Odoo models where the field has a different name in v19).
     """
     env = api.Environment(cr, SUPERUSER_ID, {})
 
@@ -21,7 +24,10 @@ def migrate(cr, version):
         if 'tax_id' not in (view.arch_db or ''):
             continue
         new_arch = re.sub(r'\btax_id\b(?!s)', 'tax_ids', view.arch_db)
-        if new_arch != view.arch_db:
+        if new_arch == view.arch_db:
+            continue
+        cr.execute("SAVEPOINT tax_id_patch")
+        try:
             view.with_context(no_cow=True).write({'arch_db': new_arch})
             cr.execute(
                 "INSERT INTO ir_logging"
@@ -31,3 +37,6 @@ def migrate(cr, version):
                  f"Migration 19.0.1.0.3: patched tax_id→tax_ids in view '{view.name}' (id={view.id})",
                  __file__, '0', 'migrate'),
             )
+            cr.execute("RELEASE SAVEPOINT tax_id_patch")
+        except (ValidationError, Exception):
+            cr.execute("ROLLBACK TO SAVEPOINT tax_id_patch")
