@@ -10,7 +10,6 @@
             <field name="code">model.cron_generate_files()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
         </record>
 
         <!-- Cron pour envoyer les fichiers vers le SFTP -->
@@ -21,7 +20,6 @@
             <field name="code">model.cron_send_files_to_sftp()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
         </record>
 
     </data>
