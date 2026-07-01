@@ -39,11 +39,19 @@ class SaleOrder(models.Model):
             # order.so_date_devis_valide = fields.Datetime.today()
             order.x_studio_avancement = "5"  # Mettre x_studio_avancement à '5'
 
-    # Extra: Checks if the sale order can be confirmed, considering both its state and 'validated' state.
-    def _can_be_confirmed(self):
+    # Extra: Allows confirmation from the custom 'validated' state as well.
+    def _confirmation_error_message(self):
         self.ensure_one()
-        can_be_confirmed = super()._can_be_confirmed()
-        return can_be_confirmed or self.state == "validated"
+        if self.state == "validated":
+            if any(
+                not line.display_type
+                and not line.is_downpayment
+                and not line.product_id
+                for line in self.order_line
+            ):
+                return super()._confirmation_error_message()
+            return False
+        return super()._confirmation_error_message()
 
     # Init date BPE lors de la confirmation du devis
     # def action_confirm(self):
