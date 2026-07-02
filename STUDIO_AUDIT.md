@@ -393,11 +393,21 @@ liés à `x_affaire` (`x_studio_affaire`, `x_studio_many2one_field_J9w45`,
 — jamais renommés, signe probable d'essais répétés côté Studio. Portés tels
 quels (fidélité du schéma), à clarifier avec le métier lequel fait foi.
 
+### purchase.order — fait
+
+24 champs manquants, 13 portés dans un nouveau fichier
+`custom/models/purchase_order.py` (module `custom` — cohérent avec le reste
+de la Phase 3). 11 exclus (10 related_field_*, 1 champ de test non stocké).
+`x_studio_rfrence`, `x_studio_many2one_field_LCOZX` et `x_studio_projet_du_so`
+étaient déjà utilisés sans être déclarés dans le portage Phase 1
+(`fma_custom/models/purchase_order.py`) et dans les gabarits d'export
+`purchase_order_export` — désormais sécurisés en code.
+
 ### Restant à traiter (mêmes règles d'exclusion à appliquer)
 
-product.product (26), purchase.order (24), account.move.line (15),
-stock.move.line (12), sale.order.line (10), stock.move (9), mrp.production
-(8), purchase.order.line (8), product.template (5), helpdesk.ticket (2),
+product.product (26), account.move.line (15), stock.move.line (12),
+sale.order.line (10), stock.move (9), mrp.production (8),
+purchase.order.line (8), product.template (5), helpdesk.ticket (2),
 product.category (2), account.analytic.line (1), account.payment.term (1),
 mrp.workcenter.productivity (1), uom.uom (1).
 
