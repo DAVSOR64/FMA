@@ -347,14 +347,37 @@ ici — deux colonnes distinctes pour a priori le même concept métier. Pas
 touché dans cette passe (pas assez d'information pour savoir laquelle fait
 foi), mais à clarifier avec le métier.
 
+### res.partner — fait
+
+37 champs manquants, 29 portés dans `custom/models/res_partner.py` (module
+"Custom Field Transfer", déjà le point d'entrée générique pour les champs
+transverses — il a aussi des fichiers `account_move.py`, `mrp_production.py`,
+`stock_picking.py` déjà en place, qui serviront de point d'ancrage pour la
+suite). 8 exclus (4 sélections, 3 champs liés, 1 "OLD"). Dépendances
+ajoutées : `hr` (pour `x_studio_commercial_1` → `hr.employee`),
+`fma_studio_models` (pour `x_studio_mode_de_rglement_dsa` → `x_reglements`).
+
+**Point de vigilance repéré en même temps** : `x_studio_compte`,
+`x_studio_gneration_n_compte_1` et `x_studio_mode_de_rglement` étaient déjà
+**utilisés** (non déclarés) dans `create()`/`write()`/`_prepare_order()` de
+ce même fichier — génération automatique de numéro de compte client. Ils
+fonctionnaient uniquement grâce au mécanisme Studio ; maintenant déclarés en
+code, ce point de la logique métier est sécurisé.
+
+**Découverte incidente (hygiène du repo, hors périmètre de ce portage)** :
+`custom_colisage/custom/` est un **module dupliqué** — dossier `custom`
+imbriqué dans `custom_colisage`, même nom technique "Custom Field Transfer"
+que le module `custom` à la racine, versions différentes (`1.0` vs
+`19.0.1.0.6`). Si ce chemin est sur l'addons_path d'Odoo.sh, ça peut créer
+un conflit de nom de module. À vérifier/nettoyer séparément — non touché ici.
+
 ### Restant à traiter (mêmes règles d'exclusion à appliquer)
 
-res.partner (37), account.move (35), stock.picking (28), product.product
-(26), purchase.order (24), account.move.line (15), stock.move.line (12),
-sale.order.line (10), stock.move (9), mrp.production (8),
-purchase.order.line (8), product.template (5), helpdesk.ticket (2),
-product.category (2), account.analytic.line (1), account.payment.term (1),
-mrp.workcenter.productivity (1), uom.uom (1).
+account.move (35), stock.picking (28), product.product (26), purchase.order
+(24), account.move.line (15), stock.move.line (12), sale.order.line (10),
+stock.move (9), mrp.production (8), purchase.order.line (8), product.template
+(5), helpdesk.ticket (2), product.category (2), account.analytic.line (1),
+account.payment.term (1), mrp.workcenter.productivity (1), uom.uom (1).
 
 ### Vérifications encore en attente (accès SSH à repasser dessus)
 
