@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_calcul_pri" model="ir.actions.server">
+        <field name="name">Calcul PRI</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">records.action_calcul_pri()</field>
+    </record>
+
+    <record id="action_recalculer_restant_ht" model="ir.actions.server">
+        <field name="name">Recalculer Restant HT (pivot)</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">records.action_recalculer_restant_ht()</field>
+    </record>
+</odoo>
