@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Ventes -->
+    <menuitem id="menu_x_affaire" name="Affaire" parent="sale.sale_menu_root" action="action_x_affaire" sequence="90"/>
+    <menuitem id="menu_x_affaire_config" name="Configuration personnalisée" parent="sale.sale_menu_root" sequence="91"/>
+    <menuitem id="menu_x_affaire_stage" name="Affaire - Étapes" parent="menu_x_affaire_config" action="action_x_affaire_stage" sequence="10"/>
+    <menuitem id="menu_x_affaire_tag" name="Affaire - Étiquettes" parent="menu_x_affaire_config" action="action_x_affaire_tag" sequence="20"/>
+    <menuitem id="menu_x_gamme_mtn" name="Gamme mtn" parent="menu_x_affaire_config" action="action_x_gamme_mtn" sequence="30"/>
+    <menuitem id="menu_x_serie_mtn" name="Série mtn" parent="menu_x_affaire_config" action="action_x_serie_mtn" sequence="40"/>
+    <menuitem id="menu_x_reglements" name="Réglements" parent="menu_x_affaire_config" action="action_x_reglements" sequence="50"/>
+
+    <!-- Achats -->
+    <menuitem id="menu_x_remise_root" name="Remises" parent="purchase.menu_purchase_root" sequence="90"/>
+    <menuitem id="menu_x_remise" name="Remise" parent="menu_x_remise_root" action="action_x_remise" sequence="10"/>
+    <menuitem id="menu_x_remises" name="Remises" parent="menu_x_remise_root" action="action_x_remises" sequence="20"/>
+    <menuitem id="menu_x_remise_affaire" name="Remise Affaire" parent="menu_x_remise_root" action="action_x_remise_affaire" sequence="30"/>
+    <menuitem id="menu_x_remises_affaire" name="Remises Affaire" parent="menu_x_remise_root" action="action_x_remises_affaire" sequence="40"/>
+    <menuitem id="menu_x_remise_chantier" name="Remise Chantier" parent="menu_x_remise_root" action="action_x_remise_chantier" sequence="50"/>
+
+    <!-- Fabrication -->
+    <menuitem id="menu_x_delai_entre_operatio" name="Délai entre opérations" parent="mrp.menu_mrp_root" action="action_x_delai_entre_operatio" sequence="90"/>
+    <menuitem id="menu_x_delai_entre_operatio_config" name="Configuration personnalisée" parent="mrp.menu_mrp_root" sequence="91"/>
+    <menuitem id="menu_x_delai_entre_operatio_tag" name="Délai entre opérations - Étiquettes" parent="menu_x_delai_entre_operatio_config" action="action_x_delai_entre_operatio_tag" sequence="10"/>
+    <menuitem id="menu_x_capacite_par_poste" name="Capacité par poste" parent="mrp.menu_mrp_root" action="action_x_capacite_par_poste" sequence="92"/>
+    <menuitem id="menu_x_capacite_par_poste_tag" name="Capacité par poste - Étiquettes" parent="menu_x_delai_entre_operatio_config" action="action_x_capacite_par_poste_tag" sequence="20"/>
+</odoo>

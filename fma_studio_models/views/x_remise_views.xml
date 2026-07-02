@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_x_remise_list" model="ir.ui.view">
+        <field name="name">x_remise.list</field>
+        <field name="model">x_remise</field>
+        <field name="arch" type="xml">
+            <list string="Remise" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+                <field name="x_studio_partner_id"/>
+                <field name="x_studio_partner_email"/>
+                <field name="x_studio_partner_phone"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_remise" model="ir.actions.act_window">
+        <field name="name">Remise</field>
+        <field name="res_model">x_remise</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_x_remises_list" model="ir.ui.view">
+        <field name="name">x_remises.list</field>
+        <field name="model">x_remises</field>
+        <field name="arch" type="xml">
+            <list string="Remises" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_remises" model="ir.actions.act_window">
+        <field name="name">Remises</field>
+        <field name="res_model">x_remises</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_x_remise_affaire_list" model="ir.ui.view">
+        <field name="name">x_remise_affaire.list</field>
+        <field name="model">x_remise_affaire</field>
+        <field name="arch" type="xml">
+            <list string="Remise Affaire" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+                <field name="x_studio_libelle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_remise_affaire" model="ir.actions.act_window">
+        <field name="name">Remise Affaire</field>
+        <field name="res_model">x_remise_affaire</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_x_remises_affaire_list" model="ir.ui.view">
+        <field name="name">x_remises_affaire.list</field>
+        <field name="model">x_remises_affaire</field>
+        <field name="arch" type="xml">
+            <list string="Remises Affaire" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+                <field name="x_studio_libelle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_remises_affaire" model="ir.actions.act_window">
+        <field name="name">Remises Affaire</field>
+        <field name="res_model">x_remises_affaire</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_x_remise_chantier_form" model="ir.ui.view">
+        <field name="name">x_remise_chantier.form</field>
+        <field name="model">x_remise_chantier</field>
+        <field name="arch" type="xml">
+            <form string="Remise Chantier">
+                <sheet>
+                    <group>
+                        <field name="x_name"/>
+                        <field name="x_studio_libelle"/>
+                        <field name="x_studio_libelle_1"/>
+                        <field name="x_studio_many2one_field_2m5_1invkcoub"/>
+                        <field name="x_studio_sequence"/>
+                        <field name="x_active" invisible="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Lignes (46d7e)">
+                            <field name="x_studio_one2many_field_8i9_1invkbjin">
+                                <list editable="bottom">
+                                    <field name="x_studio_sequence" widget="handle"/>
+                                    <field name="x_name"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Lignes (da285)">
+                            <field name="x_studio_one2many_field_3o8_1invkeis7">
+                                <list editable="bottom">
+                                    <field name="x_studio_sequence" widget="handle"/>
+                                    <field name="x_name"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_x_remise_chantier_list" model="ir.ui.view">
+        <field name="name">x_remise_chantier.list</field>
+        <field name="model">x_remise_chantier</field>
+        <field name="arch" type="xml">
+            <list string="Remise Chantier">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+                <field name="x_studio_libelle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_remise_chantier" model="ir.actions.act_window">
+        <field name="name">Remise Chantier</field>
+        <field name="res_model">x_remise_chantier</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

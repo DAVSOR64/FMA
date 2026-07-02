@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_x_capacite_par_poste_list" model="ir.ui.view">
+        <field name="name">x_capacite_par_poste.list</field>
+        <field name="model">x_capacite_par_poste</field>
+        <field name="arch" type="xml">
+            <list string="Capacité par poste" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+                <field name="x_studio_poste"/>
+                <field name="x_studio_dure_min"/>
+                <field name="x_studio_dure_max"/>
+                <field name="x_studio_nbre_ressources"/>
+                <field name="x_studio_tag_ids" widget="many2many_tags"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_capacite_par_poste" model="ir.actions.act_window">
+        <field name="name">Capacité par poste</field>
+        <field name="res_model">x_capacite_par_poste</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_x_capacite_par_poste_tag_list" model="ir.ui.view">
+        <field name="name">x_capacite_par_poste_tag.list</field>
+        <field name="model">x_capacite_par_poste_tag</field>
+        <field name="arch" type="xml">
+            <list string="Capacité par poste - Étiquettes" editable="bottom">
+                <field name="x_name"/>
+                <field name="x_color" widget="color_picker"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_capacite_par_poste_tag" model="ir.actions.act_window">
+        <field name="name">Capacité par poste - Étiquettes</field>
+        <field name="res_model">x_capacite_par_poste_tag</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>

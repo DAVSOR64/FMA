@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_x_affaire_list" model="ir.ui.view">
+        <field name="name">x_affaire.list</field>
+        <field name="model">x_affaire</field>
+        <field name="arch" type="xml">
+            <list string="Affaires">
+                <field name="x_name"/>
+                <field name="x_studio_stage_id"/>
+                <field name="x_studio_partner_id"/>
+                <field name="x_studio_user_id"/>
+                <field name="x_studio_date_start"/>
+                <field name="x_studio_date_stop"/>
+                <field name="x_studio_value"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_x_affaire_form" model="ir.ui.view">
+        <field name="name">x_affaire.form</field>
+        <field name="model">x_affaire</field>
+        <field name="arch" type="xml">
+            <form string="Affaire">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger" invisible="x_active"/>
+                    <group>
+                        <field name="x_name"/>
+                        <field name="x_studio_stage_id"/>
+                        <field name="x_studio_tag_ids" widget="many2many_tags" options="{'color_field': 'x_color'}"/>
+                        <field name="x_active" invisible="1"/>
+                    </group>
+                    <group>
+                        <group string="Contact">
+                            <field name="x_studio_partner_id"/>
+                            <field name="x_studio_partner_email"/>
+                            <field name="x_studio_partner_phone"/>
+                        </group>
+                        <group string="Suivi">
+                            <field name="x_studio_user_id"/>
+                            <field name="x_studio_kanban_state"/>
+                            <field name="x_studio_priority"/>
+                            <field name="x_studio_sequence"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Dates">
+                            <field name="x_studio_date"/>
+                            <field name="x_studio_date_start"/>
+                            <field name="x_studio_date_stop"/>
+                        </group>
+                        <group string="Valeur">
+                            <field name="x_studio_currency_id"/>
+                            <field name="x_studio_value"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Notes">
+                            <field name="x_studio_notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_x_affaire" model="ir.actions.act_window">
+        <field name="name">Affaire</field>
+        <field name="res_model">x_affaire</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_x_affaire_stage_list" model="ir.ui.view">
+        <field name="name">x_affaire_stage.list</field>
+        <field name="model">x_affaire_stage</field>
+        <field name="arch" type="xml">
+            <list string="Étapes Affaire" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_affaire_stage" model="ir.actions.act_window">
+        <field name="name">Affaire - Étapes</field>
+        <field name="res_model">x_affaire_stage</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_x_affaire_tag_list" model="ir.ui.view">
+        <field name="name">x_affaire_tag.list</field>
+        <field name="model">x_affaire_tag</field>
+        <field name="arch" type="xml">
+            <list string="Étiquettes Affaire" editable="bottom">
+                <field name="x_name"/>
+                <field name="x_color" widget="color_picker"/>
+                <field name="x_studio_ref_affaire"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_affaire_tag" model="ir.actions.act_window">
+        <field name="name">Affaire - Étiquettes</field>
+        <field name="res_model">x_affaire_tag</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>

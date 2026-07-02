@@ -227,6 +227,91 @@ déclenchement des automatisations Studio équivalentes côté `base.automation`
 pour éviter une double exécution, sans les supprimer immédiatement (garder
 un filet de sécurité le temps de valider).
 
+## Portage réalisé (Phase 2 — modèles métier custom, 2026-07-02)
+
+Nouveau module dédié **`fma_studio_models`** (schéma + vues + sécurité pour
+les 20 modèles `x_*` créés par Studio). Noms techniques et noms de champs
+**conservés à l'identique** de Studio :
+- aucune migration de données nécessaire (mêmes tables, mêmes colonnes) ;
+- `mrp_capacity_planning/models/mrp_production.py`
+  (`env['x_capacite_par_poste']`, `x_studio_poste`, `x_studio_dure_min/max`,
+  `x_studio_nbre_ressources`) et `sqlite_connector/models/sqlite_connector.py`
+  (`env['x_affaire']`) continuent de fonctionner sans aucune modification.
+
+**Constat important en écrivant le schéma** : la majorité des modèles
+"Remise" (`x_remise`, `x_remises`, `x_remise_affaire`, `x_remises_affaire`,
+`x_remise_chantier` + ses 2 modèles de ligne), ainsi que `x_gamme_mtn`,
+`x_reglements` et `x_purchase_order_line_35a7b` / `x_account_move_line_803a2`,
+**n'ont aucun champ métier réel** — uniquement le squelette par défaut de
+Studio (`x_name`, `x_active`, `x_studio_sequence`). Aucun montant, aucun
+pourcentage, aucune date. `x_remise_affaire.x_studio_libelle` et
+`x_remises_affaire.x_studio_libelle` pointent même sur **leur propre
+modèle** (many2one auto-référencé), ce qui a toutes les apparences d'une
+mauvaise configuration Studio plutôt que d'un choix voulu. Le schéma a été
+porté fidèlement tel quel (aucune tentative de "corriger" un design métier
+sur lequel je n'ai pas d'information), mais **à valider avec le métier avant
+d'investir plus de temps dessus** : ces modèles sont-ils réellement utilisés,
+ou sont-ce des essais Studio abandonnés ?
+
+**Modèles réellement étoffés** (schéma complet porté avec formulaires
+dédiés) : `x_affaire` (+ stages/tags), `x_capacite_par_poste` (+ tags,
+utilisé par `mrp_capacity_planning`), `x_delai_entre_operatio` (+ lignes/tags),
+`x_serie_mtn` (lien vers `x_gamme_mtn`).
+
+**Vérifications faites a posteriori** (accès SSH rétabli après l'incident
+Odoo.sh) :
+- **Volumes réels par modèle** — contrairement à l'hypothèse initiale
+  ("famille Remise probablement abandonnée"), le tableau est contrasté :
+
+  | Modèle | Enregistrements |
+  |---|---:|
+  | x_affaire | **4059** |
+  | x_serie_mtn | 288 |
+  | x_remise_chantier | 36 |
+  | x_gamme_mtn | 34 |
+  | x_remise_chantier_line_da285 | 34 |
+  | x_remise_chantier_line_46d7e | 19 |
+  | x_reglements | 11 |
+  | x_capacite_par_poste | 9 |
+  | x_affaire_stage | 3 |
+  | x_capacite_par_poste_tag | 1 |
+  | x_remise_affaire | 1 |
+  | x_remises | 1 |
+  | x_remises_affaire, x_affaire_tag, x_delai_entre_operatio_tag, x_account_move_line_803a2, x_delai_entre_operatio_line_07ffc, x_purchase_order_line_35a7b, x_delai_entre_operatio, x_remise | **0** |
+
+  `x_affaire` est donc massivement utilisé (confirme qu'il s'agit bien d'un
+  objet métier central, pas d'un essai) ; `x_remise_chantier` (+ ses 2
+  modèles de ligne) et `x_gamme_mtn`/`x_serie_mtn` sont réellement utilisés
+  malgré leur schéma minimal. En revanche `x_delai_entre_operatio` (le
+  modèle entier, malgré sa richesse de champs) et `x_remise` (le modèle de
+  base de toute la famille remise) ont **0 enregistrement** — probablement
+  vraiment abandonnés, à confirmer avec le métier avant d'investir plus loin
+  dessus.
+- **Sélection `x_studio_kanban_state`** : confirmée conforme à l'hypothèse
+  initiale — `normal`="En cours", `done`="Prêt", `blocked`="Bloqué". Aucun
+  changement nécessaire dans le code.
+- **Règles d'accès (`ir.model.access`)** : le pattern réel diffère de ce qui
+  avait été mis par défaut. Pour la plupart des modèles, "Utilisateur
+  interne" a lecture/écriture/création mais **pas** suppression (réservée à
+  "Administrator") ; seuls `x_affaire`, `x_affaire_stage` et `x_affaire_tag`
+  autorisent la suppression aux utilisateurs internes. **Corrigé** dans
+  `security/ir.model.access.csv` (règle `base.group_system` séparée avec
+  suppression pour les 17 modèles concernés).
+- **Découverte incidente** : un **21e modèle custom**,
+  `x_project_task_worksheet_template_1`, existe en base mais n'était pas
+  rattaché au module `studio_customization` (donc invisible dans l'audit
+  initial par `ir_model_data`) — visiblement lié à un worksheet/checklist
+  sur `project.task`. **Non porté dans cette phase**, à investiguer
+  séparément (champs, usage réel, volume de données) avant de décider de le
+  migrer.
+
+**Menus** : recréés sous les menus racines standards Ventes / Achats /
+Fabrication (`sale.sale_menu_root`, `purchase.menu_purchase_root`,
+`mrp.menu_mrp_root`) plutôt que de tenter de reproduire l'emplacement exact
+des 19 menus Studio d'origine (dont les ids internes n'ont pas pu être
+résolus en xmlid stables pendant l'incident réseau) — à réorganiser si
+besoin après validation visuelle en staging.
+
 ## Plan de migration proposé (par ordre de priorité / risque)
 
 1. **Logique métier (automatisations + actions serveur)** — 4+4 blocs, petit volume,

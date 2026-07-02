@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_x_delai_entre_operatio_list" model="ir.ui.view">
+        <field name="name">x_delai_entre_operatio.list</field>
+        <field name="model">x_delai_entre_operatio</field>
+        <field name="arch" type="xml">
+            <list string="Délais entre opérations">
+                <field name="x_name"/>
+                <field name="x_studio_poste_de_travail_deb"/>
+                <field name="x_studio_poste_de_travail_fin"/>
+                <field name="x_studio_dlai_entre_oprations"/>
+                <field name="x_studio_tag_ids" widget="many2many_tags"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_x_delai_entre_operatio_form" model="ir.ui.view">
+        <field name="name">x_delai_entre_operatio.form</field>
+        <field name="model">x_delai_entre_operatio</field>
+        <field name="arch" type="xml">
+            <form string="Délai entre opérations">
+                <sheet>
+                    <group>
+                        <field name="x_name"/>
+                        <field name="x_studio_tag_ids" widget="many2many_tags"/>
+                        <field name="x_active" invisible="1"/>
+                    </group>
+                    <group>
+                        <group string="Postes concernés">
+                            <field name="x_studio_poste_de_travail_deb"/>
+                            <field name="x_studio_poste_de_travail_fin"/>
+                            <field name="x_studio_poste_bloquant_1"/>
+                            <field name="x_studio_poste_bloquant_2"/>
+                        </group>
+                        <group string="Délai">
+                            <field name="x_studio_dlai_entre_oprations"/>
+                            <field name="x_studio_char_field_3op_1iv4qb7ld"/>
+                            <field name="x_studio_sequence"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Lignes">
+                            <field name="x_delai_entre_operatio_line_ids_42f81">
+                                <list editable="bottom">
+                                    <field name="x_studio_sequence" widget="handle"/>
+                                    <field name="x_name"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_x_delai_entre_operatio" model="ir.actions.act_window">
+        <field name="name">Délai entre opérations</field>
+        <field name="res_model">x_delai_entre_operatio</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_x_delai_entre_operatio_tag_list" model="ir.ui.view">
+        <field name="name">x_delai_entre_operatio_tag.list</field>
+        <field name="model">x_delai_entre_operatio_tag</field>
+        <field name="arch" type="xml">
+            <list string="Délai entre opérations - Étiquettes" editable="bottom">
+                <field name="x_name"/>
+                <field name="x_color" widget="color_picker"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_delai_entre_operatio_tag" model="ir.actions.act_window">
+        <field name="name">Délai entre opérations - Étiquettes</field>
+        <field name="res_model">x_delai_entre_operatio_tag</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>

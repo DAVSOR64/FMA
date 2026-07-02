@@ -1,0 +1,38 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_x_affaire,x_affaire,model_x_affaire,base.group_user,1,1,1,1
+access_x_affaire_stage,x_affaire_stage,model_x_affaire_stage,base.group_user,1,1,1,1
+access_x_affaire_tag,x_affaire_tag,model_x_affaire_tag,base.group_user,1,1,1,1
+access_x_capacite_par_poste,x_capacite_par_poste,model_x_capacite_par_poste,base.group_user,1,1,1,0
+access_x_capacite_par_poste_admin,x_capacite_par_poste admin,model_x_capacite_par_poste,base.group_system,1,1,1,1
+access_x_capacite_par_poste_tag,x_capacite_par_poste_tag,model_x_capacite_par_poste_tag,base.group_user,1,1,1,0
+access_x_capacite_par_poste_tag_admin,x_capacite_par_poste_tag admin,model_x_capacite_par_poste_tag,base.group_system,1,1,1,1
+access_x_delai_entre_operatio,x_delai_entre_operatio,model_x_delai_entre_operatio,base.group_user,1,1,1,0
+access_x_delai_entre_operatio_admin,x_delai_entre_operatio admin,model_x_delai_entre_operatio,base.group_system,1,1,1,1
+access_x_delai_entre_operatio_line_07ffc,x_delai_entre_operatio_line_07ffc,model_x_delai_entre_operatio_line_07ffc,base.group_user,1,1,1,0
+access_x_delai_entre_operatio_line_07ffc_admin,x_delai_entre_operatio_line_07ffc admin,model_x_delai_entre_operatio_line_07ffc,base.group_system,1,1,1,1
+access_x_delai_entre_operatio_tag,x_delai_entre_operatio_tag,model_x_delai_entre_operatio_tag,base.group_user,1,1,1,0
+access_x_delai_entre_operatio_tag_admin,x_delai_entre_operatio_tag admin,model_x_delai_entre_operatio_tag,base.group_system,1,1,1,1
+access_x_gamme_mtn,x_gamme_mtn,model_x_gamme_mtn,base.group_user,1,1,1,0
+access_x_gamme_mtn_admin,x_gamme_mtn admin,model_x_gamme_mtn,base.group_system,1,1,1,1
+access_x_serie_mtn,x_serie_mtn,model_x_serie_mtn,base.group_user,1,1,1,0
+access_x_serie_mtn_admin,x_serie_mtn admin,model_x_serie_mtn,base.group_system,1,1,1,1
+access_x_reglements,x_reglements,model_x_reglements,base.group_user,1,1,1,0
+access_x_reglements_admin,x_reglements admin,model_x_reglements,base.group_system,1,1,1,1
+access_x_remise,x_remise,model_x_remise,base.group_user,1,1,1,0
+access_x_remise_admin,x_remise admin,model_x_remise,base.group_system,1,1,1,1
+access_x_remises,x_remises,model_x_remises,base.group_user,1,1,1,0
+access_x_remises_admin,x_remises admin,model_x_remises,base.group_system,1,1,1,1
+access_x_remise_affaire,x_remise_affaire,model_x_remise_affaire,base.group_user,1,1,1,0
+access_x_remise_affaire_admin,x_remise_affaire admin,model_x_remise_affaire,base.group_system,1,1,1,1
+access_x_remises_affaire,x_remises_affaire,model_x_remises_affaire,base.group_user,1,1,1,0
+access_x_remises_affaire_admin,x_remises_affaire admin,model_x_remises_affaire,base.group_system,1,1,1,1
+access_x_remise_chantier,x_remise_chantier,model_x_remise_chantier,base.group_user,1,1,1,0
+access_x_remise_chantier_admin,x_remise_chantier admin,model_x_remise_chantier,base.group_system,1,1,1,1
+access_x_remise_chantier_line_46d7e,x_remise_chantier_line_46d7e,model_x_remise_chantier_line_46d7e,base.group_user,1,1,1,0
+access_x_remise_chantier_line_46d7e_admin,x_remise_chantier_line_46d7e admin,model_x_remise_chantier_line_46d7e,base.group_system,1,1,1,1
+access_x_remise_chantier_line_da285,x_remise_chantier_line_da285,model_x_remise_chantier_line_da285,base.group_user,1,1,1,0
+access_x_remise_chantier_line_da285_admin,x_remise_chantier_line_da285 admin,model_x_remise_chantier_line_da285,base.group_system,1,1,1,1
+access_x_purchase_order_line_35a7b,x_purchase_order_line_35a7b,model_x_purchase_order_line_35a7b,base.group_user,1,1,1,0
+access_x_purchase_order_line_35a7b_admin,x_purchase_order_line_35a7b admin,model_x_purchase_order_line_35a7b,base.group_system,1,1,1,1
+access_x_account_move_line_803a2,x_account_move_line_803a2,model_x_account_move_line_803a2,base.group_user,1,1,1,0
+access_x_account_move_line_803a2_admin,x_account_move_line_803a2 admin,model_x_account_move_line_803a2,base.group_system,1,1,1,1

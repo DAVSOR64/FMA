@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_x_gamme_mtn_list" model="ir.ui.view">
+        <field name="name">x_gamme_mtn.list</field>
+        <field name="model">x_gamme_mtn</field>
+        <field name="arch" type="xml">
+            <list string="Gamme mtn" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_gamme_mtn" model="ir.actions.act_window">
+        <field name="name">Gamme mtn</field>
+        <field name="res_model">x_gamme_mtn</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_x_serie_mtn_list" model="ir.ui.view">
+        <field name="name">x_serie_mtn.list</field>
+        <field name="model">x_serie_mtn</field>
+        <field name="arch" type="xml">
+            <list string="Série mtn" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
+                <field name="x_name"/>
+                <field name="x_studio_gamme_de_la_srie"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_x_serie_mtn" model="ir.actions.act_window">
+        <field name="name">Série mtn</field>
+        <field name="res_model">x_serie_mtn</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>
