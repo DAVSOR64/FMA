@@ -1,29 +1,64 @@
-# Plan de test — Portage logique métier Studio → code (fma_custom)
+# Plan de test — Portage Odoo Studio vers du code (Phases 1 à 3)
 
-Base cible : Staging_19 (`davsor64-fma-staging-19-34289959`). Module concerné :
-`fma_custom` (actuellement installé en version 19.0.1.0.2 → nouvelle version
-19.0.1.0.3 après déploiement).
+Base cible : **Staging_19** (`davsor64-fma-staging-19-...`, branche Git
+`Staging_19`). Ce document couvre le portage complet de ce qui avait été
+construit avec Odoo Studio vers du code source normal, en 3 volets :
 
-**Important** : les automatisations Studio d'origine sont **encore actives**
-pendant cette phase de test. Le code porté va donc s'exécuter **en plus**
-d'elles, pas à leur place. C'est volontaire : pour la plupart des règles,
-c'est idempotent (les deux écrivent la même valeur, pas de conflit visible).
-Ne désactiver les automatisations Studio équivalentes qu'**après** validation
-complète de cette checklist (voir section finale).
+- **Phase 1** : logique métier cachée (règles automatiques, boutons) —
+  module `fma_custom`.
+- **Phase 2** : 20 objets métier créés dans Studio (Affaire, Remises,
+  Capacité par poste...) — nouveau module `fma_studio_models`.
+- **Phase 3** : 234 champs Studio sur des objets standards (devis, factures,
+  commandes d'achat, contacts, produits...) — modules `custom` et
+  `fma_sale_order_custom`.
 
-## 0. Déploiement
+**Pourquoi ce portage ?** Tout ce qui a été fait avec Studio n'existait que
+dans la base de données, invisible dans le code source (Git). C'est un
+risque en cas de migration de version, de restauration de sauvegarde, ou
+simplement pour comprendre/faire évoluer le logiciel. Ce portage recopie
+fidèlement le comportement existant en code — **rien ne doit changer** pour
+les utilisateurs, c'est justement ce que cette checklist vérifie.
 
-1. `git push` la branche `Staging_19` (actuellement committé en local, pas
-   poussé — à faire quand tu es prêt).
-2. Sur Odoo.sh, attendre que le build staging se termine (déclenché
-   automatiquement par le push).
-3. Dans Odoo (mode développeur) : **Réglages > Applications**, retirer le
-   filtre "Apps", chercher "FMA: Custom", cliquer **Mettre à niveau**. Vérifie
-   que la version passe bien à `19.0.1.0.3` et qu'il n'y a aucune erreur au
-   moment de la mise à niveau (les 4 nouveaux fichiers XML doivent se charger
-   sans erreur d'ir.model.data ou de champ manquant).
-4. Vérifier les logs serveur juste après l'upgrade (aucune trace d'erreur
-   Python au chargement du module).
+**Important** : les automatisations Studio d'origine (Phase 1) sont
+**encore actives** pendant cette phase de test. Le code porté s'exécute
+donc **en plus** d'elles, pas à leur place — c'est voulu, ça permet de
+comparer les deux et de ne rien casser pendant les tests. On ne les
+désactivera qu'**après** validation complète (voir la dernière section).
+
+## 0. Préparation et déploiement
+
+**État actuel** : tout le code des Phases 1, 2 et 3 est déjà écrit,
+committé et **poussé** sur la branche `Staging_19` (dernier commit
+`bb62dce`). Le build Odoo.sh correspondant doit se lancer automatiquement
+après le push.
+
+1. Sur [Odoo.sh](https://www.odoo.sh), vérifier que le dernier build de la
+   branche **Staging_19** est bien **terminé et vert** (onglet *Builds*) —
+   attendre qu'il finisse si besoin.
+2. **Faire un backup manuel de la base staging** (bouton *Backup* dans
+   Odoo.sh) avant d'aller plus loin. C'est indispensable avant d'installer
+   `fma_studio_models` (Phase 2) : ce module reprend les 20 tables créées
+   par Studio, et une erreur à ce stade sans backup pourrait faire perdre
+   des données (détails dans la section Phase 2 et dans "Rollback" en bas
+   de page).
+3. Dans Odoo (activer le **mode développeur** si ce n'est pas déjà fait :
+   Réglages > Général > tout en bas > *Activer le mode développeur*),
+   aller dans **Réglages > Applications**, retirer le filtre "Apps" par
+   défaut (icône filtre, puis rechercher chaque module par son nom), et
+   traiter **dans cet ordre exact** :
+   1. **"FMA: Studio Models"** → bouton **Installer** (nouveau module).
+   2. **"FMA: Custom"** → bouton **Mettre à niveau** (doit passer en
+      version `19.0.1.0.3`).
+   3. **"Custom Field Transfer"** → **Mettre à niveau** (version
+      `19.0.1.0.9`).
+   4. **"Sale Order Customization"** → **Mettre à niveau** (version
+      `19.0.1.0.2`).
+4. Après **chaque** étape ci-dessus, vérifier qu'il n'y a **aucune erreur**
+   affichée à l'écran, et jeter un œil aux logs serveur (Odoo.sh > onglet
+   *Logs*, ou **Réglages > Technique > Logs**) pour repérer un éventuel
+   "Traceback" Python. En cas d'erreur à une étape : **s'arrêter, ne pas
+   continuer aux modules suivants**, et transmettre le message d'erreur
+   exact avant de chercher à corriger.
 
 ## 1. Sale order — Client bloqué
 
