@@ -275,6 +275,59 @@ en staging :
 - Si des enregistrements existent : les ouvrir pour vérifier qu'ils
   s'affichent correctement malgré l'absence de champs métier réels.
 
+## Phase 3 — Champs sur modèles standards (`custom`, `fma_sale_order_custom`)
+
+234 champs portés sur 15 modèles standards (sale.order, res.partner,
+account.move, stock.picking, purchase.order, product.product,
+product.template, et les modèles de ligne associés). Contrairement aux
+Phases 1/2, il n'y a pas de logique métier nouvelle ici — uniquement des
+déclarations de champs qui existaient déjà côté Studio. Le risque principal
+est un **conflit de déclaration** (même champ déclaré deux fois avec un
+type différent) ou une **dépendance manquante** (module cible d'une
+relation many2one pas installé).
+
+### Test 1 — Installation/mise à niveau sans erreur
+
+- Mettre à niveau les modules `custom`, `fma_sale_order_custom` et
+  `fma_studio_models` (dans cet ordre, ou laisser Odoo résoudre l'ordre des
+  dépendances automatiquement).
+- **Attendu** : aucune erreur au chargement. Erreurs à surveiller
+  particulièrement : `KeyError` sur un nom de modèle (relation vers un
+  modèle inexistant), ou avertissement de type de champ incompatible entre
+  deux déclarations du même champ.
+
+### Test 2 — Non-régression des valeurs existantes
+
+- Ouvrir plusieurs enregistrements existants (un devis, une facture, une
+  commande d'achat, un contact, un produit) créés **avant** le portage.
+- **Attendu** : tous les champs Studio affichent toujours leur valeur
+  d'origine (aucune donnée réinitialisée ou vidée).
+
+### Test 3 — Champs désormais sécurisés (déjà utilisés par du code)
+
+Ces champs étaient déjà lus/écrits par du code existant sans être déclarés
+— vérifier spécifiquement qu'ils fonctionnent toujours normalement :
+- `res.partner.x_studio_compte` / `x_studio_gneration_n_compte_1` :
+  cocher la case de génération automatique sur une nouvelle société,
+  vérifier qu'un numéro de compte est bien attribué.
+- `purchase.order.x_studio_rfrence` : créer/modifier une commande d'achat,
+  vérifier que la référence auto-générée (Phase 1) apparaît toujours
+  correctement.
+- `mrp.production.x_studio_mtn_mrp_sale_order` : sur un ordre de
+  fabrication lié à un devis, vérifier que le lien vers le devis se
+  renseigne toujours.
+
+### Test 4 — Points de vigilance spécifiques
+
+- **stock.picking** : les 7 champs "Affaire" quasi-identiques
+  (`x_studio_affaire`, `x_studio_many2one_field_J9w45/Luqxc/Vc214/fQVOa/
+  oYral/uBzGv`, `x_studio_many2many_field_JTFem`) s'affichent tous — vérifier
+  avec le métier lequel est réellement utilisé sur les vues existantes.
+- **x_studio_mtn_projet_mo** (stock.picking → `stock.reference`) n'a **pas**
+  été porté (modèle cible non vérifié). Si ce champ est utilisé quelque
+  part, il continue de fonctionner via le mécanisme Studio — pas de
+  régression, juste pas encore sécurisé en code.
+
 ## Rollback si problème bloquant
 
 - **Phase 1 (`fma_custom`)** : peut être remis à sa version précédente en
