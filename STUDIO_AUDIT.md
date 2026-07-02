@@ -403,13 +403,44 @@ de la Phase 3). 11 exclus (10 related_field_*, 1 champ de test non stocké).
 (`fma_custom/models/purchase_order.py`) et dans les gabarits d'export
 `purchase_order_export` — désormais sécurisés en code.
 
-### Restant à traiter (mêmes règles d'exclusion à appliquer)
+### Modèles restants — tous faits
 
-product.product (26), account.move.line (15), stock.move.line (12),
-sale.order.line (10), stock.move (9), mrp.production (8),
-purchase.order.line (8), product.template (5), helpdesk.ticket (2),
-product.category (2), account.analytic.line (1), account.payment.term (1),
-mrp.workcenter.productivity (1), uom.uom (1).
+Traités en un seul lot, mêmes règles d'exclusion, tous dans le module
+`custom` (nouveaux fichiers `account_move_line.py`, `stock_move_line.py`,
+`sale_order_line.py`, `stock_move.py`, `purchase_order_line.py`, `product.py`
+pour product.product/product.template, `misc_studio_fields.py` pour les 6
+modèles à 1-2 champs ; `mrp_production.py` existant complété) :
+
+| Modèle | Manquants | Portés | Exclus |
+|---|---:|---:|---:|
+| product.product | 26 | 24 | 2 (related) |
+| account.move.line | 15 | 3 | 12 (related/sélection) |
+| stock.move.line | 12 | 2 | 10 (related/non stocké) |
+| sale.order.line | 10 | 4 | 6 (related/non stocké) |
+| mrp.production | 8 | 7 | 1 (sélection) |
+| purchase.order.line | 8 | 5 | 3 (related/non stocké) |
+| stock.move | 9 | 5 | 4 (related/non stocké) |
+| product.template | 5 | 4 | 1 (one2many sans inverse_name connu) |
+| helpdesk.ticket | 2 | 2 | 0 |
+| product.category | 2 | 2 | 0 |
+| account.analytic.line | 1 | 1 | 0 |
+| account.payment.term | 1 | 1 | 0 |
+| mrp.workcenter.productivity | 1 | 1 | 0 |
+| uom.uom | 1 | 1 | 0 |
+
+`x_studio_mtn_mrp_sale_order` (mrp.production) était déjà utilisé sans être
+déclaré par le portage Phase 1 (`fma_custom/models/mrp_production.py`) —
+désormais sécurisé. Dépendance `helpdesk` ajoutée au module `custom`.
+
+## Bilan Phase 3
+
+**302 champs identifiés, 234 portés en code, 68 volontairement exclus**
+(sélections à valeurs inconnues, champs liés dont la cible n'est pas
+vérifiable, champs non stockés, ou explicitement dépréciés). Tous les
+champs exclus sont documentés en commentaire dans le fichier de code
+correspondant, avec la raison précise. Prochaine étape : repasser dessus
+une fois un accès SSH stable retrouvé, pour récupérer les valeurs de
+sélection et les cibles `related=` manquantes.
 
 ### Vérifications encore en attente (accès SSH à repasser dessus)
 

@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    "version": "19.0.1.0.8",
+    "version": "19.0.1.0.9",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
-    "depends": ["base", "sale", "account", "contacts", "sale_stock", "mrp", "hr", "fma_studio_models", "project", "purchase"],
+    "depends": [
+        "base", "sale", "account", "contacts", "sale_stock", "mrp", "hr",
+        "fma_studio_models", "project", "purchase", "helpdesk",
+    ],
     "data": [
         "security/ir.model.access.csv",
         "views/res_partner_views.xml",
