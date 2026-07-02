@@ -371,13 +371,35 @@ que le module `custom` à la racine, versions différentes (`1.0` vs
 `19.0.1.0.6`). Si ce chemin est sur l'addons_path d'Odoo.sh, ça peut créer
 un conflit de nom de module. À vérifier/nettoyer séparément — non touché ici.
 
+### account.move — fait
+
+35 champs manquants, seulement **8 portés** dans `custom/models/account_move.py`
+(module déjà en place pour ce modèle). 27 exclus : **19** sont des champs
+"related_field_*" (record le plus élevé de tous les modèles traités jusqu'ici),
+5 sélections à valeurs inconnues, 1 "OLD", 2 non stockés.
+
+### stock.picking — fait
+
+28 champs manquants, 16 portés dans `custom/models/stock_picking.py`. 12
+exclus (10 related_field_*, 1 sélection, 1 many2one vers un modèle
+`stock.reference` dont l'existence n'a pas pu être confirmée — accès SSH
+indisponible au moment du portage, **à vérifier avant de porter ce champ**,
+une relation vers un modèle inexistant ferait échouer l'installation).
+Dépendance `project` ajoutée au module `custom`.
+
+**Point notable** : 7 champs différents, tous étiquetés "Affaire" et tous
+liés à `x_affaire` (`x_studio_affaire`, `x_studio_many2one_field_J9w45`,
+`_Luqxc`, `_Vc214`, `_fQVOa`, `_oYral`, `_uBzGv`, `_many2many_field_JTFem`)
+— jamais renommés, signe probable d'essais répétés côté Studio. Portés tels
+quels (fidélité du schéma), à clarifier avec le métier lequel fait foi.
+
 ### Restant à traiter (mêmes règles d'exclusion à appliquer)
 
-account.move (35), stock.picking (28), product.product (26), purchase.order
-(24), account.move.line (15), stock.move.line (12), sale.order.line (10),
-stock.move (9), mrp.production (8), purchase.order.line (8), product.template
-(5), helpdesk.ticket (2), product.category (2), account.analytic.line (1),
-account.payment.term (1), mrp.workcenter.productivity (1), uom.uom (1).
+product.product (26), purchase.order (24), account.move.line (15),
+stock.move.line (12), sale.order.line (10), stock.move (9), mrp.production
+(8), purchase.order.line (8), product.template (5), helpdesk.ticket (2),
+product.category (2), account.analytic.line (1), account.payment.term (1),
+mrp.workcenter.productivity (1), uom.uom (1).
 
 ### Vérifications encore en attente (accès SSH à repasser dessus)
 
