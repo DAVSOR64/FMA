@@ -25,6 +25,78 @@ class SaleOrder(models.Model):
 
     date_bpe = fields.Date(string="Date BPE")
 
+    # --- Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02) ---
+    # Noms techniques conservés à l'identique, aucune migration de données.
+    # Champs volontairement exclus de ce portage (voir STUDIO_AUDIT.md) :
+    # - x_studio_avancement, x_studio_bureau_etudes, x_studio_com,
+    #   x_studio_commercial_si_prospect, x_studio_deviseur_1,
+    #   x_studio_motif_annul, x_studio_nom_com_2 : sélections dont les
+    #   valeurs n'ont pas pu être vérifiées en base au moment du portage.
+    # - x_studio_related_field_* (6 champs) : champs liés Studio dont la
+    #   cible ("related=") n'a pas pu être vérifiée en base.
+    # - x_studio_calcul_raf_ht : non stocké côté Studio (probablement un
+    #   champ lié), pas porté tel quel pour éviter de figer sa valeur.
+    # - x_studio_commercial, x_studio_commercial_client_mtn,
+    #   x_studio_commercial_mtn_1, x_studio_montant_facturer_en_ht,
+    #   x_studio_mtt_facturer_en_ht, x_studio_mtt_facturer_ht_ : marqués
+    #   "OLD"/déprécié par le métier lui-même côté Studio.
+    x_studio_ach_matire = fields.Monetary(string="Achat Matière (BE)", currency_field="currency_id")
+    x_studio_ach_vitrage = fields.Monetary(string="Achat Vitrage (BE)", currency_field="currency_id")
+    x_studio_achat_mat = fields.Monetary(string="Achat Matière (Réel)", currency_field="currency_id")
+    x_studio_achat_matire = fields.Monetary(string="Achat Matière (Devis)", currency_field="currency_id")
+    x_studio_achat_vit = fields.Monetary(string="Achat Vitrage (Réel)", currency_field="currency_id")
+    x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis)", currency_field="currency_id")
+    x_studio_avancement_crm = fields.Many2one("crm.stage", string="Avancement CRM")
+    x_studio_bureau_dtude = fields.Many2one("res.users", string="Bureau d'étude")
+    x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
+    x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
+    x_studio_commande_client = fields.Boolean(string="Commande Client?")
+    x_studio_commentaire_supplmentaire = fields.Char(string="Commentaire Supplémentaire")
+    x_studio_commercial_1 = fields.Char(string="Commercial", readonly=True)
+    x_studio_date_bpe = fields.Date(string="Date BPE")
+    x_studio_date_de_modification = fields.Datetime(string="Date de Modification")
+    x_studio_date_de_rception = fields.Date(string="Date de Réception")
+    x_studio_date_de_relance_1 = fields.Datetime(string="Date de relance 1")
+    x_studio_date_de_relance_2 = fields.Datetime(string="Date de relance 2")
+    x_studio_date_field_IuGus = fields.Date(string="New Date")
+    x_studio_datetime_field_22b_1jcrk40tn = fields.Datetime(string="Nouveau Datetime")
+    x_studio_deviseur = fields.Char(string="Deviseur")
+    x_studio_etiquette = fields.Many2many("sale.order", string="Etiquette")
+    x_studio_etiquette_1 = fields.Many2many("crm.tag", string="Etiquette")
+    x_studio_gamme = fields.Many2one("x_gamme_mtn", string="Gamme")
+    x_studio_m_brute_ = fields.Float(string=" Marge Brute en % (BE)")
+    x_studio_m_brute_en_ = fields.Monetary(string=" Marge Brute en € (BE)", currency_field="currency_id")
+    x_studio_m_sur_cots_variables_ = fields.Float(string="M.C.V. en % (BE)")
+    x_studio_m_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (BE)", currency_field="currency_id")
+    x_studio_many2many_field_2ee_1jsee0cpo = fields.Many2many("project.tags", string="Nouveau Many2Many")
+    x_studio_many2many_field_495_1jsedj4nk = fields.Many2many("documents.tag", string="Nouveau Many2Many")
+    x_studio_many2many_field_7ae_1jshd7qf2 = fields.Many2many("crm.tag", string="Nouveau Étiquettes")
+    x_studio_many2many_field_95p_1ilmrb25m = fields.Many2many("x_affaire", string="Nouveau Many2Many")
+    x_studio_marge_b_ = fields.Float(string=" Marge Brute en % (Réel)")
+    x_studio_marge_b_en_ = fields.Monetary(string=" Marge Brute en € (Réel)", currency_field="currency_id")
+    x_studio_marge_brute_ = fields.Float(string=" Marge Brute en % (Devis)")
+    x_studio_marge_brute_en_ = fields.Monetary(string=" Marge Brute en € (Devis)", currency_field="currency_id")
+    x_studio_marge_sur_cots_variables_ = fields.Float(string="M.C.V. en % (Devis)")
+    x_studio_marge_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (Devis)", currency_field="currency_id")
+    x_studio_mcv_ = fields.Float(string="M.C.V. en % (Réel)")
+    x_studio_mcv_en_ = fields.Monetary(string="M.C.V. en € (Réel)", currency_field="currency_id")
+    x_studio_mo = fields.Monetary(string="Coûts MOD (Réel)", currency_field="currency_id")
+    x_studio_mo_vendue = fields.Monetary(string="Coût MOD (Devis)", currency_field="currency_id")
+    x_studio_mo_vendue_1 = fields.Monetary(string="Coût MOD (BE)", currency_field="currency_id")
+    x_studio_mode_de_rglement = fields.Char(string="Mode de Règlement")
+    x_studio_montant_livr_factur = fields.Monetary(string="Montant livré facturé", currency_field="currency_id")
+    x_studio_montant_livr_non_factur = fields.Monetary(string="Montant livré non facturé", currency_field="currency_id")
+    x_studio_montant_non_livr_non_factur = fields.Monetary(string="Montant non livré non facturé", currency_field="currency_id")
+    x_studio_montant_total_appro = fields.Monetary(string="Montant total appro", currency_field="currency_id")
+    x_studio_nom_commercial = fields.Char(string="Sélection commercial", readonly=True)
+    x_studio_numro_iziqo = fields.Char(string="Numéro Iziqo")
+    x_studio_plannifier_en_prod = fields.Boolean(string="Planifié en Prod")
+    x_studio_projet = fields.Many2one("project.project", string="Projet mtn")
+    x_studio_restant_a_facturer_ht_pivot = fields.Monetary(string="RAF HT", currency_field="currency_id", readonly=True)
+    x_studio_so_cout_appro_affaire = fields.Monetary(string="Appro Affaire", currency_field="currency_id")
+    x_studio_so_cout_appro_stock = fields.Monetary(string="Appro Stock", currency_field="currency_id")
+    x_studio_srie = fields.Many2one("x_serie_mtn", string="Série")
+
     @api.onchange("so_date_de_livraison")
     def _onchange_so_date_de_livraison(self):
         # Synchronise la date de livraison prévue avec commitment_date

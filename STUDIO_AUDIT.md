@@ -297,13 +297,13 @@ Odoo.sh) :
   autorisent la suppression aux utilisateurs internes. **Corrigé** dans
   `security/ir.model.access.csv` (règle `base.group_system` séparée avec
   suppression pour les 17 modèles concernés).
-- **Découverte incidente** : un **21e modèle custom**,
-  `x_project_task_worksheet_template_1`, existe en base mais n'était pas
-  rattaché au module `studio_customization` (donc invisible dans l'audit
-  initial par `ir_model_data`) — visiblement lié à un worksheet/checklist
-  sur `project.task`. **Non porté dans cette phase**, à investiguer
-  séparément (champs, usage réel, volume de données) avant de décider de le
-  migrer.
+- **Découverte incidente, investiguée** : le 21e modèle custom
+  `x_project_task_worksheet_template_1` (3 champs : `x_name`, `x_comments`,
+  `x_project_task_id` obligatoire vers `project.task`) a **0 enregistrement**
+  et **aucun champ nulle part ne pointe vers lui** (pas de one2many sur
+  `project.task`, donc inaccessible depuis l'UI standard). Conclusion :
+  essai Studio abandonné avant d'être finalisé. **Non porté** — sans intérêt
+  tant qu'il reste inutilisé et inaccessible.
 
 **Menus** : recréés sous les menus racines standards Ventes / Achats /
 Fabrication (`sale.sale_menu_root`, `purchase.menu_purchase_root`,
@@ -311,6 +311,62 @@ Fabrication (`sale.sale_menu_root`, `purchase.menu_purchase_root`,
 des 19 menus Studio d'origine (dont les ids internes n'ont pas pu être
 résolus en xmlid stables pendant l'incident réseau) — à réorganiser si
 besoin après validation visuelle en staging.
+
+## Portage réalisé (Phase 3 — champs sur modèles standards, en cours)
+
+Recoupement fait entre les 415 champs `x_studio_*`/`so_*` de l'audit initial
+et le code déjà versionné : **106 étaient déjà déclarés** (modules `custom`
+et `custom_colisage` notamment), laissant un écart réel de **302 champs**
+répartis sur ~15 modèles standards. Traités modèle par modèle, en réutilisant
+le module existant le plus pertinent plutôt que d'en créer de nouveaux.
+
+**Champs systématiquement exclus du portage automatique, quel que soit le
+modèle** (documentés dans le code au fur et à mesure) :
+- Sélections (`selection`) dont les valeurs n'ont pas pu être vérifiées en
+  base au moment du portage.
+- Champs "liés" (`related_field_*`, souvent en lecture seule) dont la cible
+  (`related=`) n'a pas pu être vérifiée en base.
+- Champs non stockés (`store=false`) portés comme simple champ stocké
+  aurait figé leur valeur au lieu de la garder synchronisée — exclus tant
+  que leur définition réelle (related/compute) n'est pas connue.
+- Champs explicitement marqués "OLD"/déprécié par le métier lui-même dans
+  Studio.
+
+### sale.order — fait
+
+77 champs manquants, 56 portés dans `fma_sale_order_custom/models/sale_order.py`
+(déjà le module dédié à la personnalisation des devis/commandes). 21 exclus
+pour les raisons ci-dessus (détail en commentaire dans le fichier).
+Dépendances ajoutées au manifest : `fma_studio_models` (pour `x_gamme_mtn`,
+`x_serie_mtn`, `x_affaire`), `crm`, `project`, `documents` (modèles ciblés
+par des many2one/many2many Studio).
+
+**Observation** : le fichier contenait déjà un champ `date_bpe` (sans
+préfixe `x_studio_`) au même sens que le nouveau `x_studio_date_bpe` porté
+ici — deux colonnes distinctes pour a priori le même concept métier. Pas
+touché dans cette passe (pas assez d'information pour savoir laquelle fait
+foi), mais à clarifier avec le métier.
+
+### Restant à traiter (mêmes règles d'exclusion à appliquer)
+
+res.partner (37), account.move (35), stock.picking (28), product.product
+(26), purchase.order (24), account.move.line (15), stock.move.line (12),
+sale.order.line (10), stock.move (9), mrp.production (8),
+purchase.order.line (8), product.template (5), helpdesk.ticket (2),
+product.category (2), account.analytic.line (1), account.payment.term (1),
+mrp.workcenter.productivity (1), uom.uom (1).
+
+### Vérifications encore en attente (accès SSH à repasser dessus)
+
+- Valeurs des sélections `x_studio_avancement` (sale.order — **utilisé
+  activement dans `fma_sale_order_custom`, `action_validation()`, avec la
+  valeur `"5"`** : au moins cette valeur doit figurer dans les options),
+  `x_studio_bureau_etudes`, `x_studio_com`, `x_studio_commercial_si_prospect`,
+  `x_studio_deviseur_1`, `x_studio_motif_annul`, `x_studio_nom_com_2`, et
+  toutes les autres sélections manquantes des modèles suivants.
+- Cible (`related`) des champs `x_studio_related_field_*` sur tous les
+  modèles.
+- Définition réelle de `x_studio_calcul_raf_ht` (non stocké côté Studio).
 
 ## Plan de migration proposé (par ordre de priorité / risque)
 
