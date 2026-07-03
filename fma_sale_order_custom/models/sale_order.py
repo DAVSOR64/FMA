@@ -61,7 +61,19 @@ class SaleOrder(models.Model):
     x_studio_date_field_IuGus = fields.Date(string="New Date")
     x_studio_datetime_field_22b_1jcrk40tn = fields.Datetime(string="Nouveau Datetime")
     x_studio_deviseur = fields.Char(string="Deviseur")
-    x_studio_etiquette = fields.Many2many("sale.order", string="Etiquette")
+    # Many2many auto-référencé sur sale.order lui-même : aucune table de
+    # relation ni donnée existante côté Studio (champ probablement
+    # abandonné/mal configuré, x_studio_etiquette_1 ci-dessous porte le
+    # même libellé "Etiquette" vers crm.tag). Relation/colonnes explicites
+    # obligatoires ici car Odoo ne peut pas déduire un nom de table
+    # canonique quand source et destination sont le même modèle.
+    x_studio_etiquette = fields.Many2many(
+        "sale.order",
+        relation="x_studio_etiquette_sale_order_rel",
+        column1="sale_order_id1",
+        column2="sale_order_id2",
+        string="Etiquette",
+    )
     x_studio_etiquette_1 = fields.Many2many("crm.tag", string="Etiquette")
     x_studio_gamme = fields.Many2one("x_gamme_mtn", string="Gamme")
     x_studio_m_brute_ = fields.Float(string=" Marge Brute en % (BE)")
