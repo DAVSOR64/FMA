@@ -20,7 +20,7 @@
         rationale behind this module.
     """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "depends": ["base", "mail", "mrp", "purchase", "account"],
     "data": [
         "security/ir.model.access.csv",
@@ -33,5 +33,6 @@
         "views/x_lines_views.xml",
         "views/menus.xml",
     ],
+    "pre_init_hook": "pre_init_hook",
     "license": "LGPL-3",
 }
