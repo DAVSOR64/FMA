@@ -74,7 +74,15 @@ class SaleOrder(models.Model):
         column2="sale_order_id2",
         string="Etiquette",
     )
-    x_studio_etiquette_1 = fields.Many2many("crm.tag", string="Etiquette")
+    # Relation explicite requise : x_studio_many2many_field_7ae_1jshd7qf2
+    # ci-dessous pointe aussi sale.order -> crm.tag sans nom de table
+    # explicite, ce qui ferait collisionner les deux sur la même table
+    # canonique auto-déduite par Odoo.
+    x_studio_etiquette_1 = fields.Many2many(
+        "crm.tag",
+        relation="x_studio_etiquette_1_crm_tag_rel",
+        string="Etiquette",
+    )
     x_studio_gamme = fields.Many2one("x_gamme_mtn", string="Gamme")
     x_studio_m_brute_ = fields.Float(string=" Marge Brute en % (BE)")
     x_studio_m_brute_en_ = fields.Monetary(string=" Marge Brute en € (BE)", currency_field="currency_id")
@@ -82,7 +90,11 @@ class SaleOrder(models.Model):
     x_studio_m_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (BE)", currency_field="currency_id")
     x_studio_many2many_field_2ee_1jsee0cpo = fields.Many2many("project.tags", string="Nouveau Many2Many")
     x_studio_many2many_field_495_1jsedj4nk = fields.Many2many("documents.tag", string="Nouveau Many2Many")
-    x_studio_many2many_field_7ae_1jshd7qf2 = fields.Many2many("crm.tag", string="Nouveau Étiquettes")
+    x_studio_many2many_field_7ae_1jshd7qf2 = fields.Many2many(
+        "crm.tag",
+        relation="x_studio_m2m_7ae_1jshd7qf2_crm_tag_rel",
+        string="Nouveau Étiquettes",
+    )
     x_studio_many2many_field_95p_1ilmrb25m = fields.Many2many("x_affaire", string="Nouveau Many2Many")
     x_studio_marge_b_ = fields.Float(string=" Marge Brute en % (Réel)")
     x_studio_marge_b_en_ = fields.Monetary(string=" Marge Brute en € (Réel)", currency_field="currency_id")
