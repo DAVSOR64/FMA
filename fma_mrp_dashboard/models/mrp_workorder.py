@@ -138,7 +138,6 @@ class MrpWorkorder(models.Model):
                 getattr(mo, 'x_studio_projet', False) if mo else False,
                 getattr(sale, 'x_studio_projet', False) if sale else False,
                 getattr(sale, 'project_id', False).display_name if sale and getattr(sale, 'project_id', False) else False,
-                getattr(sale, 'analytic_account_id', False).display_name if sale and getattr(sale, 'analytic_account_id', False) else False,
                 getattr(sale, 'name', False) if sale else False,
                 getattr(mo, 'origin', False) if mo else False,
                 getattr(mo, 'name', False) if mo else False,

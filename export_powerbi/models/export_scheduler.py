@@ -844,9 +844,24 @@ class ExportSFTPScheduler(models.Model):
                         # getattr(l, 'amount_currency', 0.0) or 0.0,
                         # Analytique
                         (
-                            l.analytic_account_id.name
-                            if getattr(l, "analytic_account_id", False)
-                            else ""
+                            ", ".join(
+                                self.env["account.analytic.account"]
+                                .browse(
+                                    [
+                                        int(k)
+                                        for k in (
+                                            getattr(l, "analytic_distribution", None) or {}
+                                        ).keys()
+                                    ]
+                                )
+                                .mapped("name")
+                            )
+                            if getattr(l, "analytic_distribution", None)
+                            else (
+                                l.analytic_account_id.name
+                                if getattr(l, "analytic_account_id", False)
+                                else ""
+                            )
                         ),
                         ", ".join([t.name for t in getattr(l, "analytic_tag_ids", [])])
                         if getattr(l, "analytic_tag_ids", False)
