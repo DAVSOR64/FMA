@@ -403,7 +403,7 @@ class MrpProduction(models.Model):
             'product_id': product.id,
             'name': '%s - %s' % (product.display_name, self.name),
             'product_qty': qty,
-            'product_uom': product.uom_po_id.id or product.uom_id.id,
+            'product_uom': product.uom_id.id,
             'price_unit': subcontractor.laquage_price_unit or product.standard_price or 0.0,
             'date_planned': planned_date,
             **pol_link_vals,
