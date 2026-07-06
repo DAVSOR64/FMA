@@ -1308,7 +1308,7 @@ class SqliteConnector(models.Model):
                                 'product_uom_qty': Qty,
                                 #'name': dimension,
                                 'discount': PourRem,
-                                'product_uom': pro.uom_id.id,
+                                'product_uom_id': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 })],
                         }
@@ -1320,7 +1320,7 @@ class SqliteConnector(models.Model):
                                 'product_uom_qty': Qty,
                                 #'name': dimension,
                                 'discount': PourRem,
-                                'product_uom': pro.uom_id.id,
+                                'product_uom_id': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 }))
             sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
@@ -1339,7 +1339,7 @@ class SqliteConnector(models.Model):
                         'product_uom_qty': 1,
                         'name': dimension,
                         'discount': PourRem,
-                        'product_uom': pro.uom_id.id,
+                        'product_uom_id': pro.uom_id.id,
                         # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         }))
         else:
@@ -1381,7 +1381,7 @@ class SqliteConnector(models.Model):
                                     'product_uom_qty': float(row[6]),
                                     'name': dimension,
                                     'discount': PourRem,
-                                    'product_uom': pro.uom_id.id,
+                                    'product_uom_id': pro.uom_id.id,
                                     # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                     })
                                 ],
@@ -1394,7 +1394,7 @@ class SqliteConnector(models.Model):
                                     'product_uom_qty': float(row[6]),
                                     'name': dimension,
                                     'discount': PourRem,
-                                    'product_uom': pro.uom_id.id,
+                                    'product_uom_id': pro.uom_id.id,
                                     # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                     })
                                 )
