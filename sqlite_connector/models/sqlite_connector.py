@@ -669,12 +669,11 @@ class SqliteConnector(models.Model):
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
-                    seller = self.env['product.supplierinfo'].create({
-                    'partner_id': idfrs,
-                    'price': prix,
-                    'delay': delai,
-                    })
-                    vals.update({'seller_ids': [Command.set([seller.id])]})
+                    vals.update({'seller_ids': [Command.create({
+                        'partner_id': idfrs,
+                        'price': prix,
+                        'delay': delai,
+                    })]})
                 product = self.env['product.product'].create(vals)
                 message = _("Product has been Created: ") + product._get_html_link()
                 self.message_post(body=message)
@@ -889,12 +888,11 @@ class SqliteConnector(models.Model):
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
-                            seller = self.env['product.supplierinfo'].create({
-                            'partner_id': idfrs,
-                            'price': prix,
-                            'delay': delai,
-                            })
-                            vals.update({'seller_ids': [Command.set([seller.id])]})
+                            vals.update({'seller_ids': [Command.create({
+                                'partner_id': idfrs,
+                                'price': prix,
+                                'delay': delai,
+                            })]})
                         product = self.env['product.product'].create(vals)
                         message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
@@ -1155,12 +1153,11 @@ class SqliteConnector(models.Model):
                             'x_studio_longueur_pb_vertical' : LongVerti,
                         }
                         if idfrs:
-                            seller = self.env['product.supplierinfo'].create({
+                            vals.update({'seller_ids': [Command.create({
                                 'partner_id': idfrs,
                                 'price': prix,
                                 'delay': 3,
-                            })
-                            vals.update({'seller_ids': [Command.set([seller.id])]})
+                            })]})
                         product = self.env['product.product'].create(vals)
                         message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
