@@ -27,6 +27,12 @@ class SqliteConnector(models.Model):
     file = fields.Binary(string='SQLite file')
     ir_log_ids = fields.One2many('ir.logging', 'connector_id')
 
+    def _get_default_product_category(self):
+        root = self.env.ref('product.product_category_all', raise_if_not_found=False)
+        if root:
+            return root
+        return self.env['product.category'].search([('parent_id', '=', False)], limit=1)
+
     def export_data_from_db(self):
         articles = []
         profiles = []
@@ -386,7 +392,7 @@ class SqliteConnector(models.Model):
                         "default_code": refint,
                         "list_price": row[7],
                         #"standard_price": row[7],
-                        'categ_id': categ.id if categ else self.env.ref('product.product_category_all').id,
+                        'categ_id': categ.id if categ else self._get_default_product_category().id,
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
                         "x_studio_position": elevID,
                         "x_studio_hauteur_mm": HautNum,
@@ -407,7 +413,7 @@ class SqliteConnector(models.Model):
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         for row in resultp:
             refart = str(row[1])
-            categ = self.env.ref('product.product_category_all')
+            categ = self._get_default_product_category()
             affaire = row[0]
             if BP == 'BPA':
                 refart = refart + '_BPA'
