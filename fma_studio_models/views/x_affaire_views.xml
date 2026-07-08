@@ -67,6 +67,11 @@
         <field name="name">Affaire</field>
         <field name="res_model">x_affaire</field>
         <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[
+            (5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_x_affaire_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_x_affaire_form')}),
+        ]"/>
     </record>
 
     <record id="view_x_affaire_stage_list" model="ir.ui.view">
@@ -84,6 +89,7 @@
         <field name="name">Affaire - Étapes</field>
         <field name="res_model">x_affaire_stage</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_affaire_stage_list"/>
     </record>
 
     <record id="view_x_affaire_tag_list" model="ir.ui.view">
@@ -102,5 +108,6 @@
         <field name="name">Affaire - Étiquettes</field>
         <field name="res_model">x_affaire_tag</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_affaire_tag_list"/>
     </record>
 </odoo>

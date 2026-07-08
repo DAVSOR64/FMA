@@ -18,6 +18,7 @@
         <field name="name">Remise</field>
         <field name="res_model">x_remise</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_remise_list"/>
     </record>
 
     <record id="view_x_remises_list" model="ir.ui.view">
@@ -35,6 +36,7 @@
         <field name="name">Remises</field>
         <field name="res_model">x_remises</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_remises_list"/>
     </record>
 
     <record id="view_x_remise_affaire_list" model="ir.ui.view">
@@ -53,6 +55,7 @@
         <field name="name">Remise Affaire</field>
         <field name="res_model">x_remise_affaire</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_remise_affaire_list"/>
     </record>
 
     <record id="view_x_remises_affaire_list" model="ir.ui.view">
@@ -71,6 +74,7 @@
         <field name="name">Remises Affaire</field>
         <field name="res_model">x_remises_affaire</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_remises_affaire_list"/>
     </record>
 
     <record id="view_x_remise_chantier_form" model="ir.ui.view">
@@ -126,5 +130,10 @@
         <field name="name">Remise Chantier</field>
         <field name="res_model">x_remise_chantier</field>
         <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[
+            (5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_x_remise_chantier_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_x_remise_chantier_form')}),
+        ]"/>
     </record>
 </odoo>

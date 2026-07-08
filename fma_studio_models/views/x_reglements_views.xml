@@ -16,5 +16,6 @@
         <field name="name">Réglements</field>
         <field name="res_model">x_reglements</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_reglements_list"/>
     </record>
 </odoo>

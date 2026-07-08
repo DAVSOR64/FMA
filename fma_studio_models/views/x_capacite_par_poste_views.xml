@@ -20,6 +20,7 @@
         <field name="name">Capacité par poste</field>
         <field name="res_model">x_capacite_par_poste</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_capacite_par_poste_list"/>
     </record>
 
     <record id="view_x_capacite_par_poste_tag_list" model="ir.ui.view">
@@ -37,5 +38,6 @@
         <field name="name">Capacité par poste - Étiquettes</field>
         <field name="res_model">x_capacite_par_poste_tag</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_capacite_par_poste_tag_list"/>
     </record>
 </odoo>

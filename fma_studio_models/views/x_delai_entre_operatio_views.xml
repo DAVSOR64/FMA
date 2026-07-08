@@ -57,6 +57,11 @@
         <field name="name">Délai entre opérations</field>
         <field name="res_model">x_delai_entre_operatio</field>
         <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[
+            (5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_x_delai_entre_operatio_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_x_delai_entre_operatio_form')}),
+        ]"/>
     </record>
 
     <record id="view_x_delai_entre_operatio_tag_list" model="ir.ui.view">
@@ -74,5 +79,6 @@
         <field name="name">Délai entre opérations - Étiquettes</field>
         <field name="res_model">x_delai_entre_operatio_tag</field>
         <field name="view_mode">list</field>
+        <field name="view_id" ref="view_x_delai_entre_operatio_tag_list"/>
     </record>
 </odoo>
