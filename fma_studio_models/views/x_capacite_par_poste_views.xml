@@ -16,11 +16,22 @@
         </field>
     </record>
 
+    <record id="view_x_capacite_par_poste_search" model="ir.ui.view">
+        <field name="name">x_capacite_par_poste.search</field>
+        <field name="model">x_capacite_par_poste</field>
+        <field name="arch" type="xml">
+            <search string="Capacité par poste">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_capacite_par_poste" model="ir.actions.act_window">
         <field name="name">Capacité par poste</field>
         <field name="res_model">x_capacite_par_poste</field>
         <field name="view_mode">list</field>
         <field name="view_id" ref="view_x_capacite_par_poste_list"/>
+        <field name="search_view_id" ref="view_x_capacite_par_poste_search"/>
     </record>
 
     <record id="view_x_capacite_par_poste_tag_list" model="ir.ui.view">
@@ -34,10 +45,21 @@
         </field>
     </record>
 
+    <record id="view_x_capacite_par_poste_tag_search" model="ir.ui.view">
+        <field name="name">x_capacite_par_poste_tag.search</field>
+        <field name="model">x_capacite_par_poste_tag</field>
+        <field name="arch" type="xml">
+            <search string="Capacité par poste - Étiquettes">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_capacite_par_poste_tag" model="ir.actions.act_window">
         <field name="name">Capacité par poste - Étiquettes</field>
         <field name="res_model">x_capacite_par_poste_tag</field>
         <field name="view_mode">list</field>
         <field name="view_id" ref="view_x_capacite_par_poste_tag_list"/>
+        <field name="search_view_id" ref="view_x_capacite_par_poste_tag_search"/>
     </record>
 </odoo>

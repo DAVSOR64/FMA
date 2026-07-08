@@ -53,6 +53,16 @@
         </field>
     </record>
 
+    <record id="view_x_delai_entre_operatio_search" model="ir.ui.view">
+        <field name="name">x_delai_entre_operatio.search</field>
+        <field name="model">x_delai_entre_operatio</field>
+        <field name="arch" type="xml">
+            <search string="Délais entre opérations">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_delai_entre_operatio" model="ir.actions.act_window">
         <field name="name">Délai entre opérations</field>
         <field name="res_model">x_delai_entre_operatio</field>
@@ -62,6 +72,7 @@
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_x_delai_entre_operatio_list')}),
             (0, 0, {'view_mode': 'form', 'view_id': ref('view_x_delai_entre_operatio_form')}),
         ]"/>
+        <field name="search_view_id" ref="view_x_delai_entre_operatio_search"/>
     </record>
 
     <record id="view_x_delai_entre_operatio_tag_list" model="ir.ui.view">
@@ -75,10 +86,21 @@
         </field>
     </record>
 
+    <record id="view_x_delai_entre_operatio_tag_search" model="ir.ui.view">
+        <field name="name">x_delai_entre_operatio_tag.search</field>
+        <field name="model">x_delai_entre_operatio_tag</field>
+        <field name="arch" type="xml">
+            <search string="Délai entre opérations - Étiquettes">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_delai_entre_operatio_tag" model="ir.actions.act_window">
         <field name="name">Délai entre opérations - Étiquettes</field>
         <field name="res_model">x_delai_entre_operatio_tag</field>
         <field name="view_mode">list</field>
         <field name="view_id" ref="view_x_delai_entre_operatio_tag_list"/>
+        <field name="search_view_id" ref="view_x_delai_entre_operatio_tag_search"/>
     </record>
 </odoo>

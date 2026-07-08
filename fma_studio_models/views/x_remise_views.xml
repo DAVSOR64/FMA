@@ -14,11 +14,22 @@
         </field>
     </record>
 
+    <record id="view_x_remise_search" model="ir.ui.view">
+        <field name="name">x_remise.search</field>
+        <field name="model">x_remise</field>
+        <field name="arch" type="xml">
+            <search string="Remise">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_remise" model="ir.actions.act_window">
         <field name="name">Remise</field>
         <field name="res_model">x_remise</field>
         <field name="view_mode">list</field>
         <field name="view_id" ref="view_x_remise_list"/>
+        <field name="search_view_id" ref="view_x_remise_search"/>
     </record>
 
     <record id="view_x_remises_list" model="ir.ui.view">
@@ -32,11 +43,22 @@
         </field>
     </record>
 
+    <record id="view_x_remises_search" model="ir.ui.view">
+        <field name="name">x_remises.search</field>
+        <field name="model">x_remises</field>
+        <field name="arch" type="xml">
+            <search string="Remises">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_remises" model="ir.actions.act_window">
         <field name="name">Remises</field>
         <field name="res_model">x_remises</field>
         <field name="view_mode">list</field>
         <field name="view_id" ref="view_x_remises_list"/>
+        <field name="search_view_id" ref="view_x_remises_search"/>
     </record>
 
     <record id="view_x_remise_affaire_list" model="ir.ui.view">
@@ -51,11 +73,22 @@
         </field>
     </record>
 
+    <record id="view_x_remise_affaire_search" model="ir.ui.view">
+        <field name="name">x_remise_affaire.search</field>
+        <field name="model">x_remise_affaire</field>
+        <field name="arch" type="xml">
+            <search string="Remise Affaire">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_remise_affaire" model="ir.actions.act_window">
         <field name="name">Remise Affaire</field>
         <field name="res_model">x_remise_affaire</field>
         <field name="view_mode">list</field>
         <field name="view_id" ref="view_x_remise_affaire_list"/>
+        <field name="search_view_id" ref="view_x_remise_affaire_search"/>
     </record>
 
     <record id="view_x_remises_affaire_list" model="ir.ui.view">
@@ -70,11 +103,22 @@
         </field>
     </record>
 
+    <record id="view_x_remises_affaire_search" model="ir.ui.view">
+        <field name="name">x_remises_affaire.search</field>
+        <field name="model">x_remises_affaire</field>
+        <field name="arch" type="xml">
+            <search string="Remises Affaire">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_remises_affaire" model="ir.actions.act_window">
         <field name="name">Remises Affaire</field>
         <field name="res_model">x_remises_affaire</field>
         <field name="view_mode">list</field>
         <field name="view_id" ref="view_x_remises_affaire_list"/>
+        <field name="search_view_id" ref="view_x_remises_affaire_search"/>
     </record>
 
     <record id="view_x_remise_chantier_form" model="ir.ui.view">
@@ -126,6 +170,16 @@
         </field>
     </record>
 
+    <record id="view_x_remise_chantier_search" model="ir.ui.view">
+        <field name="name">x_remise_chantier.search</field>
+        <field name="model">x_remise_chantier</field>
+        <field name="arch" type="xml">
+            <search string="Remise Chantier">
+                <field name="x_name"/>
+            </search>
+        </field>
+    </record>
+
     <record id="action_x_remise_chantier" model="ir.actions.act_window">
         <field name="name">Remise Chantier</field>
         <field name="res_model">x_remise_chantier</field>
@@ -135,5 +189,6 @@
             (0, 0, {'view_mode': 'list', 'view_id': ref('view_x_remise_chantier_list')}),
             (0, 0, {'view_mode': 'form', 'view_id': ref('view_x_remise_chantier_form')}),
         ]"/>
+        <field name="search_view_id" ref="view_x_remise_chantier_search"/>
     </record>
 </odoo>
