@@ -4,10 +4,8 @@
         <field name="name">x_reglements.list</field>
         <field name="model">x_reglements</field>
         <field name="arch" type="xml">
-            <list string="Règlements" editable="bottom">
-                <field name="x_studio_sequence" widget="handle"/>
+            <list string="Règlements">
                 <field name="x_name"/>
-                <field name="x_studio_libelle"/>
             </list>
         </field>
     </record>
@@ -16,9 +14,7 @@
         <field name="name">x_reglements.search</field>
         <field name="model">x_reglements</field>
         <field name="arch" type="xml">
-            <search string="Règlements">
-                <field name="x_name"/>
-            </search>
+            <search string="Règlements"/>
         </field>
     </record>
 
