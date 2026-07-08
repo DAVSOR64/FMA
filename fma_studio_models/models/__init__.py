@@ -8,3 +8,4 @@ from . import x_reglements
 from . import x_remise
 from . import x_purchase_order_line_ext
 from . import x_account_move_line_ext
+from . import ir_ui_menu
