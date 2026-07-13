@@ -1400,52 +1400,25 @@ class MrpProduction(models.Model):
         # Objectif : afficher 1 ligne par commande d'achat dans le popup,
         # sans afficher le détail des lignes d'achat.
         #
-        # Important : selon les versions/configurations Odoo, le lien entre l'OF
-        # et l'achat peut être porté par les mouvements de stock, le groupe
-        # d'approvisionnement de la commande d'achat, ou seulement par l'origine.
+        # On délègue à la méthode native _get_purchase_orders() (module
+        # purchase_mrp) : elle sait retrouver les PO via move_raw_ids /
+        # move_orig_ids / purchase_line_id, ce qui reste valable en v18
+        # comme en v19 (contrairement à procurement_group_id, supprimé en
+        # v19). Elle est en plus surchargée par fma_laquage_subcontracting
+        # pour inclure les achats de laquage.
         purchase_orders = self.env["purchase.order"]
+        try:
+            purchase_orders = self._get_purchase_orders()
+        except AttributeError:
+            purchase_orders = self.env["purchase.order"]
 
-        # procurement_group_id n'existe plus sur mrp.production en v19 : on ne
-        # construit ces domaines que si le champ existe encore (v17/v18).
-        group_id = self.procurement_group_id if 'procurement_group_id' in self._fields else False
-
-        PurchaseOrderLine = self.env["purchase.order.line"]
-        po_lines = PurchaseOrderLine
-
-        search_domains = [
-            # Sécurité : certains flux gardent seulement l'OF en origine (fonctionne toutes versions)
-            [("order_id.origin", "ilike", self.name)],
-        ]
-        if group_id:
-            search_domains += [
-                # Cas standard d'origine du module : ligne d'achat reliée au besoin de l'OF
-                [("move_dest_ids.group_id", "=", group_id.id)],
-                # Cas fréquent : le groupe est porté par la commande d'achat
-                [("order_id.group_id", "=", group_id.id)],
-            ]
-
-        for domain in search_domains:
+        # Filet de sécurité si la méthode native ne trouve rien (ex. module
+        # purchase_mrp absent) : recherche par origine.
+        if not purchase_orders and self.name:
             try:
-                found_lines = PurchaseOrderLine.search(domain)
+                purchase_orders = self.env["purchase.order"].search([("origin", "ilike", self.name)])
             except Exception:
-                # On ignore uniquement le domaine non compatible avec la version Odoo
-                found_lines = PurchaseOrderLine
-            po_lines |= found_lines
-
-        purchase_orders = po_lines.mapped("order_id")
-
-        # Fallback complémentaire directement sur purchase.order si aucune ligne n'a été trouvée.
-        if not purchase_orders:
-            po_domains = [
-                [("origin", "ilike", self.name)],
-            ]
-            if group_id:
-                po_domains.append([("group_id", "=", group_id.id)])
-            for domain in po_domains:
-                try:
-                    purchase_orders |= self.env["purchase.order"].search(domain)
-                except Exception:
-                    pass
+                pass
 
         po_data = []
         for po in purchase_orders:
