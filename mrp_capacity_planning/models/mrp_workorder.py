@@ -176,7 +176,10 @@ class MrpWorkorder(models.Model):
             mo = wo.production_id
             sale = False
             if mo:
-                sale = getattr(getattr(mo, 'procurement_group_id', False), 'sale_id', False)
+                sale_line = getattr(mo, 'sale_line_id', False)
+                sale = sale_line.order_id if sale_line else False
+                if not sale:
+                    sale = getattr(getattr(mo, 'procurement_group_id', False), 'sale_id', False)
                 if not sale and getattr(mo, 'origin', False):
                     sale = SaleOrder.search([('name', '=', mo.origin)], limit=1)
 

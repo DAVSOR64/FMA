@@ -784,13 +784,10 @@ class MrpProduction(models.Model):
         """
         - scheduled_date = 4 jours ouvrés avant le début fab (matin 07:30)
         - date_deadline  = début fab (matin 07:30)
-        Recherche pickings via group_id (procurement group) => robuste.
+        Recherche pickings via picking_ids (champ natif, robuste toutes versions —
+        le procurement group n'existe plus sur mrp.production en v19).
         """
         self.ensure_one()
-
-        if not self.procurement_group_id:
-            _logger.info("MO %s : pas de procurement_group_id, MAJ picking ignorée", self.name)
-            return
 
         if not self.date_start:
             _logger.info("MO %s : pas de date_start, MAJ picking ignorée", self.name)
@@ -798,12 +795,9 @@ class MrpProduction(models.Model):
 
         start_day = fields.Datetime.to_datetime(self.date_start).date()
 
-        pickings = self.env["stock.picking"].search([
-            ("group_id", "=", self.procurement_group_id.id),
-            ("state", "not in", ("done", "cancel")),
-        ])
+        pickings = self.picking_ids.filtered(lambda p: p.state not in ("done", "cancel"))
         if not pickings:
-            _logger.info("MO %s : aucun picking via group_id=%s", self.name, self.procurement_group_id.id)
+            _logger.info("MO %s : aucun picking associé", self.name)
             return
 
         comp_pickings = pickings.filtered(
@@ -1198,7 +1192,11 @@ class MrpProduction(models.Model):
         """
         self.ensure_one()
         sale_order = False
-        if self.procurement_group_id:
+        # procurement_group_id n'existe plus sur mrp.production en v19 —
+        # on utilise sale_line_id (sale_mrp), présent en v18 comme en v19.
+        if 'sale_line_id' in self._fields and self.sale_line_id:
+            sale_order = self.sale_line_id.order_id
+        elif 'procurement_group_id' in self._fields and self.procurement_group_id:
             sale_order = self.env['sale.order'].search([
                 ('procurement_group_id', '=', self.procurement_group_id.id)
             ], limit=1)
@@ -1407,40 +1405,47 @@ class MrpProduction(models.Model):
         # d'approvisionnement de la commande d'achat, ou seulement par l'origine.
         purchase_orders = self.env["purchase.order"]
 
-        if self.procurement_group_id:
-            PurchaseOrderLine = self.env["purchase.order.line"]
-            po_lines = PurchaseOrderLine
+        # procurement_group_id n'existe plus sur mrp.production en v19 : on ne
+        # construit ces domaines que si le champ existe encore (v17/v18).
+        group_id = self.procurement_group_id if 'procurement_group_id' in self._fields else False
 
-            search_domains = [
+        PurchaseOrderLine = self.env["purchase.order.line"]
+        po_lines = PurchaseOrderLine
+
+        search_domains = [
+            # Sécurité : certains flux gardent seulement l'OF en origine (fonctionne toutes versions)
+            [("order_id.origin", "ilike", self.name)],
+        ]
+        if group_id:
+            search_domains += [
                 # Cas standard d'origine du module : ligne d'achat reliée au besoin de l'OF
-                [("move_dest_ids.group_id", "=", self.procurement_group_id.id)],
+                [("move_dest_ids.group_id", "=", group_id.id)],
                 # Cas fréquent : le groupe est porté par la commande d'achat
-                [("order_id.group_id", "=", self.procurement_group_id.id)],
-                # Sécurité supplémentaire : certains flux gardent seulement l'OF en origine
-                [("order_id.origin", "ilike", self.name)],
+                [("order_id.group_id", "=", group_id.id)],
             ]
 
-            for domain in search_domains:
+        for domain in search_domains:
+            try:
+                found_lines = PurchaseOrderLine.search(domain)
+            except Exception:
+                # On ignore uniquement le domaine non compatible avec la version Odoo
+                found_lines = PurchaseOrderLine
+            po_lines |= found_lines
+
+        purchase_orders = po_lines.mapped("order_id")
+
+        # Fallback complémentaire directement sur purchase.order si aucune ligne n'a été trouvée.
+        if not purchase_orders:
+            po_domains = [
+                [("origin", "ilike", self.name)],
+            ]
+            if group_id:
+                po_domains.append([("group_id", "=", group_id.id)])
+            for domain in po_domains:
                 try:
-                    found_lines = PurchaseOrderLine.search(domain)
+                    purchase_orders |= self.env["purchase.order"].search(domain)
                 except Exception:
-                    # On ignore uniquement le domaine non compatible avec la version Odoo
-                    found_lines = PurchaseOrderLine
-                po_lines |= found_lines
-
-            purchase_orders = po_lines.mapped("order_id")
-
-            # Fallback complémentaire directement sur purchase.order si aucune ligne n'a été trouvée.
-            if not purchase_orders:
-                po_domains = [
-                    [("group_id", "=", self.procurement_group_id.id)],
-                    [("origin", "ilike", self.name)],
-                ]
-                for domain in po_domains:
-                    try:
-                        purchase_orders |= self.env["purchase.order"].search(domain)
-                    except Exception:
-                        pass
+                    pass
 
         po_data = []
         for po in purchase_orders:

@@ -74,16 +74,16 @@ class MrpAddComponentNeedWizard(models.TransientModel):
         if product.type not in ("product", "consu"):
             raise UserError(_("Seuls les articles stockables ou consommables peuvent être ajoutés comme besoin composant."))
 
-        # On rattache le besoin au même groupe d'approvisionnement que l'OF/SO.
-        # Si l'OF n'a pas encore de groupe, on en crée un afin de conserver le chaînage.
-        group = production.procurement_group_id
+        # On rattache le besoin au même groupe d'approvisionnement que les autres
+        # composants de l'OF (procurement_group_id n'existe plus sur mrp.production
+        # en v19 : on relit le groupe directement sur les mouvements existants).
+        group = production.move_raw_ids[:1].group_id
         if not group:
             group = self.env["procurement.group"].create({
                 "name": production.origin or production.name,
                 "move_type": "direct",
                 "company_id": production.company_id.id,
             })
-            production.procurement_group_id = group.id
 
         # Emplacements : on reprend en priorité ceux des composants existants de l'OF.
         reference_raw_move = production.move_raw_ids[:1]

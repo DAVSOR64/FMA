@@ -24,14 +24,30 @@ class MrpProduction(models.Model):
     def _sync_studio_sale_order(self):
         StockMove = self.env["stock.move"]
         for mo in self:
-            if mo.sale_order_count:
-                moves = mo.procurement_group_id.mrp_production_ids.move_dest_ids
+            if not mo.sale_order_count:
+                continue
+
+            sale_orders = self.env["sale.order"]
+            if "sale_line_id" in mo._fields:
+                sale_orders = mo.sale_line_id.order_id
+
+            if not sale_orders:
+                # procurement_group_id (v17/v18) devient production_group_id (v19),
+                # avec mrp_production_ids renommé production_ids.
+                if "production_group_id" in mo._fields:
+                    siblings = mo.production_group_id.production_ids
+                elif "procurement_group_id" in mo._fields:
+                    siblings = mo.procurement_group_id.mrp_production_ids
+                else:
+                    siblings = mo
+                moves = siblings.move_dest_ids
                 # stock.move.group_id existait jusqu'en v18, supprimé en v19
                 # (remplacé par un lien direct move -> vente via sale_line_id/picking_id).
-                if "group_id" in StockMove._fields:
+                if "group_id" in StockMove._fields and moves.group_id:
                     sale_orders = moves.group_id.sale_id
                 elif "sale_line_id" in StockMove._fields:
                     sale_orders = moves.sale_line_id.order_id
                 else:
                     sale_orders = moves.picking_id.sale_id
-                mo.x_studio_mtn_mrp_sale_order = sale_orders[:1]
+
+            mo.x_studio_mtn_mrp_sale_order = sale_orders[:1]

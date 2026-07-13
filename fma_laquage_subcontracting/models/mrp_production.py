@@ -53,7 +53,7 @@ class MrpProduction(models.Model):
             sale = self.sale_id
         elif 'sale_line_id' in self._fields and self.sale_line_id:
             sale = self.sale_line_id.order_id
-        elif self.procurement_group_id:
+        elif 'procurement_group_id' in self._fields and self.procurement_group_id:
             if 'sale_id' in self.procurement_group_id._fields and self.procurement_group_id.sale_id:
                 sale = self.procurement_group_id.sale_id
             elif self.procurement_group_id.name:
@@ -417,7 +417,7 @@ class MrpProduction(models.Model):
                 vals_update['picking_type_id'] = picking_type.id
             if 'laquage_status' in po._fields and po.laquage_status not in ('sent', 'returned'):
                 vals_update['laquage_status'] = 'to_send'
-            if self.procurement_group_id and 'group_id' in po._fields:
+            if 'procurement_group_id' in self._fields and self.procurement_group_id and 'group_id' in po._fields:
                 vals_update['group_id'] = self.procurement_group_id.id
             if vals_update:
                 po.write(vals_update)
@@ -442,7 +442,7 @@ class MrpProduction(models.Model):
             po_vals['picking_type_id'] = picking_type.id
         if 'laquage_status' in self.env['purchase.order']._fields:
             po_vals['laquage_status'] = 'to_send'
-        if self.procurement_group_id and 'group_id' in self.env['purchase.order']._fields:
+        if 'procurement_group_id' in self._fields and self.procurement_group_id and 'group_id' in self.env['purchase.order']._fields:
             # Permet de retrouver le PO depuis l'OF comme les achats MTO du même groupe d'approvisionnement.
             po_vals['group_id'] = self.procurement_group_id.id
         po = self.env['purchase.order'].create(po_vals)
@@ -606,7 +606,7 @@ class MrpProduction(models.Model):
             if 'laquage_production_id' in PurchaseOrderLine._fields:
                 orders |= PurchaseOrderLine.search([('laquage_production_id', '=', mo.id)]).mapped('order_id')
             # Achats standard reliés à l'OF par groupe ou mouvements MTO.
-            if mo.procurement_group_id:
+            if 'procurement_group_id' in mo._fields and mo.procurement_group_id:
                 if 'group_id' in PurchaseOrder._fields:
                     orders |= PurchaseOrder.search([('group_id', '=', mo.procurement_group_id.id)])
                 domains = []

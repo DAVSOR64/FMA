@@ -36,18 +36,25 @@ class SaleOrder(models.Model):
                              order.name, lead_days, commitment_dt)
 
             # 2) Récupérer les OF liés à la commande
-            # procurement_group_id n'existe plus sur sale.order en v19 —
-            # on cherche via les pickings de la commande, puis par origin.
+            # procurement_group_id n'existe plus ni sur sale.order ni sur
+            # mrp.production en v19 — on cherche via sale_line_id (sale_mrp,
+            # présent en v18 comme en v19), puis via les pickings, puis par origin.
             productions = self.env['mrp.production']
 
-            group_ids = []
-            if order.picking_ids and 'group_id' in self.env['stock.picking']._fields:
-                group_ids = order.picking_ids.mapped('group_id').ids
-            if group_ids:
+            if 'sale_line_id' in self.env['mrp.production']._fields:
                 productions = self.env['mrp.production'].search([
-                    ('procurement_group_id', 'in', group_ids),
+                    ('sale_line_id.order_id', '=', order.id),
                     ('state', 'in', ['draft', 'confirmed']),
                 ])
+
+            if not productions and order.picking_ids and 'group_id' in self.env['stock.picking']._fields \
+                    and 'procurement_group_id' in self.env['mrp.production']._fields:
+                group_ids = order.picking_ids.mapped('group_id').ids
+                if group_ids:
+                    productions = self.env['mrp.production'].search([
+                        ('procurement_group_id', 'in', group_ids),
+                        ('state', 'in', ['draft', 'confirmed']),
+                    ])
 
             if not productions:
                 productions = self.env['mrp.production'].search([
