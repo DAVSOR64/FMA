@@ -1420,6 +1420,23 @@ class MrpProduction(models.Model):
             except Exception:
                 pass
 
+        # Complément : PO créés manuellement (hors chaîne d'approvisionnement,
+        # donc invisibles pour _get_purchase_orders()) mais rattachés au même
+        # projet/affaire que le SO via le champ d'en-tête x_studio_projet_du_so
+        # (confirmation David Soria, 2026-07-13).
+        if (
+            sale_order
+            and 'x_studio_projet' in sale_order._fields
+            and sale_order.x_studio_projet
+            and 'x_studio_projet_du_so' in self.env['purchase.order']._fields
+        ):
+            try:
+                purchase_orders |= self.env["purchase.order"].search([
+                    ("x_studio_projet_du_so", "=", sale_order.x_studio_projet.id),
+                ])
+            except Exception:
+                pass
+
         po_data = []
         for po in purchase_orders:
             planned_dates = po.order_line.filtered(lambda line: line.date_planned).mapped("date_planned")
