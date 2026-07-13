@@ -358,10 +358,56 @@ Ces champs étaient déjà lus/écrits par du code existant sans être déclaré
   (`x_studio_affaire`, `x_studio_many2one_field_J9w45/Luqxc/Vc214/fQVOa/
   oYral/uBzGv`, `x_studio_many2many_field_JTFem`) s'affichent tous — vérifier
   avec le métier lequel est réellement utilisé sur les vues existantes.
+  **Mise à jour 2026-07-13** : `x_studio_many2one_field_Vc214` est déjà
+  utilisé dans le template `custom_delivery/views/delivery.xml` — piste
+  sérieuse pour être LE champ qui fait foi, à confirmer par comptage base
+  (les 6 autres n'ont aucun usage trouvé dans le code).
 - **x_studio_mtn_projet_mo** (stock.picking → `stock.reference`) n'a **pas**
   été porté (modèle cible non vérifié). Si ce champ est utilisé quelque
   part, il continue de fonctionner via le mécanisme Studio — pas de
   régression, juste pas encore sécurisé en code.
+- **purchase.order** : même problème que stock.picking, non détecté au
+  moment de l'audit initial — 5 champs "Affaire" en doublon
+  (`x_studio_affaire`, `x_studio_affaire_1`, `x_studio_many2one_field_25XKn`,
+  `x_studio_many2one_field_8k2_1ilmpvkuh`, `x_studio_many2one_field_LCOZX`).
+  **Confirmé (métier, 2026-07-13)** : `x_studio_many2one_field_LCOZX` fait
+  foi, avec `x_studio_projet_du_so` (projet, distinct du modèle `x_affaire`)
+  — cohérent avec la logique de génération de `x_studio_rfrence` (Test 3
+  ci-dessus) et avec la Section 5 ci-dessous. Les 4 autres champs sont des
+  candidats à la suppression, sous réserve de confirmation par comptage
+  base (aucun enregistrement ne doit s'appuyer dessus).
+- **stock.move.line** : 2 champs "Affaire" en doublon
+  (`x_studio_many2one_field_5ai0g`, `x_studio_many2one_field_SJp6r`), aucun
+  usage trouvé dans le code pour l'un ou l'autre — à vérifier par comptage
+  base avant toute décision.
+- **sale.order** : `x_studio_ref_affaire` (Char) est confirmé vivant (utilisé
+  dans `custom_colisage`, le template email de retard de livraison, et la
+  propagation vers la facture) ; `x_studio_many2many_field_95p_1ilmrb25m`
+  (M2M vers `x_affaire`) n'a aucun usage trouvé dans le code — à vérifier
+  par comptage base (pourrait néanmoins servir au filtrage même sans usage
+  direct dans un template).
+
+**Script de vérification (à lancer dans le Shell Odoo.sh avant de décider
+quoi nettoyer)** :
+
+```python
+checks = {
+    'purchase.order': ['x_studio_affaire', 'x_studio_affaire_1', 'x_studio_many2one_field_25XKn', 'x_studio_many2one_field_8k2_1ilmpvkuh', 'x_studio_many2one_field_LCOZX', 'x_studio_projet_du_so'],
+    'stock.picking': ['x_studio_affaire', 'x_studio_many2many_field_JTFem', 'x_studio_many2one_field_fQVOa', 'x_studio_many2one_field_J9w45', 'x_studio_many2one_field_Luqxc', 'x_studio_many2one_field_oYral', 'x_studio_many2one_field_uBzGv', 'x_studio_many2one_field_Vc214'],
+    'stock.move.line': ['x_studio_many2one_field_5ai0g', 'x_studio_many2one_field_SJp6r'],
+    'sale.order': ['x_studio_ref_affaire', 'x_studio_many2many_field_95p_1ilmrb25m'],
+}
+for model, fields_list in checks.items():
+    Model = env[model]
+    total = Model.search_count([])
+    print(f"\n=== {model} (total {total}) ===")
+    for f in fields_list:
+        if f not in Model._fields:
+            print(f"  {f}: (champ absent)")
+            continue
+        count = Model.search_count([(f, '!=', False)])
+        print(f"  {f}: {count} enregistrements renseignés")
+```
 
 ## Rollback si problème bloquant
 

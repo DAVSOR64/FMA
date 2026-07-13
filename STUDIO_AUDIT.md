@@ -392,6 +392,12 @@ liés à `x_affaire` (`x_studio_affaire`, `x_studio_many2one_field_J9w45`,
 `_Luqxc`, `_Vc214`, `_fQVOa`, `_oYral`, `_uBzGv`, `_many2many_field_JTFem`)
 — jamais renommés, signe probable d'essais répétés côté Studio. Portés tels
 quels (fidélité du schéma), à clarifier avec le métier lequel fait foi.
+**Mise à jour 2026-07-13** : `x_studio_many2one_field_Vc214` est en fait
+déjà utilisé en pratique — il apparaît dans le template de bon de livraison
+`custom_delivery/views/delivery.xml:54` ("Référence Affaire"). C'est donc
+un candidat sérieux pour être LE champ qui fait foi ; les 6 autres n'ont
+aucun usage trouvé dans le code, à confirmer par un comptage en base avant
+tout nettoyage (voir section "Suivi post-audit" en fin de document).
 
 ### purchase.order — fait
 
@@ -402,6 +408,19 @@ de la Phase 3). 11 exclus (10 related_field_*, 1 champ de test non stocké).
 étaient déjà utilisés sans être déclarés dans le portage Phase 1
 (`fma_custom/models/purchase_order.py`) et dans les gabarits d'export
 `purchase_order_export` — désormais sécurisés en code.
+**Mise à jour 2026-07-13** : comme sur `stock.picking`, ce modèle porte en
+fait **5 champs "Affaire" différents** (`x_studio_affaire`,
+`x_studio_affaire_1`, `x_studio_many2one_field_25XKn`,
+`x_studio_many2one_field_8k2_1ilmpvkuh`, `x_studio_many2one_field_LCOZX`),
+non signalé ici à l'origine. Confirmation métier (David Soria, Slack,
+2026-07-13) + lecture de l'automatisation déjà portée
+(`fma_custom/models/purchase_order.py`, génération de `x_studio_rfrence`) :
+**`x_studio_many2one_field_LCOZX` est le champ qui fait foi**, utilisé
+conjointement avec `x_studio_projet_du_so` (projet du SO, modèle
+`project.project`, distinct du modèle `x_affaire`). Les 4 autres champs
+"Affaire" n'apparaissent nulle part ailleurs dans le code porté — forte
+présomption de champs morts, à confirmer par un comptage en base avant
+suppression (voir "Suivi post-audit" en fin de document).
 
 ### Modèles restants — tous faits
 
@@ -474,3 +493,31 @@ sélection et les cibles `related=` manquantes.
 Point d'attention pour la phase 2/3 : garder les noms techniques `x_studio_*` /
 `x_*` existants évite une migration de données (colonnes déjà en base avec les
 bonnes valeurs) ; les renommer proprement demande un script de migration en plus.
+
+## Suivi post-audit — Nettoyage des champs "Affaire" dupliqués (2026-07-13)
+
+Contexte : en corrigeant le crash `procurement_group_id` (v19) sur
+`mrp_capacity_planning`, le popup de replanification devait aussi retrouver
+les commandes d'achat liées à l'OF. Ça a fait ressortir que plusieurs
+modèles portent **plusieurs champs "Affaire" concurrents sur le même
+modèle**, un sous-problème du "Point notable" déjà noté sur `stock.picking`
+mais jamais généralisé aux autres modèles. Recensement complet :
+
+| Modèle | Champs "Affaire"/"Projet" en doublon | Champ qui fait foi | Statut |
+|---|---|---|---|
+| `purchase.order` | `x_studio_affaire`, `x_studio_affaire_1`, `x_studio_many2one_field_25XKn`, `x_studio_many2one_field_8k2_1ilmpvkuh`, `x_studio_many2one_field_LCOZX` (+ `x_studio_projet_du_so`, hors cluster, modèle `project.project`) | `x_studio_many2one_field_LCOZX` + `x_studio_projet_du_so` | **Confirmé** (métier + automatisation déjà portée + `TEST_PLAN.md` §5) |
+| `stock.picking` | `x_studio_affaire`, `x_studio_many2one_field_J9w45/Luqxc/Vc214/fQVOa/oYral/uBzGv`, `x_studio_many2many_field_JTFem` | `x_studio_many2one_field_Vc214` (piste) | À confirmer par comptage base |
+| `stock.move.line` | `x_studio_many2one_field_5ai0g`, `x_studio_many2one_field_SJp6r` | Inconnu — aucun usage trouvé dans le code pour les deux | À confirmer par comptage base |
+| `sale.order` | `x_studio_ref_affaire` (Char), `x_studio_many2many_field_95p_1ilmrb25m` (M2M vers `x_affaire`) | `x_studio_ref_affaire` (3 usages confirmés : `custom_colisage`, `mail_template_retard_livraison`, propagation facture) | Le Char est confirmé vivant ; le M2M reste à vérifier (peut être utile pour du filtrage même sans usage template) |
+
+Rappel important : `x_affaire` contient **4059 enregistrements réels** en
+base (cf. plus haut) — ces champs ne sont pas de la donnée de test, un
+nettoyage à l'aveugle sans vérifier les comptages par champ est risqué.
+
+**Prochaine étape avant tout nettoyage de code** : lancer un comptage
+`search_count` par champ sur chaque modèle (script prêt, voir conversation
+Claude Code du 2026-07-13) pour confirmer/infirmer les pistes `Vc214` et
+statuer sur `stock.move.line`. Une fois confirmé, plan proposé : garder le
+champ vivant par modèle, documenter les autres comme dépréciés (ou les
+retirer si le comptage confirme qu'ils sont vides), sans migration de
+données puisque les noms techniques restent inchangés.
