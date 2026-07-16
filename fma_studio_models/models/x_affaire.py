@@ -37,6 +37,11 @@ class XAffaireTag(models.Model):
 
 class XAffaire(models.Model):
     _name = "x_affaire"
+    # La chronologie (chatter) était présente côté Studio puis perdue au
+    # portage : on rétablit mail.thread/mail.activity.mixin (retour terrain
+    # VALLEM, 2026-07-15). La position "à droite" est un réglage d'affichage
+    # par utilisateur en Odoo 19, pas un attribut de vue.
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Affaire"
     _order = "x_studio_sequence, id"
 
@@ -50,6 +55,7 @@ class XAffaire(models.Model):
     x_studio_kanban_state = fields.Selection(
         [("normal", "En cours"), ("done", "Prêt"), ("blocked", "Bloqué")],
         string="État kanban",
+        tracking=True,
     )
     x_studio_notes = fields.Html(string="Notes")
     x_studio_partner_email = fields.Char(string="Email")
@@ -57,7 +63,7 @@ class XAffaire(models.Model):
     x_studio_partner_phone = fields.Char(string="Téléphone")
     x_studio_priority = fields.Boolean(string="Haute priorité")
     x_studio_sequence = fields.Integer(string="Séquence")
-    x_studio_stage_id = fields.Many2one("x_affaire_stage", string="Étape", required=True)
+    x_studio_stage_id = fields.Many2one("x_affaire_stage", string="Étape", required=True, tracking=True)
     x_studio_tag_ids = fields.Many2many("x_affaire_tag", string="Étiquettes")
-    x_studio_user_id = fields.Many2one("res.users", string="Responsable")
+    x_studio_user_id = fields.Many2one("res.users", string="Responsable", tracking=True)
     x_studio_value = fields.Float(string="Valeur")

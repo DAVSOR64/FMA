@@ -32,8 +32,13 @@
             </xpath>
 
             <!-- Ajout du champ "date_bpe" après "tag_ids" -->
+            <!-- Gamme/Série : champs déjà déclarés (models/sale_order.py) mais
+                 absents de toute vue au portage Studio -> rendus visibles
+                 (retour terrain VALLEM "Pas de Gamme ni de série", 2026-07-15). -->
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>
+                <field name="x_studio_gamme"/>
+                <field name="x_studio_srie"/>
             </xpath>
         </field>
     </record>
