@@ -11,6 +11,7 @@ from odoo import fields, models
 class XReglements(models.Model):
     _name = "x_reglements"
     _description = "Règlements"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)

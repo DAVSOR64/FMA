@@ -14,6 +14,7 @@ from odoo import fields, models
 class XCapaciteParPosteTag(models.Model):
     _name = "x_capacite_par_poste_tag"
     _description = "Capacité par poste Tag"
+    _rec_name = "x_name"
 
     x_name = fields.Char(string="Nom", required=True)
     x_color = fields.Integer(string="Couleur")
@@ -22,6 +23,7 @@ class XCapaciteParPosteTag(models.Model):
 class XCapaciteParPoste(models.Model):
     _name = "x_capacite_par_poste"
     _description = "Capacité par poste"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)

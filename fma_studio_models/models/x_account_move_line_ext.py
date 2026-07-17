@@ -12,6 +12,7 @@ from odoo import fields, models
 class XAccountMoveLine803a2(models.Model):
     _name = "x_account_move_line_803a2"
     _description = "Account Move Line (Studio)"
+    _rec_name = "x_name"
 
     x_account_move_id = fields.Many2one("account.move", string="Facture / Écriture")
     x_name = fields.Char(string="Description", required=True)

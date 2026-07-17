@@ -11,6 +11,7 @@ from odoo import fields, models
 class XGammeMtn(models.Model):
     _name = "x_gamme_mtn"
     _description = "Gamme mtn"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
@@ -21,6 +22,7 @@ class XGammeMtn(models.Model):
 class XSerieMtn(models.Model):
     _name = "x_serie_mtn"
     _description = "Série mtn"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)

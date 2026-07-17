@@ -10,6 +10,7 @@ from odoo import fields, models
 class XDelaiEntreOperatioTag(models.Model):
     _name = "x_delai_entre_operatio_tag"
     _description = "Délai entre opérations Tag"
+    _rec_name = "x_name"
 
     x_name = fields.Char(string="Nom", required=True)
     x_color = fields.Integer(string="Couleur")
@@ -18,6 +19,7 @@ class XDelaiEntreOperatioTag(models.Model):
 class XDelaiEntreOperatio(models.Model):
     _name = "x_delai_entre_operatio"
     _description = "Délai entre opérations"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
@@ -38,6 +40,7 @@ class XDelaiEntreOperatio(models.Model):
 class XDelaiEntreOperatioLine(models.Model):
     _name = "x_delai_entre_operatio_line_07ffc"
     _description = "Délai entre opérations Line"
+    _rec_name = "x_name"
 
     x_delai_entre_operatio_id = fields.Many2one("x_delai_entre_operatio", string="Délai entre opérations")
     x_name = fields.Char(string="Description", required=True)

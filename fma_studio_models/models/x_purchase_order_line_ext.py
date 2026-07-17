@@ -12,6 +12,7 @@ from odoo import fields, models
 class XPurchaseOrderLine35a7b(models.Model):
     _name = "x_purchase_order_line_35a7b"
     _description = "Purchase Order Line (Studio)"
+    _rec_name = "x_name"
 
     x_name = fields.Char(string="Description", required=True)
     x_purchase_order_id = fields.Many2one("purchase.order", string="Commande d'achat")

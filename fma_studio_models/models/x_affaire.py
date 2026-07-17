@@ -20,6 +20,7 @@ from odoo import fields, models
 class XAffaireStage(models.Model):
     _name = "x_affaire_stage"
     _description = "Affaire Stage"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_name = fields.Char(string="Nom de l'étape", required=True)
@@ -29,6 +30,7 @@ class XAffaireStage(models.Model):
 class XAffaireTag(models.Model):
     _name = "x_affaire_tag"
     _description = "Affaire Tag"
+    _rec_name = "x_name"
 
     x_name = fields.Char(string="Nom", required=True)
     x_color = fields.Integer(string="Couleur")
@@ -43,6 +45,7 @@ class XAffaire(models.Model):
     # par utilisateur en Odoo 19, pas un attribut de vue.
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Affaire"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)

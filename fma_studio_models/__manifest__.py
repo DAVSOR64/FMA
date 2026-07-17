@@ -20,7 +20,7 @@
         rationale behind this module.
     """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.8",
+    "version": "19.0.1.0.9",
     "depends": ["base", "mail", "mrp", "purchase", "account"],
     "data": [
         "security/ir.model.access.csv",

@@ -20,4 +20,21 @@
             </xpath>
         </field>
     </record>
+
+    <!-- La séquence des opérations disparaissait dès que l'OF sortait du
+         brouillon (comportement standard mrp : poignée de tri masquée hors
+         draft). Le métier (ELOGAU) veut la voir en permanence, dans l'ordre
+         chronologique -> on garde la poignée en brouillon (réordonnancement)
+         et on affiche la valeur en lecture seule ensuite, au lieu de la
+         masquer complètement (retour métier, 2026-07-16/17). -->
+    <record id="mrp_production_workorder_tree_editable_view_mo_form_inherit_sequence" model="ir.ui.view">
+        <field name="name">mrp.production.work.order.list.editable.inherit.sequence.visible</field>
+        <field name="model">mrp.workorder</field>
+        <field name="inherit_id" ref="mrp.mrp_production_workorder_tree_editable_view_mo_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='sequence'][@widget='handle']" position="after">
+                <field name="sequence" string="Séquence" readonly="1" column_invisible="parent.state == 'draft'"/>
+            </xpath>
+        </field>
+    </record>
 </odoo>

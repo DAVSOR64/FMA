@@ -19,6 +19,7 @@ from odoo import fields, models
 class XRemise(models.Model):
     _name = "x_remise"
     _description = "Remise"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
@@ -32,6 +33,7 @@ class XRemise(models.Model):
 class XRemises(models.Model):
     _name = "x_remises"
     _description = "Remises"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
@@ -42,6 +44,7 @@ class XRemises(models.Model):
 class XRemiseAffaire(models.Model):
     _name = "x_remise_affaire"
     _description = "Remise Affaire"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
@@ -53,6 +56,7 @@ class XRemiseAffaire(models.Model):
 class XRemisesAffaire(models.Model):
     _name = "x_remises_affaire"
     _description = "Remises Affaire"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
@@ -64,6 +68,7 @@ class XRemisesAffaire(models.Model):
 class XRemiseChantierLine46d7e(models.Model):
     _name = "x_remise_chantier_line_46d7e"
     _description = "Remise Chantier Line (46d7e)"
+    _rec_name = "x_name"
 
     x_name = fields.Char(string="Description", required=True)
     x_remise_chantier_id = fields.Many2one("x_remise_chantier", string="Remise Chantier")
@@ -73,6 +78,7 @@ class XRemiseChantierLine46d7e(models.Model):
 class XRemiseChantierLineDa285(models.Model):
     _name = "x_remise_chantier_line_da285"
     _description = "Remise Chantier Line (da285)"
+    _rec_name = "x_name"
 
     x_name = fields.Char(string="Description", required=True)
     x_remise_chantier_id = fields.Many2one("x_remise_chantier", string="Remise Chantier")
@@ -82,6 +88,7 @@ class XRemiseChantierLineDa285(models.Model):
 class XRemiseChantier(models.Model):
     _name = "x_remise_chantier"
     _description = "Remise Chantier"
+    _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
