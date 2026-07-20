@@ -5,11 +5,17 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- Insertion avant le notebook (ancre stable v19 — partner_details renommé) -->
-            <xpath expr="//sheet/notebook" position="before">
+            <!-- Insertion à l'intérieur du groupe natif "sale_header" (et non après),
+                 pour que nos groupes rejoignent la grille à 2 colonnes native
+                 d'Odoo (partner_details/order_details) au lieu de s'empiler en
+                 pleine largeur. Retour métier VALLEM "chronologie à droite",
+                 confirmé par capture d'écran prod (2026-07-20) : la
+                 chronologie doit apparaître dans une colonne distincte, pas
+                 sous les autres champs. -->
+            <xpath expr="//group[@name='sale_header']" position="inside">
 
                 <!-- Chronologie -->
-                <group string="Chronologie"> 
+                <group string="Chronologie">
 
                     <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
                     <field name="so_date_de_reception_devis" nolabel="1"/>

@@ -52,7 +52,15 @@ class SaleOrder(models.Model):
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")
     x_studio_commentaire_supplmentaire = fields.Char(string="Commentaire Supplémentaire")
-    x_studio_commercial_1 = fields.Char(string="Commercial", readonly=True)
+    # Recopie le nom du commercial (employé) assigné au client sélectionné.
+    # FMA/Janneau n'utilise pas le "Commercial" natif d'Odoo (user_id, lié à
+    # une licence utilisateur) mais un employé (res.partner.x_studio_commercial_1,
+    # Many2one hr.employee) -- ce champ existait avant la migration mais sa
+    # synchronisation automatique avait été perdue au portage (retour métier
+    # VALLEM, réunion de clarification du 2026-07-17).
+    x_studio_commercial_1 = fields.Char(
+        string="Commercial", compute="_compute_x_studio_commercial_1", store=True, readonly=True
+    )
     x_studio_date_bpe = fields.Date(string="Date BPE")
     x_studio_date_de_modification = fields.Datetime(string="Date de Modification")
     x_studio_date_de_rception = fields.Date(string="Date de Réception")
@@ -120,6 +128,11 @@ class SaleOrder(models.Model):
     x_studio_so_cout_appro_affaire = fields.Monetary(string="Appro Affaire", currency_field="currency_id")
     x_studio_so_cout_appro_stock = fields.Monetary(string="Appro Stock", currency_field="currency_id")
     x_studio_srie = fields.Many2one("x_serie_mtn", string="Série")
+
+    @api.depends("partner_id")
+    def _compute_x_studio_commercial_1(self):
+        for order in self:
+            order.x_studio_commercial_1 = order.partner_id.x_studio_commercial_1.name or False
 
     @api.onchange("so_date_de_livraison")
     def _onchange_so_date_de_livraison(self):

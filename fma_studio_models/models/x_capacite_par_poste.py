@@ -28,8 +28,13 @@ class XCapaciteParPoste(models.Model):
 
     x_active = fields.Boolean(string="Actif", default=True)
     x_name = fields.Char(string="Description", required=True, translate=True)
-    x_studio_dure_max = fields.Integer(string="Durée Max")
-    x_studio_dure_min = fields.Integer(string="Durée Min")
+    # Entier -> Décimal : un seuil comme "80,1h" était tronqué à 80 (type
+    # entier), faisant échouer le comparateur ">80h" utilisé dans
+    # mrp_capacity_planning/models/mrp_production.py::_get_effective_duration_hours
+    # (retour métier, réunion du 2026-07-20 : "non lié à la migration v19,
+    # même comportement en v17", correctif ponctuel demandé).
+    x_studio_dure_max = fields.Float(string="Durée Max")
+    x_studio_dure_min = fields.Float(string="Durée Min")
     x_studio_nbre_ressources = fields.Integer(string="Nbre Ressources")
     x_studio_poste = fields.Many2one("mrp.workcenter", string="Poste")
     x_studio_sequence = fields.Integer(string="Séquence")

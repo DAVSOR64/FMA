@@ -34,6 +34,8 @@
                             <field name="x_studio_partner_id"/>
                             <field name="x_studio_partner_email"/>
                             <field name="x_studio_partner_phone"/>
+                            <field name="x_studio_commercial_id"/>
+                            <field name="x_studio_mode_de_rglement_id"/>
                         </group>
                         <group string="Suivi">
                             <field name="x_studio_user_id"/>

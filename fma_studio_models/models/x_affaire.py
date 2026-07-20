@@ -64,6 +64,19 @@ class XAffaire(models.Model):
     x_studio_partner_email = fields.Char(string="Email")
     x_studio_partner_id = fields.Many2one("res.partner", string="Contact")
     x_studio_partner_phone = fields.Char(string="Téléphone")
+    # Commercial (employé) rattaché à l'affaire. FMA/Janneau n'utilise pas le
+    # "Commercial" natif d'Odoo (user_id, licence utilisateur) mais un employé
+    # -- ce champ n'existait pas côté Studio, ajouté suite à la clarification
+    # métier du 2026-07-17 (le "Commercial" doit remonter jusqu'à l'Affaire
+    # depuis le contact lié). Calculé dans le module `custom`, qui dépend de
+    # ce module-ci et peut donc lire res.partner.x_studio_commercial_1.
+    x_studio_commercial_id = fields.Many2one("hr.employee", string="Commercial", tracking=True)
+    # Mode de règlement (Studio: x_reglements, ex. "11" = Virement Bancaire).
+    # Champ distinct de la "Condition de paiement" standard d'Odoo -- existait
+    # sur les anciennes affaires (saisi/synchronisé côté Studio), plus sur les
+    # nouvelles depuis le portage (retour métier, réunion du 2026-07-17).
+    # Calculé dans le module `custom`, comme x_studio_commercial_id ci-dessus.
+    x_studio_mode_de_rglement_id = fields.Many2one("x_reglements", string="Mode de règlement", tracking=True)
     x_studio_priority = fields.Boolean(string="Haute priorité")
     x_studio_sequence = fields.Integer(string="Séquence")
     x_studio_stage_id = fields.Many2one("x_affaire_stage", string="Étape", required=True, tracking=True)

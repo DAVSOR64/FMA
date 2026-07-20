@@ -35,6 +35,16 @@
                 <field name="shipping_partner_id" domain="[('parent_id', '=', partner_id)]" options="{'no_create': True}"/>
                 <field name="customer_delivery_address"/>
             </xpath>
+            <!-- Champs déjà déclarés en code mais absents de la fiche
+                 (visibles uniquement en liste jusqu'ici). Retour métier
+                 ELOGAU, réunion du 20/07/2026 : "afficher la case Is XML
+                 Created sur la fiche commande, ajouter aussi creation time
+                 / send to SFTP". -->
+            <xpath expr="//field[@name='partner_ref']" position="after">
+                <field name="is_xml_created" string="Is Exported"/>
+                <field name="xml_creation_time"/>
+                <field name="sftp_synced_time"/>
+            </xpath>
         </field>
     </record>
 
