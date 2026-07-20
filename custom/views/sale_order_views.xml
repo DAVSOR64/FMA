@@ -14,6 +14,14 @@
                  sous les autres champs. -->
             <xpath expr="//group[@name='sale_header']" position="inside">
 
+                <!-- Cellule vide pour décaler "Chronologie" en 2e colonne de sa
+                     ligne (1re colonne = suite de partner_details/order_details
+                     ci-dessus). Retour métier VALLEM/Jérémy, capture d'écran du
+                     20/07/2026 : Chronologie doit être seule en tête de la 2e
+                     colonne, puis Informations principales/supplémentaires sur
+                     la ligne suivante, l'une à côté de l'autre. -->
+                <group name="fma_chronologie_filler"/>
+
                 <!-- Chronologie -->
                 <group string="Chronologie">
 
