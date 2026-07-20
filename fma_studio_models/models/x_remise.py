@@ -23,7 +23,7 @@ class XRemise(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_partner_email = fields.Char(string="E-mail")
     x_studio_partner_id = fields.Many2one("res.partner", string="Contact")
     x_studio_partner_phone = fields.Char(string="Téléphone")
@@ -37,7 +37,7 @@ class XRemises(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_sequence = fields.Integer(string="Séquence")
 
 
@@ -48,7 +48,7 @@ class XRemiseAffaire(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_libelle = fields.Many2one("x_remise_affaire", string="libelle")
     x_studio_sequence = fields.Integer(string="Séquence")
 
@@ -60,7 +60,7 @@ class XRemisesAffaire(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_libelle = fields.Many2one("x_remises_affaire", string="libelle")
     x_studio_sequence = fields.Integer(string="Séquence")
 
@@ -70,7 +70,7 @@ class XRemiseChantierLine46d7e(models.Model):
     _description = "Remise Chantier Line (46d7e)"
     _rec_name = "x_name"
 
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_remise_chantier_id = fields.Many2one("x_remise_chantier", string="Remise Chantier")
     x_studio_sequence = fields.Integer(string="Séquence")
 
@@ -80,7 +80,7 @@ class XRemiseChantierLineDa285(models.Model):
     _description = "Remise Chantier Line (da285)"
     _rec_name = "x_name"
 
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_remise_chantier_id = fields.Many2one("x_remise_chantier", string="Remise Chantier")
     x_studio_sequence = fields.Integer(string="Séquence")
 
@@ -92,7 +92,7 @@ class XRemiseChantier(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_libelle = fields.Char(string="libelle")
     x_studio_libelle_1 = fields.Many2one("x_remise_chantier_line_46d7e", string="libelle")
     x_studio_many2one_field_2m5_1invkcoub = fields.Many2one("x_remise_chantier", string="Nouveau Many2One")

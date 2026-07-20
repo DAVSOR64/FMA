@@ -23,7 +23,7 @@ class XDelaiEntreOperatio(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_char_field_3op_1iv4qb7ld = fields.Char(string="Nouveau Texte")
     x_studio_dlai_entre_oprations = fields.Integer(string="Délai entre opérations")
     x_studio_poste_bloquant_1 = fields.Many2one("mrp.workcenter", string="Poste bloquant 1")
@@ -43,5 +43,5 @@ class XDelaiEntreOperatioLine(models.Model):
     _rec_name = "x_name"
 
     x_delai_entre_operatio_id = fields.Many2one("x_delai_entre_operatio", string="Délai entre opérations")
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_sequence = fields.Integer(string="Séquence")

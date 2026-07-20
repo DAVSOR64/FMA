@@ -27,7 +27,7 @@ class XCapaciteParPoste(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_dure_max = fields.Integer(string="Durée Max")
     x_studio_dure_min = fields.Integer(string="Durée Min")
     x_studio_nbre_ressources = fields.Integer(string="Nbre Ressources")

@@ -15,7 +15,7 @@ class XGammeMtn(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_sequence = fields.Integer(string="Séquence")
 
 
@@ -26,6 +26,6 @@ class XSerieMtn(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_gamme_de_la_srie = fields.Many2one("x_gamme_mtn", string="Gamme de la série")
     x_studio_sequence = fields.Integer(string="Séquence")

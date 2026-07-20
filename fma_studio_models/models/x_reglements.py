@@ -15,6 +15,6 @@ class XReglements(models.Model):
     _order = "x_studio_sequence, id"
 
     x_active = fields.Boolean(string="Actif", default=True)
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_libelle = fields.Char(string="Libelle")
     x_studio_sequence = fields.Integer(string="Séquence")

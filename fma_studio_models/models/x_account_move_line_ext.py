@@ -15,7 +15,7 @@ class XAccountMoveLine803a2(models.Model):
     _rec_name = "x_name"
 
     x_account_move_id = fields.Many2one("account.move", string="Facture / Écriture")
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_sequence = fields.Integer(string="Séquence")
 
 

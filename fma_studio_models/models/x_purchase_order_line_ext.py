@@ -14,7 +14,7 @@ class XPurchaseOrderLine35a7b(models.Model):
     _description = "Purchase Order Line (Studio)"
     _rec_name = "x_name"
 
-    x_name = fields.Char(string="Description", required=True)
+    x_name = fields.Char(string="Description", required=True, translate=True)
     x_purchase_order_id = fields.Many2one("purchase.order", string="Commande d'achat")
     x_studio_sequence = fields.Integer(string="Séquence")
 

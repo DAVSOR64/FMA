@@ -23,7 +23,7 @@ class XAffaireStage(models.Model):
     _rec_name = "x_name"
     _order = "x_studio_sequence, id"
 
-    x_name = fields.Char(string="Nom de l'étape", required=True)
+    x_name = fields.Char(string="Nom de l'étape", required=True, translate=True)
     x_studio_sequence = fields.Integer(string="Séquence")
 
 
