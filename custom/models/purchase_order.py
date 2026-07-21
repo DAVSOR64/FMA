@@ -22,6 +22,41 @@ class PurchaseOrder(models.Model):
                 line.product_id.categ_id.name == "Remplissage" for line in order.order_line
             )
 
+    def create(self, vals_list):
+        orders = super().create(vals_list)
+        orders._sync_projet_du_so_from_sale_order()
+        return orders
+
+    def write(self, vals):
+        res = super().write(vals)
+        self._sync_projet_du_so_from_sale_order()
+        return res
+
+    def _sync_projet_du_so_from_sale_order(self):
+        # "Projet du SO" (x_studio_projet_du_so) n'était alimenté par aucun
+        # mécanisme -- ni les automatisations Studio encore actives en base
+        # (base.automation "DSA Reference compute PO"/"...responsable...",
+        # qui le lisent mais ne l'écrivent jamais), ni le portage Python
+        # (fma_custom/models/purchase_order.py, jamais chargé : son
+        # __init__.py n'importe pas le sous-package "models", cf. audit du
+        # 21/07/2026 -- hors périmètre de ce correctif ciblé). Constaté en
+        # test métier (Nolhan, #7/#29) et confirmé en base sur les données
+        # réelles : ~48% des commandes liées à un devis "projet" concerné
+        # restent vides. Ne touche jamais une valeur déjà saisie (manuelle
+        # ou future automatisation), et n'agit que si le devis source a
+        # lui-même un projet renseigné (champ x_studio_projet, module
+        # fma_sale_order_custom, non garanti installé -- vérifié dynamiquement).
+        for po in self:
+            if po.x_studio_projet_du_so or not po.sale_order_count:
+                continue
+            sale_order = po._get_sale_orders()[:1]
+            if (
+                sale_order
+                and "x_studio_projet" in sale_order._fields
+                and sale_order.x_studio_projet
+            ):
+                po.x_studio_projet_du_so = sale_order.x_studio_projet
+
     # --- Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02) ---
     # Noms techniques conservés à l'identique, aucune migration de données.
     # x_studio_rfrence, x_studio_many2one_field_LCOZX et x_studio_projet_du_so
