@@ -1241,7 +1241,7 @@ class SqliteConnector(models.Model):
                     PourRem = 0
                     if row[11].startswith("ECO-CONTRIBUTION") :
                         refart = 'ECO-CONTRIBUTION'
-                        price = 0.03
+                        price = 0.14
                         Qty = float(row[8]) / 0.14
                     else :
                         refart = 'Frais de livraison'
