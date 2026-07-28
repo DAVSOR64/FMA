@@ -540,13 +540,22 @@ et le champ devis sur l'OF, sujet initial d'ELOGAU).
 **Décision (réunion du 20/07)** : confirmé bon par le métier — "c'était
 bon". Aucune action requise, point fermé.
 
-### 6. Répartition analytique qui ne se propage pas (ELOGAU)
+### 6. Répartition analytique qui ne se propage pas (ELOGAU) — CORRIGÉ
 
 Bug confirmé (`fma_custom/models/purchase_order.py:38-51`) : la méthode
-écrase toujours les lignes de la commande d'achat depuis le devis, sans
-jamais lire une saisie manuelle sur la commande elle-même. **Correctif en
-attente d'arbitrage métier** (quelle source doit primer) — voir échange
-précédent, pas encore tranché.
+écrasait les lignes de la commande d'achat depuis le devis à *chaque
+sauvegarde*, sans jamais lire une saisie manuelle sur la commande
+elle-même. Remonté à nouveau en retour de test T-12 (« NOK, pas de
+répartition analytique sur les commandes »).
+
+**Correctif appliqué sans attendre l'arbitrage métier initialement
+demandé** (quelle source doit primer) : même règle par défaut que pour
+"Projet du SO" — ne jamais écraser une ligne qui a déjà une répartition
+analytique (saisie manuelle ou propagation précédente), ne renseigner que
+les lignes encore vides (`fma_custom` → 19.0.1.0.5). Si le métier veut
+une règle de priorité différente (ex. le devis prime toujours), le
+tranchera ultérieurement — pas de perte de données possible avec cette
+règle par défaut, elle est donc sans risque en attendant.
 
 ### 7. Champs manquants sur les lignes de commande d'achat (ELOGAU)
 
@@ -1008,6 +1017,12 @@ T-38, T-39, T-40, T-41.
 - **T-12 / #7-#29 — "Projet du SO"** : correctif déployé (`476c639`) ;
   **rattrapage des commandes existantes à rejouer en production** (93
   commandes corrigées en local, même script à exécuter côté prod).
+- **T-12 / #6 — Répartition analytique écrasée sur les commandes
+  d'achat** : retour NOK distinct reçu sur le même ticket (bug séparé de
+  "Projet du SO" ci-dessus, voir détail #6) ; correctif déployé
+  (`fma_custom` → 19.0.1.0.5), à retester. Aucun rattrapage possible sur
+  les données déjà écrasées (perdues), seules les prochaines sauvegardes
+  sont protégées.
 - **T-30 — `fma_custom/models` jamais chargé** : correctif déployé
   (`476c639`) ; vérifier après déploiement prod que les actions "Fichier
   clients Iziqo" et "Création Facture Fournisseur en masse" fonctionnent
@@ -1052,8 +1067,9 @@ T-38, T-39, T-40, T-41.
   sur affaires/commandes créées après la migration.
 - **T-13 / T-26 — Champs vitrage + remise fournisseur** : champs
   conditionnés à la catégorie Remplissage, Contrat cadre masqué, remise
-  exposée. Répartition analytique automatique toujours en standby
-  (David).
+  exposée. Bug d'écrasement de la répartition analytique corrigé (voir
+  T-12/#6) ; la logique de reprise automatique depuis "Projet du SO" que
+  David développe séparément reste, elle, en standby.
 - **T-31 — `_rec_name` sur les 20 modèles Studio** : listes déroulantes
   affichent désormais le nom lisible au lieu du format technique.
 - **T-36 — Éco-contribution 0,14** : corrigé (`e34f850`).

@@ -36,6 +36,12 @@ class PurchaseOrder(models.Model):
         self._sync_responsible_from_project()
 
     def _propagate_analytic_from_sale_order(self):
+        # Ne touche jamais une ligne qui a déjà une répartition analytique
+        # (saisie manuelle ou propagation précédente) -- même règle que pour
+        # "Projet du SO" (custom/models/purchase_order.py). Avant ce
+        # correctif, `write()` réappliquait la répartition du devis à
+        # *toutes* les lignes à chaque sauvegarde, effaçant silencieusement
+        # toute correction manuelle (retour métier T-12/#6, ELOGAU).
         for po in self:
             if not po.sale_order_count:
                 continue
@@ -47,8 +53,11 @@ class PurchaseOrder(models.Model):
                 if sol.analytic_distribution:
                     analytic_dist = sol.analytic_distribution
                     break
-            if analytic_dist:
-                po.order_line.write({"analytic_distribution": analytic_dist})
+            if not analytic_dist:
+                continue
+            lines_without_dist = po.order_line.filtered(lambda l: not l.analytic_distribution)
+            if lines_without_dist:
+                lines_without_dist.write({"analytic_distribution": analytic_dist})
 
     def _compute_studio_reference(self):
         for po in self:
