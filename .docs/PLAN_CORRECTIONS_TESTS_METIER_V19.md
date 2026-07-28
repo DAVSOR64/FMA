@@ -133,7 +133,7 @@ sur la fiche) ont été ajoutés au formulaire de commande d'achat :
 traités avec le point #13 ci-dessous puisqu'ils sont spécifiques au
 vitrage.
 
-### #13 — Vitrage : champs conditionnés + Contrat cadre masqué — CORRIGÉ
+### #13 — Vitrage : champs conditionnés + Contrat cadre masqué — REOUVERT (dimensions)
 
 Nouveau champ calculé `x_is_glazing_order` (Boolean, stocké) sur
 `purchase.order`, vrai si au moins une ligne a un produit de catégorie
@@ -152,6 +152,25 @@ Nouveau fichier `custom/views/purchase_order_views.xml`, dépendance
 `purchase_requisition` ajoutée au manifeste (`custom` → 19.0.1.0.15).
 Répartition analytique automatique : **en standby**, David travaille sur
 la logique de reprise depuis le Projet du SO séparément.
+
+**Retour de test T-13, NOK : "pas de dimensions sur les vitrages".**
+Suspicion forte : le nom de catégorie "Remplissage" utilisé par
+`_compute_x_is_glazing_order` ne correspond probablement à aucune
+catégorie produit réelle. Deux autres identifications du "vitrage" par
+catégorie coexistent ailleurs dans le dépôt, toutes deux différentes de
+"Remplissage" :
+- `fma_custom/models/sale_order.py:20` (moteur "Calcul PRI", migré tel
+  quel depuis l'automatisation Studio d'origine, code non modifié) :
+  catégorie `"All / 02_REMPLISSAGE"` (ou alias `"all vitrage"`).
+- `update_sales_kpi/models/sale_order.py:38` : catégorie `"Vitrage"`.
+
+Si la vraie catégorie est l'une de celles-ci, `x_is_glazing_order` reste
+toujours faux en production et les colonnes Hauteur/Largeur ne
+s'affichent jamais. **Correction volontairement pas encore appliquée** :
+remplacer "Remplissage" par une autre valeur devinée reproduirait la même
+classe de bug. **Précision métier demandée** (voir suivi des échanges) :
+nom exact de la catégorie produit utilisée pour le vitrage sur les
+commandes d'achat.
 
 ### #18 — Accès "Capacité par poste" (Emilien) — hypothèse cache navigateur
 
@@ -788,19 +807,35 @@ indépendamment, le blocage ne vient d'aucune personnalisation FMA.
 **Action** : vérifier si le module `stock_barcode` est bien installé sur
 l'instance et si un droit/licence spécifique est en cause — hors code FMA.
 
-### 24. Facture brouillon sur réception
+### 24. Facture brouillon sur réception — CONFIRMÉ, nouvelle demande (pas un bug)
 
 **Constat** : le bouton "Création Facture Fournisseur en masse"
 (`fma_custom/models/stock_picking.py::action_create_supplier_invoices`)
 délègue à la méthode standard Odoo `purchase.order.action_create_invoice()`,
 qui crée **systématiquement** la facture en brouillon (jamais d'auto-post).
 C'est un portage fidèle du comportement Studio d'origine, documenté dans
-TEST_PLAN.md §12 — pas une régression.
+TEST_PLAN.md §12 — pas une régression du portage.
 
-**Action** : clarifier avec Emilien s'il attendait une validation
-automatique de la facture (auto-post) — cette attente n'a jamais existé
-ni côté Studio ni côté code, ce serait donc une nouvelle demande, pas un
-bug.
+**Réponse de Nolhan (retour classé T-22, concerne en fait T-23)** :
+confirme qu'il s'agit bien d'une vraie demande de productivité — devoir
+quitter le module code-barres pour éditer/valider la facture brouillon
+serait une régression **par rapport au mode opératoire de la V17**
+(sous réserve que le mode opératoire actuel soit le bon). Le comportement
+"brouillon systématique" lui-même n'est pas mis en cause ; c'est le fait
+de devoir **sortir de l'écran code-barres** pour la suite du traitement
+qui pose problème.
+
+**Précision ultérieure (capture d'écran T-30, V17 vs V19)** : le point
+bloquant n'est finalement pas le module code-barres lui-même, mais
+l'absence sur la fiche réception standard (Inventaire > Réception) du
+bouton "Facture Brouillon" présent en V17 — sans lui, l'utilisateur doit
+chercher l'action ailleurs (menu ⚙ Actions), d'où l'impression de devoir
+"sortir" du flux. **Correctif ajouté** : bouton d'en-tête sur
+`stock.picking` (`fma_custom/views/stock_picking_views.xml`, appelle la
+même méthode que le menu Actions, `fma_custom` → 19.0.1.0.6). À retester
+avant d'envisager les pistes plus lourdes (surcharge JS/Owl de
+`stock_barcode`, ou auto-post de la facture) qui ne sont peut-être plus
+nécessaires.
 
 ### 25. Atelier : composants manquants sous étiquette "Affaire" (T-24) — CLOS, PAS UN BUG
 
@@ -1024,11 +1059,25 @@ T-38, T-39, T-40, T-41.
   les données déjà écrasées (perdues), seules les prochaines sauvegardes
   sont protégées.
 - **T-30 — `fma_custom/models` jamais chargé** : correctif déployé
-  (`476c639`) ; vérifier après déploiement prod que les actions "Fichier
-  clients Iziqo" et "Création Facture Fournisseur en masse" fonctionnent
-  réellement en conditions réelles (lié à T-23).
+  (`476c639`) ; vérifier après déploiement prod que l'action "Fichier
+  clients Iziqo" fonctionne réellement en conditions réelles.
+- **T-30 / T-23 — Bouton "Facture Brouillon" absent de la fiche
+  réception** : retour clarifié par capture d'écran (V17 vs V19) —
+  Emilien/Nolhan attendaient un vrai bouton dans l'en-tête de la fiche
+  réception (Inventaire > Réception), pas seulement l'entrée du menu
+  ⚙ Actions "Création Facture Fournisseur en masse" (déjà fonctionnelle
+  depuis T-30/`476c639`, mais peu visible). Bouton ajouté dans l'en-tête
+  (`fma_custom/views/stock_picking_views.xml`, `fma_custom` → 19.0.1.0.6),
+  appelle la même méthode. Merci de retester.
 
 ### 🟠 Décisions d'arbitrage métier (bloquent un correctif à moitié fait)
+- **T-13 / #13 — Dimensions vitrage invisibles** : NOK confirmé, cause
+  probable identifiée (nom de catégorie produit "Remplissage" ne matchant
+  rien en base, voir détail #13) mais correction volontairement pas
+  appliquée sans confirmation du nom exact de la catégorie vitrage —
+  deux autres candidats coexistent déjà dans le code ("02_REMPLISSAGE",
+  "Vitrage"), remplacer un nom en dur faux par un autre nom en dur non
+  vérifié reproduirait le même bug.
 - **T-05 / #5-#14 — "Projet" vs "Compte analytique" sur l'Affaire** :
   suspendu tant que la fusion Projet/Compte analytique/Projet MTN n'est
   pas cadrée (David).
@@ -1057,19 +1106,13 @@ T-38, T-39, T-40, T-41.
 ### 🟢 Bugs confirmés restant à traiter (responsable externe à JBS)
 - **T-17 — PO liés à l'OF pas accessibles hors popup replanification**
   (David, avec Jean).
-- **T-23 — Facture brouillon sur réception (Création Facture Fournisseur
-  en masse)** (David) — à retester maintenant que `fma_custom/models`
-  est chargé (T-30), pour clarifier s'il s'agit d'une vraie demande.
 - **T-29 — Renvoi manuel XML SFTP bloqué** (David).
 
 ### ✅ Corrigé, en attente de validation métier
 - **T-11 — Onglet Divers, Projet pas auto** : à retester spécifiquement
   sur affaires/commandes créées après la migration.
-- **T-13 / T-26 — Champs vitrage + remise fournisseur** : champs
-  conditionnés à la catégorie Remplissage, Contrat cadre masqué, remise
-  exposée. Bug d'écrasement de la répartition analytique corrigé (voir
-  T-12/#6) ; la logique de reprise automatique depuis "Projet du SO" que
-  David développe séparément reste, elle, en standby.
+- **T-26 — Remise fournisseur** : champ exposé (même correctif que #13),
+  auto-application du taux toujours en standby.
 - **T-31 — `_rec_name` sur les 20 modèles Studio** : listes déroulantes
   affichent désormais le nom lisible au lieu du format technique.
 - **T-36 — Éco-contribution 0,14** : corrigé (`e34f850`).
