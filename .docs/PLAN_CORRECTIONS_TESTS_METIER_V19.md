@@ -252,6 +252,17 @@ manuellement). Un lien vers la commande concernée a été transmis en
 réunion pour vérification ciblée, mais je ne l'ai pas — **toujours en
 attente** de ce lien pour une vérification directe sur ce cas précis.
 
+**Confirmé (29/07, capture de l'automatisation V17)** : le champ
+Référence (`x_studio_rfrence`) est bien calculé par l'automatisation
+Studio "DSA Reference compute PO" — capture reçue montrant son code
+source, qui correspond **exactement** à ce qui a déjà été porté dans
+`fma_custom/models/purchase_order.py::_compute_studio_reference`, bug
+inclus (la boucle d'origine utilisait `record` au lieu de la variable de
+boucle `po`, corrigé au portage) et même ordre de priorité
+(Projet > Affaire > format simple). Le mécanisme est donc fidèlement
+reproduit ; reste uniquement le lien vers la commande CLEGIS précise
+pour vérifier ce cas concret si toujours utile.
+
 ### #28 — 2 onglets livraison (LRE-Préfabrication) — mis de côté
 
 **Investigation live faite** : candidat solide identifié —
@@ -1284,6 +1295,26 @@ T-38, T-39, T-40, T-41.
   données actuel — à reclarifier avec le métier ce qu'"auto-application
   du taux" est censé vouloir dire concrètement, la donnée source
   n'existe pas telle quelle.
+
+  **Nouveau retour (29/07, captures V19 staging vs V17 prod)** :
+  l'onglet/menu racine "Remises" (Achats > Remises, avec 5 entrées
+  Remise/Remises/Remise Affaire/Remises Affaire/Remise Chantier) ne doit
+  plus apparaître comme menu à part entière. Cause identifiée : ce menu
+  racine a été ajouté pendant le portage (`fma_studio_models/views/menus.xml`,
+  jamais présent comme tel dans Studio) et exposait en doublon des accès
+  déjà natifs sous Achats > Configuration ("Remises Affaire", "Remise
+  Chantier" — jamais versionnés en code, toujours présents nativement en
+  base). Vérifié en base réelle (prod V17) : 3 des 5 modèles exposés par
+  ce menu sont manifestement abandonnés (`x_remise` : 0 ligne,
+  `x_remises` : 1 ligne, `x_remise_affaire` : 1 ligne), seuls
+  `x_remises_affaire` et `x_remise_chantier` (38 lignes réelles, codes de
+  chantiers) sont ceux réellement utilisés par les champs
+  `x_studio_remise`/`x_studio_remise_1` sur la commande d'achat.
+  **Corrigé** : menu racine "Remises" et ses 5 entrées supprimés du code
+  (`fma_studio_models` → 19.0.1.0.14) ; les actions/vues/modèles restent
+  déclarés (nécessaires aux entrées Configuration natives), seul l'accès
+  en doublon disparaît. Merci de retester que "Achats > Configuration >
+  Remises Affaire / Remise Chantier" fonctionnent toujours normalement.
 - **T-31 — `_rec_name` sur les 20 modèles Studio** : listes déroulantes
   affichent désormais le nom lisible au lieu du format technique.
 - **T-36 — Éco-contribution 0,14** : corrigé (`e34f850`). **Validé
