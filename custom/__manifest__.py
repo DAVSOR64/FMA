@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    "version": "19.0.1.0.18",
+    "version": "19.0.1.0.20",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
@@ -18,6 +18,7 @@
         "views/stock_picking_views.xml",
         "views/mrp_production_views.xml",
         "views/purchase_order_views.xml",
+        "views/product_views.xml",
         "data/message_templates.xml",
     ],
     "assets": {

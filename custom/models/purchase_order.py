@@ -9,8 +9,11 @@ class PurchaseOrder(models.Model):
     # (remise, commentaires, dimensions) que sur ce type de commande, plutôt
     # que sur tous les achats -- retour métier ELOGAU, réunion du 20/07/2026 :
     # "afficher les champs vitrage uniquement quand la catégorie de produit
-    # = Remplissage". Nom de catégorie en dur, cohérent avec les autres
-    # distinctions par nom déjà utilisées dans ce dépôt (ex. tag FMA/F2M).
+    # = Remplissage". Nom de catégorie initialement en dur ("Remplissage"),
+    # confirmé faux par retour métier T-13 (David, 29/07, capture d'écran
+    # article A26-03-01167) : la catégorie réelle est "02_REMPLISSAGE"
+    # (chemin complet "All / 02_REMPLISSAGE"), cohérente avec le nom déjà
+    # utilisé par le moteur "Calcul PRI" (fma_custom/models/sale_order.py:20).
     x_is_glazing_order = fields.Boolean(
         string="Commande vitrage", compute="_compute_x_is_glazing_order", store=True
     )
@@ -19,7 +22,7 @@ class PurchaseOrder(models.Model):
     def _compute_x_is_glazing_order(self):
         for order in self:
             order.x_is_glazing_order = any(
-                line.product_id.categ_id.name == "Remplissage" for line in order.order_line
+                line.product_id.categ_id.name == "02_REMPLISSAGE" for line in order.order_line
             )
 
     def create(self, vals_list):

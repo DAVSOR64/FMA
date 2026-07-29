@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Retour métier T-13 (29/07, David, capture d'écran article
+         A26-03-01167) : en production, la fiche article (variante) a un
+         onglet "Vitrage" absent du portage. Les champs existent déjà en
+         code (custom/models/product.py, sur product.product sauf Hauteur/
+         Largeur (mm) qui sont sur product.template et restent accessibles
+         ici via la délégation product.product -> product.template) mais
+         n'étaient exposés dans aucune vue. Couleur PB (Int/Ext) : deux
+         champs candidats avec le même libellé existent en code
+         (x_studio_couleur_pb_intext / _1) -- seul le premier
+         (x_studio_couleur_pb_intext) est consommé ailleurs (gabarit
+         d'export purchase_order_export/data/purchase_order_export_template_v2.xml),
+         c'est celui-là qui est exposé ici. -->
+    <record id="view_product_product_form_inherit_vitrage" model="ir.ui.view">
+        <field name="name">product.product.form.inherit.vitrage</field>
+        <field name="model">product.product</field>
+        <field name="inherit_id" ref="product.product_normal_form_view"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="Vitrage">
+                    <group>
+                        <group>
+                            <field name="x_studio_position"/>
+                            <field name="x_studio_hauteur_mm"/>
+                            <field name="x_studio_largeur_mm"/>
+                            <field name="x_studio_spacer"/>
+                            <field name="x_studio_type"/>
+                        </group>
+                        <group>
+                            <field name="x_studio_type_pb"/>
+                            <field name="x_studio_couleur_pb_intext"/>
+                            <field name="x_studio_nbr_pb_vertical"/>
+                            <field name="x_studio_nbr_pb_horizontal"/>
+                            <field name="x_studio_position_en_x_pb_horizontal_1"/>
+                            <field name="x_studio_position_en_y_pb_horizontal_1"/>
+                            <field name="x_studio_position_en_x_pb_vertical_1"/>
+                            <field name="x_studio_position_en_y_pb_vertical_1"/>
+                            <field name="x_studio_longueur_pb_horizontal_1"/>
+                            <field name="x_studio_longueur_pb_vertical"/>
+                        </group>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>

@@ -172,6 +172,34 @@ classe de bug. **Précision métier demandée** (voir suivi des échanges) :
 nom exact de la catégorie produit utilisée pour le vitrage sur les
 commandes d'achat.
 
+**Retour (David, 29/07, article A26-03-01167)** : deux observations
+distinctes, avec capture d'écran comparative prod/staging.
+
+1. **Onglet "Vitrage" absent de la fiche article en staging** (présent en
+   prod). Root cause différente du point ci-dessus : les champs
+   (`custom/models/product.py`, tous sur `product.product` sauf Hauteur/
+   Largeur (mm) sur `product.template`) existaient déjà en code mais
+   n'étaient exposés dans **aucune vue** — l'onglet lui-même n'avait
+   jamais été porté, pas un problème de catégorie. **Corrigé** : onglet
+   "Vitrage" ajouté sur la fiche article, avec l'ensemble des champs
+   visibles dans la capture prod (Position, Hauteur/Largeur (mm), spacer,
+   type, Type PB, Couleur PB (Int/Ext), Nbr PB Vertical/Horizontal,
+   Position PB Horizontal/Vertical (StartX/EndX, StartY/EndY), Longueur
+   pb horizontal/vertical) — `custom/views/product_views.xml`, `custom` →
+   19.0.1.0.20. Un doublon de champ existait pour "Couleur PB (Int/Ext)"
+   (`x_studio_couleur_pb_intext` / `_1`, même libellé) : seul le premier
+   est exposé, c'est le seul consommé ailleurs dans le dépôt (gabarit
+   d'export `purchase_order_export`). Merci de retester.
+2. **Catégorie produit tranchée par la capture d'écran** : "All /
+   02_REMPLISSAGE" — confirme le candidat déjà identifié via le moteur
+   "Calcul PRI" et infirme "Remplissage" (valeur en dur jusqu'ici) et
+   "Vitrage". **Corrigé** : `_compute_x_is_glazing_order`
+   (`custom/models/purchase_order.py`) matche désormais sur
+   "02_REMPLISSAGE" (`custom` → 19.0.1.0.20) — ça débloque du même coup
+   l'affichage des colonnes Hauteur/Largeur et des champs remise/
+   commentaires sur les commandes d'achat vitrage. Merci de retester
+   également ce point (ajout d'une ligne vitrage sur une commande d'achat).
+
 ### #18 — Accès "Capacité par poste" (Emilien) — hypothèse cache navigateur
 
 Message d'erreur obtenu et analysé en direct : `OwlError` /
