@@ -200,6 +200,19 @@ distinctes, avec capture d'écran comparative prod/staging.
    commentaires sur les commandes d'achat vitrage. Merci de retester
    également ce point (ajout d'une ligne vitrage sur une commande d'achat).
 
+**Retour (29/07, capture P27151)** : onglet Vitrage confirmé bon sur la
+fiche article, mais colonnes Hauteur/Largeur toujours invisibles sur les
+lignes de la commande. Cause : `x_is_glazing_order` est un champ
+**stocké** — les commandes créées *avant* le correctif de catégorie
+gardent leur ancienne valeur (`False`) tant que rien ne déclenche un
+recalcul (confirmé en base : P27151 a bien une ligne "02_REMPLISSAGE"
+mais `x_is_glazing_order = false`). **Corrigé** : script de rattrapage
+ajouté (`custom/migrations/19.0.1.0.23/post-migrate.py`) qui recalcule
+`x_is_glazing_order` sur toutes les commandes existantes ayant une ligne
+de cette catégorie — se déclenche automatiquement à la prochaine mise à
+jour du module. Merci de retester après déploiement (y compris sur des
+commandes déjà existantes, pas seulement les nouvelles).
+
 ### #18 — Accès "Capacité par poste" (Emilien) — hypothèse cache navigateur
 
 Message d'erreur obtenu et analysé en direct : `OwlError` /
