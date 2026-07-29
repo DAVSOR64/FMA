@@ -5,10 +5,10 @@
          onglet "Vitrage" absent du portage. Les champs existent déjà en
          code (custom/models/product.py, sur product.product sauf Hauteur/
          Largeur (mm) qui sont sur product.template et restent accessibles
-         ici via la délégation product.product -> product.template) mais
+         ici via la délégation product.product vers product.template) mais
          n'étaient exposés dans aucune vue. Couleur PB (Int/Ext) : deux
          champs candidats avec le même libellé existent en code
-         (x_studio_couleur_pb_intext / _1) -- seul le premier
+         (x_studio_couleur_pb_intext / _1) — seul le premier
          (x_studio_couleur_pb_intext) est consommé ailleurs (gabarit
          d'export purchase_order_export/data/purchase_order_export_template_v2.xml),
          c'est celui-là qui est exposé ici. -->
