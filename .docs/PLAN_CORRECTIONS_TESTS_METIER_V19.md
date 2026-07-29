@@ -1115,7 +1115,14 @@ T-38, T-39, T-40, T-41.
   ⚙ Actions "Création Facture Fournisseur en masse" (déjà fonctionnelle
   depuis T-30/`476c639`, mais peu visible). Bouton ajouté dans l'en-tête
   (`fma_custom/views/stock_picking_views.xml`, `fma_custom` → 19.0.1.0.6),
-  appelle la même méthode. Merci de retester.
+  appelle la même méthode. Merci de retester. **Validé (29/07) contre la
+  vraie prod V17** : le bouton Studio d'origine (action serveur id=1279,
+  "Création Facture Fournisseur en masse") a un code **identique ligne
+  pour ligne** à `action_create_supplier_invoices`
+  (`fma_custom/models/stock_picking.py:14-19`) — même filtre
+  (`invoice_status == 'to invoice'`), même message d'erreur, même appel
+  final à `action_create_invoice()`. Le correctif reproduit exactement le
+  comportement d'origine, pas seulement l'apparence.
 
 ### 🟠 Décisions d'arbitrage métier (bloquent un correctif à moitié fait)
 - **T-13 / #13 — Dimensions vitrage invisibles** : NOK confirmé, cause
@@ -1125,51 +1132,159 @@ T-38, T-39, T-40, T-41.
   deux autres candidats coexistent déjà dans le code ("02_REMPLISSAGE",
   "Vitrage"), remplacer un nom en dur faux par un autre nom en dur non
   vérifié reproduirait le même bug.
-- **T-05 / #5-#14 — "Projet" vs "Compte analytique" sur l'Affaire** :
-  suspendu tant que la fusion Projet/Compte analytique/Projet MTN n'est
-  pas cadrée (David).
-- **T-37 — Description absente lignes vitrage** : donnée produit
-  manquante ou vraie demande de colonne dédiée ? (capture d'écran utile)
+- **T-05 / #5-#14 — "Projet" vs "Compte analytique" sur l'Affaire** —
+  **besoin qualifié précisément (29/07, vue Studio réelle prod V17)** :
+  "Compte analytique" n'est **pas** un champ sur `x_affaire` (confirmé
+  absent en V17 aussi, aucune perte de données) — c'est le champ
+  **standard Odoo `sale.order.analytic_account_id`** (libellé FR "Compte
+  analytique"), que Studio positionnait **juste à côté** de "Projet mtn"
+  sur le formulaire du devis (`xpath` avec `position="move"` sur
+  `analytic_account_id`, juste après `x_studio_projet`) — d'où la
+  confusion "deux champs projet qui se ressemblent". Rempli sur ~49% des
+  devis en V17 (6749/13631). **Le portage V19 n'a pas reproduit cette
+  juxtaposition** (`analytic_account_id` n'apparaît dans aucune vue FMA
+  du dépôt) — la confusion visuelle n'existe déjà plus en V19 telle
+  quelle. Décision métier reçue (David, 29/07, cf. conversation) :
+  retirer "Compte analytique", tout unifier sur "Projet MTN"
+  (`x_studio_projet`). **RÉSOLU (29/07, vérif live staging)** :
+  `analytic_account_id` n'apparaît dans **aucune vue** de la base V19 —
+  il n'est donc affiché nulle part sur le devis actuellement, la demande
+  "retirer le compte analytique" est déjà satisfaite de fait. Seul
+  "Projet mtn" est visible. **Aucun correctif de code nécessaire**, point
+  clos.
+- **T-37 — Description absente lignes vitrage** — **tranché (29/07, vérif
+  live staging + comparaison prod V17)** : `description_purchase`/
+  `description_sale` sont **réellement vides en base** sur tous les
+  produits vitrage vérifiés (catégorie `02_REMPLISSAGE`), en V19 comme en
+  V17 (0/20 944 produits sur la vraie prod V17). **Pas une perte de
+  données à la migration** — ce champ n'a jamais été utilisé dans le
+  process métier, sur aucune des deux versions. Reste à décider avec le
+  métier comment peupler cette donnée si elle est vraiment souhaitée
+  (import Logical ?), mais ce n'est plus un correctif de vue ni un bug de
+  portage.
 - **T-33 / #28 — Délai fournisseur figé à 0** (`sqlite_connector.py:516`) :
-  besoin du schéma source `AllArticles` ou d'une règle métier par défaut.
-- **T-22 — Code-barres, ajout Numéro de BL** : confirmation du champ
-  backend cible avant surcharge JS de `stock_barcode`.
+  toujours besoin du schéma source `AllArticles` (non accessible depuis
+  l'environnement Odoo.sh, source externe) ou d'une règle métier par
+  défaut. Confirmé en code : le chemin d'import "Glass" applique déjà un
+  défaut en dur 14/21 jours selon le type (lignes ~965-979 du même
+  fichier), précédent réutilisable si le métier valide une règle
+  similaire pour les articles génériques. **Comparaison prod V17
+  (29/07)** : code du connecteur **strictement identique** (même requête
+  SQL, même `delai = 0` en dur) — **pas une régression de la migration**,
+  limitation d'origine du système V17 lui-même.
+- **T-22 — Code-barres, ajout Numéro de BL** — **CORRIGÉ (29/07)** : le
+  champ backend cible existait déjà, `x_studio_n_bl`
+  (`custom/models/stock_picking.py`, "N° BL"), déjà rempli sur
+  9 545/41 169 réceptions avec de vraies données (ex. `BLC00615359`).
+  Pas besoin de surcharge JS/Owl : le panneau d'infos de l'écran
+  code-barres (bouton titre) ouvre une vraie vue formulaire classique
+  (`stock_barcode.stock_picking_barcode`), éditable comme n'importe
+  quelle autre. Ajouté : (1) le champ dans cette vue, juste après
+  "Origine" (`custom/views/stock_picking_views.xml`) ; (2) l'exposition
+  du champ au client JS via la surcharge Python sanctionnée
+  `_get_fields_stock_barcode()` (docstring d'origine : "to be overridden
+  in order to inject new fields to the client action") —
+  `custom/models/stock_picking.py`. Dépendance `stock_barcode` ajoutée au
+  manifeste (`custom` → 19.0.1.0.22). **Non testé en direct dans un
+  navigateur** (pas d'accès navigateur depuis cet environnement) — à
+  valider en priorité sur l'écran de réception avant tout déploiement
+  large, vu la sensibilité de l'outil.
 
 ### 🟡 Vérifications en base/production (pas de code)
-- **T-08 — Dashboard "Ventes FMA"** : renommer/réorganiser les
-  dashboards Spreadsheet (le rapport détaillé est sous "Ventes FMA
-  (2025)").
+- **T-08 — Dashboard "Ventes FMA"** — **précisé (29/07, vérif live
+  staging via SSH/psql)** : 4 dashboards `spreadsheet.dashboard` trouvés.
+  "Ventes FMA" (id 12, séquence 100) est en fait le dashboard générique
+  "Sales" standard, simplement renommé — ce n'est pas le rapport détaillé.
+  Le vrai rapport détaillé est "Ventes  FMA (2025)" (id 64, séquence 12,
+  **avec un double espace parasite dans le nom**). **Action précise** :
+  renommer id 64 en "Ventes FMA" (et corriger le double espace au
+  passage), renommer/archiver id 12 sous un autre nom — pure config,
+  Tableaux de bord > Configuration, 2 minutes. **Comparaison prod V17
+  (29/07)** : même confusion de nommage déjà présente en V17 (id 12,
+  séquence **0** — en tête de liste, encore plus visible qu'en V19 où sa
+  séquence est passée à 100) — **pas un artefact de la migration**, un
+  problème de nommage jamais résolu depuis l'origine, l'occasion de le
+  corriger enfin.
 - **T-25 — CLEGIS, champ Référence** : lien de la commande concernée
   toujours pas transmis.
-- **T-28 / #33 — 2 onglets livraison LRE-Préfabrication** : capture
-  d'écran nécessaire, aucune duplication trouvée en base ni en code.
-- **T-40 — Champ "Type" absent sur ticket Assistance** : activer le
-  réglage "Type de ticket" sur l'équipe concernée.
-- **T-39 — Carte "Équipe SAV"** : vérifier vue kanban Studio en base et
-  volume réel de tickets ouverts.
-- **T-41 — Accès Stéphanie Aubain** : vérifier groupe Helpdesk et
-  visibilité d'équipe (`privacy_visibility`/`member_ids`).
+- **T-28 / #33 — 2 onglets livraison LRE-Préfabrication** : reconfirmé
+  (29/07, vérif live staging) — aucune vue en base ne contient de page
+  nommée "LRE"/"Livraison" ; un seul emplacement actif
+  `LRE/Pré-fabrication` (un vrai doublon `Pré-fabrication`/`Pré-fabrication
+  REM` existe mais sur l'entrepôt REM, pas LRE). **Recontrôlé directement
+  sur les vraies vues Studio de la prod V17** (`ir_ui_view`, vues
+  "Odoo Studio: stock.picking.form customization" et
+  "...purchase.order.form customization") : aucune des deux n'ajoute de
+  page/onglet, seulement des champs (dont `x_studio_n_bl`, cf. T-22).
+  Écarte encore plus solidement l'hypothèse d'un onglet Studio non
+  porté. Toujours mis de côté, capture d'écran nécessaire pour aller plus
+  loin.
+- **T-40 — Champ "Type" absent sur ticket Assistance** : le réglage se
+  trouve dans Réglages générales > Assistance (pas sur la fiche équipe
+  elle-même) — à activer là, puis revérifier l'équipe SAV.
+- **T-39 — Carte "Équipe SAV"** : confirmé comportement standard v19
+  (pas un bug FMA) — voir détail. Nouvelle demande éventuelle à chiffrer
+  séparément si le métier veut restaurer l'ancien clic.
+- **T-41 — Accès Stéphanie Aubin** (nom correct : "Aubin", pas "Aubain")
+  — **hypothèse ACL écartée (29/07, vérif live staging via SSH/psql)** :
+  elle a le groupe `helpdesk.group_helpdesk_manager` (le plus élevé, pas
+  "Portail"), dont la règle d'accès (`ir.rule`) est illimitée
+  (`[(1,'=',1)]`) et contourne toute restriction par équipe. Sa société
+  correspond à celle de l'équipe SAV. Elle n'est pas dans `member_ids` de
+  l'équipe, mais c'est sans effet vu son niveau de droits. **Ce n'est pas
+  un problème de droits d'accès** — si le blocage persiste en prod, il
+  faut le reproduire en direct sur le ticket exact concerné pour trouver
+  la vraie cause.
 
 ### 🟢 Bugs confirmés restant à traiter (responsable externe à JBS)
 - **T-17 — PO liés à l'OF pas accessibles hors popup replanification**
   (David, avec Jean).
-- **T-29 — Renvoi manuel XML SFTP bloqué** (David).
+- **T-29 — Renvoi manuel XML SFTP bloqué** (David) — **confirmé pas un
+  bug de portage (29/07)** : le wizard d'export manuel
+  (`purchase_order_export/wizard/po_export_wizard.py`) est **strictement
+  identique** entre la vraie prod V17 et le portage V19 (diff vide,
+  fichier byte pour byte pareil). Le mécanisme de renvoi manuel existe et
+  fonctionne pareil des deux côtés — le blocage est donc probablement
+  côté connexion/identifiants SFTP ou serveur distant, pas côté code.
 
 ### ✅ Corrigé, en attente de validation métier
-- **T-11 — Onglet Divers, Projet pas auto** : à retester spécifiquement
-  sur affaires/commandes créées après la migration.
+- **T-11 — Onglet Divers, Projet pas auto** — **RÉSOLU (29/07, vérif live
+  staging)** : root cause trouvée. Une automatisation Studio
+  ("MTN : SO sur MO pour récupérer projet", `base_automation` id=2)
+  est **toujours active nativement en base** (jamais portée en code
+  Python malgré ce qu'indiquait l'audit initial) et remonte les mouvements
+  de stock jusqu'à 10 niveaux pour retrouver la commande liée, puis écrit
+  `x_studio_mtn_mrp_sale_order` et `x_studio_projet_de_la_vente` (depuis
+  `sale_order.x_studio_projet`) — remplis à 11/12 (92%) sur les commandes
+  post-migration, mécanisme fonctionnel. Le troisième champ candidat,
+  `x_studio_projet_so`, n'est **écrit par rien du tout** (ni cette
+  automatisation ni aucun code, en V17 comme en V19) — pas un bug, un
+  champ Studio legacy jamais câblé. **Rien à corriger.**
 - **T-26 — Remise fournisseur** : champ exposé (même correctif que #13),
-  auto-application du taux toujours en standby.
+  auto-application du taux toujours en standby. **Prémisse remise en
+  cause (29/07, vérif prod V17)** : ni `x_remises_affaire` (0
+  enregistrement en prod !) ni `x_remise_chantier`/ses lignes n'ont de
+  champ taux/pourcentage nulle part dans le schéma — `x_remise_chantier`
+  contient en fait des **codes/noms de chantiers** ("2030007643 - CLICHY
+  JEAN MOULIN", "WIC GAUDRY"...), pas des remises numériques. Il n'y a
+  donc **aucun taux existant à auto-appliquer** avec ce modèle de
+  données actuel — à reclarifier avec le métier ce qu'"auto-application
+  du taux" est censé vouloir dire concrètement, la donnée source
+  n'existe pas telle quelle.
 - **T-31 — `_rec_name` sur les 20 modèles Studio** : listes déroulantes
   affichent désormais le nom lisible au lieu du format technique.
-- **T-36 — Éco-contribution 0,14** : corrigé (`e34f850`).
+- **T-36 — Éco-contribution 0,14** : corrigé (`e34f850`). **Validé
+  (29/07) contre le code source de la vraie prod V17**
+  (`sqlite_connector.py:1241`, `price = 0.14` en dur) — confirme
+  exactement notre correctif, aucune ambiguïté restante.
 - **T-38 — Export facture fournisseur, KeyError bloquant** : corrigé
   (`fma_invoice_supplier_export` → 19.0.1.0.2), typo de debug supprimé.
 
 ### ⏳ En attente de confirmation testeur (probablement déjà bons)
 - **T-14 — Droit création Affaire (Mathieu Angibault)** : confirmation
   finale avec son propre mot de passe + suppression `x_affaire` id=4093
-  (déjà absent du backup, rien à faire).
+  (déjà absent du backup, rien à faire — **reconfirmé 29/07 sur le
+  staging live**, l'id 4093 n'existe toujours pas).
 
 ### 29. Projet du SO non renseigné dans les commandes
 

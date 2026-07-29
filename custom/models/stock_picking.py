@@ -52,3 +52,12 @@ class StockPicking(models.Model):
     def _onchange_so_retard_motif_level1_id(self):
         # Si on change le Motif (catégorie), on reset la Désignation
         self.so_retard_motif_level2_id = False
+
+    def _get_fields_stock_barcode(self):
+        # Retour métier T-22 : "N° BL" (x_studio_n_bl) existait déjà en
+        # code et en base (rempli sur ~23% des réceptions) mais n'était
+        # exposé dans aucune vue, y compris l'écran code-barres -- le
+        # point de personnalisation prévu par Odoo pour y ajouter un champ
+        # (docstring de la méthode d'origine : "to be overridden in order
+        # to inject new fields to the client action").
+        return super()._get_fields_stock_barcode() + ["x_studio_n_bl"]
