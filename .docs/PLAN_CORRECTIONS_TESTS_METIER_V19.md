@@ -576,6 +576,22 @@ une règle de priorité différente (ex. le devis prime toujours), le
 tranchera ultérieurement — pas de perte de données possible avec cette
 règle par défaut, elle est donc sans risque en attendant.
 
+**Retest NOK (Nolhan, 29/07)** : une ligne vitrage ajoutée à la main sur
+une commande déjà générée depuis la fabrication (`LRE/04497` → PO
+P27229) ne récupère toujours pas de répartition automatiquement. Cause :
+la source lue par le correctif (`sale_order.order_line.analytic_distribution`)
+est vide pour ce type de commande — les lignes déjà présentes héritent
+leur répartition directement via la chaîne d'approvisionnement standard
+(OF → commande), jamais recopiée sur la ligne de devis elle-même.
+**Correctif étendu** (`fma_custom` → 19.0.1.0.7) : la répartition
+analytique déjà présente sur d'autres lignes de la **même commande**
+sert désormais aussi de source de repli, en plus du devis. Merci de
+retester.
+
+Le même retour signale aussi l'absence des cotes vitrage sur cette
+ligne — pas un nouveau bug, reconfirmation du point #13 (nom de
+catégorie produit toujours pas arbitré).
+
 ### 7. Champs manquants sur les lignes de commande d'achat (ELOGAU)
 
 **Confirmé par Nolhan** : "Projet du SO" et "Is XML Created" doivent bien
@@ -1055,9 +1071,12 @@ T-38, T-39, T-40, T-41.
 - **T-12 / #6 — Répartition analytique écrasée sur les commandes
   d'achat** : retour NOK distinct reçu sur le même ticket (bug séparé de
   "Projet du SO" ci-dessus, voir détail #6) ; correctif déployé
-  (`fma_custom` → 19.0.1.0.5), à retester. Aucun rattrapage possible sur
-  les données déjà écrasées (perdues), seules les prochaines sauvegardes
-  sont protégées.
+  (`fma_custom` → 19.0.1.0.5). **Retest NOK (Nolhan, 29/07)** : ligne
+  ajoutée à la main sur une commande générée depuis la fabrication,
+  toujours pas de répartition auto (source lue vide dans ce cas précis) —
+  correctif étendu (`fma_custom` → 19.0.1.0.7, voir détail #6), à
+  retester à nouveau. Aucun rattrapage possible sur les données déjà
+  écrasées (perdues), seules les prochaines sauvegardes sont protégées.
 - **T-30 — `fma_custom/models` jamais chargé** : correctif déployé
   (`476c639`) ; vérifier après déploiement prod que l'action "Fichier
   clients Iziqo" fonctionne réellement en conditions réelles.

@@ -42,17 +42,29 @@ class PurchaseOrder(models.Model):
         # correctif, `write()` réappliquait la répartition du devis à
         # *toutes* les lignes à chaque sauvegarde, effaçant silencieusement
         # toute correction manuelle (retour métier T-12/#6, ELOGAU).
+        #
+        # Retest T-12 (Nolhan, 29/07) : une ligne ajoutée à la main sur une
+        # commande déjà générée depuis la fabrication ne récupère toujours
+        # rien. Cause : les lignes déjà présentes sur ce type de commande
+        # héritent leur répartition analytique directement via la chaîne
+        # d'approvisionnement standard (OF -> commande), sans qu'elle soit
+        # jamais recopiée sur la ligne de devis -- la source lue ci-dessous
+        # (`sale_order.order_line`) est donc vide, alors que la commande
+        # elle-même a déjà la bonne valeur sur ses autres lignes. On élargit
+        # la source de repli à ces lignes-sœurs déjà renseignées sur la même
+        # commande.
         for po in self:
-            if not po.sale_order_count:
-                continue
-            sale_order = po._get_sale_orders()[:1]
-            if not sale_order:
-                continue
             analytic_dist = {}
-            for sol in sale_order.order_line:
-                if sol.analytic_distribution:
-                    analytic_dist = sol.analytic_distribution
+            for line in po.order_line:
+                if line.analytic_distribution:
+                    analytic_dist = line.analytic_distribution
                     break
+            if not analytic_dist and po.sale_order_count:
+                sale_order = po._get_sale_orders()[:1]
+                for sol in sale_order.order_line:
+                    if sol.analytic_distribution:
+                        analytic_dist = sol.analytic_distribution
+                        break
             if not analytic_dist:
                 continue
             lines_without_dist = po.order_line.filtered(lambda l: not l.analytic_distribution)
