@@ -42,7 +42,12 @@ class ProductProduct(models.Model):
 class ProductTemplate(models.Model):
     _inherit = "product.template"
 
-    x_studio_conso_laffaire = fields.Boolean(string="Conso à l'affaire?", readonly=True)
+    x_studio_conso_laffaire = fields.Boolean(
+        string="Conso à l'affaire?",
+        related="product_variant_ids.x_studio_conso_laffaire",
+        store=True,
+        readonly=True,
+    )
     x_studio_entrept = fields.Char(string="Entrepôt")
     x_studio_hauteur_mm = fields.Integer(string="Hauteur (mm)")
     x_studio_largeur_mm = fields.Integer(string="Largeur (mm)")

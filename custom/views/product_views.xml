@@ -16,6 +16,26 @@
         <field name="model">product.product</field>
         <field name="inherit_id" ref="product.product_normal_form_view"/>
         <field name="arch" type="xml">
+            <!-- Champs de l'onglet "Informations générales" existant en code
+                 mais jamais exposés dans une vue (cf. arch Studio d'origine,
+                 vue ir_ui_view id 2755 en prod, relevé le 2026-07-30) :
+                 Entrepôt juste après la Référence interne, le reste juste
+                 après Société. Code tarifaire était ancré en prod sur un
+                 bouton spécifique à cette base (non reproductible ici) ;
+                 regroupé avec les autres champs Studio à la place. -->
+            <field name="default_code" position="after">
+                <field name="x_studio_entrept"/>
+            </field>
+            <field name="company_id" position="after">
+                <field name="x_studio_code_tarifaire"/>
+                <field name="x_studio_ref_diapason"/>
+                <field name="x_studio_ref_int_logikal"/>
+                <field name="x_studio_color_logikal"/>
+                <field name="x_studio_unit_logikal"/>
+                <field name="x_studio_longueur_m"/>
+                <field name="x_studio_conso_laffaire"/>
+                <field name="x_studio_cration_auto"/>
+            </field>
             <notebook position="inside">
                 <page string="Vitrage">
                     <group>
