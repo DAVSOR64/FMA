@@ -7,6 +7,15 @@
       <field name="inherit_id" ref="stock.view_picking_form"/>
       <field name="arch" type="xml">
 
+        <!-- "N° BL" (x_studio_n_bl) existait déjà en code, déjà exposé sur
+             l'écran code-barres (view_picking_barcode_form_n_bl ci-dessous,
+             T-22), mais jamais sur la fiche réception "classique", où il
+             était pourtant visible en prod, juste après l'Emplacement de
+             destination. -->
+        <field name="location_dest_id" position="after">
+          <field name="x_studio_n_bl" string="N° BL"/>
+        </field>
+
         <!-- Ajoute un onglet dédié -->
         <xpath expr="//notebook" position="inside">
           <page string="Motif de retard">
