@@ -5,7 +5,7 @@
     "author": "DAVSOR",
     "category": "Uncategorized",
     "version": "19.0.1.0.1",
-    "depends": ["base"],
+    "depends": ["base", "product"],
     "data": [
         "security/ir.model.access.csv",
         "views/fournisseurs.xml",
