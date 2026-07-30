@@ -4,22 +4,22 @@ from odoo import models, fields, api
 class StockPicking(models.Model):
     _inherit = "stock.picking"
 
-    # --- Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02) ---
+    # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
-    # 12 champs volontairement exclus de ce portage (voir STUDIO_AUDIT.md) :
+    # Champs volontairement exclus de ce portage :
     # - 10 champs "related_field_*" (cible "related=" non vérifiable).
     # - x_studio_statut_de_la_commande : sélection, valeurs non vérifiées.
     # - x_studio_mtn_projet_mo : many2one vers "stock.reference", modèle
-    #   dont l'existence n'a pas pu être confirmée en base (accès SSH
-    #   indisponible) -- à vérifier avant de le porter, une relation vers un
-    #   modèle inexistant ferait échouer l'installation du module.
+    #   dont l'existence n'a pas pu être confirmée en base -- à vérifier
+    #   avant de le porter, une relation vers un modèle inexistant ferait
+    #   échouer l'installation du module.
     #
     # Point notable : 7 champs différents (x_studio_affaire +
     # x_studio_many2one_field_J9w45/Luqxc/Vc214/fQVOa/oYral/uBzGv +
     # x_studio_many2many_field_JTFem), tous étiquetés "Affaire" et tous liés
     # à x_affaire, jamais renommés -- signe probable d'essais répétés côté
-    # Studio. Portés tels quels (fidélité du schéma), mais à clarifier avec
-    # le métier lequel est réellement utilisé.
+    # Studio. Portés tels quels (fidélité du schéma) ; lequel est réellement
+    # utilisé reste à clarifier.
     x_studio_affaire = fields.Char(string="Affaire", readonly=True)
     x_studio_many2many_field_JTFem = fields.Many2many("x_affaire", string="Affaire")
     x_studio_many2one_field_fQVOa = fields.Many2one("x_affaire", string="Affaire")
@@ -54,10 +54,8 @@ class StockPicking(models.Model):
         self.so_retard_motif_level2_id = False
 
     def _get_fields_stock_barcode(self):
-        # Retour métier T-22 : "N° BL" (x_studio_n_bl) existait déjà en
-        # code et en base (rempli sur ~23% des réceptions) mais n'était
-        # exposé dans aucune vue, y compris l'écran code-barres -- le
-        # point de personnalisation prévu par Odoo pour y ajouter un champ
+        # Expose "N° BL" (x_studio_n_bl) sur l'écran code-barres -- le point
+        # de personnalisation prévu par Odoo pour y ajouter un champ
         # (docstring de la méthode d'origine : "to be overridden in order
         # to inject new fields to the client action").
         return super()._get_fields_stock_barcode() + ["x_studio_n_bl"]

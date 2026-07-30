@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Business rules migrated from Odoo Studio automations.
 
-Origin (Studio, staging DB, audited 2026-07-02):
+Origin (Studio):
 - base.automation "MTN : Propagation du compte analytique SO sur PO" and its
   exact duplicate "MTN : Propagation du compte analytique MO sur PO" (merged
   here into a single method).
@@ -38,21 +38,21 @@ class PurchaseOrder(models.Model):
     def _propagate_analytic_from_sale_order(self):
         # Ne touche jamais une ligne qui a déjà une répartition analytique
         # (saisie manuelle ou propagation précédente) -- même règle que pour
-        # "Projet du SO" (custom/models/purchase_order.py). Avant ce
-        # correctif, `write()` réappliquait la répartition du devis à
+        # "Projet du SO" (custom/models/purchase_order.py). Sans cette
+        # garde, `write()` réappliquerait la répartition du devis à
         # *toutes* les lignes à chaque sauvegarde, effaçant silencieusement
-        # toute correction manuelle (retour métier T-12/#6, ELOGAU).
+        # toute correction manuelle.
         #
-        # Retest T-12 (Nolhan, 29/07) : une ligne ajoutée à la main sur une
-        # commande déjà générée depuis la fabrication ne récupère toujours
-        # rien. Cause : les lignes déjà présentes sur ce type de commande
-        # héritent leur répartition analytique directement via la chaîne
-        # d'approvisionnement standard (OF -> commande), sans qu'elle soit
-        # jamais recopiée sur la ligne de devis -- la source lue ci-dessous
-        # (`sale_order.order_line`) est donc vide, alors que la commande
-        # elle-même a déjà la bonne valeur sur ses autres lignes. On élargit
-        # la source de repli à ces lignes-sœurs déjà renseignées sur la même
-        # commande.
+        # Cas particulier : une ligne ajoutée à la main sur une commande
+        # déjà générée depuis la fabrication ne récupère rien de la source
+        # ci-dessous seule. Cause : les lignes déjà présentes sur ce type de
+        # commande héritent leur répartition analytique directement via la
+        # chaîne d'approvisionnement standard (OF -> commande), sans qu'elle
+        # soit jamais recopiée sur la ligne de devis -- la source lue
+        # ci-dessous (`sale_order.order_line`) est donc vide, alors que la
+        # commande elle-même a déjà la bonne valeur sur ses autres lignes.
+        # On élargit donc la source de repli à ces lignes-sœurs déjà
+        # renseignées sur la même commande.
         for po in self:
             analytic_dist = {}
             for line in po.order_line:

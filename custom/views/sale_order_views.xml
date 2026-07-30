@@ -5,7 +5,7 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- Vue résolue inspectée en direct le 20/07/2026 : "partner_details"
+            <!-- Vue résolue inspectée en direct : "partner_details"
                  contient en réalité TOUS les champs personnalisés (Gamme, Série,
                  Commercial...) et devient très haut, alors que "order_details"
                  est court. Insérer Chronologie comme une NOUVELLE LIGNE de la

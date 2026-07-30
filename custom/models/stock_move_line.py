@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02).
+"""Champs migrés depuis Odoo Studio.
 Noms techniques conservés à l'identique, aucune migration de données.
 10 champs volontairement exclus (voir STUDIO_AUDIT.md) : related_field_*
 (cible non vérifiable) ou non stockés.

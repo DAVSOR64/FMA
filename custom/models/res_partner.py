@@ -4,7 +4,7 @@ from odoo import models, fields, api
 class ResPartner(models.Model):
     _inherit = "res.partner"
 
-    # --- Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02) ---
+    # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
     # x_studio_compte / x_studio_gneration_n_compte_1 / x_studio_mode_de_rglement
     # étaient déjà utilisés dans create()/write()/_prepare_order() ci-dessous

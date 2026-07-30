@@ -5,12 +5,12 @@ def migrate(cr, version):
     """Recalcule x_is_glazing_order sur les commandes d'achat existantes.
 
     Le nom de catégorie utilisé par _compute_x_is_glazing_order a été
-    corrigé ("Remplissage" -> "02_REMPLISSAGE", retour métier T-13,
-    29/07). Champ stocké : les commandes déjà créées avant ce correctif
-    gardent leur ancienne valeur (False) tant que rien ne déclenche un
-    recalcul -- d'où les colonnes Hauteur/Largeur/Repère et les champs
-    remise/commentaires vitrage encore invisibles sur des commandes qui
-    ont pourtant bien une ligne vitrage (ex. P27151, confirmé en base).
+    corrigé ("Remplissage" -> "02_REMPLISSAGE"). Champ stocké : les
+    commandes déjà créées avant ce correctif gardent leur ancienne valeur
+    (False) tant que rien ne déclenche un recalcul -- d'où les colonnes
+    Hauteur/Largeur/Repère et les champs remise/commentaires vitrage
+    encore invisibles sur des commandes qui ont pourtant bien une ligne
+    vitrage.
     """
     env = api.Environment(cr, SUPERUSER_ID, {})
 

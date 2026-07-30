@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Real model replacing the Odoo Studio "manual" model
 x_account_move_line_803a2, plus the one2many field Studio added on
-account.move to expose it (staging DB, audited 2026-07-02).
+account.move to expose it.
 See STUDIO_AUDIT.md at the repo root -- this model only has a
 name/sequence skeleton, no other business field was ever added to it.
 """

@@ -5,7 +5,7 @@ from datetime import datetime
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
 
-    # --- Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02) ---
+    # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
     # x_studio_mtn_mrp_sale_order était déjà utilisé (non déclaré) par le
     # portage Phase 1 (fma_custom/models/mrp_production.py).

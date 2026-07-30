@@ -25,7 +25,7 @@ class SaleOrder(models.Model):
 
     date_bpe = fields.Date(string="Date BPE")
 
-    # --- Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02) ---
+    # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
     # Champs volontairement exclus de ce portage (voir STUDIO_AUDIT.md) :
     # - x_studio_avancement, x_studio_bureau_etudes, x_studio_com,
@@ -56,8 +56,7 @@ class SaleOrder(models.Model):
     # FMA/Janneau n'utilise pas le "Commercial" natif d'Odoo (user_id, lié à
     # une licence utilisateur) mais un employé (res.partner.x_studio_commercial_1,
     # Many2one hr.employee) -- ce champ existait avant la migration mais sa
-    # synchronisation automatique avait été perdue au portage (retour métier
-    # VALLEM, réunion de clarification du 2026-07-17).
+    # synchronisation automatique avait été perdue au portage.
     x_studio_commercial_1 = fields.Char(
         string="Commercial", compute="_compute_x_studio_commercial_1", store=True, readonly=True
     )

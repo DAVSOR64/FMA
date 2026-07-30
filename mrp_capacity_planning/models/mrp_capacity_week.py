@@ -487,9 +487,9 @@ class MrpCapacityWeek(models.Model):
         # Filet de sécurité complémentaire au recalcul immédiat déclenché par
         # hr_leave.py (create/write/unlink) : on inclut aussi les 30 derniers
         # jours pour rattraper une semaine dont le rafraîchissement immédiat
-        # aurait échoué ou dont le congé a été saisi rétroactivement (retour
-        # métier EMIDAV, 2026-07-16 -- la borne stricte ">= aujourd'hui"
-        # laissait les semaines passées figées indéfiniment).
+        # aurait échoué ou dont le congé a été saisi rétroactivement -- la
+        # borne stricte ">= aujourd'hui" laisserait sinon les semaines
+        # passées figées indéfiniment.
         today = fields.Date.today()
         records = self.search([('week_date', '>=', today - timedelta(days=30))])
         if records:

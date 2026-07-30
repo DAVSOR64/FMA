@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Real models replacing the Odoo Studio "manual" models
-x_delai_entre_operatio, its line model and its tag model (staging DB,
-audited 2026-07-02). See STUDIO_AUDIT.md at the repo root.
+x_delai_entre_operatio, its line model and its tag model. See
+STUDIO_AUDIT.md at the repo root.
 """
 from odoo import fields, models
 

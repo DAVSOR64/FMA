@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Business rules migrated from Odoo Studio automations / server actions.
 
-Origin (Studio, staging DB, audited 2026-07-02):
+Origin (Studio):
 - base.automation "Bloquer la confirmation de devis si pas de CGV et RIB"
 - base.automation "Client bloqué"
 - base.automation "MAJ Champs Mtt A facturer"

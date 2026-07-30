@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Champs Studio isolés (1-2 champs par modèle) migrés depuis Odoo Studio
-(staging DB, audité 2026-07-02). Noms techniques conservés à l'identique,
+"""Champs Studio isolés (1-2 champs par modèle) migrés depuis Odoo Studio.
+Noms techniques conservés à l'identique,
 aucune migration de données. Regroupés dans un seul fichier plutôt que
 répartis sur 6 fichiers d'un seul champ chacun.
 """

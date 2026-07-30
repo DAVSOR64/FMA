@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-"""Real model replacing the Odoo Studio "manual" model x_reglements
-(staging DB, audited 2026-07-02). See STUDIO_AUDIT.md at the repo root --
-this model only has a name/libelle/sequence skeleton in Studio, no amount,
-date or payment-related field was ever added to it.
+"""Real model replacing the Odoo Studio "manual" model x_reglements. See
+STUDIO_AUDIT.md at the repo root -- this model only has a
+name/libelle/sequence skeleton in Studio, no amount, date or
+payment-related field was ever added to it.
 """
 from odoo import fields, models
 

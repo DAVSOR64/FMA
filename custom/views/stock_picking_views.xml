@@ -21,11 +21,11 @@
       </field>
     </record>
 
-    <!-- Retour métier T-22 : "N° BL" doit être saisissable depuis l'écran
-         code-barres, sans avoir à en sortir. Le panneau d'infos de cet
-         écran (bouton titre vers "infoFormView") est une vraie vue formulaire
-         classique (stock_barcode.stock_picking_barcode), éditable comme
-         n'importe quelle autre, sans surcharge JS nécessaire. Le champ
+    <!-- "N° BL" doit être saisissable depuis l'écran code-barres, sans
+         avoir à en sortir. Le panneau d'infos de cet écran (bouton titre
+         vers "infoFormView") est une vraie vue formulaire classique
+         (stock_barcode.stock_picking_barcode), éditable comme n'importe
+         quelle autre, sans surcharge JS nécessaire. Le champ
          (custom/models/stock_picking.py:x_studio_n_bl) est aussi exposé au
          client JS via _get_fields_stock_barcode(). -->
     <record id="view_picking_barcode_form_n_bl" model="ir.ui.view">

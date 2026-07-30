@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Real models replacing the Odoo Studio "manual" models x_affaire,
-x_affaire_stage and x_affaire_tag (staging DB, audited 2026-07-02).
+x_affaire_stage and x_affaire_tag.
 
 Technical names and field names are kept identical to the Studio-generated
 ones so that existing data and other modules referencing
 env['x_affaire'] (mrp_capacity_planning, sqlite_connector) keep working
-unchanged. See STUDIO_AUDIT.md at the repo root.
+unchanged.
 
 NOTE: the exact option values/labels of x_studio_kanban_state could not be
-read from ir.model.fields.selection (DB unreachable at the time of writing,
-see STUDIO_AUDIT.md) -- they are set here to Odoo's usual kanban_state
-triplet (normal/done/blocked) and MUST be verified against the live data
-before this module is installed.
+read from ir.model.fields.selection -- they are set here to Odoo's usual
+kanban_state triplet (normal/done/blocked) and MUST be verified against the
+live data before this module is installed.
 """
 from odoo import fields, models
 
@@ -40,9 +39,9 @@ class XAffaireTag(models.Model):
 class XAffaire(models.Model):
     _name = "x_affaire"
     # La chronologie (chatter) était présente côté Studio puis perdue au
-    # portage : on rétablit mail.thread/mail.activity.mixin (retour terrain
-    # VALLEM, 2026-07-15). La position "à droite" est un réglage d'affichage
-    # par utilisateur en Odoo 19, pas un attribut de vue.
+    # portage : on rétablit mail.thread/mail.activity.mixin. La position
+    # "à droite" est un réglage d'affichage par utilisateur en Odoo 19, pas
+    # un attribut de vue.
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Affaire"
     _rec_name = "x_name"
@@ -66,16 +65,16 @@ class XAffaire(models.Model):
     x_studio_partner_phone = fields.Char(string="Téléphone")
     # Commercial (employé) rattaché à l'affaire. FMA/Janneau n'utilise pas le
     # "Commercial" natif d'Odoo (user_id, licence utilisateur) mais un employé
-    # -- ce champ n'existait pas côté Studio, ajouté suite à la clarification
-    # métier du 2026-07-17 (le "Commercial" doit remonter jusqu'à l'Affaire
-    # depuis le contact lié). Calculé dans le module `custom`, qui dépend de
-    # ce module-ci et peut donc lire res.partner.x_studio_commercial_1.
+    # -- ce champ n'existait pas côté Studio ; le "Commercial" doit remonter
+    # jusqu'à l'Affaire depuis le contact lié. Calculé dans le module
+    # `custom`, qui dépend de ce module-ci et peut donc lire
+    # res.partner.x_studio_commercial_1.
     x_studio_commercial_id = fields.Many2one("hr.employee", string="Commercial", tracking=True)
     # Mode de règlement (Studio: x_reglements, ex. "11" = Virement Bancaire).
     # Champ distinct de la "Condition de paiement" standard d'Odoo -- existait
     # sur les anciennes affaires (saisi/synchronisé côté Studio), plus sur les
-    # nouvelles depuis le portage (retour métier, réunion du 2026-07-17).
-    # Calculé dans le module `custom`, comme x_studio_commercial_id ci-dessus.
+    # nouvelles depuis le portage. Calculé dans le module `custom`, comme
+    # x_studio_commercial_id ci-dessus.
     x_studio_mode_de_rglement_id = fields.Many2one("x_reglements", string="Mode de règlement", tracking=True)
     x_studio_priority = fields.Boolean(string="Haute priorité")
     x_studio_sequence = fields.Integer(string="Séquence")

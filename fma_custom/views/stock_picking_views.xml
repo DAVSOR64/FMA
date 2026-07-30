@@ -2,9 +2,8 @@
 <odoo>
     <!-- "Création Facture Fournisseur en masse" (action_create_supplier_invoices,
          stock_picking_actions.xml) n'était accessible que via le menu Actions.
-         Retour métier T-30 (capture V17 vs V19) : la version Studio d'origine
-         avait un vrai bouton "Facture Brouillon" dans l'en-tête de la fiche
-         réception, absent côté V19, à tort. -->
+         La version Studio d'origine avait un vrai bouton "Facture Brouillon"
+         dans l'en-tête de la fiche réception : restauré ici. -->
     <record id="view_picking_form_supplier_invoice_button" model="ir.ui.view">
         <field name="name">stock.picking.form.supplier.invoice.button</field>
         <field name="model">stock.picking</field>

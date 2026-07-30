@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Business rule migrated from Odoo Studio automation
-"MTN : SO sur MO pour récupérer projet" (staging DB, audited 2026-07-02).
+"MTN : SO sur MO pour récupérer projet".
 See STUDIO_AUDIT.md at the repo root for the full inventory.
 """
 from odoo import models

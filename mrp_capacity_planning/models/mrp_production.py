@@ -1422,8 +1422,7 @@ class MrpProduction(models.Model):
 
         # Complément : PO créés manuellement (hors chaîne d'approvisionnement,
         # donc invisibles pour _get_purchase_orders()) mais rattachés au même
-        # projet/affaire que le SO via le champ d'en-tête x_studio_projet_du_so
-        # (confirmation David Soria, 2026-07-13).
+        # projet/affaire que le SO via le champ d'en-tête x_studio_projet_du_so.
         if (
             sale_order
             and 'x_studio_projet' in sale_order._fields

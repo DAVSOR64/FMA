@@ -4,7 +4,7 @@ from odoo import models, fields
 class AccountMove(models.Model):
     _inherit = "account.move"
 
-    # --- Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02) ---
+    # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
     # 27 champs volontairement exclus de ce portage (voir STUDIO_AUDIT.md) :
     # - 19 champs "related_field_*" (cible "related=" non vérifiable en base).

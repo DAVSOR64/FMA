@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Champs migrés depuis Odoo Studio (staging DB, audité 2026-07-02).
+"""Champs migrés depuis Odoo Studio.
 Noms techniques conservés à l'identique, aucune migration de données.
 Plusieurs de ces champs (x_studio_color_logikal, x_studio_longueur_m,
 x_studio_ref_int_logikal, x_studio_unit_logikal...) sont déjà consommés par

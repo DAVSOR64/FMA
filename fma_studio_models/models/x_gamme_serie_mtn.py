@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Real models replacing the Odoo Studio "manual" models x_gamme_mtn and
-x_serie_mtn (staging DB, audited 2026-07-02). See STUDIO_AUDIT.md at the
-repo root -- both models only have a name/sequence skeleton in Studio, no
-other business field was ever added to them.
+x_serie_mtn. See STUDIO_AUDIT.md at the repo root -- both models only have
+a name/sequence skeleton in Studio, no other business field was ever added
+to them.
 """
 from odoo import fields, models
 

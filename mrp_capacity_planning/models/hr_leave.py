@@ -11,11 +11,8 @@ class HrLeave(models.Model):
     # uniquement celles à venir (week_date >= aujourd'hui). Une semaine déjà
     # passée au moment de la création du congé ne se corrigeait donc jamais,
     # et même les semaines courantes/futures avaient jusqu'à 24h de retard.
-    # Retour métier EMIDAV (2026-07-16) : "la capa n'est pas correctement
-    # retirée quand on pose un congé" -- confirmé en direct (calcul rejoué
-    # manuellement correct, valeur stockée jamais rafraîchie). On déclenche
-    # donc le recalcul immédiatement à la création/modification/suppression
-    # d'un congé.
+    # On déclenche donc le recalcul immédiatement à la
+    # création/modification/suppression d'un congé.
     def create(self, vals_list):
         leaves = super().create(vals_list)
         leaves._fma_recompute_capacity_weeks()

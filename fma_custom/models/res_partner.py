@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Business rule migrated from the Odoo Studio server action
-"Fichier clients Iziqo" (staging DB, audited 2026-07-02).
+"Fichier clients Iziqo".
 See STUDIO_AUDIT.md at the repo root for the full inventory.
 """
 import datetime

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-"""Business rule migrated from Odoo Studio automation "Facture fournisseur"
-(staging DB, audited 2026-07-02). Complements (does not duplicate) the
+"""Business rule migrated from Odoo Studio automation "Facture fournisseur".
+Complements (does not duplicate) the
 inv_activite logic already in custom_invoice/models/account_move.py, which
 only fires for customer invoices linked to a sale.order via invoice_origin;
 this one fires for supplier bills linked to a purchase.order instead.

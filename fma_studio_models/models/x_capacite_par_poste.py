@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Real models replacing the Odoo Studio "manual" models x_capacite_par_poste
-and x_capacite_par_poste_tag (staging DB, audited 2026-07-02).
+and x_capacite_par_poste_tag.
 
 Field names are kept identical to the Studio-generated ones: they are read
 directly by mrp_capacity_planning/models/mrp_production.py
 (env['x_capacite_par_poste'].search([('x_studio_poste', '=', ...)])) which
-must keep working unchanged. See STUDIO_AUDIT.md at the repo root.
+must keep working unchanged.
 """
 from odoo import fields, models
 
@@ -30,9 +30,7 @@ class XCapaciteParPoste(models.Model):
     x_name = fields.Char(string="Description", required=True, translate=True)
     # Entier -> Décimal : un seuil comme "80,1h" était tronqué à 80 (type
     # entier), faisant échouer le comparateur ">80h" utilisé dans
-    # mrp_capacity_planning/models/mrp_production.py::_get_effective_duration_hours
-    # (retour métier, réunion du 2026-07-20 : "non lié à la migration v19,
-    # même comportement en v17", correctif ponctuel demandé).
+    # mrp_capacity_planning/models/mrp_production.py::_get_effective_duration_hours.
     x_studio_dure_max = fields.Float(string="Durée Max")
     x_studio_dure_min = fields.Float(string="Durée Min")
     x_studio_nbre_ressources = fields.Integer(string="Nbre Ressources")

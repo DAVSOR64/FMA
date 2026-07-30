@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 """Real models replacing the Odoo Studio "manual" models of the "remise"
 family: x_remise, x_remises, x_remise_affaire, x_remises_affaire,
-x_remise_chantier and its two line models (staging DB, audited 2026-07-02).
+x_remise_chantier and its two line models.
 See STUDIO_AUDIT.md at the repo root.
 
 NOTE: none of these models has an actual discount amount/percentage field --
