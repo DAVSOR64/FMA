@@ -103,8 +103,8 @@ automatisations Studio d'origine soient désactivées.
 | 21 | EMIDAV | Filtres/exports à conserver | Conforme, rien à faire | — | Clos |
 | 22 | EMIDAV | Code-barres : transfert impossible | Demande confirmée (redéveloppement) | JBS | **En attente** — confirmation Emilien/David sur le champ backend avant de toucher au module code-barres |
 | 23 | EMIDAV | Facture brouillon via code-barres | Demande confirmée (redéveloppement) | **David** | Pas d'action JBS |
-| 24 | EMIDAV | Module Atelier : composants manquants | AC — non prioritaire, à surveiller | JBS | Différé, point de vigilance post-bascule |
-| 25 | CLEGIS | Champ Référence non renseigné | Clarifié — fonctionnement confirmé | — | **À vérifier** sur le cas précis (lien commande à transmettre) |
+| 24 | EMIDAV | Module Atelier : composants manquants | Clos (pas un bug) + nouvelle demande : masquer les composants sur le Shop Floor | JBS | **Fait** — `fma_shopfloor_hide_components`, à retester |
+| 25 | CLEGIS | Champ Référence non renseigné | Bug confirmé — champ calculé mais jamais affiché sur la fiche | JBS | **Fait** (Référence + Affaire ajoutés, `custom` 19.0.1.0.24) ; remise/commentaires vitrage-only à arbitrer |
 | 26 | CLEGIS | Remise fournisseur n'apparaît pas | Partiellement confirmé | JBS | **Fait** (champ exposé via #13) ; auto-application du taux en standby |
 | 27 | CLEGIS | Analytique par ligne non renseigné à l'export | Standby | **David** | Pas d'action JBS |
 | 28 | CLEGIS | 2 onglets livraison (LRE-Préfabrication) | Bug confirmé — à corriger | JBS | Picking type candidat identifié ("Collecter les composants") ; **mis de côté** (écran exact non localisé, à la demande de l'utilisateur) |
@@ -244,13 +244,12 @@ confirmation Emilien/David sur le champ backend cible (`origin` existant
 vs nouveau champ dédié) avant de développer, pour ne pas risquer de
 casser un outil critique sur une hypothèse non confirmée.
 
-### #25 — CLEGIS, champ Référence — besoin du lien de la commande
+### #25 — CLEGIS, champ Référence — CORRIGÉ (30/07/2026)
 
-Décision : "clarifié, fonctionnement confirmé" (le champ se renseigne par
-défaut avec les initiales de l'utilisateur connecté, modifiable
-manuellement). Un lien vers la commande concernée a été transmis en
-réunion pour vérification ciblée, mais je ne l'ai pas — **toujours en
-attente** de ce lien pour une vérification directe sur ce cas précis.
+Décision initiale : "clarifié, fonctionnement confirmé" (le champ se
+renseigne par défaut avec les initiales de l'utilisateur connecté,
+modifiable manuellement). Un lien vers la commande concernée avait été
+transmis en réunion pour vérification ciblée, jamais reçu.
 
 **Confirmé (29/07, capture de l'automatisation V17)** : le champ
 Référence (`x_studio_rfrence`) est bien calculé par l'automatisation
@@ -259,9 +258,37 @@ source, qui correspond **exactement** à ce qui a déjà été porté dans
 `fma_custom/models/purchase_order.py::_compute_studio_reference`, bug
 inclus (la boucle d'origine utilisait `record` au lieu de la variable de
 boucle `po`, corrigé au portage) et même ordre de priorité
-(Projet > Affaire > format simple). Le mécanisme est donc fidèlement
-reproduit ; reste uniquement le lien vers la commande CLEGIS précise
-pour vérifier ce cas concret si toujours utile.
+(Projet > Affaire > format simple).
+
+**Root cause trouvée (30/07, capture comparative prod/staging P24073)** :
+le calcul était fidèlement reproduit, mais **le champ n'était jamais
+affiché sur la fiche commande d'achat v19** (déclaré et calculé en code,
+jamais ajouté à la vue formulaire) — d'où l'impression de champ "non
+renseigné" alors qu'il était en fait juste invisible. Même constat pour
+le champ "Affaire" (`x_studio_many2one_field_LCOZX`, champ qui fait foi
+confirmé métier le 2026-07-13, cf. STUDIO_AUDIT.md), absent lui aussi de
+la vue. **Corrigé** : les deux champs ajoutés à
+`custom/views/purchase_order_views.xml`, sans condition (visibles sur
+toutes les commandes, pas seulement vitrage) — `custom` 19.0.1.0.24.
+Vérifié sur P24073 : `x_studio_rfrence` restitue bien
+"ME - A25-12-04346 VITRAGE ET PLAT GARE LA HUTE - P24073", identique à la
+capture prod. Merci de retester.
+
+**Point soulevé par la même capture, arbitré (30/07)** : "Commentaire
+Livraison", "Commentaire Interne" et "remise" restaient conditionnés à
+`x_is_glazing_order` (catégorie produit "02_REMPLISSAGE") suite à un
+retour ELOGAU du 20/07 — mais P24073 (catégorie "Accessoire", donc
+non-vitrage) les montre bien renseignés en prod. Confirmé par
+l'utilisateur : la restriction du 20/07 ne s'appliquait pas à ces trois
+champs génériques (contrairement aux dimensions Repère/Hauteur/Largeur,
+propres au vitrage). **Corrigé** : condition retirée sur ces trois
+champs, `custom` 19.0.1.0.25.
+
+**Autre point ouvert** : le champ "Entrepôt" visible en prod n'a aucun
+équivalent porté en code (un des 10 champs Studio `related_field_*`
+exclus du portage faute de cible confirmée, cf. STUDIO_AUDIT.md) — à
+distinguer du champ standard "Livrer à" (adresse de livraison), qui lui
+est bien présent et correct des deux côtés.
 
 ### #28 — 2 onglets livraison (LRE-Préfabrication) — mis de côté
 
@@ -943,6 +970,19 @@ un héritage QWeb + JS Owl du template `mrp_workorder.MrpDisplayRecord`
 (actuellement inexistant dans ce repo) — à chiffrer séparément, pas un
 bug à corriger.
 
+**Nouvelle demande (30/07/2026)** : après cette clarification, le
+client indique ne plus vouloir voir apparaître la liste des composants
+(matières premières consommées) sur les cartes Shop Floor. **Correctif
+appliqué** : nouveau module `fma_shopfloor_hide_components`, qui
+surcharge en JS Owl le getter `moves` du composant
+`mrp_workorder.MrpDisplayRecord`
+(`fma_shopfloor_hide_components/static/src/mrp_display/mrp_display_record_patch.js`)
+pour ne plus jamais lister les lignes de matières premières
+(`move_raw_ids`) sur les cartes OF/OT. Les contrôles qualité (checks) et
+les lignes de sous-produits restent affichés — seule la liste des
+composants consommés disparaît, conformément à la demande. À tester en
+conditions réelles sur le Shop Floor.
+
 ---
 
 ## Nouvelles anomalies non attribuées (17/07/2026, probablement ELOGAU — à confirmer)
@@ -985,6 +1025,16 @@ règle métier de valeur par défaut à appliquer faute de mieux.
 
 **Action** : fournir le schéma source ou la règle métier attendue avant
 de corriger — sinon risque d'introduire une valeur inventée.
+
+**Retour métier T-33** : confirme le symptôme exactement (délai à 0 jour
+par défaut sur tout article créé automatiquement depuis Logical, que la
+route soit "Acheter" ou "Acheter MTO" — vérifiable sur la fiche produit,
+onglet Achats, ligne fournisseur, champ "Délai de livraison"). Ça
+recoupe le diagnostic ci-dessus mais ne répond pas encore à la question
+posée : confirmer si la table source `AllArticles` (côté Logical) a une
+colonne de délai fournisseur non exploitée aujourd'hui, ou sinon quelle
+valeur par défaut appliquer (ex. une règle fixe comme pour le flux
+vitrage, 14/21 jours selon le type).
 
 ---
 
@@ -1067,21 +1117,38 @@ spécifique FMA sur ce modèle dans tout le repo.
 **Conséquence directe : les 3 points suivants sont des vérifications de
 configuration en base/production, pas des correctifs de code.**
 
-- **T-39 — Carte "Équipe SAV" ouvre la création au lieu de la liste** :
-  le comportement de clic sur la carte kanban `helpdesk.team` est
-  entièrement porté par le module Enterprise standard. Deux pistes à
-  vérifier directement en base/prod : (a) une vue kanban `helpdesk.team`
-  modifiée via Studio directement en base, jamais exportée dans un
-  module (déjà rencontré pour d'autres écrans, cf. `STUDIO_AUDIT.md`) ;
-  (b) le kanban standard peut rediriger vers le formulaire de création
-  quand le compteur de tickets ouverts de l'équipe est à 0 — donc
-  potentiellement pas un bug mais un effet de bord du volume réel de
-  tickets ouverts de l'équipe SAV.
+- **T-39 — Carte "Équipe SAV" ouvre la création au lieu de la liste** —
+  CONFIRMÉ PAS UN BUG FMA. Captures d'écran fournies (Vue d'ensemble +
+  écran Configuration de l'équipe SAV) : (a) le compteur de tickets
+  ouverts est de 332 (puis 371 sur la 2e capture), donc l'hypothèse
+  "compteur à 0" est écartée ; (b) le métier confirme lui-même n'avoir
+  rien personnalisé sur cette vue kanban ("filtres de base" natifs).
+  Recoupé avec l'audit de code (aucune vue `helpdesk.team` FMA/Studio
+  trouvée nulle part dans le dépôt) : ce comportement est **100% standard
+  du module Enterprise `helpdesk`** en v19, pas une régression du
+  portage. La liste des tickets reste accessible via le bouton "Tickets"
+  de la même carte (capture 2) — seul le clic sur l'en-tête de la carte
+  a changé de destination.
+  **Action** : si le métier veut restaurer l'ancien comportement (clic
+  sur l'en-tête → liste plutôt que création), c'est une **nouvelle
+  demande de personnalisation** de la vue Enterprise standard (petite
+  surcharge XML/JS de la kanban de `helpdesk.team`), pas un correctif de
+  portage — à chiffrer séparément si confirmé prioritaire.
 - **T-40 — Champ "Type" absent sur le ticket** : `ticket_type_id`
-  (Enterprise) est un champ standard dont l'affichage se pilote par un
-  réglage par équipe (Assistance > Configuration > Équipes > case
-  "Type de ticket"). Jamais masqué par une vue FMA. **Action** :
-  vérifier ce réglage sur l'équipe de Stéphanie Aubain.
+  (Enterprise) est un champ standard, jamais masqué par une vue FMA.
+
+  **Précision (retour métier)** : la case "Type de ticket" n'apparaît pas
+  sur le formulaire de l'équipe SAV (confirmé par la capture fournie sur
+  T-39 : sections Visibilité & Assignation, Canaux, Help Center, Suivi &
+  Facturation, Performances, Self-Service, Services après-vente — aucune
+  section "Catégorisation"/Type de ticket). Cohérent avec le
+  fonctionnement standard Odoo : "Type de ticket" est d'abord une
+  fonctionnalité à activer **au niveau général** (Réglages >
+  Assistance/Helpdesk, section Catégorisation), pas directement sur la
+  fiche de l'équipe — tant qu'elle n'est pas activée globalement, aucune
+  option correspondante ne peut apparaître sur aucune équipe. **Action**
+  corrigée : vérifier/activer "Type de ticket" dans Réglages générales >
+  Assistance, puis revérifier la fiche de l'équipe SAV.
 - **T-41 — Erreur d'accès (note/activité/pièce jointe)** : aucune ACL
   FMA en cause. À vérifier en base/prod : (a) appartenance de Stéphanie
   Aubain à un groupe Helpdesk (Réglages > Utilisateurs) ; (b) réglage
@@ -1090,6 +1157,21 @@ configuration en base/production, pas des correctifs de code.**
   ticket, l'ACL de `mail.message`/`ir.attachment` (qui suit celle du
   ticket parent) peut bloquer l'ajout de notes/activités/pièces
   jointes ; (c) présence dans `member_ids` de l'équipe SAV.
+
+  **Précision (retour métier)** : la piste (b) est écartée — la capture
+  fournie sur T-39 montre `privacy_visibility` réglé sur l'option la plus
+  ouverte ("Tous les utilisateurs internes et les utilisateurs portail
+  invités"), pas sur "tickets suivis uniquement". La visibilité en
+  lecture des tickets n'est donc pas en cause. Reste (a) et (c) à
+  vérifier : `privacy_visibility` gère surtout qui *voit* les tickets,
+  pas les droits CRUD (poster une note, une activité, une pièce jointe)
+  qui dépendent séparément de l'appartenance à un groupe de sécurité
+  Helpdesk (`ir.model.access.csv` standard, aucune surcharge FMA). Un
+  utilisateur "portail"/sans groupe Helpdesk peut donc voir un ticket
+  public sans pouvoir interagir dessus. **Action** : vérifier dans
+  Réglages > Utilisateurs le groupe d'accès de Stéphanie Aubain sur
+  Assistance (doit être "Utilisateur", pas "Portail" ni aucun groupe),
+  et sa présence dans `member_ids` de l'équipe SAV.
 
 ---
 
