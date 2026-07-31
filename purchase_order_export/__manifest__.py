@@ -8,8 +8,8 @@
             Task: 3975517
         """,
     "author": "Odoo PS",
-    "version": "17.0.0.4.0",
-    "depends": ["purchase", "stock"],
+    "version": "19.0.0.6.1",
+    "depends": ["purchase", "stock", "custom"],
     "data": [
         "security/ir.model.access.csv",
         "data/ir_cron.xml",

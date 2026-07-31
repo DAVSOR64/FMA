@@ -7,7 +7,7 @@ class MrpProduction(models.Model):
 
     atelier_id = fields.Many2one(
         "fma.atelier",
-        string="Atelier",
+        string="Atelier (FMA)",
         index=True,
         tracking=True,
         copy=True,

@@ -169,14 +169,17 @@ class MrpWorkorder(models.Model):
                 stop = start + timedelta(minutes=wo.duration_expected)
             wo.gantt_date_stop = stop
 
-    @api.depends('production_id', 'production_id.name', 'production_id.origin', 'production_id.procurement_group_id')
+    @api.depends('production_id', 'production_id.name', 'production_id.origin')
     def _compute_planning_labels(self):
         SaleOrder = self.env['sale.order']
         for wo in self:
             mo = wo.production_id
             sale = False
             if mo:
-                sale = getattr(getattr(mo, 'procurement_group_id', False), 'sale_id', False)
+                sale_line = getattr(mo, 'sale_line_id', False)
+                sale = sale_line.order_id if sale_line else False
+                if not sale:
+                    sale = getattr(getattr(mo, 'procurement_group_id', False), 'sale_id', False)
                 if not sale and getattr(mo, 'origin', False):
                     sale = SaleOrder.search([('name', '=', mo.origin)], limit=1)
 
@@ -185,7 +188,6 @@ class MrpWorkorder(models.Model):
                 getattr(mo, 'x_studio_projet', False) if mo else False,
                 getattr(sale, 'x_studio_projet', False) if sale else False,
                 getattr(sale, 'project_id', False).display_name if sale and getattr(sale, 'project_id', False) else False,
-                getattr(sale, 'analytic_account_id', False).display_name if sale and getattr(sale, 'analytic_account_id', False) else False,
                 getattr(sale, 'name', False) if sale else False,
                 getattr(mo, 'origin', False) if mo else False,
                 getattr(mo, 'name', False) if mo else False,

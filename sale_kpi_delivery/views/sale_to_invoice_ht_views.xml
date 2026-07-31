@@ -5,7 +5,7 @@
     <field name="model">sale.order</field>
     <field name="inherit_id" ref="sale.view_quotation_tree"/>
     <field name="arch" type="xml">
-      <xpath expr="//tree/field[@name='amount_total']" position="after">
+      <xpath expr="//list/field[@name='amount_total']" position="after">
         <field name="amount_to_invoice_ht" optional="show"/>
       </xpath>
     </field>

@@ -1,6 +1,7 @@
 {
     "name": "Export PowerBI",
-    "version": "17.0.1.1",
+    "author": "Paxo Consulting",
+    "version": "19.0.1.1.0",
     
     "summary": "Export clients, commandes, factures vers SFTP pour Power BI",
     "depends": ["base", "sale", "account", "purchase", "stock", "mrp", "custom"],

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Ventes -->
+    <menuitem id="menu_x_affaire" name="Affaire" parent="sale.sale_menu_root" action="action_x_affaire" sequence="90"/>
+    <menuitem id="menu_x_affaire_config" name="Configuration personnalisée" parent="sale.sale_menu_root" sequence="91"/>
+    <menuitem id="menu_x_affaire_stage" name="Affaire - Étapes" parent="menu_x_affaire_config" action="action_x_affaire_stage" sequence="10"/>
+    <menuitem id="menu_x_affaire_tag" name="Affaire - Étiquettes" parent="menu_x_affaire_config" action="action_x_affaire_tag" sequence="20"/>
+    <menuitem id="menu_x_gamme_mtn" name="Gamme mtn" parent="menu_x_affaire_config" action="action_x_gamme_mtn" sequence="30"/>
+    <menuitem id="menu_x_serie_mtn" name="Série mtn" parent="menu_x_affaire_config" action="action_x_serie_mtn" sequence="40"/>
+    <menuitem id="menu_x_reglements" name="Réglements" parent="menu_x_affaire_config" action="action_x_reglements" sequence="50"/>
+
+    <!-- Achats -->
+    <!-- Le menu racine "Remises" n'apparaît pas comme onglet/app à part
+         entière : il exposait en plus 3 modèles Studio manifestement
+         abandonnés (x_remise, x_remises, x_remise_affaire), en doublon des
+         accès déjà natifs sous Configuration ("Remises Affaire", "Remise
+         Chantier", jamais versionnés en code, toujours présents en base
+         sans rien à faire). Menuitems supprimés ; les actions/vues/modèles
+         ci-dessous restent déclarés (utilisés par ces entrées Configuration
+         natives), seul l'accès en doublon disparaît. -->
+
+    <!-- Fabrication -->
+    <menuitem id="menu_x_delai_entre_operatio" name="Délai entre opérations" parent="mrp.menu_mrp_root" action="action_x_delai_entre_operatio" sequence="90"/>
+    <menuitem id="menu_x_delai_entre_operatio_config" name="Configuration personnalisée" parent="mrp.menu_mrp_root" sequence="91"/>
+    <menuitem id="menu_x_delai_entre_operatio_tag" name="Délai entre opérations - Étiquettes" parent="menu_x_delai_entre_operatio_config" action="action_x_delai_entre_operatio_tag" sequence="10"/>
+    <menuitem id="menu_x_capacite_par_poste" name="Capacité par poste" parent="mrp.menu_mrp_root" action="action_x_capacite_par_poste" sequence="92"/>
+    <menuitem id="menu_x_capacite_par_poste_tag" name="Capacité par poste - Étiquettes" parent="menu_x_delai_entre_operatio_config" action="action_x_capacite_par_poste_tag" sequence="20"/>
+</odoo>

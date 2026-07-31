@@ -10,7 +10,6 @@ import logging
 
 from odoo import api, fields, models
 from odoo.tools.misc import groupby
-from odoo.addons.web.controllers.main import CSVExport
 
 _logger = logging.getLogger(__name__)
 
@@ -33,8 +32,8 @@ class AccountMove(models.Model):
         domain = [("move_id", "=", self.id)]
         return {
             "name": "Journal Items",
-            "view_mode": "tree",
-            "views": [(self.env.ref("account.view_move_line_tree").id, "tree")],
+            "view_mode": "list",
+            "views": [(self.env.ref("account.view_move_line_tree").id, "list")],
             "res_model": "account.move.line",
             "type": "ir.actions.act_window",
             "target": "current",

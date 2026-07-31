@@ -123,11 +123,11 @@ class MrpCapacityResource(models.Model):
 
     # ── Recalcul automatique quand le calendrier change ────────────────────────
     # ── Génération automatique des semaines à la sauvegarde ───────────────────
-    @api.model
-    def create(self, vals):
-        rec = super().create(vals)
-        rec._auto_generate_weeks()
-        return rec
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._auto_generate_weeks()
+        return records
 
     def write(self, vals):
         res = super().write(vals)

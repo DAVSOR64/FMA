@@ -44,7 +44,7 @@
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_tree_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//tree" position="inside">
+            <xpath expr="//list" position="inside">
                 <field name="laquage_required" optional="hide"/>
                 <field name="laquage_state" optional="show"/>
                 <field name="laquage_subcontractor_id" optional="hide"/>

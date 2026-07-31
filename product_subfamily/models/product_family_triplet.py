@@ -33,14 +33,12 @@ class ProductFamilyTriplet(models.Model):
         "account.account",
         string="Compte de revenus",
         required=True,
-        domain="[('deprecated', '=', False)]",
         help="Compte de revenus à affecter sur la catégorie produit générée.",
     )
     expense_account_id = fields.Many2one(
         "account.account",
         string="Compte de charges",
         required=True,
-        domain="[('deprecated', '=', False)]",
         help="Compte de charges à affecter sur la catégorie produit générée.",
     )
     categ_id = fields.Many2one(
@@ -52,13 +50,10 @@ class ProductFamilyTriplet(models.Model):
     )
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        (
-            "product_family_triplet_uniq",
-            "unique(family_id, subfamily_id, subsubfamily_id)",
-            "Ce triplet famille / sous-famille / sous-sous-famille existe déjà.",
-        ),
-    ]
+    _product_family_triplet_uniq = models.Constraint(
+        'unique(family_id, subfamily_id, subsubfamily_id)',
+        'Ce triplet famille / sous-famille / sous-sous-famille existe déjà.',
+    )
 
     @api.depends("family_id", "subfamily_id", "subsubfamily_id")
     def _compute_display_name(self):

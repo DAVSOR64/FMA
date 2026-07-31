@@ -20,7 +20,7 @@ class StockPicking(models.Model):
     # Forcer le recalcul après la modification des mouvements
     def write(self, vals):
         res = super(StockPicking, self).write(vals)
-        if "move_ids_without_package" in vals:  # Si les mouvements sont modifiés
+        if "move_ids" in vals:  # Si les mouvements sont modifiés
             # self._compute_reliquat_qty()  # Recalcul du reliquat (commenté car non défini)
             _logger.warning(
                 "Appel à '_compute_reliquat_qty' commenté car la méthode n'est pas définie."
@@ -32,8 +32,8 @@ class StockPicking(models.Model):
         return res
 
     # Champs détail colisage
-    so_carton_qty = fields.Integer(string="Qté")
-    so_botte_qty = fields.Integer(string="Qté")
+    so_carton_qty = fields.Integer(string="Qté Cartons")
+    so_botte_qty = fields.Integer(string="Qté Bottes")
     so_botte_length = fields.Float(string="Longueur (en mm)")
     so_poids_total = fields.Float(string="Poids (en kg)")
 
@@ -56,27 +56,28 @@ class PickingColisageLine(models.Model):
     _log_access = True  # Active l'historique des accès (qui a modifié et quand)
 
     picking_id = fields.Many2one("stock.picking", string="Colisage", ondelete="cascade")
-    so_repere = fields.Char(string="Réf./Repère", track_visibility="onchange")
-    so_designation = fields.Char(string="Désignation", track_visibility="onchange")
-    so_largeur = fields.Float(string="Largeur", track_visibility="onchange")
-    so_hauteur = fields.Float(string="Hauteur", track_visibility="onchange")
+    so_repere = fields.Char(string="Réf./Repère", tracking=True)
+    so_designation = fields.Char(string="Désignation", tracking=True)
+    so_largeur = fields.Float(string="Largeur", tracking=True)
+    so_hauteur = fields.Float(string="Hauteur", tracking=True)
     so_qte_commandee = fields.Integer(
-        string="Qté Commandée", track_visibility="onchange"
+        string="Qté Commandée", tracking=True
     )
-    so_qte_livree = fields.Integer(string="Qté Livrée", track_visibility="onchange")
+    so_qte_livree = fields.Integer(string="Qté Livrée", tracking=True)
 
     # Contrainte SQL pour garantir l'unicité du champ 'so_repere'
     # _sql_constraints = [
     #     ('so_repere_unique', 'UNIQUE(so_repere)', 'La référence doit être unique !'),
     # ]
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         """Permet de suivre les créations d'enregistrements dans le fil de discussion Odoo"""
-        res = super(PickingColisageLine, self).create(vals)
-        message = "Ligne de colisage créée : %s" % res.so_repere
-        res.picking_id.message_post(body=message)
-        return res
+        records = super(PickingColisageLine, self).create(vals_list)
+        for res in records:
+            message = "Ligne de colisage créée : %s" % res.so_repere
+            res.picking_id.message_post(body=message)
+        return records
 
     def write(self, vals):
         """Permet de suivre les modifications dans le fil de discussion Odoo"""
@@ -98,18 +99,19 @@ class PickingPaletteLine(models.Model):
     _log_access = True  # Active l'historique des accès
 
     picking_id = fields.Many2one("stock.picking", string="Palette", ondelete="cascade")
-    qty = fields.Integer(string="Quantité", track_visibility="onchange")
-    length = fields.Float(string="Longueur (mm)", track_visibility="onchange")
-    depth = fields.Float(string="Profondeur (mm)", track_visibility="onchange")
-    height = fields.Float(string="Hauteur (mm)", track_visibility="onchange")
+    qty = fields.Integer(string="Quantité", tracking=True)
+    length = fields.Float(string="Longueur (mm)", tracking=True)
+    depth = fields.Float(string="Profondeur (mm)", tracking=True)
+    height = fields.Float(string="Hauteur (mm)", tracking=True)
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         """Suivi des créations dans le fil de discussion Odoo"""
-        res = super(PickingPaletteLine, self).create(vals)
-        message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
-        res.picking_id.message_post(body=message)
-        return res
+        records = super(PickingPaletteLine, self).create(vals_list)
+        for res in records:
+            message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
+            res.picking_id.message_post(body=message)
+        return records
 
     def write(self, vals):
         """Suivi des modifications dans le fil de discussion Odoo"""

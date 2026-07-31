@@ -246,7 +246,7 @@ class KpiDeliveryBilling(models.Model):
             JOIN stock_move sm
                 ON  sm.production_id = mp.id
                 AND sm.state         = 'done'
-                AND sm.scrapped      = false
+                AND sm.scrap_id IS NULL
             JOIN product_product pp ON pp.id = sm.product_id
             {svl_join}
             {pt_join}

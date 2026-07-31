@@ -9,7 +9,6 @@
             <field name="code">model.cron_generate_journal_items_file()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
         </record>
 
         <record id="ir_cron_export_invoices" model="ir.cron">
@@ -20,7 +19,6 @@
             <field name="code">model.cron_send_invoice_to_ftp()</field>
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
-            <field name="numbercall">-1</field>
         </record>
     </data>
 </odoo>

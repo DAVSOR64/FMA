@@ -1,6 +1,6 @@
 {
     "name": "FMA KPI Visu Atelier",
-    "version": "1.1.0",
+    "version": "19.0.1.1.0",
     "author": "PAXO CONSULTING",
     "category": "Manufacturing",
     "summary": "Suivi prod : charge vs capacité et visu atelier",

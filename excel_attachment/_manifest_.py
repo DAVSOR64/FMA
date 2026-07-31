@@ -8,7 +8,7 @@
     "author": "Votre Nom",
     "depends": ["stock"],
     "data": [
-        "views/delivery_report_excel_views.xml",  # Votre vue et action serveur
+        # "views/delivery_report_excel_views.xml",  # TODO: fichier manquant, à créer
     ],
     "installable": True,
     "application": True,

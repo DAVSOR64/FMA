@@ -20,10 +20,10 @@ class AccountMove(models.Model):
         string="Texte de Délégation", compute="_compute_delegation_text"
     )
     x_studio_imputation_2 = fields.Char(string="Imputation :")
-    inv_delegation = fields.Boolean(string="Délégation")
-    inv_commentaire_delegation = fields.Char(string="Commentaire Délégation :")
+    inv_delegation = fields.Boolean(string="Délégation (facture)")
+    inv_commentaire_delegation = fields.Char(string="Commentaire Délégation (facture)")
     inv_delegation_txt = fields.Char(
-        string="Texte de Délégation", compute="_compute_delegation_txt"
+        string="Texte de Délégation (facture)", compute="_compute_delegation_txt"
     )
     inv_mode_de_reglement = fields.Char(string="Mode de reglement :")
 

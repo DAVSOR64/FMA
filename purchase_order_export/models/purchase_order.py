@@ -11,7 +11,8 @@ import psycopg2
 import xlsxwriter
 from io import BytesIO
 
-from odoo import SUPERUSER_ID, api, fields, models, registry, _
+from odoo import SUPERUSER_ID, api, fields, models, _
+from odoo.modules.registry import Registry as registry
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
@@ -371,11 +372,11 @@ class PurchaseOrder(models.Model):
     # -------------------------------------------------------------
     # CHAMPS DETAIL LAQUAGE (sur purchase.order)
     # -------------------------------------------------------------
-    so_carton_qty = fields.Integer(string="Qté")
-    so_botte_qty = fields.Integer(string="Qté")
-    so_botte_length = fields.Float(string="Longueur (en m)")
-    so_palette_qty = fields.Integer(string="Qté")
-    so_palette_length = fields.Float(string="Longueur (en m)")
+    so_carton_qty = fields.Integer(string="Qté Cartons")
+    so_botte_qty = fields.Integer(string="Qté Bottes")
+    so_botte_length = fields.Float(string="Longueur Botte (en m)")
+    so_palette_qty = fields.Integer(string="Qté Palettes")
+    so_palette_length = fields.Float(string="Longueur Palette (en m)")
     so_palette_depth = fields.Float(string="Profondeur (en m)")
     so_palette_height = fields.Float(string="Hauteur (en m)")
     so_poids_total = fields.Float(string="Poids (en kg)")
@@ -416,20 +417,18 @@ class PurchaseOrderLaquageLine(models.Model):
     so_palette_depth = fields.Float(string="Profondeur Palette")
     so_palette_height = fields.Float(string="Hauteur Palette")
 
-    _sql_constraints = [
-        (
-            "so_repere_unique",
-            "UNIQUE(so_repere)",
-            "La référence doit être unique pour une ligne de laquage !",
-        ),
-    ]
+    _so_repere_unique = models.Constraint(
+        'UNIQUE(so_repere)',
+        'La référence doit être unique pour une ligne de laquage !',
+    )
 
-    @api.model
-    def create(self, vals):
-        res = super(PurchaseOrderLaquageLine, self).create(vals)
-        message = _("Ligne de laquage créée : %s") % (res.so_repere or "")
-        res.order_id.message_post(body=message)
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super(PurchaseOrderLaquageLine, self).create(vals_list)
+        for res in records:
+            message = _("Ligne de laquage créée : %s") % (res.so_repere or "")
+            res.order_id.message_post(body=message)
+        return records
 
     def write(self, vals):
         _logger.warning("********** write PurchaseOrderLaquageLine *********")

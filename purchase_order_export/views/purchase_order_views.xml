@@ -35,6 +35,14 @@
                 <field name="shipping_partner_id" domain="[('parent_id', '=', partner_id)]" options="{'no_create': True}"/>
                 <field name="customer_delivery_address"/>
             </xpath>
+            <!-- Champs déjà déclarés en code mais absents de la fiche
+                 (visibles uniquement en liste jusqu'ici) : ajoutés ici,
+                 avec creation time / send to SFTP. -->
+            <xpath expr="//field[@name='partner_ref']" position="after">
+                <field name="is_xml_created" string="Is Exported"/>
+                <field name="xml_creation_time"/>
+                <field name="sftp_synced_time"/>
+            </xpath>
         </field>
     </record>
 
@@ -48,11 +56,11 @@
                 <page string="Infos Laquage">
                     <group>
                         <field name="laquage_line_ids">
-                            <tree editable="bottom">
+                            <list editable="bottom">
                                 <field name="so_repere"/>
                                 <field name="so_qte_commandee"/>
                                 <field name="so_reliquat"/>
-                            </tree>
+                            </list>
                             <form>
                                 <group>
                                     <field name="so_repere"/>

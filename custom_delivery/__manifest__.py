@@ -6,13 +6,9 @@
     "author": "Odoo PS",
     "website": "http://www.yourcompany.com",
     "category": "Inventory/Delivery",
-    "version": "17.0.1.0.0",
-    "depends": [
-        "base",
-        "stock",
-        "sale_stock",
-        "mail",
-    ],
+    "version": "19.0.1.0.1",
+    "license": "LGPL-3",
+    "depends": ["base", "stock", "sale_stock", "mail"],
     "data": [
         "security/ir.model.access.csv",
         "views/stock.picking.xml",
@@ -28,5 +24,4 @@
     },
     "installable": True,
     "application": False,
-    "license": "LGPL-3",
 }

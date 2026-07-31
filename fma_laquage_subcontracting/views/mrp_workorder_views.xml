@@ -5,7 +5,7 @@
         <field name="model">mrp.workorder</field>
         <field name="inherit_id" ref="mrp.mrp_production_workorder_tree_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//tree" position="inside">
+            <xpath expr="//list" position="inside">
                 <field name="is_external_laquage" optional="hide"/>
                 <field name="laquage_state" optional="hide"/>
                 <field name="laquage_departure_planned" optional="hide"/>

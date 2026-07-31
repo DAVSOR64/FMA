@@ -31,7 +31,7 @@
     <field name="name">kpi.delivery.billing.tree</field>
     <field name="model">kpi.delivery.billing</field>
     <field name="arch" type="xml">
-      <tree create="false" edit="false">
+      <list create="false" edit="false">
         <field name="sale_order_name"/>
         <field name="scheduled_datetime"/>
         <field name="month_date"/>
@@ -52,7 +52,7 @@
 
         <!-- ── Stock / MRP ───────────────────── -->
         <field name="amount_stock_consumed"           sum="Total" optional="show"/>
-      </tree>
+      </list>
     </field>
   </record>
 
@@ -113,7 +113,7 @@
                 domain="[('amount_stock_consumed','>',0)]"/>
 
         <separator/>
-        <group expand="0" string="Regrouper par">
+        <group>
           <filter string="Affaire"             name="grp_so"     context="{'group_by':'sale_order_name'}"/>
           <filter string="Mois"                name="grp_month"  context="{'group_by':'month_date'}"/>
           <filter string="Semaine"             name="grp_week"   context="{'group_by':'iso_week'}"/>
@@ -129,7 +129,7 @@
   <record id="action_kpi_delivery" model="ir.actions.act_window">
     <field name="name">KPI Affaire (Vente / Appro / Stock)</field>
     <field name="res_model">kpi.delivery.billing</field>
-    <field name="view_mode">pivot,graph,tree</field>
+    <field name="view_mode">pivot,graph,list</field>
     <field name="context">{'search_default_flt_to_invoice_or_no': 1}</field>
     <field name="search_view_id" ref="view_kpi_delivery_search"/>
   </record>

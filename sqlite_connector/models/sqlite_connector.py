@@ -9,7 +9,8 @@ import re
 import psycopg2
 
 from odoo.exceptions import UserError
-from odoo import Command, models, fields, registry, SUPERUSER_ID, api, _
+from odoo import Command, models, fields, SUPERUSER_ID, api, _
+from odoo.modules.registry import Registry as registry
 from datetime import datetime, timedelta
 
 _logger = logging.getLogger(__name__)
@@ -25,6 +26,12 @@ class SqliteConnector(models.Model):
     state = fields.Selection([('new', 'New'), ('done', 'Exported'), ('error', 'Errors')], string='Status', readonly=True, default='new')
     file = fields.Binary(string='SQLite file')
     ir_log_ids = fields.One2many('ir.logging', 'connector_id')
+
+    def _get_default_product_category(self):
+        root = self.env.ref('product.product_category_all', raise_if_not_found=False)
+        if root:
+            return root
+        return self.env['product.category'].search([('parent_id', '=', False)], limit=1)
 
     def export_data_from_db(self):
         articles = []
@@ -385,13 +392,12 @@ class SqliteConnector(models.Model):
                         "default_code": refint,
                         "list_price": row[7],
                         #"standard_price": row[7],
-                        'categ_id': categ.id if categ else self.env.ref('product.product_category_all').id,
+                        'categ_id': categ.id if categ else self._get_default_product_category().id,
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
-                        "uom_po_id": self.env.ref('uom.product_uom_unit').id,
                         "x_studio_position": elevID,
                         "x_studio_hauteur_mm": HautNum,
                         "x_studio_largeur_mm": largNum,
-                        "detailed_type": "consu",
+                        "type": "consu",
                         "purchase_ok": False,
                         "sale_ok": True,
                         "invoice_policy":"delivery",
@@ -407,7 +413,7 @@ class SqliteConnector(models.Model):
         resultp = cursor.execute("select Projects.Name, Projects.OfferNo from Projects")
         for row in resultp:
             refart = str(row[1])
-            categ = self.env.ref('product.product_category_all')
+            categ = self._get_default_product_category()
             affaire = row[0]
             if BP == 'BPA':
                 refart = refart + '_BPA'
@@ -423,8 +429,8 @@ class SqliteConnector(models.Model):
                     "standard_price": 0,
                     'categ_id': categ.id,
                     "uom_id": self.env.ref('uom.product_uom_unit').id,
-                    "uom_po_id": self.env.ref('uom.product_uom_unit').id,
-                    "detailed_type": "product",
+                    "type": "consu",
+                    "is_storable": True,
                     "purchase_ok": False,
                     "sale_ok": True,
                     "route_ids": [Command.link(self.env.ref('stock.route_warehouse0_mto').id), Command.link(self.env.ref('mrp.route_warehouse0_manufacture').id)],
@@ -650,8 +656,8 @@ class SqliteConnector(models.Model):
                     'categ_id': categ_id.id,
                     'purchase_ok': True,
                     'sale_ok': True,
-                    'detailed_type': 'product',
-                    'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                    'type': 'consu',
+                    'is_storable': True,
                     'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_54_b165c5dc').id)],
                     'x_studio_hauteur_mm': 0,
                     'x_studio_largeur_mm': 0,
@@ -663,12 +669,11 @@ class SqliteConnector(models.Model):
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
-                    seller = self.env['product.supplierinfo'].create({
-                    'partner_id': idfrs,
-                    'price': prix,
-                    'delay': delai,
-                    })
-                    vals.update({'seller_ids': [Command.set([seller.id])]})
+                    vals.update({'seller_ids': [Command.create({
+                        'partner_id': idfrs,
+                        'price': prix,
+                        'delay': delai,
+                    })]})
                 product = self.env['product.product'].create(vals)
                 message = _("Product has been Created: ") + product._get_html_link()
                 self.message_post(body=message)
@@ -870,8 +875,8 @@ class SqliteConnector(models.Model):
                             'categ_id': categ_id.id,
                             'purchase_ok': True,
                             'sale_ok': True,
-                            'detailed_type': 'product',
-                            'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                            'type': 'consu',
+                            'is_storable': True,
                             'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_54_b165c5dc').id)],
                             'x_studio_hauteur_mm': 0,
                             'x_studio_largeur_mm': 0,
@@ -883,12 +888,11 @@ class SqliteConnector(models.Model):
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
-                            seller = self.env['product.supplierinfo'].create({
-                            'partner_id': idfrs,
-                            'price': prix,
-                            'delay': delai,
-                            })
-                            vals.update({'seller_ids': [Command.set([seller.id])]})
+                            vals.update({'seller_ids': [Command.create({
+                                'partner_id': idfrs,
+                                'price': prix,
+                                'delay': delai,
+                            })]})
                         product = self.env['product.product'].create(vals)
                         message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
@@ -1129,8 +1133,8 @@ class SqliteConnector(models.Model):
                             'categ_id': categ_id,
                             'purchase_ok': True,
                             'sale_ok': True,
-                            'detailed_type': 'product',
-                            'uom_po_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                            'type': 'consu',
+                            'is_storable': True,
                             'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_54_b165c5dc').id)],
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
@@ -1149,12 +1153,11 @@ class SqliteConnector(models.Model):
                             'x_studio_longueur_pb_vertical' : LongVerti,
                         }
                         if idfrs:
-                            seller = self.env['product.supplierinfo'].create({
+                            vals.update({'seller_ids': [Command.create({
                                 'partner_id': idfrs,
                                 'price': prix,
                                 'delay': 3,
-                            })
-                            vals.update({'seller_ids': [Command.set([seller.id])]})
+                            })]})
                         product = self.env['product.product'].create(vals)
                         message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
@@ -1305,7 +1308,7 @@ class SqliteConnector(models.Model):
                                 'product_uom_qty': Qty,
                                 #'name': dimension,
                                 'discount': PourRem,
-                                'product_uom': pro.uom_id.id,
+                                'product_uom_id': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 })],
                         }
@@ -1317,7 +1320,7 @@ class SqliteConnector(models.Model):
                                 'product_uom_qty': Qty,
                                 #'name': dimension,
                                 'discount': PourRem,
-                                'product_uom': pro.uom_id.id,
+                                'product_uom_id': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 }))
             sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
@@ -1336,7 +1339,7 @@ class SqliteConnector(models.Model):
                         'product_uom_qty': 1,
                         'name': dimension,
                         'discount': PourRem,
-                        'product_uom': pro.uom_id.id,
+                        'product_uom_id': pro.uom_id.id,
                         # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                         }))
         else:
@@ -1378,7 +1381,7 @@ class SqliteConnector(models.Model):
                                     'product_uom_qty': float(row[6]),
                                     'name': dimension,
                                     'discount': PourRem,
-                                    'product_uom': pro.uom_id.id,
+                                    'product_uom_id': pro.uom_id.id,
                                     # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                     })
                                 ],
@@ -1391,7 +1394,7 @@ class SqliteConnector(models.Model):
                                     'product_uom_qty': float(row[6]),
                                     'name': dimension,
                                     'discount': PourRem,
-                                    'product_uom': pro.uom_id.id,
+                                    'product_uom_id': pro.uom_id.id,
                                     # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                     })
                                 )

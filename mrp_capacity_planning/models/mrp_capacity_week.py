@@ -111,10 +111,10 @@ class MrpCapacityWeek(models.Model):
     color = fields.Integer(compute='_compute_color')
     note = fields.Char(string='Note')
 
-    _sql_constraints = [
-        ('unique_resource_week', 'UNIQUE(capacity_resource_id, week_date)',
-         'Une seule ligne de capacité par affectation et par semaine.'),
-    ]
+    _unique_resource_week = models.Constraint(
+        'UNIQUE(capacity_resource_id, week_date)',
+        'Une seule ligne de capacité par affectation et par semaine.',
+    )
 
     # ══════════════════════════════════════════════════════════════════════════
     # COMPUTES
@@ -484,8 +484,14 @@ class MrpCapacityWeek(models.Model):
 
     @api.model
     def cron_recompute_absences(self):
+        # Filet de sécurité complémentaire au recalcul immédiat déclenché par
+        # hr_leave.py (create/write/unlink) : on inclut aussi les 30 derniers
+        # jours pour rattraper une semaine dont le rafraîchissement immédiat
+        # aurait échoué ou dont le congé a été saisi rétroactivement -- la
+        # borne stricte ">= aujourd'hui" laisserait sinon les semaines
+        # passées figées indéfiniment.
         today = fields.Date.today()
-        records = self.search([('week_date', '>=', today)])
+        records = self.search([('week_date', '>=', today - timedelta(days=30))])
         if records:
             records._compute_absences()
             records._compute_capacity_net()

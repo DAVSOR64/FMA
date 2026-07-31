@@ -3,7 +3,7 @@
   <record id="action_orders_to_invoice_or_no" model="ir.actions.act_window">
     <field name="name">Commandes à facturer (+ Rien à facturer)</field>
     <field name="res_model">sale.order</field>
-    <field name="view_mode">tree,form,pivot,graph,calendar,activity</field>
+    <field name="view_mode">list,form,pivot,graph,calendar,activity</field>
     <!-- Montre les deux statuts -->
     <field name="domain">[('invoice_status','in',('to invoice','no'))]</field>
   </record>

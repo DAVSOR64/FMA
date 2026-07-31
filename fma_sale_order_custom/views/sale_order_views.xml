@@ -32,8 +32,15 @@
             </xpath>
 
             <!-- Ajout du champ "date_bpe" après "tag_ids" -->
+            <!-- Gamme/Série : champs déjà déclarés (models/sale_order.py) mais
+                 absents de toute vue au portage Studio -> rendus visibles.
+                 La Série est filtrée par la Gamme sélectionnée (relation
+                 x_serie_mtn.x_studio_gamme_de_la_srie), filtre attendu. -->
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="date_bpe"/>
+                <field name="x_studio_gamme"/>
+                <field name="x_studio_srie"
+                       domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
             </xpath>
         </field>
     </record>

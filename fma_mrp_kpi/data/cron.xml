@@ -7,7 +7,6 @@
         <field name="code">model.cron_compute_daily_snapshot()</field>
         <field name="interval_number">1</field>
         <field name="interval_type">days</field>
-        <field name="numbercall">-1</field>
         <field name="active">True</field>
         <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 23:30:00')"/>
     </record>

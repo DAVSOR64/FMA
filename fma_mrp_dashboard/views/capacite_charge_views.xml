@@ -45,7 +45,7 @@
         <field name="name">mrp.workorder.charge.cache.tree</field>
         <field name="model">mrp.workorder.charge.cache</field>
         <field name="arch" type="xml">
-            <tree string="Cache charge (debug)" create="false" edit="false">
+            <list string="Cache charge (debug)" create="false" edit="false">
                 <field name="date" string="Date"/>
                 <field name="atelier_id" string="Atelier" optional="show"/>
                 <field name="atelier_id" string="Atelier"/>
@@ -53,7 +53,7 @@
                 <field name="workorder_id" string="Ordre travail"/>
                 <field name="production_id" string="OF"/>
                 <field name="charge_prevue_heures" string="Charge prévue (h)" sum="Total"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -66,7 +66,7 @@
                 <field name="workorder_id" string="Ordre travail"/>
                 <field name="production_id" string="OF"/>
                 <field name="date" string="Date"/>
-                <group expand="1" string="Regrouper par">
+                <group>
                     <filter string="Date" name="group_date" context="{'group_by': 'date'}"/>
                     <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="group_workcenter" context="{'group_by': 'workcenter_name'}"/>
@@ -79,7 +79,7 @@
     <record id="action_workorder_charge_cache" model="ir.actions.act_window">
         <field name="name">🔍 Cache charge (debug)</field>
         <field name="res_model">mrp.workorder.charge.cache</field>
-        <field name="view_mode">tree</field>
+        <field name="view_mode">list</field>
         <field name="context">{}</field>
     </record>
 
@@ -91,17 +91,17 @@
         <field name="name">planning.role.workcenter.tree</field>
         <field name="model">planning.role</field>
         <field name="arch" type="xml">
-            <tree string="Rôles Planning - Postes liés" editable="bottom">
+            <list string="Rôles Planning - Postes liés" editable="bottom">
                 <field name="name" string="Rôle"/>
                 <field name="workcenter_id" string="Poste de travail lié"/>
-            </tree>
+            </list>
         </field>
     </record>
 
     <record id="action_planning_role_workcenter" model="ir.actions.act_window">
         <field name="name">Lier Rôles → Postes</field>
         <field name="res_model">planning.role</field>
-        <field name="view_mode">tree</field>
+        <field name="view_mode">list</field>
         <field name="view_id" ref="view_planning_role_workcenter_tree"/>
     </record>
 
@@ -113,7 +113,7 @@
         <field name="name">mrp.capacite.charge.detail.tree</field>
         <field name="model">mrp.capacite.charge.detail</field>
         <field name="arch" type="xml">
-            <tree string="Détail opérations" create="false" edit="false" delete="false"
+            <list string="Détail opérations" create="false" edit="false" delete="false"
                   decoration-danger="ecart &lt; -1"
                   decoration-warning="ecart &gt;= -1 and ecart &lt; 0"
                   decoration-success="ecart &gt;= 0">
@@ -139,7 +139,7 @@
                 <field name="cumul_effectue" string="📉 Cumul effectué (h)"/>
                 <field name="ecart" string="🎯 Écart (h)"
                        widget="monetary" options="{'currency_field': 'False'}"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -168,7 +168,7 @@
         <field name="name">mrp.capacite.charge.list</field>
         <field name="model">mrp.capacite.charge</field>
         <field name="arch" type="xml">
-            <tree string="Capacité vs Charge"
+            <list string="Capacité vs Charge"
                   create="false" edit="false" delete="false">
                 
                 <!-- Identification -->
@@ -197,7 +197,7 @@
                 <!-- Actions -->
                 <button name="action_voir_detail" type="object"
                         string="📋 Détail" icon="fa-list" class="btn-primary"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -224,7 +224,7 @@
                 <field name="atelier_id" string="Atelier"/>
                 <field name="workcenter_id" string="Poste de travail"/>
                 <field name="date" string="Date"/>
-                <group expand="1" string="Regrouper par">
+                <group>
                     <filter string="Mois" name="group_month"
                             context="{'group_by': 'date:month'}"/>
                     <filter string="Semaine" name="group_week"
@@ -241,7 +241,7 @@
     <record id="action_capacite_charge" model="ir.actions.act_window">
         <field name="name">Capacité vs Charge</field>
         <field name="res_model">mrp.capacite.charge</field>
-        <field name="view_mode">tree,pivot</field>
+        <field name="view_mode">list,pivot</field>
         <field name="search_view_id" ref="view_capacite_charge_search"/>
         <field name="context">{}</field>
     </record>

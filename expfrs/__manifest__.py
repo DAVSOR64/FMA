@@ -4,8 +4,8 @@
     "description": """Module permattant d exporter les commandes fournisseurs en XML""",
     "author": "DAVSOR",
     "category": "Uncategorized",
-    "version": "17.0.1.0.1",
-    "depends": ["base"],
+    "version": "19.0.1.0.1",
+    "depends": ["base", "product"],
     "data": [
         "security/ir.model.access.csv",
         "views/fournisseurs.xml",

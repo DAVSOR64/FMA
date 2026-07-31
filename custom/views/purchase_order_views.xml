@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Affaire, Référence, remise et commentaires : champs déjà déclarés
+         en code (custom/models/purchase_order.py) mais jamais ajoutés à la
+         fiche commande d'achat : affichés sans condition, sur toutes les
+         commandes. x_studio_many2one_field_LCOZX est le champ "Affaire"
+         qui fait foi (les autres candidats "Affaire" du modèle ne sont
+         utilisés nulle part ailleurs dans le code). Seules les dimensions
+         de ligne (Repère/Hauteur/Largeur), propres au vitrage, restent
+         limitées aux commandes de cette catégorie.
+         "Contrat cadre" (requisition_id, module purchase_requisition) :
+         non utilisé -> masqué. -->
+    <record id="view_purchase_order_form_inherit_vitrage" model="ir.ui.view">
+        <field name="name">purchase.order.form.inherit.vitrage</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='partner_ref']" position="after">
+                <field name="x_studio_many2one_field_LCOZX" string="Affaire"/>
+                <field name="x_studio_rfrence" string="Référence"/>
+                <field name="x_is_glazing_order" invisible="1"/>
+                <field name="x_studio_remise"/>
+                <field name="x_studio_remise_1"/>
+                <field name="x_studio_commentaire_livraison_vitrage_"/>
+                <field name="x_studio_commentaire_interne_"/>
+            </xpath>
+
+            <xpath expr="//field[@name='requisition_id']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
+                <field name="x_studio_posit" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_hauteur" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_largeur" column_invisible="not parent.x_is_glazing_order"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -10,12 +10,12 @@
             Task: 4061463
         """,
     "author": "Odoo PS",
-    "version": "17.0.1.0.1",
+    "version": "19.0.1.0.1",
     "depends": ["base_setup", "contacts"],
     "data": [
         "data/ir_cron.xml",
         "views/res_config_settings_views.xml",
-        "views/res_partner_views.xml",
+        # "views/res_partner_views.xml",  # TODO: fichier manquant, à créer
     ],
     "license": "LGPL-3",
 }

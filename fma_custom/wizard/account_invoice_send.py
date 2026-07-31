@@ -4,11 +4,11 @@
 from odoo import models
 
 
-class AccountMoveSend(models.TransientModel):
-    _inherit = "account.move.send"
+class AccountMoveSendWizard(models.TransientModel):
+    _inherit = "account.move.send.wizard"
 
-    def action_send_and_print(self):
+    def action_send_and_print(self, allow_fallback_pdf=False):
         # Update the context to not show invoice button
         return super(
-            AccountMoveSend, self.with_context(show_view_invoice_button=False)
-        ).action_send_and_print()
+            AccountMoveSendWizard, self.with_context(show_view_invoice_button=False)
+        ).action_send_and_print(allow_fallback_pdf=allow_fallback_pdf)

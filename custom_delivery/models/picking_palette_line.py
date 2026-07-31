@@ -18,13 +18,14 @@ class PickingPaletteLine(models.Model):
     depth = fields.Float(string="Profondeur (mm)")
     height = fields.Float(string="Hauteur (mm)")
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         """Suivi des créations dans le fil de discussion Odoo"""
-        res = super(PickingPaletteLine, self).create(vals)
-        message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
-        res.picking_id.message_post(body=message)
-        return res
+        records = super(PickingPaletteLine, self).create(vals_list)
+        for res in records:
+            message = "Ligne de palette créée : %s palettes ajoutées." % res.qty
+            res.picking_id.message_post(body=message)
+        return records
 
     def write(self, vals):
         """Suivi des modifications dans le fil de discussion Odoo"""

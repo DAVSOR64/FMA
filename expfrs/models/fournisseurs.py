@@ -27,7 +27,7 @@ class FournisseurOrderLine(models.Model):
     _name = "fournisseur.order.line"
     _description = "Fournisseur Order Line"
 
-    order_id = fields.Many2one("fournisseur.order", string="Order", required=True)
+    order_id = fields.Many2one("fournisseur", string="Order", required=True)
     product_id = fields.Many2one("product.product", string="Product", required=True)
     product_qty = fields.Float(string="Quantity", required=True)
     price_unit = fields.Float(string="Unit Price", required=True)

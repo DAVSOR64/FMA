@@ -41,7 +41,7 @@
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_tree_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//tree" position="inside">
+            <xpath expr="//list" position="inside">
                 <field name="is_programmed" column_invisible="1"/>
                 <button name="button_plan" type="object"
                         string="Programmer" icon="fa-calendar"

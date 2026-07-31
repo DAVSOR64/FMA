@@ -1,8 +1,9 @@
 {
     "name": "FMA Shop Floor Active Workorder Highlight",
-    "version": "17.0.1.0.0",
+    "version": "19.0.1.0.0",
     "category": "Manufacturing",
     "summary": "Highlight active workorders in Odoo Shop Floor with a visible color indicator.",
+    "author": "Paxo Consulting",
     "depends": ["mrp_workorder"],
     "assets": {
         "web.assets_backend": [

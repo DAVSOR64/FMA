@@ -9,10 +9,14 @@
             Task: 4098688
         """,
     "author": "Odoo PS",
-    "version": "17.0.1.0.1",
+    "version": "19.0.1.0.6",
     "depends": [
         "sale_management",
         "custom",
+        "fma_studio_models",
+        "crm",
+        "project",
+        "documents",
     ],
     "data": ["views/sale_order_views.xml"],
     "license": "LGPL-3",

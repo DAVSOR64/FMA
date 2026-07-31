@@ -4,7 +4,7 @@
         <field name="name">mrp.daily.snapshot.list</field>
         <field name="model">mrp.daily.snapshot</field>
         <field name="arch" type="xml">
-            <tree string="Visu Atelier"
+            <list string="Visu Atelier"
                   decoration-danger="is_late and not is_done"
                   decoration-warning="is_late and is_done"
                   decoration-success="is_done and not is_late">
@@ -25,7 +25,7 @@
                 <field name="delta_hours" string="Retard (h)"/>
                 <field name="is_late" string="Retard"/>
                 <field name="cumul_retard_wc" string="Retard cumulé poste (h)"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -74,7 +74,7 @@
                 <filter string="Terminés à temps" name="done_on_time" domain="[('is_done', '=', True), ('is_late', '=', False)]"/>
                 <filter string="En cours / à l'heure" name="in_time_open" domain="[('is_done', '=', False), ('is_late', '=', False)]"/>
                 <separator/>
-                <group expand="1" string="Regrouper par">
+                <group>
                     <filter string="Atelier" name="group_atelier" context="{'group_by': 'atelier_id'}"/>
                     <filter string="Poste" name="group_wc" context="{'group_by': 'workcenter_id'}"/>
                     <filter string="Date" name="group_date" context="{'group_by': 'snapshot_date'}"/>
@@ -88,14 +88,14 @@
     <record id="action_mrp_daily_snapshot" model="ir.actions.act_window">
         <field name="name">Visu Atelier</field>
         <field name="res_model">mrp.daily.snapshot</field>
-        <field name="view_mode">pivot,graph,tree</field>
+        <field name="view_mode">pivot,graph,list</field>
         <field name="context">{'search_default_this_week': 1}</field>
         <field name="search_view_id" ref="view_mrp_daily_snapshot_search"/>
         <field name="view_ids" eval="[
             (5, 0, 0),
             (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_mrp_daily_snapshot_pivot')}),
             (0, 0, {'view_mode': 'graph', 'view_id': ref('view_mrp_daily_snapshot_graph')}),
-            (0, 0, {'view_mode': 'tree',  'view_id': ref('view_mrp_daily_snapshot_list')})
+            (0, 0, {'view_mode': 'list',  'view_id': ref('view_mrp_daily_snapshot_list')})
         ]"/>
     </record>
 
