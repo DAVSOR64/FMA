@@ -243,6 +243,33 @@ class SaleOrder(models.Model):
             mcv_arrondi = "{:.1f}".format(float_round(record.so_prc_mcv_devis, precision_digits=1))
             record.so_prc_mcv_devis_display = f"{mcv_arrondi} %"
 
+    # -------- Tranche de montant (Devis) --------
+    x_tranche_montant = fields.Selection(
+        selection=[
+            ('a_lt_10k', '< 10 K€'),
+            ('b_10_40k', '10 K€ à 40 K€'),
+            ('c_40_100k', '40 K€ à 100 K€'),
+            ('d_gt_100k', '> 100 K€'),
+        ],
+        string="Tranche de montant",
+        compute='_compute_x_tranche_montant',
+        store=True,
+        index=True,
+    )
+
+    @api.depends('so_mtt_facturer_devis')
+    def _compute_x_tranche_montant(self):
+        for order in self:
+            montant = order.so_mtt_facturer_devis or 0.0
+            if montant < 10000:
+                order.x_tranche_montant = 'a_lt_10k'
+            elif montant < 40000:
+                order.x_tranche_montant = 'b_10_40k'
+            elif montant < 100000:
+                order.x_tranche_montant = 'c_40_100k'
+            else:
+                order.x_tranche_montant = 'd_gt_100k'
+
     # -------- Analyse Financière (B.E.) --------
     so_achat_matiere_be = fields.Monetary(string="Achat Matière (B.E.)")
     so_achat_vitrage_be = fields.Monetary(string="Achat Vitrage (B.E.)")
