@@ -270,6 +270,31 @@ class SaleOrder(models.Model):
             else:
                 order.x_tranche_montant = 'd_gt_100k'
 
+    # -------- Taux de transformation (numérateurs sommables) --------
+    # Entiers/montants plutôt que booléens : seuls des champs sommables sont
+    # proposés comme mesure dans le pivot. Le taux lui-même est une mesure
+    # calculée côté vue, pour être recalculé à chaque niveau d'agrégation.
+    x_nb_valide = fields.Integer(
+        string="Devis validé",
+        compute='_compute_x_nb_valide',
+        store=True,
+    )
+    x_montant_valide = fields.Monetary(
+        string="Montant validé H.T.",
+        compute='_compute_x_montant_valide',
+        store=True,
+    )
+
+    @api.depends('so_date_devis_valide')
+    def _compute_x_nb_valide(self):
+        for order in self:
+            order.x_nb_valide = 1 if order.so_date_devis_valide else 0
+
+    @api.depends('so_date_devis_valide', 'so_mtt_facturer_devis')
+    def _compute_x_montant_valide(self):
+        for order in self:
+            order.x_montant_valide = order.so_mtt_facturer_devis if order.so_date_devis_valide else 0.0
+
     # -------- Analyse Financière (B.E.) --------
     so_achat_matiere_be = fields.Monetary(string="Achat Matière (B.E.)")
     so_achat_vitrage_be = fields.Monetary(string="Achat Vitrage (B.E.)")
