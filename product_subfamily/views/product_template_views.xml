@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-
-    <record id="view_product_template_form_inherit_subfamily" model="ir.ui.view">
-        <field name="name">product.template.form.subfamily</field>
+    <record id="view_product_template_form_inherit_family_triplet" model="ir.ui.view">
+        <field name="name">product.template.form.family.triplet</field>
         <field name="model">product.template</field>
-        <!-- Vue standard de la fiche produit template -->
         <field name="inherit_id" ref="product.product_template_only_form_view"/>
         <field name="arch" type="xml">
-            <!-- Insérer après le champ de catégorie interne -->
             <field name="categ_id" position="after">
-                <field name="subfamily_id" string="Sous catégorie"/>
+                <field name="family_id"/>
+                <field name="subfamily_id" domain="[('family_id', '=', family_id)]"/>
+                <field name="subsubfamily_id" domain="[('subfamily_id', '=', subfamily_id)]"/>
             </field>
         </field>
     </record>
-
 </odoo>

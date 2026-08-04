@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="cron_recompute_capacity_absences" model="ir.cron">
+        <field name="name">FMA - Recalcul capacité hebdomadaire</field>
+        <field name="model_id" ref="model_mrp_capacity_week"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_recompute_absences()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+    </record>
+
+    <record id="cron_macro_replan_13h" model="ir.cron">
+        <field name="name">FMA - Replan macro planning 13H</field>
+        <field name="model_id" ref="model_mrp_production"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_replan_all_productions()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 13:00:00')"/>
+    </record>
+
+    <record id="cron_macro_replan_18h" model="ir.cron">
+        <field name="name">FMA - Replan macro planning 18H</field>
+        <field name="model_id" ref="model_mrp_production"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_replan_all_productions()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 18:00:00')"/>
+    </record>
+</odoo>

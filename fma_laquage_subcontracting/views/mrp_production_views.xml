@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_production_form_laquage" model="ir.ui.view">
+        <field name="name">mrp.production.form.laquage.f2m</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='button_plan']" position="after">
+                <button name="action_open_laquage_plan_wizard" type="object" string="Planifier laquage" icon="fa-paint-brush" class="btn-primary" invisible="not laquage_required or laquage_state in ('sent','returned') or state in ('draft','done','cancel')"/>
+                <button name="action_replanifier_laquage" type="object" string="Replanifier laquage" icon="fa-refresh" class="btn-warning" invisible="not laquage_required or laquage_state in ('sent','returned') or state in ('draft','done','cancel')"/>
+                <button name="action_laquage_sent" type="object" string="Envoyé laquage" icon="fa-truck" class="btn-secondary" invisible="laquage_state != 'planned' or state in ('draft','done','cancel')"/>
+                <button name="action_laquage_returned" type="object" string="Retour laquage" icon="fa-check" class="btn-success" invisible="laquage_state != 'sent' or state in ('draft','done','cancel')"/>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <field name="laquage_required" invisible="1"/>
+                <field name="laquage_state" invisible="1"/>
+                <field name="laquage_alert_message" invisible="1"/>
+                <div class="alert alert-warning" role="alert" invisible="not laquage_alert_message">
+                    <field name="laquage_alert_message" nolabel="1" readonly="1"/>
+                </div>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Laquage externe" invisible="not laquage_required">
+                    <group>
+                        <group>
+                            <field name="laquage_state" widget="badge"/>
+                            <field name="laquage_source_sale_id" readonly="1"/>
+                            <field name="laquage_subcontractor_id"/>
+                            <field name="laquage_slot_id" readonly="1" string="Créneau calculé"/>
+                        </group>
+                        <group>
+                            <field name="laquage_purchase_id" readonly="1"/>
+                            <field name="laquage_cost" readonly="1"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_mrp_production_tree_laquage" model="ir.ui.view">
+        <field name="name">mrp.production.tree.laquage.f2m</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="inside">
+                <field name="laquage_required" optional="hide"/>
+                <field name="laquage_state" optional="show"/>
+                <field name="laquage_subcontractor_id" optional="hide"/>
+                <field name="laquage_cost" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

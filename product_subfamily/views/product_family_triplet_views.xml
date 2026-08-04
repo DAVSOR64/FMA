@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_product_family_triplet_tree" model="ir.ui.view">
+        <field name="name">product.family.triplet.tree</field>
+        <field name="model">product.family.triplet</field>
+        <field name="arch" type="xml">
+            <tree string="Triplets produits">
+                <field name="family_id"/>
+                <field name="subfamily_id"/>
+                <field name="subsubfamily_id"/>
+                <field name="income_account_id"/>
+                <field name="expense_account_id"/>
+                <field name="categ_id" readonly="1"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_product_family_triplet_form" model="ir.ui.view">
+        <field name="name">product.family.triplet.form</field>
+        <field name="model">product.family.triplet</field>
+        <field name="arch" type="xml">
+            <form string="Triplet produit">
+                <sheet>
+                    <group string="Classification">
+                        <field name="family_id"/>
+                        <field name="subfamily_id" domain="[('family_id', '=', family_id)]"/>
+                        <field name="subsubfamily_id" domain="[('subfamily_id', '=', subfamily_id)]"/>
+                    </group>
+                    <group string="Comptabilité et catégorie générée">
+                        <field name="income_account_id"/>
+                        <field name="expense_account_id"/>
+                        <field name="categ_id" readonly="1"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_product_family_triplet" model="ir.actions.act_window">
+        <field name="name">Triplets produits</field>
+        <field name="res_model">product.family.triplet</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

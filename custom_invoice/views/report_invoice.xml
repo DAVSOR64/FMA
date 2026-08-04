@@ -71,7 +71,7 @@
                                 <span t-field="o.invoice_date" />
                             </td>
                             <td>
-                                <span t-field="o.partner_id.part_code_tiers" />
+                                <span t-field="o.x_studio_compte_1" />
                             </td>
                             <td>
                                 <span t-field="o.invoice_date_due" />

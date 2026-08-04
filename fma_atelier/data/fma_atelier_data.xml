@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Données de départ facultatives. À renommer/adapter côté client si besoin. -->
+    <record id="fma_atelier_alu" model="fma.atelier">
+        <field name="name">Atelier ALU</field>
+        <field name="code">ALU</field>
+        <field name="sequence">10</field>
+    </record>
+
+    <record id="fma_atelier_bois" model="fma.atelier">
+        <field name="name">Atelier BOIS</field>
+        <field name="code">BOIS</field>
+        <field name="sequence">20</field>
+    </record>
+</odoo>

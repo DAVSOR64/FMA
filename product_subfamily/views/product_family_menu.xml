@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <menuitem id="menu_product_family_root"
+              name="Familles produits"
+              parent="stock.menu_stock_root"
+              sequence="55"/>
+
+    <menuitem id="menu_product_family"
+              name="Familles"
+              parent="menu_product_family_root"
+              action="action_product_family"
+              sequence="10"/>
+
+    <menuitem id="menu_product_subfamily"
+              name="Sous-familles"
+              parent="menu_product_family_root"
+              action="action_product_subfamily"
+              sequence="20"/>
+
+    <menuitem id="menu_product_subsubfamily"
+              name="Sous-sous-familles"
+              parent="menu_product_family_root"
+              action="action_product_subsubfamily"
+              sequence="30"/>
+
+    <menuitem id="menu_product_family_triplet"
+              name="Triplets / Catégories"
+              parent="menu_product_family_root"
+              action="action_product_family_triplet"
+              sequence="40"/>
+</odoo>

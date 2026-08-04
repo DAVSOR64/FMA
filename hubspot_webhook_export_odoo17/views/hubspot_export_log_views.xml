@@ -1,0 +1,81 @@
+<odoo>
+    <record id="hubspot_export_log_view_tree" model="ir.ui.view">
+        <field name="name">hubspot.export.log.tree</field>
+        <field name="model">hubspot.export.log</field>
+        <field name="arch" type="xml">
+            <tree string="Logs export HubSpot" create="false">
+                <field name="create_date"/>
+                <field name="export_type"/>
+                <field name="status"/>
+                <field name="record_count"/>
+                <field name="response_code"/>
+                <field name="message"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="hubspot_export_log_view_form" model="ir.ui.view">
+        <field name="name">hubspot.export.log.form</field>
+        <field name="model">hubspot.export.log</field>
+        <field name="arch" type="xml">
+            <form string="Log export HubSpot" create="false">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="export_type"/>
+                        <field name="status"/>
+                        <field name="record_count"/>
+                        <field name="response_code"/>
+                    </group>
+                    <notebook>
+                        <page string="Message">
+                            <field name="message"/>
+                        </page>
+                        <page string="Aperçu JSON">
+                            <field name="payload_preview" widget="text"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="hubspot_export_log_action" model="ir.actions.act_window">
+        <field name="name">Logs export HubSpot</field>
+        <field name="res_model">hubspot.export.log</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="hubspot_export_menu_root"
+              name="Export HubSpot"
+              parent="base.menu_administration"
+              sequence="90"/>
+
+    <menuitem id="hubspot_export_log_menu"
+              name="Logs"
+              parent="hubspot_export_menu_root"
+              action="hubspot_export_log_action"
+              sequence="10"/>
+
+    <record id="action_hubspot_export_entreprises" model="ir.actions.server">
+        <field name="name">Exporter les entreprises vers HubSpot</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="state">code</field>
+        <field name="code">env["hubspot.webhook.export"].action_export_entreprises()</field>
+    </record>
+
+    <record id="action_hubspot_export_quotes" model="ir.actions.server">
+        <field name="name">Exporter les devis vers HubSpot</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="state">code</field>
+        <field name="code">env["hubspot.webhook.export"].action_export_quotes()</field>
+    </record>
+
+    <record id="action_hubspot_export_full" model="ir.actions.server">
+        <field name="name">Export HubSpot complet - entreprises et devis</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="state">code</field>
+        <field name="code">env["hubspot.webhook.export"].action_export_all_full()</field>
+    </record>
+
+</odoo>

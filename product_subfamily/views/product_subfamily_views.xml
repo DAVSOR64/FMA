@@ -1,31 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-
-    <!-- Vue liste des sous-familles -->
     <record id="view_product_subfamily_tree" model="ir.ui.view">
         <field name="name">product.subfamily.tree</field>
         <field name="model">product.subfamily</field>
         <field name="arch" type="xml">
-            <tree string="Sous catégories">
+            <tree string="Sous-familles">
+                <field name="sequence" widget="handle"/>
+                <field name="family_id"/>
                 <field name="name"/>
-                <field name="product_categ_id"/>
                 <field name="code"/>
                 <field name="active"/>
             </tree>
         </field>
     </record>
 
-    <!-- Vue formulaire des sous-familles -->
     <record id="view_product_subfamily_form" model="ir.ui.view">
         <field name="name">product.subfamily.form</field>
         <field name="model">product.subfamily</field>
         <field name="arch" type="xml">
-            <form string="Sous catégorie de produit">
+            <form string="Sous-famille">
                 <sheet>
                     <group>
+                        <field name="family_id"/>
                         <field name="name"/>
-                        <field name="product_categ_id"/>
                         <field name="code"/>
+                        <field name="sequence"/>
                         <field name="active"/>
                     </group>
                 </sheet>
@@ -33,23 +32,9 @@
         </field>
     </record>
 
-    <!-- Action d'ouverture des sous-familles -->
     <record id="action_product_subfamily" model="ir.actions.act_window">
-        <field name="name">Sous catégorie</field>
+        <field name="name">Sous-familles produits</field>
         <field name="res_model">product.subfamily</field>
         <field name="view_mode">tree,form</field>
-        <field name="help" type="html">
-            <p>Configurez ici les sous catégories de produits, liées à une catégorie de produit.</p>
-        </field>
     </record>
-
-    <!-- Menu de configuration -->
-    <!-- Ici je le mets sous : Inventaire / Configuration / Produits / Sous catégorie
-         Adapte le parent si besoin selon vos menus existants -->
-    <menuitem id="menu_product_subfamily"
-              name="Sous catégorie"
-              parent="stock.menu_stock_root"
-              action="action_product_subfamily"
-              sequence="50"/>
-
 </odoo>

@@ -1239,7 +1239,7 @@ class SqliteConnector(models.Model):
                     if row[11].startswith("ECO-CONTRIBUTION") :
                         refart = 'ECO-CONTRIBUTION'
                         price = 0.03
-                        Qty = float(row[8]) / 0.03
+                        Qty = float(row[8]) / 0.14
                     else :
                         refart = 'Frais de livraison'
                 else :
@@ -1501,20 +1501,17 @@ class SqliteConnector(models.Model):
             if rowOpe[6] is not None and rowOpe[6] == 0 :
                 name = 'Débit'  + ' ' + eticom
             else:
-                if rowOpe[6] is not None and rowOpe[6] == 4 :
-                    name = 'Usinage'  + ' ' + eticom
-                else:
-                    if rowOpe[6] is not None and rowOpe[6] == 5 :
+                if rowOpe[6] is not None and rowOpe[6] == 5 :
                         name = 'CU (banc)'  + ' ' + eticom
+                else :
+                    if rowOpe[6] is not None and rowOpe[6] == 4 :
+                        name = 'Usinage'  + ' ' + eticom
                     else:
-                        if rowOpe[6] is not None and rowOpe[6] == 6 :
+                        if rowOpe[6] is not None and rowOpe[6] in (6, 11):
                             name = 'Montage'  + ' ' + eticom
                         else:
                             if rowOpe[6] is not None and rowOpe[6] == 10 :
                                 name = 'Vitrage'  + ' ' + eticom
-                            else:
-                                if rowOpe[6] is not None and rowOpe[6] == 11 :
-                                    name = 'Emballage'  + ' ' + eticom
             _logger.warning("**********Qty ********* %s " % str(Qty) )
             _logger.warning("**********Name ********* %s " % str(name) )
             _logger.warning("**********Elevation******** %s " % str(rowOpe[5]) )
@@ -1527,14 +1524,27 @@ class SqliteConnector(models.Model):
                 aggregated_data[ope] = {'temps': temps * Qty, 'name': name}
         
         # Étape 2: Créer les opérations dans Odoo
+        operation_order = {
+            'Débit': 10,
+            'CU (banc)': 20,
+            'Usinage': 30,
+            'Montage': 40,
+            'Vitrage': 50,
+        }
+        
         for ope, data in aggregated_data.items():
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
                 continue
+        
+            base_name = data['name'].replace(' FMA', '').replace(' F2M', '').strip()
+            sequence = operation_order.get(base_name, 999)
+        
             operation_data = {
                 'name': ope,
+                'sequence': sequence,
                 'time_cycle_manual': data['temps'],
-                'workcenter_id': workcenter.id
+                'workcenter_id': workcenter.id,
             }
         
             if nomenclatures_data:

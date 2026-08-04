@@ -1,0 +1,1006 @@
+# -*- coding: utf-8 -*-
+from odoo import models, fields, tools, api
+import logging
+import traceback
+import pytz
+from datetime import timedelta, datetime
+
+_logger = logging.getLogger(__name__)
+
+
+class PlanningRole(models.Model):
+    _inherit = 'planning.role'
+
+    workcenter_id = fields.Many2one(
+        'mrp.workcenter',
+        string='Poste de travail lié',
+        help='Lier ce rôle Planning au poste de travail pour le calcul de capacité',
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cache CAPACITE (depuis Planning)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CapaciteCache(models.Model):
+    _name = 'mrp.capacite.cache'
+    _description = 'Cache capacité planning par poste/jour'
+    _auto = True
+
+    atelier_id = fields.Many2one('fma.atelier', string='Atelier', index=True, ondelete='set null')
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', index=True, ondelete='cascade')
+    workcenter_name = fields.Char(string='Nom poste')
+    date = fields.Date(string='Date', index=True)
+    capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2))
+    nb_personnes = fields.Integer(string='Nb personnes', default=1)
+
+    def _to_utc(self, dt):
+        if dt is None:
+            return dt
+        if dt.tzinfo is None:
+            return pytz.utc.localize(dt)
+        return dt.astimezone(pytz.utc)
+
+    def refresh(self):
+        """
+        Recalcule la capacité par poste/jour pour le menu Macro Planning /
+        Capacité vs Charge.
+
+        Règle métier importante : la capacité vient UNIQUEMENT des affectations
+        mrp.capacity.resource / mrp.capacity.week.
+
+        On ne doit jamais recréer une capacité depuis le calendrier du poste de
+        travail quand il existe uniquement de la charge. Ainsi, un poste comme
+        "CU (banc) FMA" avec des OF planifiés mais sans ressource affectée
+        ressort avec Capacité = 0 h et une surcharge visible.
+        """
+        self.search([]).unlink()
+
+        aggregated = {}
+        resource_ids_by_key = {}
+
+        # ── Source unique : mrp.capacity.week issue des Ressources & Postes ───
+        if 'mrp.capacity.week' in self.env:
+            weeks = self.env['mrp.capacity.week'].search([
+                ('capacity_resource_id.active', '=', True),
+            ])
+            _logger.info('[MacroPlanning] REFRESH CAPACITE : %d semaines mrp.capacity.week actives', len(weeks))
+
+            for week in weeks:
+                if not week.workcenter_id or not week.week_date or not week.capacity_resource_id:
+                    continue
+
+                # Sécurité anti-capacité fantôme : une semaine générée avant une
+                # modification de dates ne doit plus contribuer hors période de
+                # validité de l'affectation.
+                if not self._capacity_week_is_valid(week):
+                    continue
+
+                daily_hours = self._get_daily_capacity_map(week)
+                if not daily_hours:
+                    continue
+
+                for jour, capacite_jour in daily_hours.items():
+                    if not self._capacity_resource_is_valid_on_date(week.capacity_resource_id, jour):
+                        continue
+
+                    atelier_id = week.atelier_id.id if getattr(week, 'atelier_id', False) else False
+                    key = (atelier_id, week.workcenter_id.id, jour)
+                    if key not in aggregated:
+                        aggregated[key] = {
+                            'atelier_id': atelier_id,
+                            'workcenter_id': week.workcenter_id.id,
+                            'workcenter_name': week.workcenter_id.name,
+                            'date': jour,
+                            'capacite_heures': 0.0,
+                            'nb_personnes': 0,
+                        }
+                        resource_ids_by_key[key] = set()
+
+                    aggregated[key]['capacite_heures'] += round(capacite_jour, 2)
+                    resource_ids_by_key[key].add(week.capacity_resource_id.id)
+        else:
+            _logger.warning('[MacroPlanning] mrp.capacity.week non disponible — capacité à 0')
+
+        # Compte les vraies affectations ressources uniques, pas les lignes semaine.
+        for key, resource_ids in resource_ids_by_key.items():
+            aggregated[key]['nb_personnes'] = len(resource_ids)
+
+        # ── Charge sans capacité : créer une ligne à 0 h, sans fallback calendrier
+        # L'objectif est de voir les postes chargés mais non capacitaires.
+        self.env.cr.execute("""
+            SELECT DISTINCT atelier_id, workcenter_id, date
+            FROM mrp_workorder_charge_cache
+            ORDER BY atelier_id, workcenter_id, date
+        """)
+        charge_keys = self.env.cr.fetchall()
+
+        missing_keys = [(atelier_id, wc_id, d) for atelier_id, wc_id, d in charge_keys if (atelier_id, wc_id, d) not in aggregated]
+        if missing_keys:
+            _logger.info(
+                '[MacroPlanning] %d clés avec charge mais sans ressource capacité → capacité forcée à 0 h',
+                len(missing_keys)
+            )
+
+        for atelier_id, wc_id, d in missing_keys:
+            wc = self.env['mrp.workcenter'].browse(wc_id)
+            if not wc.exists():
+                continue
+            aggregated[(atelier_id, wc_id, d)] = {
+                'atelier_id': atelier_id,
+                'workcenter_id': wc_id,
+                'workcenter_name': wc.name,
+                'date': d,
+                'capacite_heures': 0.0,
+                'nb_personnes': 0,
+            }
+
+        if aggregated:
+            self.create(list(aggregated.values()))
+
+        _logger.info(
+            '[MacroPlanning] REFRESH CAPACITE TERMINÉ : %d entrées poste/jour créées',
+            len(aggregated)
+        )
+
+    def _capacity_week_is_valid(self, week):
+        """Vérifie qu'une semaine capacité est encore dans la période de validité
+        de son affectation Ressources & Postes.
+        """
+        res = week.capacity_resource_id
+        if not res or not res.active:
+            return False
+
+        week_start = week.week_date
+        week_end = week.week_end_date or (week.week_date + timedelta(days=6))
+
+        if res.date_start and week_end < res.date_start:
+            return False
+        if res.date_end and week_start > res.date_end:
+            return False
+        return True
+
+    def _capacity_resource_is_valid_on_date(self, capacity_resource, day):
+        """Vérifie la validité de l'affectation pour une date précise."""
+        if not capacity_resource or not capacity_resource.active:
+            return False
+        if capacity_resource.date_start and day < capacity_resource.date_start:
+            return False
+        if capacity_resource.date_end and day > capacity_resource.date_end:
+            return False
+        return True
+
+    def _get_daily_capacity_map(self, week):
+        """Retourne {date: heures_nettes} pour une semaine de capacite.
+
+        Correction : le calcul part des heures reellement ouvrees du calendrier
+        DE LA RESSOURCE, avec les leaves/absences/feries appliques par Odoo.
+        Exemple : semaine 39h avec vendredi ferie 5h => lundi-jeudi a 8,5h
+        et vendredi a 0h, soit 34h nettes.
+        """
+        calendar = week.override_calendar_id or week.resource_calendar_id
+        if not calendar or not week.week_date:
+            return {}
+
+        capacity_net = week.capacity_net or 0.0
+        if capacity_net <= 0:
+            return {}
+
+        week_start = week.week_date
+        week_end = week.week_end_date or (week.week_date + timedelta(days=6))
+
+        resource = self._get_odoo_resource_from_capacity_week(week)
+        base_map = self._get_working_days(calendar, week_start, resource=resource)
+        if not base_map:
+            return {}
+
+        jours_ouvres = {d: h for d, h in base_map.items() if week_start <= d <= week_end and h > 0}
+        if not jours_ouvres:
+            return {}
+
+        total_heures_reelles = round(sum(jours_ouvres.values()), 2)
+        if total_heures_reelles <= 0:
+            return {}
+
+        if abs(total_heures_reelles - capacity_net) <= 0.05:
+            return {d: round(h, 2) for d, h in jours_ouvres.items()}
+
+        if capacity_net > total_heures_reelles:
+            _logger.warning(
+                '[MacroPlanning] Semaine capacite %s : capacity_net %.2f > calendrier reel %.2f. Conservation calendrier.',
+                week.id, capacity_net, total_heures_reelles
+            )
+            return {d: round(h, 2) for d, h in jours_ouvres.items()}
+
+        result = {}
+        total_attribue = 0.0
+        jours_tries = sorted(jours_ouvres.keys())
+        for i, jour in enumerate(jours_tries):
+            if i < len(jours_tries) - 1:
+                h_jour = round(capacity_net * jours_ouvres[jour] / total_heures_reelles, 2)
+            else:
+                h_jour = round(capacity_net - total_attribue, 2)
+            result[jour] = max(0.0, h_jour)
+            total_attribue += h_jour
+        return result
+
+    def _get_odoo_resource_from_capacity_week(self, week):
+        """Retourne resource.resource si disponible sur la semaine capacite."""
+        for fname in ('resource_id', 'planning_resource_id'):
+            res = getattr(week, fname, False)
+            if res:
+                if getattr(res, '_name', '') == 'resource.resource':
+                    return res
+                linked = getattr(res, 'resource_id', False)
+                if linked and getattr(linked, '_name', '') == 'resource.resource':
+                    return linked
+        employee = getattr(week, 'employee_id', False)
+        if employee and getattr(employee, 'resource_id', False):
+            return employee.resource_id
+        return False
+
+    def _extract_work_intervals(self, calendar, start_dt, end_dt, resource=False):
+        """Compat Odoo : recupere les intervalles avec ou sans resource.resource."""
+        if resource:
+            intervals = calendar._work_intervals_batch(start_dt, end_dt, resources=resource)
+            return intervals.get(resource.id) or intervals.get(resource) or intervals.get(False) or []
+        intervals = calendar._work_intervals_batch(start_dt, end_dt)
+        return intervals.get(False, [])
+
+    def _get_working_days(self, calendar, week_date, resource=False):
+        """Capacite reelle par jour via _work_intervals_batch, leaves incluses."""
+        if not calendar:
+            return {}
+        result = {}
+        start_dt = datetime.combine(week_date, datetime.min.time())
+        end_dt = start_dt + timedelta(days=7)
+        try:
+            start_dt = self._to_utc(start_dt)
+            end_dt = self._to_utc(end_dt)
+            work_intervals = self._extract_work_intervals(calendar, start_dt, end_dt, resource=resource)
+            for start, stop, _meta in work_intervals:
+                day = start.date()
+                hours = (stop - start).total_seconds() / 3600.0
+                result[day] = result.get(day, 0.0) + hours
+        except Exception as e:
+            _logger.error('Erreur calcul calendrier : %s', str(e))
+            return {}
+        return {d: round(h, 2) for d, h in result.items()}
+
+    def _get_calendar_leave_hours_by_day(self, calendar, week_start, week_end):
+        res = {}
+        if not calendar:
+            return res
+
+        leaves = self.env['resource.calendar.leaves'].search([
+            ('calendar_id', '=', calendar.id),
+            ('date_from', '<=', fields.Datetime.to_string(datetime.combine(week_end, datetime.max.time()))),
+            ('date_to', '>=', fields.Datetime.to_string(datetime.combine(week_start, datetime.min.time()))),
+        ])
+        for leave in leaves:
+            self._accumulate_overlap_by_day(res, calendar, leave.date_from, leave.date_to, week_start, week_end)
+        return res
+
+    def _get_employee_leave_hours_by_day(self, employee, calendar, week_start, week_end):
+        res = {}
+        if not employee:
+            return res
+
+        leaves = self.env['hr.leave'].search([
+            ('employee_id', '=', employee.id),
+            ('state', '=', 'validate'),
+            ('date_from', '<=', fields.Datetime.to_string(datetime.combine(week_end, datetime.max.time()))),
+            ('date_to', '>=', fields.Datetime.to_string(datetime.combine(week_start, datetime.min.time()))),
+        ])
+        for leave in leaves:
+            self._accumulate_overlap_by_day(res, calendar, leave.date_from, leave.date_to, week_start, week_end)
+        return res
+
+    def _accumulate_overlap_by_day(self, bucket, calendar, leave_start, leave_end, week_start, week_end):
+        """Ajoute dans bucket les heures d'absence recouvrant le calendrier, par jour."""
+        if not leave_start or not leave_end or not calendar:
+            return
+
+        cal_tz_name = calendar.tz or 'UTC'
+        try:
+            tz = pytz.timezone(cal_tz_name)
+        except Exception:
+            tz = pytz.UTC
+
+        # normalise en UTC aware
+        if leave_start.tzinfo is None:
+            leave_start = pytz.UTC.localize(leave_start)
+        else:
+            leave_start = leave_start.astimezone(pytz.UTC)
+        if leave_end.tzinfo is None:
+            leave_end = pytz.UTC.localize(leave_end)
+        else:
+            leave_end = leave_end.astimezone(pytz.UTC)
+
+        for i in range(7):
+            day = week_start + timedelta(days=i)
+            if day > week_end:
+                break
+
+            weekday = str(day.weekday())
+            attendances = calendar.attendance_ids.filtered(lambda a: a.dayofweek == weekday and a.display_type != 'line_section')
+            if not attendances:
+                continue
+
+            hours = 0.0
+            for att in attendances:
+                local_start = tz.localize(datetime.combine(day, datetime.min.time()) + timedelta(hours=att.hour_from))
+                local_end = tz.localize(datetime.combine(day, datetime.min.time()) + timedelta(hours=att.hour_to))
+                att_start = local_start.astimezone(pytz.UTC)
+                att_end = local_end.astimezone(pytz.UTC)
+
+                overlap_start = max(att_start, leave_start)
+                overlap_end = min(att_end, leave_end)
+                if overlap_end > overlap_start:
+                    hours += (overlap_end - overlap_start).total_seconds() / 3600.0
+
+            if hours > 0:
+                bucket[day] = round(bucket.get(day, 0.0) + hours, 2)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cache CHARGE (depuis Workorders) - VERSION FINALE
+# Stocke la charge PRÉVUE par OF/poste/date
+# ─────────────────────────────────────────────────────────────────────────────
+
+class WorkorderChargeCache(models.Model):
+    _name = 'mrp.workorder.charge.cache'
+    _description = 'Cache charge workorder répartie par jour'
+    _auto = True
+    _order = 'date asc, workcenter_id asc, workorder_id asc'
+
+    workorder_id = fields.Many2one('mrp.workorder', string='Ordre de travail', index=True, ondelete='cascade')
+    production_id = fields.Many2one('mrp.production', string='OF', related='workorder_id.production_id', store=True)
+    atelier_id = fields.Many2one('fma.atelier', string='Atelier', related='production_id.atelier_id', store=True, index=True, readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', index=True, ondelete='cascade')
+    workcenter_name = fields.Char(string='Nom poste')
+    date = fields.Date(string='Date', index=True)
+    charge_prevue_heures = fields.Float(string='Charge prévue (h)', digits=(10, 2), 
+                                         help='Charge planifiée pour ce jour sur cet OF')
+    employee_ids = fields.Many2many('hr.employee', string='Opérateurs')
+
+    def _to_utc(self, dt):
+        if dt is None:
+            return dt
+        if dt.tzinfo is None:
+            return pytz.utc.localize(dt)
+        return dt.astimezone(pytz.utc)
+
+    def _get_wo_date_start(self, wo):
+        """
+        Retourne la meilleure date de début disponible sur le workorder.
+        Priorité : macro_planned_start > date_start
+        En Odoo 17, date_planned_start n'existe pas sur mrp.workorder.
+        """
+        for fname in ('macro_planned_start', 'date_start'):
+            val = getattr(wo, fname, False)
+            if val:
+                return val
+        return False
+
+    def refresh(self):
+        """Recalcule la charge depuis les workorders actifs - RÉPARTITION JOUR PAR JOUR"""
+        self.search([]).unlink()
+
+        # Odoo 17 : les WOs planifiés ont date_planned_start, pas forcément date_start
+        # On prend tous les WOs actifs (pas done/cancel) avec au moins une date planifiée
+        workorders = self.env['mrp.workorder'].search([
+            ('state', 'not in', ('done', 'cancel')),
+            ('production_id.state', 'not in', ('done', 'cancel')),
+        ])
+
+        # Filtrer côté Python pour couvrir tous les champs de date possibles
+        workorders = workorders.filtered(lambda w: self._get_wo_date_start(w))
+
+        _logger.info('REFRESH CHARGE : %d workorders actifs avec date planifiée', len(workorders))
+        if not workorders:
+            return
+        
+        vals_list = []
+        batch_size = 50
+        count = 0
+        
+        for wo in workorders:
+            count += 1
+            
+            if not wo.workcenter_id:
+                continue
+            
+            # Durée de planning restante en heures calendrier/opération.
+            # IMPORTANT : duration_expected est stocké en minutes Odoo.
+            # x_nb_resources indique combien de ressources travaillent en parallèle.
+            # Pour positionner l'opération dans le temps, on divise par nb_resources.
+            # Pour la charge capacité vs charge, on stocke ensuite des heures-homme : heures_jour * nb_resources.
+            nb_resources = max(1, getattr(wo, 'x_nb_resources', 1) or 1)
+            if wo.state in ('pending', 'ready', 'waiting'):
+                charge_restante_totale = (wo.duration_expected or 0) / 60.0 / nb_resources
+            else:
+                # En cours : durée restante planning = (prévu - réalisé) / nb ressources
+                charge_restante_totale = max(
+                    (wo.duration_expected or 0) - (wo.duration or 0), 0
+                ) / 60.0 / nb_resources
+            
+            if charge_restante_totale <= 0:
+                _logger.debug('WO %s : charge nulle, ignoré', wo.id)
+                continue
+            
+            # Récupérer les opérateurs assignés
+            employee_ids = self.env['mrp.workcenter.productivity'].search([
+                ('workorder_id', '=', wo.id),
+                ('employee_id', '!=', False)
+            ]).mapped('employee_id').ids
+            
+            # Calendrier du workcenter
+            calendar = wo.workcenter_id.resource_calendar_id
+            
+            # Date de début de l'opération
+            date_start_operation = self._get_wo_date_start(wo)
+            _logger.debug('WO %s (%s) : date_start=%s duree_planning=%.2fh nb_resources=%s charge_homme=%.2fh', 
+                         wo.id, wo.name, date_start_operation, charge_restante_totale, nb_resources, charge_restante_totale * nb_resources)
+            
+            if not date_start_operation:
+                continue
+
+            # DATE DE DÉBUT : on ne tient PAS compte de l'heure, seulement du jour ouvré
+            date_debut = date_start_operation.date() if hasattr(date_start_operation, 'date') else date_start_operation
+
+            # Si pas de calendrier → tout sur le jour de début
+            if not calendar:
+                vals_list.append({
+                    'workorder_id': wo.id,
+                    'workcenter_id': wo.workcenter_id.id,
+                    'workcenter_name': wo.workcenter_id.name,
+                    'date': date_debut,
+                    'charge_prevue_heures': round(charge_restante_totale * nb_resources, 2),
+                    'employee_ids': [(6, 0, employee_ids)],
+                })
+                continue
+
+            # Fenêtre large : depuis le début du premier jour ouvré (minuit) sur 90 jours
+            date_end_window = datetime.combine(date_debut, datetime.min.time()) + timedelta(days=90)
+
+            try:
+                # On part du début de la journée (minuit) pour avoir la journée complète
+                date_start_utc = self._to_utc(datetime.combine(date_debut, datetime.min.time()))
+                date_end_utc = self._to_utc(date_end_window)
+
+                # Récupérer les intervalles de travail (journées complètes)
+                intervals = calendar._work_intervals_batch(date_start_utc, date_end_utc)
+                work_intervals = intervals.get(False, [])
+
+                if not work_intervals:
+                    vals_list.append({
+                        'workorder_id': wo.id,
+                        'workcenter_id': wo.workcenter_id.id,
+                        'workcenter_name': wo.workcenter_id.name,
+                        'date': date_debut,
+                        'charge_prevue_heures': round(charge_restante_totale * nb_resources, 2),
+                        'employee_ids': [(6, 0, employee_ids)],
+                    })
+                    continue
+
+                # Heures ouvrées par jour (journées COMPLÈTES - sans tenir compte de l'heure de début)
+                heures_calendrier_par_jour = {}
+                for start, stop, _meta in work_intervals:
+                    jour = start.date()
+                    heures_interval = (stop - start).total_seconds() / 3600.0
+                    heures_calendrier_par_jour[jour] = heures_calendrier_par_jour.get(jour, 0) + heures_interval
+
+                if not heures_calendrier_par_jour:
+                    vals_list.append({
+                        'workorder_id': wo.id,
+                        'workcenter_id': wo.workcenter_id.id,
+                        'workcenter_name': wo.workcenter_id.name,
+                        'date': date_debut,
+                        'charge_prevue_heures': round(charge_restante_totale * nb_resources, 2),
+                        'employee_ids': [(6, 0, employee_ids)],
+                    })
+                    continue
+
+                # RÉPARTITION JOUR PAR JOUR — journées complètes, plafonnées à la capa du calendrier
+                charge_restante = charge_restante_totale
+                jours_tries = sorted(heures_calendrier_par_jour.keys())
+
+                for jour in jours_tries:
+                    if charge_restante <= 0:
+                        break
+
+                    capacite_jour = heures_calendrier_par_jour[jour]
+                    charge_ce_jour = min(charge_restante, capacite_jour)
+
+                    if charge_ce_jour > 0:
+                        vals_list.append({
+                            'workorder_id': wo.id,
+                            'workcenter_id': wo.workcenter_id.id,
+                            'workcenter_name': wo.workcenter_id.name,
+                            'date': jour,
+                            'charge_prevue_heures': round(charge_ce_jour * nb_resources, 2),
+                            'employee_ids': [(6, 0, employee_ids)],
+                        })
+                        charge_restante -= charge_ce_jour
+
+                # S'il reste de la charge après 90 jours calendaires
+                if charge_restante > 0:
+                    dernier_jour = jours_tries[-1] if jours_tries else date_debut
+                    vals_list.append({
+                        'workorder_id': wo.id,
+                        'workcenter_id': wo.workcenter_id.id,
+                        'workcenter_name': wo.workcenter_id.name,
+                        'date': dernier_jour,
+                        'charge_prevue_heures': round(charge_restante * nb_resources, 2),
+                        'employee_ids': [(6, 0, employee_ids)],
+                    })
+                    _logger.warning('WO %s : charge restante %.2fh après 90 jours', wo.id, charge_restante)
+            
+            except Exception as e:
+                _logger.error('Erreur workorder %s : %s\n%s', wo.id, str(e), traceback.format_exc())
+                vals_list.append({
+                    'workorder_id': wo.id,
+                    'workcenter_id': wo.workcenter_id.id,
+                    'workcenter_name': wo.workcenter_id.name,
+                    'date': date_debut,
+                    'charge_prevue_heures': round(charge_restante_totale * nb_resources, 2),
+                    'employee_ids': [(6, 0, employee_ids)],
+                })
+            
+            # OPTIMISATION : Commit par batch
+            if count % batch_size == 0 and vals_list:
+                self.create(vals_list)
+                self.env.cr.commit()
+                _logger.info('REFRESH CHARGE : %d/%d traités', count, len(workorders))
+                vals_list = []
+        
+        # Dernier batch
+        if vals_list:
+            self.create(vals_list)
+        
+        _logger.info('REFRESH CHARGE TERMINÉ : %d workorders traités', count)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wizard de refresh
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CapaciteRefreshWizard(models.TransientModel):
+    _name = 'mrp.capacite.refresh.wizard'
+    _description = 'Wizard recalcul capacité et charge'
+
+    nb_slots = fields.Integer(string='Semaines capacité (mrp_capacity_planning)', readonly=True)
+    nb_workorders = fields.Integer(string='Workorders actifs', readonly=True)
+    nb_capacite = fields.Integer(string='Entrées capacité', readonly=True)
+    nb_charge = fields.Integer(string='Entrées charge', readonly=True)
+    message = fields.Char(string='Résultat', readonly=True)
+
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        if 'mrp.capacity.week' in self.env:
+            res['nb_slots'] = self.env['mrp.capacity.week'].search_count([
+                ('capacity_net', '>', 0),
+            ])
+        else:
+            res['nb_slots'] = 0
+        # Compter tous les WOs actifs avec au moins une date planifiée
+        charge_model = self.env['mrp.workorder.charge.cache']
+        all_wos = self.env['mrp.workorder'].search([
+            ('state', 'not in', ('done', 'cancel')),
+            ('production_id.state', 'not in', ('done', 'cancel')),
+        ])
+        wo_avec_date = all_wos.filtered(lambda w: charge_model._get_wo_date_start(w))
+        res['nb_workorders'] = len(wo_avec_date)
+        return res
+
+    def action_refresh(self):
+        """Recalcule capacité + charge"""
+        self.env['mrp.capacite.cache'].refresh()
+        self.env['mrp.workorder.charge.cache'].refresh()
+        
+        nb_capa = self.env['mrp.capacite.cache'].search_count([])
+        nb_chrg = self.env['mrp.workorder.charge.cache'].search_count([])
+        
+        self.write({
+            'nb_capacite': nb_capa,
+            'nb_charge': nb_chrg,
+            'message': f'{nb_capa} capacités + {nb_chrg} charges calculées'
+        })
+        
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': self._name,
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Mixin utilitaires SQL
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CapaciteMixin(models.AbstractModel):
+    _name = 'mrp.capacite.mixin'
+    _description = 'Mixin utilitaires capacité'
+
+    def _get_sale_col(self):
+        self.env.cr.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'mrp_production'
+            AND column_name IN ('sale_id', 'x_sale_id', 'procurement_sale_id', 'x_studio_mtn_mrp_sale_order')
+            LIMIT 1
+        """)
+        row = self.env.cr.fetchone()
+        return row[0] if row else None
+
+    def _get_name_expr(self, table, col='name', alias=None):
+        ref = alias or table
+        self.env.cr.execute("""
+            SELECT data_type FROM information_schema.columns
+            WHERE table_name = %s AND column_name = %s LIMIT 1
+        """, (table, col))
+        row = self.env.cr.fetchone()
+        dtype = row[0] if row else 'character varying'
+        if dtype == 'jsonb':
+            return (f"COALESCE({ref}.{col}->>'fr_FR', "
+                    f"{ref}.{col}->>'en_US', {ref}.{col}::text)")
+        return f"{ref}.{col}::text"
+
+    def _get_projet_fragments(self):
+        sale_col = self._get_sale_col()
+        pp_name = self._get_name_expr('project_project', alias='pp')
+        self.env.cr.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'sale_order' AND column_name = 'x_studio_projet'
+        """)
+        has_projet = bool(self.env.cr.fetchone())
+        return sale_col, pp_name, has_projet
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vue détail workorders - AVEC CUMULS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CapaciteChargeDetail(models.Model):
+    _name = 'mrp.capacite.charge.detail'
+    _inherit = 'mrp.capacite.mixin'
+    _auto = False
+    _description = 'Détail opérations par poste/jour avec cumuls'
+    _order = 'date asc, workcenter_name asc'
+
+    date = fields.Date(string='Date', readonly=True)
+    atelier_id = fields.Many2one('fma.atelier', string='Atelier', readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', readonly=True)
+    workcenter_name = fields.Char(string='Poste', readonly=True)
+    production_id = fields.Many2one('mrp.production', string='OF', readonly=True)
+    production_name = fields.Char(string='N° OF', readonly=True)
+    sale_order_id = fields.Many2one('sale.order', string='Commande', readonly=True)
+    sale_order_name = fields.Char(string='N° Commande', readonly=True)
+    projet = fields.Char(string='Projet', readonly=True)
+    operation_name = fields.Char(string='Opération', readonly=True)
+    operateurs = fields.Char(string='Opérateur(s)', readonly=True)
+    nb_resources = fields.Integer(string='Nb ressources', readonly=True)
+    prevu_jour = fields.Float(string='Prévu ce jour (h)', digits=(10, 2), readonly=True)
+    effectue_jour = fields.Float(string='Effectué ce jour (h)', digits=(10, 2), readonly=True)
+    cumul_prevu = fields.Float(string='Cumul prévu (h)', digits=(10, 2), readonly=True)
+    cumul_effectue = fields.Float(string='Cumul effectué (h)', digits=(10, 2), readonly=True)
+    ecart = fields.Float(string='Écart (h)', digits=(10, 2), readonly=True)
+    state = fields.Char(string='Statut', readonly=True)
+
+    def init(self):
+        tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge_detail')
+        wc_name = self._get_name_expr('mrp_workcenter', alias='wc')
+        emp_name = self._get_name_expr('hr_employee', alias='emp')
+        sale_col, pp_name, has_projet = self._get_projet_fragments()
+
+        if sale_col:
+            sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
+            sale_id_expr = f"mp.{sale_col} AS sale_order_id,"
+            sale_name_expr = "so.name AS sale_order_name,"
+            projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet" if has_projet else ""
+            projet_expr = f"{pp_name} AS projet," if has_projet else "NULL::text AS projet,"
+        else:
+            sale_join = ""
+            projet_join = ""
+            sale_id_expr = "NULL::integer AS sale_order_id,"
+            sale_name_expr = "NULL::text AS sale_order_name,"
+            projet_expr = "NULL::text AS projet,"
+
+        self.env.cr.execute(f"""
+            CREATE OR REPLACE VIEW mrp_capacite_charge_detail AS (
+            WITH effectue_par_jour AS (
+                SELECT 
+                    wop.workorder_id,
+                    DATE(wop.date_start) AS date,
+                    SUM(COALESCE(wop.duration, 0)) / 60.0 AS effectue_heures
+                FROM mrp_workcenter_productivity wop
+                WHERE wop.date_start IS NOT NULL
+                GROUP BY wop.workorder_id, DATE(wop.date_start)
+            ),
+            cumuls AS (
+                SELECT
+                    wcc.id,
+                    wcc.workorder_id,
+                    wcc.atelier_id,
+                    wcc.date,
+                    wcc.charge_prevue_heures,
+                    COALESCE(epj.effectue_heures, 0) AS effectue_jour,
+                    SUM(wcc.charge_prevue_heures) OVER (
+                        PARTITION BY wcc.workorder_id 
+                        ORDER BY wcc.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS cumul_prevu,
+                    SUM(COALESCE(epj.effectue_heures, 0)) OVER (
+                        PARTITION BY wcc.workorder_id 
+                        ORDER BY wcc.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS cumul_effectue
+                FROM mrp_workorder_charge_cache wcc
+                LEFT JOIN effectue_par_jour epj 
+                    ON epj.workorder_id = wcc.workorder_id 
+                    AND epj.date = wcc.date
+            )
+            SELECT
+                cum.id                                      AS id,
+                cum.date,
+                cum.atelier_id,
+                wcc.workcenter_id,
+                {wc_name}                                   AS workcenter_name,
+                wo.production_id,
+                mp.name                                     AS production_name,
+                {sale_id_expr}
+                {sale_name_expr}
+                {projet_expr}
+                wo.name                                     AS operation_name,
+                (
+                    SELECT STRING_AGG(DISTINCT {emp_name}, ', ')
+                    FROM mrp_workcenter_productivity wop
+                    JOIN hr_employee emp ON emp.id = wop.employee_id
+                    WHERE wop.workorder_id = wo.id
+                      AND wop.employee_id IS NOT NULL
+                )                                           AS operateurs,
+                COALESCE(wo.x_nb_resources, 1)              AS nb_resources,
+                cum.charge_prevue_heures                    AS prevu_jour,
+                cum.effectue_jour                           AS effectue_jour,
+                cum.cumul_prevu                             AS cumul_prevu,
+                cum.cumul_effectue                          AS cumul_effectue,
+                cum.cumul_effectue - cum.cumul_prevu        AS ecart,
+                wo.state
+            FROM cumuls cum
+            JOIN mrp_workorder_charge_cache wcc ON wcc.id = cum.id
+            JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
+            JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
+            JOIN mrp_production mp ON mp.id = wo.production_id
+            {sale_join}
+            {projet_join}
+        )
+        """)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vue capacité vs charge par poste - AVEC CUMULS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CapaciteCharge(models.Model):
+    _name = 'mrp.capacite.charge'
+    _inherit = 'mrp.capacite.mixin'
+    _auto = False
+    _description = 'Capacité vs Charge par poste avec cumuls'
+    _order = 'date asc, atelier_id asc, workcenter_id asc'
+
+    date = fields.Date(string='Date', readonly=True)
+    atelier_id = fields.Many2one('fma.atelier', string='Atelier', readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', readonly=True)
+    workcenter_name = fields.Char(string='Poste', readonly=True)
+    nb_personnes = fields.Integer(string='Personnes', readonly=True)
+    capacite_heures = fields.Float(string='Capacité (h)', digits=(10, 2), readonly=True)
+    nb_operations = fields.Integer(string='Nb opérations', readonly=True)
+    nb_resources = fields.Integer(string='Nb ressources', readonly=True)
+    
+    charge_prevue_jour = fields.Float(string='Charge prévue ce jour (h)', digits=(10, 2), readonly=True)
+    charge_effectuee_jour = fields.Float(string='Charge effectuée ce jour (h)', digits=(10, 2), readonly=True)
+    cumul_prevu = fields.Float(string='Cumul prévu (h)', digits=(10, 2), readonly=True)
+    cumul_effectue = fields.Float(string='Cumul effectué (h)', digits=(10, 2), readonly=True)
+    ecart = fields.Float(string='Écart (h)', digits=(10, 2), readonly=True, 
+                         help='Cumul effectué - Cumul prévu (négatif = retard, positif = avance)')
+    
+    taux_charge = fields.Float(string='Taux charge (%)', digits=(10, 1), readonly=True)
+    solde_heures = fields.Float(string='Solde (h)', digits=(10, 2), readonly=True)
+
+    def action_voir_detail(self):
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Détail — %s %s' % (self.workcenter_name, self.date),
+            'res_model': 'mrp.capacite.charge.detail',
+            'view_mode': 'tree',
+            'domain': [
+                ('atelier_id', '=', self.atelier_id.id if self.atelier_id else False),
+                ('workcenter_id', '=', self.workcenter_id.id),
+                ('date', '=', str(self.date)),
+            ],
+            'target': 'new',
+        }
+
+    def init(self):
+        tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge')
+        wc_name = self._get_name_expr('mrp_workcenter', alias='wc')
+
+        self.env.cr.execute(f"""
+            CREATE OR REPLACE VIEW mrp_capacite_charge AS (
+            WITH effectue_par_jour AS (
+                SELECT 
+                    mp.atelier_id,
+                    wo.workcenter_id,
+                    DATE(wop.date_start) AS date,
+                    SUM(COALESCE(wop.duration, 0)) / 60.0 AS effectue_heures
+                FROM mrp_workcenter_productivity wop
+                JOIN mrp_workorder wo ON wo.id = wop.workorder_id
+                JOIN mrp_production mp ON mp.id = wo.production_id
+                WHERE wop.date_start IS NOT NULL
+                GROUP BY mp.atelier_id, wo.workcenter_id, DATE(wop.date_start)
+            ),
+            charge AS (
+                SELECT
+                    wcc.atelier_id,
+                    wcc.workcenter_id,
+                    wcc.date,
+                    COUNT(DISTINCT wcc.workorder_id)                AS nb_operations,
+                    SUM(wcc.charge_prevue_heures)                   AS charge_prevue_jour,
+                    COALESCE(epj.effectue_heures, 0)                AS charge_effectuee_jour,
+                    SUM(COALESCE(wo.x_nb_resources, 1))             AS nb_resources
+                FROM mrp_workorder_charge_cache wcc
+                JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
+                LEFT JOIN effectue_par_jour epj 
+                    ON epj.atelier_id IS NOT DISTINCT FROM wcc.atelier_id
+                    AND epj.workcenter_id = wcc.workcenter_id 
+                    AND epj.date = wcc.date
+                GROUP BY wcc.atelier_id, wcc.workcenter_id, wcc.date, epj.effectue_heures
+            ),
+            capacite AS (
+                SELECT 
+                    atelier_id,
+                    workcenter_id, 
+                    date,
+                    SUM(capacite_heures) AS capacite_heures,
+                    MAX(nb_personnes) AS nb_personnes
+                FROM mrp_capacite_cache
+                GROUP BY atelier_id, workcenter_id, date
+            ),
+            all_keys AS (
+                SELECT atelier_id, workcenter_id, date FROM charge
+                UNION
+                SELECT atelier_id, workcenter_id, date FROM capacite
+            ),
+            with_cumuls AS (
+                SELECT
+                    ak.atelier_id,
+                    ak.workcenter_id,
+                    ak.date,
+                    COALESCE(cap.capacite_heures, 0)            AS capacite_heures,
+                    COALESCE(cap.nb_personnes, 0)               AS nb_personnes,
+                    COALESCE(ch.nb_operations, 0)               AS nb_operations,
+                    COALESCE(ch.nb_resources, 0)                AS nb_resources,
+                    COALESCE(ch.charge_prevue_jour, 0)          AS charge_prevue_jour,
+                    COALESCE(ch.charge_effectuee_jour, 0)       AS charge_effectuee_jour,
+                    SUM(COALESCE(ch.charge_prevue_jour, 0)) OVER (
+                        PARTITION BY ak.atelier_id, ak.workcenter_id 
+                        ORDER BY ak.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS cumul_prevu,
+                    SUM(COALESCE(ch.charge_effectuee_jour, 0)) OVER (
+                        PARTITION BY ak.atelier_id, ak.workcenter_id 
+                        ORDER BY ak.date 
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS cumul_effectue
+                FROM all_keys ak
+                LEFT JOIN charge   ch  ON ch.atelier_id IS NOT DISTINCT FROM ak.atelier_id AND ch.workcenter_id  = ak.workcenter_id AND ch.date = ak.date
+                LEFT JOIN capacite cap ON cap.atelier_id IS NOT DISTINCT FROM ak.atelier_id AND cap.workcenter_id = ak.workcenter_id AND cap.date = ak.date
+            )
+            SELECT
+                ROW_NUMBER() OVER (ORDER BY date, atelier_id, workcenter_id) AS id,
+                atelier_id,
+                workcenter_id,
+                (SELECT {wc_name} FROM mrp_workcenter wc WHERE wc.id = workcenter_id) AS workcenter_name,
+                date,
+                nb_personnes,
+                capacite_heures,
+                nb_operations,
+                nb_resources,
+                charge_prevue_jour,
+                charge_effectuee_jour,
+                cumul_prevu,
+                cumul_effectue,
+                cumul_effectue - cumul_prevu AS ecart,
+                charge_prevue_jour - capacite_heures AS solde_heures,
+                CASE
+                    WHEN capacite_heures > 0
+                        THEN ROUND(((charge_prevue_jour / capacite_heures) * 100.0)::numeric, 1)
+                    WHEN charge_prevue_jour > 0 THEN 999
+                    ELSE 0
+                END AS taux_charge
+            FROM with_cumuls
+        )
+        """)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vue charge par opérateur (inchangée)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CapaciteChargeOperateur(models.Model):
+    _name = 'mrp.capacite.charge.operateur'
+    _inherit = 'mrp.capacite.mixin'
+    _auto = False
+    _description = 'Charge par opérateur et par jour'
+    _order = 'date asc, employee_name asc'
+
+    date = fields.Date(string='Date', readonly=True)
+    employee_id = fields.Many2one('hr.employee', string='Opérateur', readonly=True)
+    employee_name = fields.Char(string='Opérateur', readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', readonly=True)
+    workcenter_name = fields.Char(string='Poste', readonly=True)
+    nb_operations = fields.Integer(string='Nb opérations', readonly=True)
+    charge_heures = fields.Float(string='Charge restante (h)', digits=(10, 2), readonly=True)
+    projets = fields.Char(string='Projets', readonly=True)
+
+    def action_voir_detail(self):
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Détail — %s %s' % (self.employee_name, self.date),
+            'res_model': 'mrp.capacite.charge.detail',
+            'view_mode': 'tree',
+            'domain': [
+                ('operateurs', 'like', self.employee_name),
+                ('date', '=', str(self.date)),
+            ],
+            'target': 'new',
+        }
+
+    def init(self):
+        tools.drop_view_if_exists(self.env.cr, 'mrp_capacite_charge_operateur')
+        wc_name = self._get_name_expr('mrp_workcenter', alias='wc')
+        emp_name = self._get_name_expr('hr_employee', alias='emp')
+        sale_col, pp_name, has_projet = self._get_projet_fragments()
+
+        if sale_col and has_projet:
+            sale_join = f"LEFT JOIN sale_order so ON so.id = mp.{sale_col}"
+            projet_join = "LEFT JOIN project_project pp ON pp.id = so.x_studio_projet"
+            projet_agg = f"STRING_AGG(DISTINCT {pp_name}, ', ') AS projets,"
+        else:
+            sale_join = ""
+            projet_join = ""
+            projet_agg = "NULL::text AS projets,"
+
+        self.env.cr.execute(f"""
+            CREATE OR REPLACE VIEW mrp_capacite_charge_operateur AS (
+            SELECT
+                ROW_NUMBER() OVER (
+                    ORDER BY wcc.date, {emp_name}, {wc_name}
+                )                                           AS id,
+                wcc.date,
+                wop.employee_id                             AS employee_id,
+                {emp_name}                                  AS employee_name,
+                wcc.workcenter_id,
+                {wc_name}                                   AS workcenter_name,
+                COUNT(DISTINCT wcc.workorder_id)            AS nb_operations,
+                {projet_agg}
+                SUM(wcc.charge_prevue_heures)               AS charge_heures
+            FROM mrp_workorder_charge_cache wcc
+            JOIN mrp_workorder wo ON wo.id = wcc.workorder_id
+            JOIN mrp_workcenter_productivity wop ON wop.workorder_id = wo.id
+            JOIN hr_employee emp ON emp.id = wop.employee_id
+            JOIN mrp_workcenter wc ON wc.id = wcc.workcenter_id
+            JOIN mrp_production mp ON mp.id = wo.production_id
+            {sale_join}
+            {projet_join}
+            WHERE wop.employee_id IS NOT NULL
+            GROUP BY
+                wcc.date,
+                wop.employee_id,
+                {emp_name},
+                wcc.workcenter_id,
+                {wc_name}
+        )
+        """)

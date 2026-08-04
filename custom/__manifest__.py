@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    "version": "17.0.1.0.1",
+    "version": "17.0.1.0.2",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": ["base", "sale", "account", "contacts", "sale_stock", "mrp"],
@@ -14,8 +14,6 @@
         "views/sale_delay_reason_views.xml",
         "views/stock_picking_views.xml",
         "data/message_templates.xml",
-        "data/mail_template_retard.xml",
-        "data/mail_template_retard_livraison.xml",
     ],
     "assets": {
         "web.assets_backend": [
