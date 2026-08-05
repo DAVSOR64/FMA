@@ -60,8 +60,11 @@ class SaleOrderLine(models.Model):
     @api.depends("product_id", "product_id.type", "display_type")
     def _compute_is_lotable(self):
         for line in self:
+            # En v19 les articles stockables et consommables partagent le
+            # type 'consu' (le stockage est porte par is_storable) ; seuls
+            # les services et les combos sont a exclure.
             line.is_lotable = bool(
                 not line.display_type
                 and line.product_id
-                and line.product_id.type in ("consu", "product")
+                and line.product_id.type == "consu"
             )

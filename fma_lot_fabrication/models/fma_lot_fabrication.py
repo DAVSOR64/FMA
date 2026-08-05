@@ -134,7 +134,7 @@ class FmaLotFabrication(models.Model):
     product_debit_id = fields.Many2one(
         "product.product",
         string="Article debite",
-        domain="[('type', 'in', ('consu', 'product'))]",
+        domain="[('type', '=', 'consu')]",
         tracking=True,
         help="Article intermediaire produit par l'OF Debit et consomme par "
         "chaque OF Assemblage. Par defaut, l'article parametre sur la societe.",
@@ -159,13 +159,6 @@ class FmaLotFabrication(models.Model):
     production_count = fields.Integer(
         string="Nb OF",
         compute="_compute_production_count",
-    )
-    procurement_group_id = fields.Many2one(
-        "procurement.group",
-        string="Groupe d'approvisionnement",
-        copy=False,
-        readonly=True,
-        help="Groupe utilise pour rattacher les achats du lot.",
     )
     purchase_ids = fields.One2many(
         "purchase.order",
@@ -351,26 +344,12 @@ class FmaLotFabrication(models.Model):
             if lot.state == "draft":
                 lot.action_confirm()
 
-            lot._ensure_procurement_group()
             lot._generate_debit_order()
             lot._generate_assembly_orders()
 
             if lot.state == "confirmed":
                 lot.state = "progress"
         return True
-
-    def _ensure_procurement_group(self):
-        self.ensure_one()
-        if self.procurement_group_id:
-            return self.procurement_group_id
-        group = self.env["procurement.group"].create(
-            {
-                "name": self.name,
-                "partner_id": self.partner_id.id or False,
-            }
-        )
-        self.procurement_group_id = group
-        return group
 
     def _get_product_debit(self):
         """Article intermediaire produit par l'OF Debit."""
@@ -424,25 +403,7 @@ class FmaLotFabrication(models.Model):
         }
         if self.date_planned_start:
             vals[date_start_fname(Production)] = self.date_planned_start
-        group_fname = self._production_group_fname()
-        if group_fname and self.procurement_group_id:
-            vals[group_fname] = self.procurement_group_id.id
         return vals
-
-    @api.model
-    def _production_group_fname(self):
-        """Champ reliant un OF a son groupe d'approvisionnement.
-
-        Renomme entre versions (``procurement_group_id`` jusqu'en 18,
-        ``production_group_id`` en 19) : on resout au runtime et on ne
-        renvoie le champ que s'il pointe bien vers ``procurement.group``.
-        """
-        fields_ = self.env["mrp.production"]._fields
-        for fname in ("procurement_group_id", "production_group_id"):
-            field = fields_.get(fname)
-            if field and field.comodel_name == "procurement.group":
-                return fname
-        return None
 
     def _generate_debit_order(self):
         """Cree l'OF de debit du lot (1 par lot)."""

@@ -29,7 +29,7 @@ class FmaLotMaterialLine(models.Model):
         "product.product",
         string="Article",
         required=True,
-        domain="[('type', 'in', ('consu', 'product'))]",
+        domain="[('type', '=', 'consu')]",
     )
     product_qty = fields.Float(
         string="Quantite",

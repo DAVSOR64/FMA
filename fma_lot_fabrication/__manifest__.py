@@ -38,6 +38,9 @@ Voir README.md pour le detail du parametrage.
         "stock",
         "mrp",
         "purchase",
+        # purchase_stock porte purchase.order.line.move_dest_ids, qui relie
+        # un achat a l'OF (et donc au lot) qui l'a declenche.
+        "purchase_stock",
     ],
     "data": [
         "security/ir.model.access.csv",

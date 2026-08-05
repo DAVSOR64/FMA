@@ -24,11 +24,17 @@ Import Pricer  ──►  Mise en lot  ──►  LOT-2026-0001  ──►  OF D
 4. Les achats déclenchés par l'OF Débit remontent sur le lot
    (`Achats > Regrouper par lot de fabrication`).
 
+Note technique : `procurement.group` ayant disparu en Odoo 19, le lien
+achat ↔ lot est établi par les mouvements (`move_dest_ids` →
+`raw_material_production_id` → `lot_fabrication_id`), avec repli sur la
+référence de lot présente dans l'origine du bon de commande. Le champ
+reste modifiable à la main sur l'achat.
+
 ## Le modèle de données
 
 | Modèle | Rôle |
 |---|---|
-| `fma.lot.fabrication` | Le lot : état, date planifiée, article débité, OF, groupe d'appro |
+| `fma.lot.fabrication` | Le lot : état, date planifiée, article débité, OF, achats |
 | `fma.lot.fabrication.line` | **Liaison ligne de devis ↔ lot, avec quantité** |
 | `fma.lot.material.line` | Besoin matière du lot (profilés, renforts) |
 

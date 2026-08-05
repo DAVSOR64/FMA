@@ -89,7 +89,6 @@
                             <field name="product_debit_id"/>
                             <field name="production_debit_id" readonly="1"
                                    invisible="not production_debit_id"/>
-                            <field name="procurement_group_id" readonly="1" groups="base.group_no_one"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                     </group>

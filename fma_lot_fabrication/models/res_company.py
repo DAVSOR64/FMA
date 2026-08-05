@@ -14,7 +14,7 @@ class ResCompany(models.Model):
     fma_lot_product_debit_id = fields.Many2one(
         "product.product",
         string="Article debite par defaut",
-        domain="[('type', 'in', ('consu', 'product'))]",
+        domain="[('type', '=', 'consu')]",
         help="Article intermediaire produit par l'OF Debit et consomme par "
         "les OF Assemblage.",
     )
