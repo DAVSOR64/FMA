@@ -34,6 +34,29 @@ def _connect(path):
     return sqlite3.connect("file:%s?mode=ro" % path, uri=True)
 
 
+def color_of(outer, inner, internal, color):
+    """Teinte d'un article, telle que ``sqlite_connector`` la construit.
+
+    Le connecteur cree **un article par reference et par teinte** : le
+    ``default_code`` est suffixe par la couleur et ``x_studio_color_logikal``
+    la porte. Retrouver un article sur la seule reference ne suffit donc pas —
+    d'ou la reproduction a l'identique de sa regle de resolution.
+    """
+    def clean(value):
+        value = (value or "").strip()
+        return "" if value in ("None", " ") else value
+
+    outer, inner = clean(outer), clean(inner)
+    if outer and inner:
+        return "%s/%s" % (outer, inner)
+    couleur = clean(internal)
+    if not couleur:
+        couleur = clean(color)
+        if couleur.lower() == "sans":
+            couleur = ""
+    return couleur
+
+
 def _suppliers(con):
     """Libelles fournisseurs par identifiant.
 
@@ -104,9 +127,12 @@ def _parse(con, source):
     # --- composants : articles et quincaillerie ------------------------------
     # ``Units`` est la quantite pour UN exemplaire ; la multiplication par
     # ``Elevations.Amount`` reconstitue exactement ``AllArticles.Units``.
-    for eid, code, desc, units, unit, price, sid in con.execute(
+    for (
+        eid, code, desc, units, unit, price, sid, internal, color,
+    ) in con.execute(
         """select i.ElevationId, a.ArticleCode_Number, a.Description,
-                  a.Units, a.Units_Unit, a.Price, a.LK_SupplierId
+                  a.Units, a.Units_Unit, a.Price, a.LK_SupplierId,
+                  a.ColorInfoInternal, a.Color
              from Articles a
              join Insertions i on i.InsertionID = a.InsertionId"""
     ):
@@ -121,6 +147,7 @@ def _parse(con, source):
                 qty=units or 0.0,
                 uom=(unit or "").strip(),
                 supplier=suppliers.get(sid, ""),
+                color=color_of("", "", internal, color),
                 price=price or 0.0,
             )
         )
@@ -150,9 +177,13 @@ def _parse(con, source):
         )
 
     # --- debit : les coupes de profiles, par exemplaire ----------------------
-    for eid, code, desc, length, amount, sid in con.execute(
+    for (
+        eid, code, desc, length, amount, sid, outer, inner, internal, color,
+    ) in con.execute(
         """select i.ElevationId, p.ArticleCode_Number, p.Description,
-                  p.Length_Output, p.Amount, p.LK_SupplierID
+                  p.Length_Output, p.Amount, p.LK_SupplierID,
+                  p.OuterColorInfoInternal, p.InnerColorInfoInternal,
+                  p.ColorInfoInternal, p.Color
              from Profiles p
              join Insertions i on i.InsertionID = p.InsertionId"""
     ):
@@ -164,6 +195,7 @@ def _parse(con, source):
                 code=(code or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
+                color=color_of(outer, inner, internal, color),
                 length_mm=length or 0.0,
                 qty=amount or 1.0,
             )
@@ -257,9 +289,14 @@ def _attach_bars(con, quo, lots, suppliers):
         )
 
     orphans = 0
-    for bar_id, code, desc, length, used, amount, sid in con.execute(
+    for (
+        bar_id, code, desc, length, used, amount, sid,
+        outer, inner, internal, color,
+    ) in con.execute(
         """select ProfileBarID, ArticleCode_Number, Description,
-                  Length_Output, UsedLength_Output, Amount, SupplierId
+                  Length_Output, UsedLength_Output, Amount, SupplierId,
+                  OuterColorInfoInternal, InnerColorInfoInternal,
+                  ColorInfoInternal, Color
              from ProfileBars"""
     ):
         phases = bar_phases.get(bar_id) or set()
@@ -278,6 +315,7 @@ def _attach_bars(con, quo, lots, suppliers):
                 code=(code or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
+                color=color_of(outer, inner, internal, color),
                 length_mm=length or 0.0,
                 used_mm=used or 0.0,
                 qty=amount or 1.0,

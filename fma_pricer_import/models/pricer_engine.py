@@ -295,9 +295,11 @@ class FmaPricerEngine(models.AbstractModel):
         by_product = {}
         missing = set()
         for bar in lot_pivot.bars:
-            product = self._find_product(bar.code)
+            product = self._find_product(bar.code, bar.color)
             if not product:
-                missing.add(bar.code)
+                missing.add(
+                    "%s / %s" % (bar.code, bar.color or _("sans teinte"))
+                )
                 continue
             by_product[product] = by_product.get(product, 0.0) + bar.qty
 
@@ -326,21 +328,56 @@ class FmaPricerEngine(models.AbstractModel):
             # droit d'ecrire directement (cf. _sync_lot).
             self.env["fma.lot.material.line"].sudo().create(vals)
 
-    def _find_product(self, code):
-        """Retrouve un article par sa reference pricer.
+    def _find_product(self, code, color=""):
+        """Retrouve un article par sa reference **et sa teinte**.
 
-        ``sqlite_connector`` reporte la reference du pricer dans
-        ``x_studio_ref_int_logikal`` et construit un ``default_code`` prefixe
-        par le fournisseur. On interroge les deux, dans cet ordre.
+        ``sqlite_connector`` cree un article par couple (reference, teinte) :
+        le ``default_code`` est suffixe par la couleur, et
+        ``x_studio_ref_int_logikal`` / ``x_studio_color_logikal`` portent les
+        deux valeurs du pricer. Chercher sur la seule reference reviendrait a
+        prendre une teinte au hasard — donc a acheter la mauvaise barre.
         """
         code = (code or "").strip()
         if not code:
             return self.env["product.product"]
+
         Product = self.env["product.product"]
-        if "x_studio_ref_int_logikal" in Product._fields:
-            product = Product.search(
-                [("x_studio_ref_int_logikal", "=", code)], limit=1
+        fields_ = Product._fields
+        if "x_studio_ref_int_logikal" not in fields_:
+            return Product.search([("default_code", "=", code)], limit=1)
+
+        domain = [("x_studio_ref_int_logikal", "=", code)]
+        candidates = Product.search(domain)
+        if not candidates:
+            return Product.search([("default_code", "=", code)], limit=1)
+
+        color = (color or "").strip()
+        if "x_studio_color_logikal" in fields_:
+            exact = candidates.filtered(
+                lambda p: (p.x_studio_color_logikal or "").strip() == color
             )
-            if product:
-                return product
-        return Product.search([("default_code", "=", code)], limit=1)
+            if exact:
+                return exact[:1]
+
+        if len(candidates) == 1:
+            # Une seule teinte connue pour cette reference : pas d'ambiguite.
+            return candidates
+
+        raise UserError(
+            _(
+                "La reference %(code)s existe dans Odoo en %(count)s teintes "
+                "(%(colors)s), mais aucune ne correspond a la teinte "
+                "%(wanted)s du fichier.\n\n"
+                "Verifiez l'article, ou relancez l'import du chiffrage qui le "
+                "cree avec la bonne teinte.",
+                code=code,
+                count=len(candidates),
+                colors=", ".join(
+                    sorted(
+                        (p.x_studio_color_logikal or "?")
+                        for p in candidates
+                    )
+                ),
+                wanted=color or _("(sans teinte)"),
+            )
+        )

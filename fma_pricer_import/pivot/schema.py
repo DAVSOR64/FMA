@@ -24,6 +24,9 @@ class Component:
     qty: float = 0.0
     uom: str = ""
     supplier: str = ""
+    #: Teinte, telle que le connecteur la porte dans ``x_studio_color_logikal``.
+    #: Une meme reference en deux teintes = deux articles Odoo distincts.
+    color: str = ""
     price: float = 0.0
     width_mm: float = 0.0
     height_mm: float = 0.0
@@ -36,6 +39,7 @@ class Cut:
     code: str
     description: str = ""
     supplier: str = ""
+    color: str = ""
     length_mm: float = 0.0
     qty: float = 0.0
 
@@ -81,11 +85,13 @@ class Menuiserie:
             # sans quoi deux lignes de frais differentes fusionneraient.
             return ("!", self.ref.strip())
         comps = sorted(
-            (c.kind, c.code, round(c.qty, 4), round(c.width_mm), round(c.height_mm))
+            (c.kind, c.code, c.color, round(c.qty, 4),
+             round(c.width_mm), round(c.height_mm))
             for c in self.components
         )
         cuts = sorted(
-            (c.code, round(c.length_mm, 1), round(c.qty, 4)) for c in self.debit
+            (c.code, c.color, round(c.length_mm, 1), round(c.qty, 4))
+            for c in self.debit
         )
         return (
             self.description.strip(),
@@ -108,6 +114,7 @@ class Bar:
     code: str
     description: str = ""
     supplier: str = ""
+    color: str = ""
     length_mm: float = 0.0
     qty: float = 1.0
     used_mm: float = 0.0
