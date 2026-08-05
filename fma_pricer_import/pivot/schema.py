@@ -54,6 +54,10 @@ class Menuiserie:
 
     ref: str
     description: str = ""
+    #: Position independante du lot : LOGIKAL suffixe « A » en « A_1 » dans le
+    #: lot 1, « A_2 » dans le lot 2. C'est la position de base qui identifie
+    #: l'article fabrique, d'un export a l'autre.
+    position: str = ""
     qty: float = 1.0  # nombre d'exemplaires identiques
     width_mm: float = 0.0
     height_mm: float = 0.0

@@ -164,7 +164,9 @@ class FmaPricerEngine(models.AbstractModel):
             if not men.is_manufactured:
                 continue
             key = signature_hash(men)
-            line = self._find_sale_line(order, pivot_line, key)
+            line = self._find_sale_line(
+                order, pivot_line, key, quotation.project.get("name", "")
+            )
             if not line:
                 missing.setdefault(key, []).append(
                     _(
@@ -348,7 +350,7 @@ class FmaPricerEngine(models.AbstractModel):
             n=len(candidates),
         )
 
-    def _find_sale_line(self, order, pivot_line, key):
+    def _find_sale_line(self, order, pivot_line, key, project=""):
         """Retrouve la ligne de devis qui porte ce produit fabrique.
 
         Trois passes, de la plus sure a la plus permissive : l'empreinte deja
@@ -363,7 +365,11 @@ class FmaPricerEngine(models.AbstractModel):
         if match:
             return self._merge_duplicates(match)
 
+        # Reference posee par le connecteur : affaire + position de base.
         refs = {r.strip().upper() for r in pivot_line.refs if r}
+        position = getattr(pivot_line.menuiserie, "position", "")
+        if project and position:
+            refs.add(("%s_%s" % (project, position)).upper())
         match = lines.filtered(
             lambda l: (l.product_id.default_code or "").strip().upper() in refs
         )

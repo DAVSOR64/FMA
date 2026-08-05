@@ -20,6 +20,7 @@ Unites : ``Length`` est en metres, ``Length_Output`` en millimetres. On ne lit
 que les champs ``_Output`` pour rester en mm.
 """
 import os
+import re
 import sqlite3
 
 from .schema import Bar, Component, Cut, Lot, Menuiserie, Quotation
@@ -27,6 +28,26 @@ from .schema import Bar, Component, Cut, Lot, Menuiserie, Quotation
 #: Nom donne au lot regroupant les positions hors lot (eco-contribution,
 #: lignes de texte...). LOGIKAL leur laisse une phase sans nom.
 LOT_SANS_NOM = "SANS LOT"
+
+#: Suffixe ajoute par LOGIKAL a une position repartie en lots (« A » -> « A_1 »).
+LOT_SUFFIX_RE = re.compile(r"_(\d+)$")
+
+
+def base_position(name, phase):
+    """Position independante du lot.
+
+    Le suffixe n'est retire que s'il correspond au numero du lot : une position
+    reellement nommee « PORTE_2 » dans un lot 1 n'est pas tronquee. Doit rester
+    aligne sur ``sqlite_connector.base_position``, qui nomme les articles.
+    """
+    name = (name or "").strip()
+    found = LOT_SUFFIX_RE.search(name)
+    if not found:
+        return name
+    numbers = re.findall(r"\d+", phase or "")
+    if numbers and numbers[-1] == found.group(1):
+        return name[: found.start()]
+    return name
 
 
 def _connect(path):
@@ -111,8 +132,10 @@ def _parse(con, source):
              join ElevationGroups eg on eg.ElevationGroupID = e.ElevationGroupId
          order by e.ElevationID"""
     ):
+        lot_ref = lots[pid].ref if pid in lots else ""
         men = Menuiserie(
             ref=(name or "").strip(),
+            position=base_position(name, lot_ref),
             description=(desc or auto or "").strip(),
             qty=amount or 1.0,
             width_mm=width or 0.0,

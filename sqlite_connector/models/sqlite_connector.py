@@ -15,6 +15,31 @@ from datetime import datetime, timedelta
 
 _logger = logging.getLogger(__name__)
 
+# Suffixe de lot ajoute par LOGIKAL quand une position est repartie en lots :
+# la position « A » devient « A_1 » dans LOT 1, « A_2 » dans LOT 2, etc.
+LOT_SUFFIX_RE = re.compile(r"_(\d+)$")
+
+
+def base_position(name, phase):
+    """Nom de position independant du lot.
+
+    Les references d'article doivent designer *ce qui est fabrique*, pas le lot
+    dans lequel il l'est : une meme menuiserie repartie sur cinq lots reste un
+    seul article, une seule nomenclature et une seule ligne de devis.
+
+    On ne retire le suffixe que s'il correspond au numero du lot : une position
+    reellement nommee « PORTE_2 » dans un lot 1 n'est pas tronquee.
+    """
+    name = (name or '').strip()
+    found = LOT_SUFFIX_RE.search(name)
+    if not found:
+        return name
+    numbers = re.findall(r"\d+", phase or '')
+    if numbers and numbers[-1] == found.group(1):
+        return name[:found.start()]
+    return name
+
+
 class SqliteConnector(models.Model):
     _name = 'sqlite.connector'
     _inherit = ['mail.thread', 'mail.activity.mixin']
@@ -35,6 +60,49 @@ class SqliteConnector(models.Model):
              "LOGIKAL. C'est le mode utilise par le bouton 'Import Pricer' "
              "pose sur le devis.",
     )
+
+    def _glass_refs(self, glass, proj, base_positions):
+        """Reference de chaque vitrage : affaire, position, rang dans la position.
+
+        Le vitrage est toujours rattache a une insertion, donc a une elevation,
+        donc a une ligne de commande : sa reference le dit. Le rang est calcule
+        sur un tri stable (designation, dimensions, type) et non sur l'ordre de
+        lecture, pour qu'un meme vitrage porte la meme reference d'un export a
+        l'autre.
+
+        Renvoie une liste alignee sur ``glass``.
+        """
+        ranked = {}
+        for index, ligne in enumerate(glass):
+            position = base_positions.get(
+                (ligne[2] or '').strip(), (ligne[2] or '').strip()
+            )
+            ranked.setdefault(position, []).append(
+                ((str(ligne[3]), str(ligne[4]), str(ligne[5]), str(ligne[10])), index)
+            )
+
+        refs = [''] * len(glass)
+        for position, entries in ranked.items():
+            for rank, (_key, index) in enumerate(sorted(entries), start=1):
+                refs[index] = '%s_%s_%s' % (proj, position, rank)
+        return refs
+
+    def _base_positions(self, cursor):
+        """Position de base de chaque elevation, indexee par son nom.
+
+        Sert a construire des references stables d'un export a l'autre quand
+        l'affaire est exportee lot par lot.
+        """
+        rows = cursor.execute(
+            "select Elevations.Name, Phases.Name from Elevations "
+            "inner join ElevationGroups "
+            "on ElevationGroups.ElevationGroupID = Elevations.ElevationGroupId "
+            "left join Phases on Phases.PhaseID = ElevationGroups.PhaseId"
+        ).fetchall()
+        return {
+            (name or '').strip(): base_position(name, phase)
+            for name, phase in rows
+        }
 
     def _resolve_sale_order(self, project_name):
         """Devis dans lequel l'import doit ecrire.
@@ -408,6 +476,7 @@ class SqliteConnector(models.Model):
             elevID = ''
             cat = ''
             categorie = ''
+            base_positions = self._base_positions(cursor)
             resultsm = cursor.execute("select Elevations.ElevationID, Elevations.Name, Elevations.Model, Elevations.Autodescription, Elevations.Height_Output, Elevations.Width_Output, Projects.OfferNo, ReportOfferTexts.TotalPrice, Elevations.Description,Elevations.Model from Elevations INNER JOIN ElevationGroups ON Elevations.ElevationGroupID = ElevationGroups.ElevationGroupID INNER JOIN Phases ON Phases.PhaseID = ElevationGroups.PhaseId INNER JOIN Projects ON Projects.ProjectID = Phases.ProjectId INNER JOIN ReportOfferTexts ON ReportOfferTexts.ElevationId = Elevations.ElevationId order by Elevations.ElevationID")
 
             # To get the product category as Elevations.Name will be categ_id
@@ -417,10 +486,18 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
+                    # Reference = affaire + position, et non le rang de la
+                    # position dans le fichier : sur une affaire exportee lot
+                    # par lot, le rang change d'un fichier a l'autre et deux
+                    # menuiseries differentes se retrouveraient sous la meme
+                    # reference.
+                    position = base_positions.get(
+                        (row[1] or '').strip(), (row[1] or '').strip()
+                    )
                     if Tranche == '0' :
-                        refint =  str(cpt) + '_' + projet
+                        refint =  projet + '_' + position
                     else :
-                        refint =  str(cpt) + '_' + projet + '/' + str(Tranche)
+                        refint =  projet + '/' + str(Tranche) + '_' + position
                     elevID = row[1]
                     idrefart = ''
                     HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
@@ -1123,6 +1200,9 @@ class SqliteConnector(models.Model):
             largNumDec = 0
             HautNum = 0
             largNum = 0
+            glass_refs = self._glass_refs(
+                Glass, proj, self._base_positions(cursor)
+            )
             for ligne in Glass :
                 cpt = cpt + 1
                 uom_uom = uom_uoms.filtered(lambda u: u.name == unnomf)
@@ -1142,7 +1222,7 @@ class SqliteConnector(models.Model):
                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                     
                 if vitrage != (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5])) :
-                    refinterne = proj + "_" + str(cpt)
+                    refinterne = glass_refs[cpt - 1]
                     vitrage = ligne[3]
                     position = ligne[2]
                     prix = ligne[6]
@@ -1502,9 +1582,10 @@ class SqliteConnector(models.Model):
 
         cpt = 0
         refart = ''
+        glass_refs = self._glass_refs(Glass, proj, self._base_positions(cursor))
         for ligne in Glass :
             cpt = cpt + 1
-            refart = proj + '_' + str(cpt)
+            refart = glass_refs[cpt - 1]
             Qte = ligne[8]
             #_logger.warning('Dans les vitrages %s', refart)
             pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
