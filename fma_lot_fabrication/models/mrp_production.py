@@ -9,7 +9,6 @@ mode de reapprovisionnement.
 import logging
 
 from odoo import _, fields, models
-from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -58,46 +57,18 @@ class MrpProduction(models.Model):
     # ------------------------------------------------------------------
     # Composants ajoutes hors nomenclature
     # ------------------------------------------------------------------
-    def _lot_production_location(self):
-        """Emplacement virtuel de production, destination des composants."""
-        self.ensure_one()
-        if "production_location_id" in self._fields and self.production_location_id:
-            return self.production_location_id
-        location = self.env["stock.location"].search(
-            [
-                ("usage", "=", "production"),
-                ("company_id", "in", (self.company_id.id, False)),
-            ],
-            limit=1,
-        )
-        if not location:
-            raise UserError(
-                _(
-                    "Aucun emplacement de production n'est configure pour la "
-                    "societe %s : impossible d'ajouter les composants du lot.",
-                    self.company_id.display_name,
-                )
-            )
-        return location
-
     def _lot_move_vals(self, product, qty, uom=None):
-        self.ensure_one()
-        from .fma_lot_fabrication import uom_fname
+        """Valeurs d'un composant ajoute hors nomenclature.
 
-        Move = self.env["stock.move"]
-        vals = {
-            "name": self.name or product.display_name,
-            "product_id": product.id,
-            "product_uom_qty": qty,
-            uom_fname(Move): (uom or product.uom_id).id,
-            "location_id": self.location_src_id.id,
-            "location_dest_id": self._lot_production_location().id,
-            "raw_material_production_id": self.id,
-            "company_id": self.company_id.id,
-            "origin": self.origin or self.name,
-        }
-        if self.picking_type_id and "picking_type_id" in Move._fields:
-            vals["picking_type_id"] = self.picking_type_id.id
+        On delegue a ``_get_move_raw_values``, la methode native qui construit
+        les composants d'un OF : elle gere l'emplacement de production, la
+        methode d'approvisionnement, l'entrepot et les dates, et elle suit les
+        renommages de champs de ``stock.move`` d'une version a l'autre.
+        """
+        self.ensure_one()
+        vals = self._get_move_raw_values(product, qty, uom or product.uom_id)
+        if self.origin:
+            vals["origin"] = self.origin
         return vals
 
     def _add_debit_component(self, product_debit, qty):

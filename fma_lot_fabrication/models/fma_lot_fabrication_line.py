@@ -57,7 +57,9 @@ class FmaLotFabricationLine(models.Model):
         related="sale_line_id.product_uom_id",
         string="Unite",
     )
-    description = fields.Char(
+    description = fields.Text(
+        # sale.order.line.name est un Text : un related doit reprendre le
+        # type exact du champ source.
         related="sale_line_id.name",
         string="Designation",
     )

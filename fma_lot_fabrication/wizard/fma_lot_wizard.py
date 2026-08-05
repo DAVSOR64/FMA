@@ -298,7 +298,8 @@ class FmaLotWizardLine(models.TransientModel):
         related="sale_line_id.product_id",
         string="Menuiserie",
     )
-    description = fields.Char(
+    description = fields.Text(
+        # sale.order.line.name est un Text (cf. fma.lot.fabrication.line).
         related="sale_line_id.name",
         string="Designation",
     )

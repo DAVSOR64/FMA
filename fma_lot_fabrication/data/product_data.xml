@@ -6,8 +6,12 @@
             OF Assemblage. C'est lui qui materialise le lien matiere entre le
             debit (mutualise sur le lot) et l'assemblage (par menuiserie).
             Sert de valeur par defaut ; chaque lot peut porter le sien.
+
+            On declare le variant seul : product.product _inherits de
+            product.template, donc Odoo cree le modele sous-jacent. Declarer
+            les deux enregistrements produirait un second variant en double.
         -->
-        <record id="product_ensemble_debite_tmpl" model="product.template">
+        <record id="product_ensemble_debite" model="product.product">
             <field name="name">Ensemble debite - lot</field>
             <field name="default_code">DEB-LOT</field>
             <field name="type">consu</field>
@@ -16,10 +20,6 @@
             <field name="sale_ok" eval="False"/>
             <field name="description">Ensemble des composants debites d'un lot de fabrication.
 Produit par l'OF Debit, consomme par les OF Assemblage du meme lot.</field>
-        </record>
-
-        <record id="product_ensemble_debite" model="product.product">
-            <field name="product_tmpl_id" ref="product_ensemble_debite_tmpl"/>
         </record>
     </data>
 </odoo>
