@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="mrp_production_form_view_lot" model="ir.ui.view">
+        <field name="name">mrp.production.form.lot</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_id']" position="after">
+                <field name="lot_fabrication_id"
+                       options="{'no_create': True}"
+                       readonly="state not in ('draft', 'confirmed')"/>
+                <field name="lot_production_type" readonly="1"
+                       invisible="not lot_production_type"/>
+                <field name="lot_sale_line_id" readonly="1"
+                       invisible="lot_production_type != 'assemblage'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="mrp_production_tree_view_lot" model="ir.ui.view">
+        <field name="name">mrp.production.list.lot</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_tree_view"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="lot_fabrication_id" optional="show"/>
+                <field name="lot_production_type" optional="show" widget="badge"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_mrp_production_filter_lot" model="ir.ui.view">
+        <field name="name">mrp.production.search.lot</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.view_mrp_production_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <field name="lot_fabrication_id"/>
+                <separator/>
+                <filter name="filter_lot_debit" string="OF Debit"
+                        domain="[('lot_production_type', '=', 'debit')]"/>
+                <filter name="filter_lot_assemblage" string="OF Assemblage"
+                        domain="[('lot_production_type', '=', 'assemblage')]"/>
+                <group expand="0" string="Regrouper par lot">
+                    <filter name="group_lot_fabrication" string="Lot de fabrication"
+                            context="{'group_by': 'lot_fabrication_id'}"/>
+                    <filter name="group_lot_type" string="Type dans le lot"
+                            context="{'group_by': 'lot_production_type'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

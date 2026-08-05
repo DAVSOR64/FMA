@@ -25,7 +25,52 @@ class SqliteConnector(models.Model):
     date = fields.Date(string='Date', default=fields.Date.context_today)
     state = fields.Selection([('new', 'New'), ('done', 'Exported'), ('error', 'Errors')], string='Status', readonly=True, default='new')
     file = fields.Binary(string='SQLite file')
+    filename = fields.Char(string='Nom du fichier')
     ir_log_ids = fields.One2many('ir.logging', 'connector_id')
+    target_sale_order_id = fields.Many2one(
+        'sale.order',
+        string='Devis cible',
+        help="Quand ce champ est renseigne, l'import ecrit dans CE devis au "
+             "lieu de chercher un devis dont le nom correspond au projet "
+             "LOGIKAL. C'est le mode utilise par le bouton 'Import Pricer' "
+             "pose sur le devis.",
+    )
+
+    def _resolve_sale_order(self, project_name):
+        """Devis dans lequel l'import doit ecrire.
+
+        Historiquement, l'import retrouvait le devis par son nom, qui devait
+        etre saisi manuellement a l'identique du projet LOGIKAL. Quand
+        l'import est lance depuis un devis (``target_sale_order_id``), on
+        ecrit directement dedans : le numero Odoo et le client font foi.
+        """
+        self.ensure_one()
+        if self.target_sale_order_id:
+            return self.target_sale_order_id
+        return self.env['sale.order'].search(
+            [('name', '=', project_name), ('state', 'not in', ['done', 'cancel'])],
+            limit=1,
+        )
+
+    # Champs d'entete que l'import ne doit pas ecraser quand il ecrit dans un
+    # devis existant : le devis Odoo fait foi pour le client et la date.
+    _TARGET_SO_PROTECTED_FIELDS = (
+        'partner_id',
+        'partner_shipping_id',
+        'partner_invoice_id',
+        'date_order',
+    )
+
+    def _clean_so_vals(self, vals):
+        """Retire les valeurs d'entete a ne pas ecraser sur le devis cible."""
+        self.ensure_one()
+        if not self.target_sale_order_id:
+            return vals
+        return {
+            key: value
+            for key, value in vals.items()
+            if key not in self._TARGET_SO_PROTECTED_FIELDS
+        }
 
     def _get_default_product_category(self):
         root = self.env.ref('product.product_category_all', raise_if_not_found=False)
@@ -1292,7 +1337,7 @@ class SqliteConnector(models.Model):
                     warehouse = self.env.ref(entrepot).id
                     
                 _logger.warning('Dans la creation du sale order %s' % proj)
-                sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                sale_order = self._resolve_sale_order(proj)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                 
                 if sale_order:
@@ -1323,7 +1368,7 @@ class SqliteConnector(models.Model):
                                 'product_uom_id': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 }))
-            sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+            sale_order = self._resolve_sale_order(proj)
             
             ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                             
@@ -1365,7 +1410,7 @@ class SqliteConnector(models.Model):
                     warehouse = False
                     if data1[10]:
                         warehouse = self.env.ref(data1[10]).id
-                    sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                    sale_order = self._resolve_sale_order(proj)
                     
                     ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                     if sale_order:
@@ -1566,7 +1611,7 @@ class SqliteConnector(models.Model):
 
         for so in so_data:
             for so_to_update in self.env['sale.order'].browse(so):
-                so_to_update.write(so_data[so])
+                so_to_update.write(self._clean_so_vals(so_data[so]))
                 # so_to_update.action_confirm()
                 message = _("Sales Order Updated: ") + so_to_update._get_html_link()
                 self.message_post(body=message)

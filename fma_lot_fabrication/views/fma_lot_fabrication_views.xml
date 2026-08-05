@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_fma_lot_fabrication_list" model="ir.ui.view">
+        <field name="name">fma.lot.fabrication.list</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="arch" type="xml">
+            <list string="Lots de fabrication" decoration-muted="state == 'cancel'"
+                  decoration-success="state == 'done'" decoration-bf="state == 'progress'">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="date_planned_start"/>
+                <field name="menuiserie_qty" sum="Menuiseries"/>
+                <field name="production_count" string="OF"/>
+                <field name="logikal_ref" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'confirmed'"
+                       decoration-warning="state == 'progress'"
+                       decoration-success="state == 'done'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fma_lot_fabrication_form" model="ir.ui.view">
+        <field name="name">fma.lot.fabrication.form</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="arch" type="xml">
+            <form string="Lot de fabrication">
+                <header>
+                    <button name="action_confirm" type="object" string="Confirmer"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_generate_orders" type="object"
+                            string="Generer les OF" class="btn-primary"
+                            invisible="state not in ('draft', 'confirmed')"
+                            help="Cree 1 OF de debit pour le lot et 1 OF d'assemblage par menuiserie."/>
+                    <button name="action_generate_orders" type="object"
+                            string="Completer les OF"
+                            invisible="state != 'progress'"
+                            help="Regenere les OF manquants (menuiseries ajoutees apres coup)."/>
+                    <button name="action_cancel" type="object" string="Annuler"
+                            invisible="state in ('cancel', 'done')"
+                            confirm="Annuler le lot annulera aussi ses OF non termines. Continuer ?"/>
+                    <button name="action_draft" type="object" string="Remettre en brouillon"
+                            invisible="state not in ('confirmed', 'cancel')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,confirmed,progress,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_productions" type="object"
+                                class="oe_stat_button" icon="fa-cogs"
+                                invisible="production_count == 0">
+                            <field name="production_count" widget="statinfo" string="OF"/>
+                        </button>
+                        <button name="action_view_sale_orders" type="object"
+                                class="oe_stat_button" icon="fa-file-text-o"
+                                invisible="sale_order_count == 0">
+                            <field name="sale_order_count" widget="statinfo" string="Commandes"/>
+                        </button>
+                        <button name="action_view_purchases" type="object"
+                                class="oe_stat_button" icon="fa-shopping-cart"
+                                invisible="purchase_count == 0">
+                            <field name="purchase_count" widget="statinfo" string="Achats"/>
+                        </button>
+                    </div>
+
+                    <widget name="web_ribbon" title="Annule" bg_color="text-bg-danger"
+                            invisible="state != 'cancel'"/>
+
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="LOT-2026-0001"/></h1>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="date_planned_start"/>
+                            <field name="logikal_ref"/>
+                        </group>
+                        <group>
+                            <label for="menuiserie_qty"/>
+                            <div class="o_row">
+                                <field name="menuiserie_qty" readonly="1"/>
+                                <span invisible="max_menuiserie == 0">
+                                    / <field name="max_menuiserie" readonly="1" nolabel="1"/> max
+                                </span>
+                            </div>
+                            <field name="product_debit_id"/>
+                            <field name="production_debit_id" readonly="1"
+                                   invisible="not production_debit_id"/>
+                            <field name="procurement_group_id" readonly="1" groups="base.group_no_one"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Menuiseries" name="lines">
+                            <field name="line_ids" readonly="state in ('done', 'cancel')">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="order_id" readonly="1" optional="show"/>
+                                    <field name="sale_line_id"
+                                           options="{'no_create': True}"
+                                           domain="[('is_lotable', '=', True)]"/>
+                                    <field name="product_id" readonly="1" optional="show"/>
+                                    <field name="description" readonly="1" optional="hide"/>
+                                    <field name="qty_ordered" readonly="1" optional="show"/>
+                                    <field name="product_qty" sum="Total"/>
+                                    <field name="product_uom_id" readonly="1"
+                                           groups="uom.group_uom" optional="hide"/>
+                                    <field name="production_id" readonly="1" optional="show"/>
+                                    <field name="production_state" readonly="1" optional="show"
+                                           widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Besoin matiere" name="materials">
+                            <p class="text-muted oe_edit_only">
+                                Composants du lot (profiles, renforts...). Utilises comme
+                                composants de l'OF de debit si l'article debite n'a pas de
+                                nomenclature.
+                            </p>
+                            <field name="material_line_ids" readonly="state in ('done', 'cancel')">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="product_id"/>
+                                    <field name="product_qty"/>
+                                    <field name="product_uom_id" groups="uom.group_uom"/>
+                                    <field name="note" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Ordres de fabrication" name="productions">
+                            <field name="production_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="lot_production_type" widget="badge"/>
+                                    <field name="product_id"/>
+                                    <field name="product_qty"/>
+                                    <field name="lot_sale_line_id" optional="hide"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <page string="Notes" name="notes">
+                            <field name="note" placeholder="Notes internes sur le lot..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fma_lot_fabrication_search" model="ir.ui.view">
+        <field name="name">fma.lot.fabrication.search</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="arch" type="xml">
+            <search string="Lots de fabrication">
+                <field name="name" string="Lot"
+                       filter_domain="['|', ('name', 'ilike', self), ('logikal_ref', 'ilike', self)]"/>
+                <field name="partner_id"/>
+                <field name="line_ids" string="Menuiserie"
+                       filter_domain="[('line_ids.product_id', 'ilike', self)]"/>
+                <separator/>
+                <filter name="filter_draft" string="Brouillon" domain="[('state', '=', 'draft')]"/>
+                <filter name="filter_confirmed" string="Confirme" domain="[('state', '=', 'confirmed')]"/>
+                <filter name="filter_progress" string="En production" domain="[('state', '=', 'progress')]"/>
+                <filter name="filter_done" string="Termine" domain="[('state', '=', 'done')]"/>
+                <separator/>
+                <filter name="filter_no_orders" string="Sans OF"
+                        domain="[('production_ids', '=', False)]"/>
+                <separator/>
+                <filter name="filter_planned" string="Date planifiee"
+                        date="date_planned_start"/>
+                <group expand="0" string="Regrouper par">
+                    <filter name="group_state" string="Etat" context="{'group_by': 'state'}"/>
+                    <filter name="group_partner" string="Client" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_date" string="Date planifiee"
+                            context="{'group_by': 'date_planned_start:week'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fma_lot_fabrication" model="ir.actions.act_window">
+        <field name="name">Lots de fabrication</field>
+        <field name="res_model">fma.lot.fabrication</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_fma_lot_fabrication_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Creer un lot de fabrication</p>
+            <p>
+                Un lot regroupe des menuiseries de devis pour la production :
+                un OF de debit au niveau du lot, un OF d'assemblage par menuiserie.
+            </p>
+            <p>
+                Le plus simple est de partir d'un devis et d'utiliser le bouton
+                <b>Mise en lot</b>.
+            </p>
+        </field>
+    </record>
+
+</odoo>

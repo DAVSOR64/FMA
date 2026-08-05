@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_order_form_lot" model="ir.ui.view">
+        <field name="name">sale.order.form.lot</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_lots" type="object"
+                        class="oe_stat_button" icon="fa-cubes"
+                        invisible="lot_count == 0">
+                    <field name="lot_count" widget="statinfo" string="Lots"/>
+                </button>
+            </xpath>
+
+            <xpath expr="//div[@name='button_box']" position="before">
+                <field name="lot_count" invisible="1"/>
+                <field name="qty_to_lot_total" invisible="1"/>
+            </xpath>
+
+            <header position="inside">
+                <button name="action_open_lot_wizard" type="object"
+                        string="Mise en lot"
+                        invisible="state == 'cancel'"
+                        class="btn-secondary"
+                        help="Repartir les menuiseries de cette commande dans des lots de fabrication."/>
+            </header>
+
+            <xpath expr="//field[@name='order_line']/list" position="inside">
+                <field name="is_lotable" column_invisible="1"/>
+                <field name="qty_lot" optional="hide" string="Lotie"/>
+                <field name="qty_to_lot" optional="hide" string="A lotir"/>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

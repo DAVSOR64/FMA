@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="purchase_order_form_lot" model="ir.ui.view">
+        <field name="name">purchase.order.form.lot</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="lot_fabrication_id"
+                       options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="purchase_order_view_search_lot" model="ir.ui.view">
+        <field name="name">purchase.order.search.lot</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.view_purchase_order_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <field name="lot_fabrication_id"/>
+                <group expand="0" string="Regrouper par lot">
+                    <filter name="group_lot_fabrication" string="Lot de fabrication"
+                            context="{'group_by': 'lot_fabrication_id'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

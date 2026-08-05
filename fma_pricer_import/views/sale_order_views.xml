@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_order_form_pricer_import" model="ir.ui.view">
+        <field name="name">sale.order.form.pricer.import</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//div[@name='button_box']" position="before">
+                <field name="pricer_import_count" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_pricer_imports" type="object"
+                        class="oe_stat_button" icon="fa-download"
+                        invisible="pricer_import_count == 0">
+                    <field name="pricer_import_count" widget="statinfo"
+                           string="Imports Pricer"/>
+                </button>
+            </xpath>
+
+            <header position="inside">
+                <button name="action_open_pricer_import" type="object"
+                        string="Import Pricer" class="btn-secondary"
+                        invisible="state not in ('draft', 'sent')"
+                        help="Deposer le fichier de chiffrage LOGIKAL pour alimenter les lignes de ce devis."/>
+            </header>
+
+        </field>
+    </record>
+
+</odoo>

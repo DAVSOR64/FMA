@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_fma_lot_fabrication"
+              name="Lots de fabrication"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_fma_lot_fabrication"
+              groups="mrp.group_mrp_user"
+              sequence="25"/>
+
+</odoo>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!--
+            Article intermediaire produit par l'OF Debit et consomme par les
+            OF Assemblage. C'est lui qui materialise le lien matiere entre le
+            debit (mutualise sur le lot) et l'assemblage (par menuiserie).
+            Sert de valeur par defaut ; chaque lot peut porter le sien.
+        -->
+        <record id="product_ensemble_debite_tmpl" model="product.template">
+            <field name="name">Ensemble debite - lot</field>
+            <field name="default_code">DEB-LOT</field>
+            <field name="type">consu</field>
+            <field name="is_storable" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="sale_ok" eval="False"/>
+            <field name="description">Ensemble des composants debites d'un lot de fabrication.
+Produit par l'OF Debit, consomme par les OF Assemblage du meme lot.</field>
+        </record>
+
+        <record id="product_ensemble_debite" model="product.product">
+            <field name="product_tmpl_id" ref="product_ensemble_debite_tmpl"/>
+        </record>
+    </data>
+</odoo>

@@ -4,11 +4,11 @@
     "author": "Odoo PS",
     "sequence": 358,
     "summary": "",
-    "version": "19.0.1.0.1",
+    "version": "19.0.1.0.2",
     "description": """
 
     """,
-    "depends": ["mail"],
+    "depends": ["mail", "sale"],
     "data": [
         "views/sqlite_connector.xml",
         "security/ir.model.access.csv",

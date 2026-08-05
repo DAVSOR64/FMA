@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form_lot" model="ir.ui.view">
+        <field name="name">res.config.settings.form.fma.lot</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="mrp.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <!-- Ancre sur le conteneur de l'app MRP (data-key stable entre
+                 versions) plutot que sur un nom de block interne a mrp. -->
+            <xpath expr="//div[@data-key='mrp']" position="inside">
+                <block title="Lots de fabrication" name="fma_lot_container">
+                    <setting id="fma_lot_max_setting"
+                             string="Menuiseries max par lot"
+                             help="Plafond impose par l'optimisation du debit. 0 = pas de limite.">
+                        <field name="fma_lot_max_menuiserie"/>
+                    </setting>
+                    <setting id="fma_lot_product_setting"
+                             string="Article debite par defaut"
+                             help="Article intermediaire produit par l'OF de debit et consomme par les OF d'assemblage.">
+                        <field name="fma_lot_product_debit_id"
+                               options="{'no_create': True}"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
