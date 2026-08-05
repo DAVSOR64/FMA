@@ -19,12 +19,21 @@
 
                 <group>
                     <field name="file" filename="filename"
-                           options="{'accepted_file_extensions': '.sqlite'}"/>
+                           options="{'accepted_file_extensions': '.sqlite,.sqlite3'}"/>
                     <field name="filename" invisible="1"/>
                     <field name="description"/>
+                    <field name="create_lots"/>
                     <field name="replace_lines"
                            invisible="existing_line_count == 0"/>
                 </group>
+
+                <div class="alert alert-info" role="alert"
+                     invisible="not create_lots">
+                    Deposez <b>un fichier par lot</b> : chaque import cree son lot,
+                    ajoute sa quantite a la ligne de devis existante et enregistre
+                    ses barres. Un fichier optimise au niveau de l'affaire est
+                    refuse — ses barres alimenteraient plusieurs lots a la fois.
+                </div>
 
                 <div class="alert alert-warning" role="alert"
                      invisible="not replace_lines">

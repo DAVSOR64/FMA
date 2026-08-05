@@ -6,7 +6,10 @@ enregistrement ``sqlite.connector`` — qui reste le moteur d'import et le
 journal consultable — en lui passant le devis cible, puis declenche
 l'import.
 """
+import base64
 import logging
+import os
+import tempfile
 
 from odoo import _, fields, models
 from odoo.exceptions import UserError
@@ -38,6 +41,13 @@ class FmaPricerImportWizard(models.TransientModel):
         string="Remplacer les lignes existantes",
         help="Supprime les lignes actuelles du devis avant l'import. "
         "A utiliser pour reimporter un chiffrage corrige.",
+    )
+    create_lots = fields.Boolean(
+        string="Creer les lots de fabrication",
+        default=True,
+        help="Cree le lot decrit par le fichier, repartit les quantites du "
+        "devis sur ce lot et enregistre les barres optimisees comme besoin "
+        "matiere. A decocher pour un chiffrage sans mise en lot.",
     )
     existing_line_count = fields.Integer(
         string="Lignes actuelles",
@@ -93,6 +103,9 @@ class FmaPricerImportWizard(models.TransientModel):
 
         connector.export_data_from_db()
 
+        if self.create_lots:
+            self._import_lots(order)
+
         return {
             "type": "ir.actions.act_window",
             "name": _("Import Pricer"),
@@ -101,3 +114,35 @@ class FmaPricerImportWizard(models.TransientModel):
             "view_mode": "form",
             "target": "current",
         }
+
+    def _import_lots(self, order):
+        """Applique la mise en lot du fichier au devis.
+
+        L'adaptateur lit un fichier sqlite : on materialise donc le binaire du
+        wizard dans un fichier temporaire, supprime aussitot apres.
+        """
+        self.ensure_one()
+        content = base64.b64decode(self.file or b"")
+        if not content:
+            return
+
+        handle, path = tempfile.mkstemp(suffix=".sqlite3", prefix="fma_pricer_")
+        try:
+            with os.fdopen(handle, "wb") as tmp:
+                tmp.write(content)
+            lots = self.env["fma.pricer.engine"].import_file(
+                order, path, source=self.filename
+            )
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:  # pragma: no cover - nettoyage best effort
+                _logger.warning("Fichier temporaire non supprime : %s", path)
+
+        if lots:
+            order.message_post(
+                body=_(
+                    "Mise en lot : %(names)s",
+                    names=", ".join(lots.mapped("display_name")),
+                )
+            )

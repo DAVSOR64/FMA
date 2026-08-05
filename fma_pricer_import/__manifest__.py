@@ -27,6 +27,9 @@ enregistrement, avec ses logs, pour consultation.
     "depends": [
         "sale",
         "sqlite_connector",
+        # Porte les lots de fabrication, leur affectation par ligne de devis
+        # et leur besoin matiere, que l'import alimente depuis le pricer.
+        "fma_lot_fabrication",
     ],
     "data": [
         "security/ir.model.access.csv",
