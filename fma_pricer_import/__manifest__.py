@@ -9,7 +9,13 @@
     # 1.2.0 : un article ou une ligne introuvable n'interrompt plus l'import ;
     # le manque est inscrit sur le lot (nouvelles colonnes import_issues /
     # import_incomplete), qui reste bloque a la confirmation.
-    "version": "19.0.1.2.0",
+    # 1.3.0 : chaque menuiserie devient un article fabrique MTO avec sa propre
+    # nomenclature (1 sous-ensemble debite + quincaillerie + vitrage), au lieu
+    # de l'unique nomenclature de projet posee par sqlite_connector.
+    # 1.4.0 : mesure du debit sur le lot (besoin en metres face aux barres
+    # achetees, chute par reference) — nouvelles colonnes sur le lot et sur
+    # la ligne de besoin matiere.
+    "version": "19.0.1.4.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

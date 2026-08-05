@@ -166,19 +166,187 @@ class FmaPricerEngine(models.AbstractModel):
             key = signature_hash(men)
             line = self._find_sale_line(order, pivot_line, key)
             if not line:
-                missing[key] = _(
-                    "menuiserie %(ref)s (%(desc)s) : aucune ligne de devis "
-                    "correspondante",
-                    ref=pivot_line.ref,
-                    desc=pivot_line.description,
+                missing.setdefault(key, []).append(
+                    _(
+                        "menuiserie %(ref)s (%(desc)s) : aucune ligne de devis "
+                        "correspondante",
+                        ref=pivot_line.ref,
+                        desc=pivot_line.description,
+                    )
                 )
                 continue
             # Champ technique : le commercial qui importe n'a pas forcement
             # le droit d'ecrire sur les articles.
             line.product_id.product_tmpl_id.sudo().pricer_signature = key
             found[key] = line
+            issues = self._sync_manufactured_product(line.product_id, pivot_line)
+            if issues:
+                missing.setdefault(key, []).extend(issues)
 
         return found, missing
+
+    # ------------------------------------------------------------------
+    # Article fabrique et nomenclature
+    # ------------------------------------------------------------------
+    def _sync_manufactured_product(self, product, pivot_line):
+        """Rend l'article de la menuiserie fabricable, et lui pose sa nomenclature.
+
+        ``sqlite_connector`` cree l'article de chaque menuiserie **sans route**
+        et n'ecrit qu'une seule nomenclature, portee par l'article de projet.
+        Resultat : la menuiserie se vend mais ne se fabrique pas. On corrige les
+        deux ici, menuiserie par menuiserie.
+
+        Renvoie la liste des composants qui n'ont pas pu etre rattaches.
+        """
+        tmpl = product.product_tmpl_id.sudo()
+        routes = tmpl.route_ids
+        for xmlid in ("mrp.route_warehouse0_manufacture", "stock.route_warehouse0_mto"):
+            route = self.env.ref(xmlid, raise_if_not_found=False)
+            if route and route not in routes:
+                routes |= route
+        vals = {"is_storable": True, "purchase_ok": False}
+        if routes != tmpl.route_ids:
+            vals["route_ids"] = [(6, 0, routes.ids)]
+        tmpl.write(vals)
+
+        return self._sync_bom(product, pivot_line)
+
+    def _debit_product(self, product):
+        """Sous-ensemble « debite » d'une menuiserie.
+
+        C'est lui qui materialise les profiles dans la nomenclature : l'OF de
+        debit du lot le produit en consommant les **barres** du lot, l'OF
+        d'assemblage en consomme un par menuiserie. Il n'a volontairement pas
+        de nomenclature — sinon les profiles seraient comptes deux fois, une
+        fois en barres entieres et une fois en metres lineaires.
+        """
+        code = "%s-DEB" % (product.default_code or product.name)
+        Product = self.env["product.product"].sudo()
+        debit = Product.search([("default_code", "=", code)], limit=1)
+        if debit:
+            return debit
+        return Product.create(
+            {
+                "name": _("%s - debite", product.name),
+                "default_code": code,
+                "type": "consu",
+                "is_storable": True,
+                "purchase_ok": False,
+                "sale_ok": False,
+                "uom_id": product.uom_id.id,
+                "categ_id": product.categ_id.id,
+            }
+        )
+
+    def _sync_bom(self, product, pivot_line):
+        """(Re)construit la nomenclature d'une menuiserie.
+
+        Une nomenclature par menuiserie, et non une pour toute l'affaire :
+        1 sous-ensemble debite + la quincaillerie + le vitrage, en quantites
+        **pour un exemplaire**.
+        """
+        men = pivot_line.menuiserie
+        issues = []
+        components = []
+
+        debit = self._debit_product(product)
+        components.append((debit, 1.0))
+
+        for comp in men.components:
+            if comp.kind == "glass":
+                found, problem = self._find_glass(comp, men.ref)
+            else:
+                found, problem = self._find_product(comp.code, comp.color)
+            if not found:
+                if problem not in issues:
+                    issues.append(problem)
+                continue
+            components.append((found, comp.qty))
+
+        Bom = self.env["mrp.bom"].sudo()
+        bom = Bom.search(
+            [
+                ("product_tmpl_id", "=", product.product_tmpl_id.id),
+                ("type", "=", "normal"),
+            ],
+            limit=1,
+        )
+        merged = {}
+        for item, qty in components:
+            merged[item] = merged.get(item, 0.0) + qty
+        lines = [
+            (0, 0, {
+                "product_id": item.id,
+                "product_qty": qty,
+                "product_uom_id": item.uom_id.id,
+            })
+            for item, qty in merged.items()
+            if qty
+        ]
+        vals = {
+            "product_tmpl_id": product.product_tmpl_id.id,
+            "product_id": product.id,
+            "type": "normal",
+            "product_qty": 1.0,
+            "product_uom_id": product.uom_id.id,
+            "code": pivot_line.ref,
+            # On repart des composants du fichier : la nomenclature est le
+            # reflet du chiffrage, pas un cumul d'imports successifs.
+            "bom_line_ids": [(5, 0, 0)] + lines,
+        }
+        if bom:
+            bom.write(vals)
+        else:
+            Bom.create(vals)
+        return issues
+
+    def _find_glass(self, comp, position):
+        """Retrouve le vitrage d'une position.
+
+        Le vitrage n'a pas de reference propre cote Odoo — le connecteur le
+        numerote ``<affaire>_1``, ``<affaire>_2`` — mais il lui pose la
+        **position** dans ``x_studio_position`` (le nom de l'elevation). Le
+        lien vitrage -> menuiserie est donc porte par la donnee : on s'appuie
+        dessus, et les dimensions ne servent qu'a departager deux vitrages
+        d'une meme position.
+        """
+        Product = self.env["product.product"]
+        fields_ = Product._fields
+        absent = _(
+            "vitrage %(code)s %(w)sx%(h)s de la position %(pos)s : article "
+            "introuvable dans Odoo",
+            code=comp.code,
+            w=int(comp.width_mm),
+            h=int(comp.height_mm),
+            pos=position,
+        )
+        if "x_studio_position" not in fields_:
+            return Product, absent
+
+        candidates = Product.search([("x_studio_position", "=", position)])
+        if not candidates:
+            return Product, absent
+        if len(candidates) == 1:
+            return candidates, None
+
+        if "x_studio_hauteur_mm" in fields_:
+            exact = candidates.filtered(
+                lambda p: int(p.x_studio_hauteur_mm or 0) == int(comp.height_mm)
+                and int(p.x_studio_largeur_mm or 0) == int(comp.width_mm)
+            )
+            if len(exact) == 1:
+                return exact, None
+            if len(exact) > 1:
+                # Deux vitrages identiques de la meme position : c'est le meme
+                # article cote Odoo, le premier fait foi.
+                return exact[:1], None
+        return Product, _(
+            "vitrage %(code)s de la position %(pos)s : %(n)s articles "
+            "possibles, rattachement impossible",
+            code=comp.code,
+            pos=position,
+            n=len(candidates),
+        )
 
     def _find_sale_line(self, order, pivot_line, key):
         """Retrouve la ligne de devis qui porte ce produit fabrique.
@@ -274,6 +442,7 @@ class FmaPricerEngine(models.AbstractModel):
 
         issues = self._sync_lot_lines(lot, lot_pivot, sale_lines, missing_lines)
         issues += self._sync_lot_materials(lot, lot_pivot)
+        self._set_lot_debit_product(lot)
         lot.import_issues = "\n".join("- %s" % i for i in issues) or False
         if issues:
             lot.message_post(
@@ -297,11 +466,12 @@ class FmaPricerEngine(models.AbstractModel):
                 continue
             key = signature_hash(men)
             line = sale_lines.get(key)
+            issues.extend(missing_lines.get(key) or [])
             if not line:
-                issues.append(
-                    missing_lines.get(key)
-                    or _("menuiserie %s : ligne de devis introuvable", men.ref)
-                )
+                if key not in missing_lines:
+                    issues.append(
+                        _("menuiserie %s : ligne de devis introuvable", men.ref)
+                    )
                 continue
             vals.append(
                 {
@@ -314,6 +484,20 @@ class FmaPricerEngine(models.AbstractModel):
             self.env["fma.lot.fabrication.line"].create(vals)
         return issues
 
+    def _set_lot_debit_product(self, lot):
+        """Fait produire a l'OF de debit le sous-ensemble de *cette* menuiserie.
+
+        Sans ca, le lot retomberait sur l'article debite generique parametre
+        sur la societe, et l'en-cours de tous les lots serait valorise sur le
+        meme article. On ne le fait que si le lot ne fabrique qu'une seule
+        menuiserie : au-dela, un debite unique n'aurait pas de sens et
+        l'article generique reste le bon choix.
+        """
+        products = lot.line_ids.mapped("product_id")
+        if len(products) != 1:
+            return
+        lot.product_debit_id = self._debit_product(products)
+
     def _sync_lot_materials(self, lot, lot_pivot):
         """Enregistre les barres optimisees par le pricer comme besoin du lot.
 
@@ -324,14 +508,35 @@ class FmaPricerEngine(models.AbstractModel):
         autres barres sont enregistrees et le manque est renvoye a l'appelant.
         Le lot restera bloque a la confirmation, la ou l'incidence est reelle.
         """
-        by_product = {}
+        # Besoin reel en metres, par reference et teinte : la somme des coupes
+        # de toutes les menuiseries du lot. C'est ce qui entre en en-cours ;
+        # l'ecart avec les barres est la chute, et il devient mesurable.
+        need_mm = {}
+        for men in lot_pivot.menuiseries:
+            for cut in men.debit:
+                key = (cut.code, cut.color)
+                need_mm[key] = need_mm.get(key, 0.0) + cut.total_mm * men.qty
+
+        by_key = {}
         missing = {}
         for bar in lot_pivot.bars:
-            product, problem = self._find_product(bar.code, bar.color)
+            key = (bar.code, bar.color)
+            entry = by_key.setdefault(key, {"qty": 0.0, "length": bar.length_mm})
+            entry["qty"] += bar.qty
+
+        by_product = {}
+        for key, entry in by_key.items():
+            code, color = key
+            product, problem = self._find_product(code, color)
             if not product:
-                missing[problem] = missing.get(problem, 0.0) + bar.qty
+                missing[problem] = missing.get(problem, 0.0) + entry["qty"]
                 continue
-            by_product[product] = by_product.get(product, 0.0) + bar.qty
+            acc = by_product.setdefault(
+                product, {"qty": 0.0, "length": 0.0, "need": 0.0}
+            )
+            acc["qty"] += entry["qty"]
+            acc["length"] = entry["length"] / 1000.0
+            acc["need"] += need_mm.get(key, 0.0) / 1000.0
 
         vals = [
             {
@@ -341,10 +546,12 @@ class FmaPricerEngine(models.AbstractModel):
                 # explicitement plutot que de dependre de l'ordre de calcul
                 # a la creation.
                 "product_uom_id": product.uom_id.id,
-                "product_qty": qty,
+                "product_qty": acc["qty"],
+                "bar_length": acc["length"],
+                "debit_length": acc["need"],
                 "note": _("Barres optimisees par le pricer pour ce lot"),
             }
-            for product, qty in by_product.items()
+            for product, acc in by_product.items()
         ]
         if vals:
             # sudo : donnee derivee du fichier, que le commercial n'a pas le

@@ -36,6 +36,27 @@
                 <field name="pricer_lot_key" readonly="1"
                        invisible="not pricer_lot_key" groups="base.group_no_one"/>
                 <field name="import_incomplete" invisible="1"/>
+                <!--
+                    Le besoin en metres n'apparait pas dans les nomenclatures :
+                    les profiles y sont representes par le sous-ensemble
+                    debite. C'est ici qu'il se mesure, en face des barres
+                    reellement sorties du stock.
+                -->
+                <field name="debit_length" readonly="1"
+                       invisible="not debit_length"/>
+                <field name="purchased_length" readonly="1"
+                       invisible="not purchased_length"/>
+                <field name="loss_rate" readonly="1"
+                       invisible="not purchased_length"/>
+            </xpath>
+
+            <xpath expr="//field[@name='material_line_ids']/list/field[@name='product_qty']"
+                   position="after">
+                <field name="bar_length" optional="show"/>
+                <field name="purchased_length" optional="show"/>
+                <field name="debit_length" optional="show"/>
+                <field name="loss_length" optional="hide"/>
+                <field name="loss_rate" optional="show"/>
             </xpath>
 
         </field>

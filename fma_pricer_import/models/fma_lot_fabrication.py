@@ -32,6 +32,39 @@ class FmaLotFabrication(models.Model):
         "n'est pas leve ou assume.",
     )
 
+    debit_length = fields.Float(
+        string="Besoin debit (m)",
+        compute="_compute_debit_lengths",
+        store=True,
+        digits="Product Unit of Measure",
+        help="Metres lineaires de profiles necessaires aux menuiseries du lot.",
+    )
+    purchased_length = fields.Float(
+        string="Barres achetees (m)",
+        compute="_compute_debit_lengths",
+        store=True,
+        digits="Product Unit of Measure",
+    )
+    loss_rate = fields.Float(
+        string="Chute (%)",
+        compute="_compute_debit_lengths",
+        store=True,
+        digits=(5, 1),
+        help="Ecart entre les barres sorties du stock a l'OF de debit et les "
+        "metres qui entrent en en-cours. C'est la chute reelle du lot.",
+    )
+
+    @api.depends(
+        "material_line_ids.debit_length", "material_line_ids.purchased_length"
+    )
+    def _compute_debit_lengths(self):
+        for lot in self:
+            besoin = sum(lot.material_line_ids.mapped("debit_length"))
+            achete = sum(lot.material_line_ids.mapped("purchased_length"))
+            lot.debit_length = besoin
+            lot.purchased_length = achete
+            lot.loss_rate = 100.0 * (achete - besoin) / achete if achete else 0.0
+
     @api.depends("import_issues")
     def _compute_import_incomplete(self):
         for lot in self:
