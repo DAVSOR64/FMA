@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 {
     "name": "FMA Import Pricer",
-    "version": "19.0.1.0.0",
+    # 1.1.0 : mise en lot depuis le pricer. Ajoute des colonnes
+    # (product_template.pricer_signature, fma_lot_fabrication.pricer_lot_key,
+    # create_lots sur le wizard) : la version DOIT etre incrementee, sinon
+    # Odoo.sh deploie le code sans jouer la mise a jour et le registre
+    # reference des colonnes inexistantes.
+    "version": "19.0.1.1.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

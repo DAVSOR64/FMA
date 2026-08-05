@@ -153,7 +153,9 @@ class FmaPricerEngine(models.AbstractModel):
             if not line:
                 missing.append("%s (%s)" % (pivot_line.ref, pivot_line.description))
                 continue
-            line.product_id.product_tmpl_id.pricer_signature = key
+            # Champ technique : le commercial qui importe n'a pas forcement
+            # le droit d'ecrire sur les articles.
+            line.product_id.product_tmpl_id.sudo().pricer_signature = key
             found[key] = line
 
         if missing:
@@ -255,7 +257,10 @@ class FmaPricerEngine(models.AbstractModel):
         else:
             # Reimport : on repart d'un lot vierge plutot que de cumuler.
             lot.line_ids.unlink()
-            lot.material_line_ids.unlink()
+            # Besoin matiere : le commercial ne l'ecrit pas a la main, il est
+            # en lecture seule pour lui (cf. ir.model.access de
+            # fma_lot_fabrication). C'est une donnee derivee du fichier.
+            lot.material_line_ids.sudo().unlink()
             lot.logikal_ref = lot_pivot.ref
 
         self._sync_lot_lines(lot, lot_pivot, sale_lines)
@@ -317,7 +322,9 @@ class FmaPricerEngine(models.AbstractModel):
             for product, qty in by_product.items()
         ]
         if vals:
-            self.env["fma.lot.material.line"].create(vals)
+            # sudo : donnee derivee du fichier, que le commercial n'a pas le
+            # droit d'ecrire directement (cf. _sync_lot).
+            self.env["fma.lot.material.line"].sudo().create(vals)
 
     def _find_product(self, code):
         """Retrouve un article par sa reference pricer.
