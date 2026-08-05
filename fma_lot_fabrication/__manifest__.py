@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 {
     "name": "FMA Lots de fabrication",
-    "version": "19.0.1.0.0",
+    # 1.0.1 : _compute_product_uom_id de fma.lot.material.line n'affectait pas
+    # de valeur quand l'article etait absent, laissant un champ requis vide.
+    "version": "19.0.1.0.1",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

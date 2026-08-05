@@ -6,7 +6,10 @@
     # create_lots sur le wizard) : la version DOIT etre incrementee, sinon
     # Odoo.sh deploie le code sans jouer la mise a jour et le registre
     # reference des colonnes inexistantes.
-    "version": "19.0.1.1.0",
+    # 1.2.0 : un article ou une ligne introuvable n'interrompt plus l'import ;
+    # le manque est inscrit sur le lot (nouvelles colonnes import_issues /
+    # import_incomplete), qui reste bloque a la confirmation.
+    "version": "19.0.1.2.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
@@ -40,6 +43,7 @@ enregistrement, avec ses logs, pour consultation.
         "security/ir.model.access.csv",
         "wizard/fma_pricer_import_wizard_views.xml",
         "views/sale_order_views.xml",
+        "views/fma_lot_fabrication_views.xml",
     ],
     "installable": True,
     "application": False,

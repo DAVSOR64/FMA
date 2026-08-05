@@ -51,7 +51,7 @@ class FmaPricerEngine(models.AbstractModel):
         order.ensure_one()
         self._check_bars_usable(order, quotation)
 
-        sale_lines = self._sync_sale_lines(order, quotation)
+        sale_lines, missing_lines = self._sync_sale_lines(order, quotation)
 
         # Lots fictifs regroupant les positions non fabriquees
         # (eco-contribution, transport) : rien a produire.
@@ -64,10 +64,21 @@ class FmaPricerEngine(models.AbstractModel):
 
         lots = self.env["fma.lot.fabrication"]
         for lot_pivot in lots_pivot:
-            lots |= self._sync_lot(order, lot_pivot, sale_lines)
+            lots |= self._sync_lot(order, lot_pivot, sale_lines, missing_lines)
 
         for warning in quotation.warnings:
             order.message_post(body=_("Import pricer : %s", warning))
+
+        incomplete = lots.filtered("import_incomplete")
+        if incomplete:
+            order.message_post(
+                body=_(
+                    "Import incomplet sur %(names)s : le lot est cree mais "
+                    "ne pourra pas etre confirme tant que les manques ne sont "
+                    "pas leves.",
+                    names=", ".join(incomplete.mapped("display_name")),
+                )
+            )
         return lots
 
     def _set_quantities(self, lots_pivot, sale_lines):
@@ -140,10 +151,14 @@ class FmaPricerEngine(models.AbstractModel):
         c'est ce qui ramene les cinq positions ``A_1``..``A_5`` d'une affaire
         lotie a une seule ligne commerciale.
 
-        Renvoie ``{empreinte: sale.order.line}``.
+        Un import ne bloque **pas** sur une position introuvable : le lot et
+        les autres positions restent valides. Le manque est remonte a
+        l'appelant, qui l'inscrit sur le lot concerne.
+
+        Renvoie ``({empreinte: sale.order.line}, {empreinte: libelle manquant})``.
         """
         found = {}
-        missing = []
+        missing = {}
         for pivot_line in quotation.sale_lines():
             men = pivot_line.menuiserie
             if not men.is_manufactured:
@@ -151,25 +166,19 @@ class FmaPricerEngine(models.AbstractModel):
             key = signature_hash(men)
             line = self._find_sale_line(order, pivot_line, key)
             if not line:
-                missing.append("%s (%s)" % (pivot_line.ref, pivot_line.description))
+                missing[key] = _(
+                    "menuiserie %(ref)s (%(desc)s) : aucune ligne de devis "
+                    "correspondante",
+                    ref=pivot_line.ref,
+                    desc=pivot_line.description,
+                )
                 continue
             # Champ technique : le commercial qui importe n'a pas forcement
             # le droit d'ecrire sur les articles.
             line.product_id.product_tmpl_id.sudo().pricer_signature = key
             found[key] = line
 
-        if missing:
-            raise UserError(
-                _(
-                    "Ces positions du fichier n'ont pas de ligne "
-                    "correspondante dans le devis %(order)s :\n\n%(list)s\n\n"
-                    "Lancez d'abord l'import du chiffrage, qui cree les "
-                    "articles et les lignes, puis relancez la mise en lot.",
-                    order=order.display_name,
-                    list="\n".join("- %s" % m for m in missing),
-                )
-            )
-        return found
+        return found, missing
 
     def _find_sale_line(self, order, pivot_line, key):
         """Retrouve la ligne de devis qui porte ce produit fabrique.
@@ -226,7 +235,7 @@ class FmaPricerEngine(models.AbstractModel):
     # ------------------------------------------------------------------
     # Lots
     # ------------------------------------------------------------------
-    def _sync_lot(self, order, lot_pivot, sale_lines):
+    def _sync_lot(self, order, lot_pivot, sale_lines, missing_lines=None):
         """Cree ou met a jour le lot decrit par le fichier."""
         Lot = self.env["fma.lot.fabrication"]
         key = lot_pivot.guid or lot_pivot.ref
@@ -263,18 +272,36 @@ class FmaPricerEngine(models.AbstractModel):
             lot.material_line_ids.sudo().unlink()
             lot.logikal_ref = lot_pivot.ref
 
-        self._sync_lot_lines(lot, lot_pivot, sale_lines)
-        self._sync_lot_materials(lot, lot_pivot)
+        issues = self._sync_lot_lines(lot, lot_pivot, sale_lines, missing_lines)
+        issues += self._sync_lot_materials(lot, lot_pivot)
+        lot.import_issues = "\n".join("- %s" % i for i in issues) or False
+        if issues:
+            lot.message_post(
+                body=_(
+                    "Import incomplet :<br/><pre>%s</pre>", lot.import_issues
+                )
+            )
         return lot
 
-    def _sync_lot_lines(self, lot, lot_pivot, sale_lines):
-        """Repartit les quantites des lignes de devis sur ce lot."""
+    def _sync_lot_lines(self, lot, lot_pivot, sale_lines, missing_lines=None):
+        """Repartit les quantites des lignes de devis sur ce lot.
+
+        Renvoie la liste des menuiseries du lot qui n'ont pas pu etre
+        affectees : le lot existe, mais il lui manque des menuiseries.
+        """
+        missing_lines = missing_lines or {}
+        issues = []
         vals = []
         for men in lot_pivot.menuiseries:
             if not men.is_manufactured:
                 continue
-            line = sale_lines.get(signature_hash(men))
+            key = signature_hash(men)
+            line = sale_lines.get(key)
             if not line:
+                issues.append(
+                    missing_lines.get(key)
+                    or _("menuiserie %s : ligne de devis introuvable", men.ref)
+                )
                 continue
             vals.append(
                 {
@@ -285,39 +312,35 @@ class FmaPricerEngine(models.AbstractModel):
             )
         if vals:
             self.env["fma.lot.fabrication.line"].create(vals)
+        return issues
 
     def _sync_lot_materials(self, lot, lot_pivot):
         """Enregistre les barres optimisees par le pricer comme besoin du lot.
 
         Les quantites sont celles du plan de coupe du lot : ce sont les barres
         qui seront reellement consommees par l'OF de debit, chute comprise.
+
+        Un profile introuvable dans Odoo ne fait pas echouer l'import : les
+        autres barres sont enregistrees et le manque est renvoye a l'appelant.
+        Le lot restera bloque a la confirmation, la ou l'incidence est reelle.
         """
         by_product = {}
-        missing = set()
+        missing = {}
         for bar in lot_pivot.bars:
-            product = self._find_product(bar.code, bar.color)
+            product, problem = self._find_product(bar.code, bar.color)
             if not product:
-                missing.add(
-                    "%s / %s" % (bar.code, bar.color or _("sans teinte"))
-                )
+                missing[problem] = missing.get(problem, 0.0) + bar.qty
                 continue
             by_product[product] = by_product.get(product, 0.0) + bar.qty
-
-        if missing:
-            raise UserError(
-                _(
-                    "Ces references de profile du lot %(lot)s n'existent pas "
-                    "dans Odoo :\n\n%(list)s\n\n"
-                    "Elles sont normalement creees par l'import du chiffrage.",
-                    lot=lot_pivot.ref,
-                    list="\n".join("- %s" % m for m in sorted(missing)),
-                )
-            )
 
         vals = [
             {
                 "lot_id": lot.id,
                 "product_id": product.id,
+                # L'unite est un calcule stocke *requis* : on la fournit
+                # explicitement plutot que de dependre de l'ordre de calcul
+                # a la creation.
+                "product_uom_id": product.uom_id.id,
                 "product_qty": qty,
                 "note": _("Barres optimisees par le pricer pour ce lot"),
             }
@@ -327,6 +350,10 @@ class FmaPricerEngine(models.AbstractModel):
             # sudo : donnee derivee du fichier, que le commercial n'a pas le
             # droit d'ecrire directement (cf. _sync_lot).
             self.env["fma.lot.material.line"].sudo().create(vals)
+        return [
+            _("%(detail)s (%(qty)s barre(s) non reprises)", detail=d, qty=int(q))
+            for d, q in sorted(missing.items())
+        ]
 
     def _find_product(self, code, color=""):
         """Retrouve un article par sa reference **et sa teinte**.
@@ -336,48 +363,51 @@ class FmaPricerEngine(models.AbstractModel):
         ``x_studio_ref_int_logikal`` / ``x_studio_color_logikal`` portent les
         deux valeurs du pricer. Chercher sur la seule reference reviendrait a
         prendre une teinte au hasard — donc a acheter la mauvaise barre.
-        """
-        code = (code or "").strip()
-        if not code:
-            return self.env["product.product"]
 
+        Renvoie ``(article, motif)``. Le motif decrit ce qui a empeche de
+        trancher quand aucun article ne convient ; il est inscrit sur le lot,
+        et n'interrompt pas l'import.
+        """
         Product = self.env["product.product"]
+        code = (code or "").strip()
+        color = (color or "").strip()
+        if not code:
+            return Product, _("profile sans reference dans le fichier")
+
+        absent = _(
+            "profile %(code)s en %(color)s : article inexistant dans Odoo",
+            code=code,
+            color=color or _("sans teinte"),
+        )
+
         fields_ = Product._fields
         if "x_studio_ref_int_logikal" not in fields_:
-            return Product.search([("default_code", "=", code)], limit=1)
+            product = Product.search([("default_code", "=", code)], limit=1)
+            return product, (absent if not product else None)
 
-        domain = [("x_studio_ref_int_logikal", "=", code)]
-        candidates = Product.search(domain)
+        candidates = Product.search([("x_studio_ref_int_logikal", "=", code)])
         if not candidates:
-            return Product.search([("default_code", "=", code)], limit=1)
+            product = Product.search([("default_code", "=", code)], limit=1)
+            return product, (absent if not product else None)
 
-        color = (color or "").strip()
         if "x_studio_color_logikal" in fields_:
             exact = candidates.filtered(
                 lambda p: (p.x_studio_color_logikal or "").strip() == color
             )
             if exact:
-                return exact[:1]
+                return exact[:1], None
 
         if len(candidates) == 1:
             # Une seule teinte connue pour cette reference : pas d'ambiguite.
-            return candidates
+            return candidates, None
 
-        raise UserError(
-            _(
-                "La reference %(code)s existe dans Odoo en %(count)s teintes "
-                "(%(colors)s), mais aucune ne correspond a la teinte "
-                "%(wanted)s du fichier.\n\n"
-                "Verifiez l'article, ou relancez l'import du chiffrage qui le "
-                "cree avec la bonne teinte.",
-                code=code,
-                count=len(candidates),
-                colors=", ".join(
-                    sorted(
-                        (p.x_studio_color_logikal or "?")
-                        for p in candidates
-                    )
-                ),
-                wanted=color or _("(sans teinte)"),
-            )
+        # Plusieurs teintes, aucune ne correspond : choisir au hasard ferait
+        # acheter la mauvaise barre. On ne reprend pas la ligne et on le dit.
+        return Product, _(
+            "profile %(code)s : existe en %(colors)s, mais pas en %(wanted)s",
+            code=code,
+            colors=", ".join(
+                sorted((p.x_studio_color_logikal or "?") for p in candidates)
+            ),
+            wanted=color or _("sans teinte"),
         )

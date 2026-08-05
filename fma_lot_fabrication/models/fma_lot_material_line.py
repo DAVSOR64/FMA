@@ -54,6 +54,9 @@ class FmaLotMaterialLine(models.Model):
 
     @api.depends("product_id")
     def _compute_product_uom_id(self):
+        # Un compute doit affecter une valeur a *chaque* enregistrement traite :
+        # sortir de la boucle sans rien ecrire laisse un champ requis vide, et
+        # la creation echoue sur « Valeur requise manquante pour le champ
+        # Unite ». On affecte donc dans les deux cas.
         for line in self:
-            if line.product_id:
-                line.product_uom_id = line.product_id.uom_id
+            line.product_uom_id = line.product_id.uom_id or False
