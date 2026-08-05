@@ -20,9 +20,9 @@
         <field name="arch" type="xml">
             <xpath expr="//search" position="inside">
                 <field name="lot_fabrication_id"/>
-                <group expand="0" string="Regrouper par lot">
+                <group name="group_by_lot">
                     <filter name="group_lot_fabrication" string="Lot de fabrication"
-                            context="{'group_by': 'lot_fabrication_id'}"/>
+                            domain="[]" context="{'group_by': 'lot_fabrication_id'}"/>
                 </group>
             </xpath>
         </field>

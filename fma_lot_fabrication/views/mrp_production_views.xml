@@ -42,11 +42,11 @@
                         domain="[('lot_production_type', '=', 'debit')]"/>
                 <filter name="filter_lot_assemblage" string="OF Assemblage"
                         domain="[('lot_production_type', '=', 'assemblage')]"/>
-                <group expand="0" string="Regrouper par lot">
+                <group name="group_by_lot">
                     <filter name="group_lot_fabrication" string="Lot de fabrication"
-                            context="{'group_by': 'lot_fabrication_id'}"/>
+                            domain="[]" context="{'group_by': 'lot_fabrication_id'}"/>
                     <filter name="group_lot_type" string="Type dans le lot"
-                            context="{'group_by': 'lot_production_type'}"/>
+                            domain="[]" context="{'group_by': 'lot_production_type'}"/>
                 </group>
             </xpath>
         </field>

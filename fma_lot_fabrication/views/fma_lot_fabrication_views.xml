@@ -176,10 +176,14 @@
                 <separator/>
                 <filter name="filter_planned" string="Date planifiee"
                         date="date_planned_start"/>
-                <group expand="0" string="Regrouper par">
-                    <filter name="group_state" string="Etat" context="{'group_by': 'state'}"/>
-                    <filter name="group_partner" string="Client" context="{'group_by': 'partner_id'}"/>
-                    <filter name="group_date" string="Date planifiee"
+                <!-- Pas d'attribut expand/string sur <group> : la grammaire
+                     des vues de recherche v19 ne les accepte plus. -->
+                <group name="group_by">
+                    <filter name="group_state" string="Etat" domain="[]"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="group_partner" string="Client" domain="[]"
+                            context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_date" string="Date planifiee" domain="[]"
                             context="{'group_by': 'date_planned_start:week'}"/>
                 </group>
             </search>
