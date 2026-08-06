@@ -256,7 +256,7 @@ class FmaPricerEngine(models.AbstractModel):
 
         for comp in men.components:
             if comp.kind == "glass":
-                found, problem = self._find_glass(comp, men.ref)
+                found, problem = self._find_glass(comp, men.position or men.ref)
             else:
                 found, problem = self._find_product(comp.code, comp.color)
             if not found:
@@ -285,6 +285,9 @@ class FmaPricerEngine(models.AbstractModel):
             for item, qty in merged.items()
             if qty
         ]
+        operations, missing_wc = self._bom_operations(men, product)
+        issues.extend(missing_wc)
+
         vals = {
             "product_tmpl_id": product.product_tmpl_id.id,
             "product_id": product.id,
@@ -292,6 +295,7 @@ class FmaPricerEngine(models.AbstractModel):
             "product_qty": 1.0,
             "product_uom_id": product.uom_id.id,
             "code": pivot_line.ref,
+            "operation_ids": [(5, 0, 0)] + operations,
             # On repart des composants du fichier : la nomenclature est le
             # reflet du chiffrage, pas un cumul d'imports successifs.
             "bom_line_ids": [(5, 0, 0)] + lines,
@@ -301,6 +305,42 @@ class FmaPricerEngine(models.AbstractModel):
         else:
             Bom.create(vals)
         return issues
+
+    def _bom_operations(self, men, product):
+        """Gamme d'une menuiserie, a partir des temps du pricer.
+
+        Le connecteur agrege ces temps au niveau de l'affaire, sur la
+        nomenclature de projet. Ici ils sont ramenes a la menuiserie et a
+        l'unite, ce qui les rend exploitables par OF d'assemblage.
+        """
+        Workcenter = self.env["mrp.workcenter"]
+        operations = []
+        missing = []
+        for operation in men.operations:
+            workcenter = Workcenter.search(
+                [
+                    ("name", "=like", "%s%%" % operation.name),
+                    ("company_id", "in", (product.company_id.id, False)),
+                ],
+                limit=1,
+            )
+            if not workcenter:
+                label = _(
+                    "operation %(name)s : aucun poste de charge de ce nom",
+                    name=operation.name,
+                )
+                if label not in missing:
+                    missing.append(label)
+                continue
+            operations.append(
+                (0, 0, {
+                    "name": operation.name,
+                    "workcenter_id": workcenter.id,
+                    "time_cycle_manual": operation.minutes,
+                    "sequence": operation.sequence,
+                })
+            )
+        return operations, missing
 
     def _find_glass(self, comp, position):
         """Retrouve le vitrage d'une position.
@@ -325,6 +365,9 @@ class FmaPricerEngine(models.AbstractModel):
         if "x_studio_position" not in fields_:
             return Product, absent
 
+        # La position de base, pas « A_1 » : au deuxieme import le fichier
+        # parle de « A_2 » alors que le vitrage a ete cree sous « A ». Sans ca,
+        # la nomenclature reconstruite perdait son vitrage.
         candidates = Product.search([("x_studio_position", "=", position)])
         if not candidates:
             return Product, absent

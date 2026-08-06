@@ -3,7 +3,9 @@
     "name": "FMA Lots de fabrication",
     # 1.0.1 : _compute_product_uom_id de fma.lot.material.line n'affectait pas
     # de valeur quand l'article etait absent, laissant un champ requis vide.
-    "version": "19.0.1.0.1",
+    # 1.0.2 : retrait du bouton « Mise en lot » du devis, les lots etant
+    # desormais crees par l'import du pricer.
+    "version": "19.0.1.0.2",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

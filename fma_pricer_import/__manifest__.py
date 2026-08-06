@@ -15,7 +15,10 @@
     # 1.4.0 : mesure du debit sur le lot (besoin en metres face aux barres
     # achetees, chute par reference) — nouvelles colonnes sur le lot et sur
     # la ligne de besoin matiere.
-    "version": "19.0.1.4.0",
+    # 1.5.0 : gamme d'operations sur la nomenclature de chaque menuiserie, et
+    # rattachement du vitrage sur la position de base (il disparaissait de la
+    # nomenclature des le deuxieme lot importe).
+    "version": "19.0.1.5.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

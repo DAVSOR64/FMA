@@ -23,7 +23,7 @@ import os
 import re
 import sqlite3
 
-from .schema import Bar, Component, Cut, Lot, Menuiserie, Quotation
+from .schema import Bar, Component, Cut, Lot, Menuiserie, Operation, Quotation
 
 #: Nom donne au lot regroupant les positions hors lot (eco-contribution,
 #: lignes de texte...). LOGIKAL leur laisse une phase sans nom.
@@ -76,6 +76,47 @@ def color_of(outer, inner, internal, color):
         if couleur.lower() == "sans":
             couleur = ""
     return couleur
+
+
+#: Correspondance ``LabourTimes.TimeType`` -> poste de charge, telle que
+#: ``sqlite_connector`` la pose sur la nomenclature de projet. La sequence
+#: reproduit l'ordre de l'atelier.
+TIME_TYPES = {
+    0: ("Debit", 10),
+    5: ("CU (banc)", 20),
+    4: ("Usinage", 30),
+    6: ("Montage", 40),
+    11: ("Montage", 40),
+    10: ("Vitrage", 50),
+}
+
+
+def _operations(con, menuiseries):
+    """Temps de main d'oeuvre par menuiserie, pour un exemplaire.
+
+    ``LabourTimes.TotalMinutes`` est le temps d'un exemplaire ; le connecteur
+    le multiplie par ``Elevations.Amount`` pour totaliser l'affaire. Une
+    nomenclature raisonne a l'unite : on garde le temps unitaire.
+    """
+    agg = {}
+    for eid, minutes, time_type in con.execute(
+        "select ElevationId, TotalMinutes, TimeType from LabourTimes"
+    ):
+        entry = TIME_TYPES.get(time_type)
+        if entry is None or eid not in menuiseries:
+            continue
+        name, sequence = entry
+        key = (eid, name)
+        agg[key] = (agg.get(key, (0.0, sequence))[0] + (minutes or 0.0), sequence)
+
+    for (eid, name), (minutes, sequence) in agg.items():
+        if minutes <= 0:
+            continue
+        menuiseries[eid].operations.append(
+            Operation(name=name, minutes=minutes, sequence=sequence)
+        )
+    for men in menuiseries.values():
+        men.operations.sort(key=lambda o: (o.sequence, o.name))
 
 
 def _suppliers(con):
@@ -223,6 +264,9 @@ def _parse(con, source):
                 qty=amount or 1.0,
             )
         )
+
+    # --- operations : temps de main d'oeuvre par menuiserie ------------------
+    _operations(con, menuiseries)
 
     # --- barres : rattachement au lot, via les coupes ------------------------
     _attach_bars(con, quo, lots, suppliers)

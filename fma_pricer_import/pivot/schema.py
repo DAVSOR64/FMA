@@ -49,6 +49,15 @@ class Cut:
 
 
 @dataclass
+class Operation:
+    """Temps de main d'oeuvre d'une menuiserie, pour un exemplaire."""
+
+    name: str
+    minutes: float = 0.0
+    sequence: int = 10
+
+
+@dataclass
 class Menuiserie:
     """Une ligne d'etude du pricer = une ligne de devis Odoo."""
 
@@ -64,6 +73,7 @@ class Menuiserie:
     price: float = 0.0
     components: list = field(default_factory=list)  # [Component]
     debit: list = field(default_factory=list)  # [Cut], pour UN exemplaire
+    operations: list = field(default_factory=list)  # [Operation], pour UN exemplaire
 
     @property
     def debit_mm(self):

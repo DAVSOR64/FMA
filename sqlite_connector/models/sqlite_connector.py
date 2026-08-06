@@ -1200,9 +1200,8 @@ class SqliteConnector(models.Model):
             largNumDec = 0
             HautNum = 0
             largNum = 0
-            glass_refs = self._glass_refs(
-                Glass, proj, self._base_positions(cursor)
-            )
+            glass_positions = self._base_positions(cursor)
+            glass_refs = self._glass_refs(Glass, proj, glass_positions)
             for ligne in Glass :
                 cpt = cpt + 1
                 uom_uom = uom_uoms.filtered(lambda u: u.name == unnomf)
@@ -1224,7 +1223,12 @@ class SqliteConnector(models.Model):
                 if vitrage != (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5])) :
                     refinterne = glass_refs[cpt - 1]
                     vitrage = ligne[3]
-                    position = ligne[2]
+                    # Position de base : au deuxieme lot, LOGIKAL parle de
+                    # « A_2 » la ou le vitrage a ete cree sous « A ». Stocker
+                    # le nom brut ferait perdre le rattachement.
+                    position = glass_positions.get(
+                        (ligne[2] or '').strip(), (ligne[2] or '').strip()
+                    )
                     prix = ligne[6]
                     Qte = ligne[8]
                     HautNumDec = float(ligne[5])

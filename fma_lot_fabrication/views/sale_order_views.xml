@@ -20,13 +20,12 @@
                 <field name="qty_to_lot_total" invisible="1"/>
             </xpath>
 
-            <header position="inside">
-                <button name="action_open_lot_wizard" type="object"
-                        string="Mise en lot"
-                        invisible="state == 'cancel'"
-                        class="btn-secondary"
-                        help="Repartir les menuiseries de cette commande dans des lots de fabrication."/>
-            </header>
+            <!--
+                Plus de bouton « Mise en lot » : les lots viennent du pricer,
+                qui les porte nativement (table Phases de LOGIKAL) et les cree
+                a l'import. Le wizard reste disponible par le menu Fabrication
+                pour un rattrapage manuel.
+            -->
 
             <xpath expr="//field[@name='order_line']/list" position="inside">
                 <field name="is_lotable" column_invisible="1"/>
