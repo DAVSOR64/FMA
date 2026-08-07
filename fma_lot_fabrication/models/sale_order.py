@@ -7,6 +7,7 @@ quantite a y placer.
 """
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from odoo.tools import float_compare
 
 
 class SaleOrder(models.Model):
@@ -44,6 +45,78 @@ class SaleOrder(models.Model):
             order.lot_count = len(order.lot_ids)
             order.qty_to_lot_total = sum(
                 order.order_line.filtered("is_lotable").mapped("qty_to_lot")
+            )
+
+    # ------------------------------------------------------------------
+    # Couplage lots <-> OF standards
+    # ------------------------------------------------------------------
+    def action_confirm(self):
+        """Confirme la commande, puis rattache les OF natifs aux lots.
+
+        La generation des OF reste **standard** : c'est l'approvisionnement
+        Odoo qui les cree a la confirmation, ce qui declenche les besoins
+        composants et relie l'OF a la livraison. Mais le natif raisonne par
+        ligne de commande, alors que l'atelier fabrique par lot : on scinde
+        donc chaque OF selon la repartition du lotissement.
+        """
+        res = super().action_confirm()
+        self._dispatch_productions_to_lots()
+        return res
+
+    def _dispatch_productions_to_lots(self):
+        """Scinde les OF issus de l'appro et les affecte a leur lot."""
+        Production = self.env["mrp.production"]
+        for order in self:
+            for line in order.order_line:
+                allocations = line.lot_line_ids.filtered(
+                    lambda a: not a.production_id and a.product_qty > 0
+                ).sorted(lambda a: (a.lot_id.name or "", a.id))
+                if not allocations:
+                    continue
+
+                productions = Production.search(
+                    [
+                        ("sale_line_id", "=", line.id),
+                        ("state", "not in", ("done", "cancel")),
+                        ("lot_fabrication_id", "=", False),
+                    ]
+                )
+                if len(productions) != 1:
+                    # Aucun OF natif, ou plusieurs : on ne devine pas. Le
+                    # bouton du lot reste disponible pour completer.
+                    continue
+
+                self._assign_production_to_lots(productions, allocations)
+
+    def _assign_production_to_lots(self, production, allocations):
+        """Scinde un OF selon les quantites des lots, puis les rattache."""
+        amounts = [alloc.product_qty for alloc in allocations]
+        reste = production.product_qty - sum(amounts)
+        if float_compare(reste, 0.0, precision_digits=2) > 0:
+            # Une part de la ligne n'est pas lotie : elle reste sur un OF
+            # a part, que le natif continue de piloter.
+            amounts.append(reste)
+        elif float_compare(reste, 0.0, precision_digits=2) < 0:
+            # Plus de quantite lotie que produite : le lotissement a change
+            # apres coup. On ne scinde pas, on laisse l'ecart visible.
+            return
+
+        productions = production
+        if len(amounts) > 1:
+            productions = production._split_productions({production: amounts})
+
+        for alloc, split in zip(allocations, productions):
+            split.write(
+                {
+                    "lot_fabrication_id": alloc.lot_id.id,
+                    "lot_line_id": alloc.id,
+                    "lot_sale_line_id": alloc.sale_line_id.id,
+                    "lot_production_type": "assemblage",
+                }
+            )
+            alloc.production_id = split
+            split._add_debit_component(
+                alloc.lot_id._get_product_debit(), alloc.product_qty
             )
 
     def action_open_lot_wizard(self):
