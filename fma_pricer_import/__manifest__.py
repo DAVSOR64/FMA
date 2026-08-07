@@ -18,7 +18,10 @@
     # 1.5.0 : gamme d'operations sur la nomenclature de chaque menuiserie, et
     # rattachement du vitrage sur la position de base (il disparaissait de la
     # nomenclature des le deuxieme lot importe).
-    "version": "19.0.1.5.0",
+    # 1.6.0 : la nomenclature n'est plus reconstruite quand l'empreinte n'a
+    # pas change ni quand un composant reste introuvable ; le temps de debit
+    # part sur le sous-ensemble debite.
+    "version": "19.0.1.6.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

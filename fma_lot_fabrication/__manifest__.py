@@ -5,7 +5,9 @@
     # de valeur quand l'article etait absent, laissant un champ requis vide.
     # 1.0.2 : retrait du bouton « Mise en lot » du devis, les lots etant
     # desormais crees par l'import du pricer.
-    "version": "19.0.1.0.2",
+    # 1.0.3 : l'OF de debit consomme le besoin matiere meme quand l'article
+    # debite porte une nomenclature sans composant (gamme de debit seule).
+    "version": "19.0.1.0.3",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

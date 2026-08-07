@@ -177,11 +177,15 @@ class FmaPricerEngine(models.AbstractModel):
                     )
                 )
                 continue
+            template = line.product_id.product_tmpl_id
+            unchanged = template.pricer_signature == key
             # Champ technique : le commercial qui importe n'a pas forcement
             # le droit d'ecrire sur les articles.
-            line.product_id.product_tmpl_id.sudo().pricer_signature = key
+            template.sudo().pricer_signature = key
             found[key] = line
-            issues = self._sync_manufactured_product(line.product_id, pivot_line)
+            issues = self._sync_manufactured_product(
+                line.product_id, pivot_line, unchanged=unchanged
+            )
             if issues:
                 missing.setdefault(key, []).extend(issues)
 
@@ -190,7 +194,7 @@ class FmaPricerEngine(models.AbstractModel):
     # ------------------------------------------------------------------
     # Article fabrique et nomenclature
     # ------------------------------------------------------------------
-    def _sync_manufactured_product(self, product, pivot_line):
+    def _sync_manufactured_product(self, product, pivot_line, unchanged=False):
         """Rend l'article de la menuiserie fabricable, et lui pose sa nomenclature.
 
         ``sqlite_connector`` cree l'article de chaque menuiserie **sans route**
@@ -211,7 +215,7 @@ class FmaPricerEngine(models.AbstractModel):
             vals["route_ids"] = [(6, 0, routes.ids)]
         tmpl.write(vals)
 
-        return self._sync_bom(product, pivot_line)
+        return self._sync_bom(product, pivot_line, unchanged=unchanged)
 
     def _debit_product(self, product):
         """Sous-ensemble « debite » d'une menuiserie.
@@ -240,7 +244,7 @@ class FmaPricerEngine(models.AbstractModel):
             }
         )
 
-    def _sync_bom(self, product, pivot_line):
+    def _sync_bom(self, product, pivot_line, unchanged=False):
         """(Re)construit la nomenclature d'une menuiserie.
 
         Une nomenclature par menuiserie, et non une pour toute l'affaire :
@@ -273,6 +277,18 @@ class FmaPricerEngine(models.AbstractModel):
             ],
             limit=1,
         )
+
+        # Cinq lots d'une meme menuiserie decrivent la meme chose : seule la
+        # quantite a fabriquer change. Si l'empreinte du chiffrage n'a pas
+        # bouge et que la nomenclature existe deja, il n'y a rien a refaire.
+        if unchanged and bom and bom.bom_line_ids:
+            return issues
+
+        # Une resolution incomplete ne doit jamais ecraser une nomenclature
+        # correcte : c'est ce qui faisait disparaitre le vitrage au deuxieme
+        # import. On signale le manque et on laisse l'existant en place.
+        if issues and bom and bom.bom_line_ids:
+            return issues
         merged = {}
         for item, qty in components:
             merged[item] = merged.get(item, 0.0) + qty
@@ -285,8 +301,12 @@ class FmaPricerEngine(models.AbstractModel):
             for item, qty in merged.items()
             if qty
         ]
-        operations, missing_wc = self._bom_operations(men, product)
+        # Le debit est mutualise sur le lot : son temps appartient a l'OF de
+        # debit, pas aux OF d'assemblage. Il part donc sur la nomenclature du
+        # sous-ensemble debite.
+        operations, missing_wc = self._bom_operations(men, product, skip=("Debit",))
         issues.extend(missing_wc)
+        issues.extend(self._sync_debit_bom(debit, men))
 
         vals = {
             "product_tmpl_id": product.product_tmpl_id.id,
@@ -306,7 +326,41 @@ class FmaPricerEngine(models.AbstractModel):
             Bom.create(vals)
         return issues
 
-    def _bom_operations(self, men, product):
+    def _sync_debit_bom(self, debit, men):
+        """Nomenclature du sous-ensemble debite : la gamme de debit, sans composant.
+
+        Aucune ligne de composant : les barres viennent du besoin matiere du
+        lot, qui varie d'un lot a l'autre alors que la nomenclature, elle, est
+        commune. Cette nomenclature ne sert qu'a porter le temps de debit.
+        """
+        operations, missing = self._bom_operations(men, debit, keep=("Debit",))
+        if not operations:
+            return missing
+
+        Bom = self.env["mrp.bom"].sudo()
+        bom = Bom.search(
+            [
+                ("product_tmpl_id", "=", debit.product_tmpl_id.id),
+                ("type", "=", "normal"),
+            ],
+            limit=1,
+        )
+        vals = {
+            "product_tmpl_id": debit.product_tmpl_id.id,
+            "product_id": debit.id,
+            "type": "normal",
+            "product_qty": 1.0,
+            "product_uom_id": debit.uom_id.id,
+            "operation_ids": [(5, 0, 0)] + operations,
+            "bom_line_ids": [(5, 0, 0)],
+        }
+        if bom:
+            bom.write(vals)
+        else:
+            Bom.create(vals)
+        return missing
+
+    def _bom_operations(self, men, product, skip=(), keep=None):
         """Gamme d'une menuiserie, a partir des temps du pricer.
 
         Le connecteur agrege ces temps au niveau de l'affaire, sur la
@@ -317,6 +371,10 @@ class FmaPricerEngine(models.AbstractModel):
         operations = []
         missing = []
         for operation in men.operations:
+            if keep is not None and operation.name not in keep:
+                continue
+            if operation.name in skip:
+                continue
             workcenter = Workcenter.search(
                 [
                     ("name", "=like", "%s%%" % operation.name),

@@ -431,7 +431,11 @@ class FmaLotFabrication(models.Model):
             }
         )
         production = Production.create(vals)
-        if not bom:
+        # L'article debite peut porter une nomenclature *sans composant*, qui
+        # ne sert qu'a porter la gamme de debit : les barres, elles, varient
+        # d'un lot a l'autre et viennent du besoin matiere. Il faut donc les
+        # ajouter aussi dans ce cas.
+        if not bom or not bom.bom_line_ids:
             production._add_lot_material_moves(self.material_line_ids)
 
         self.production_debit_id = production
