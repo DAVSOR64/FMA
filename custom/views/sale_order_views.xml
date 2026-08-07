@@ -114,4 +114,65 @@
 
         </field>
     </record>
+
+    <!--
+        Retrait du champ « OLD » (x_studio_commercial_client_mtn) de la fiche
+        devis. Ce champ est declare et pose par Studio, en base : il n'existe
+        dans aucun module. On ne peut donc que le masquer par heritage.
+
+        priority eleve : les vues heritees sont appliquees par priorite
+        croissante puis par id. Les vues Studio etant creees apres celles des
+        modules, une priorite basse ferait passer ce retrait *avant* que
+        Studio n'ajoute le champ, et il n'aurait aucun effet.
+
+        Attention : si le champ Studio venait a etre supprime, cette vue
+        echouerait a la mise a jour du module. Le jour ou vous nettoyez ces
+        champs deprecies cote Studio, supprimez aussi cet enregistrement.
+    -->
+    <record id="view_order_form_custom_hide_old" model="ir.ui.view">
+        <field name="name">sale.order.form.custom.hide.old</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="priority">999</field>
+        <field name="arch" type="xml">
+            <field name="x_studio_commercial_client_mtn" position="replace"/>
+
+            <!--
+                Les dates de la chronologie s'affichaient « 31 juil. » alors
+                que la langue est bien en %d/%m/%Y : un widget (remaining_days)
+                leur est pose apres coup, hors depot. Un attribut sans valeur
+                le retire, et la date reprend le format de la langue.
+            -->
+            <field name="so_date_de_reception_devis" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_du_devis" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_de_modification_devis" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_devis_valide" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_ARC" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_bpe" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_bon_pour_fab" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_de_fin_de_production_reel" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_de_livraison" position="attributes">
+                <attribute name="widget"/>
+            </field>
+            <field name="so_date_de_livraison_prevu" position="attributes">
+                <attribute name="widget"/>
+            </field>
+        </field>
+    </record>
 </odoo>

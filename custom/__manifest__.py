@@ -3,7 +3,9 @@
     "name": "Custom Field Transfer",
     # 1.0.31 : Chronologie sortie de la colonne de droite, ou elle etait
     # repoussee en bord d'ecran ; deux dates par ligne.
-    "version": "19.0.1.0.31",
+    # 1.0.32 : retrait du champ Studio « OLD »
+    # (x_studio_commercial_client_mtn) de la fiche devis.
+    "version": "19.0.1.0.32",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
