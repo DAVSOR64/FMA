@@ -5,14 +5,17 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- Chronologie sur sa propre ligne, en pleine largeur sous
-                 l'entete, plutot qu'a l'interieur de la colonne de droite
-                 "order_details" ou elle se retrouvait repoussee tout a droite
-                 de l'ecran. "position=after" la place apres le groupe entier :
-                 elle n'attend donc pas la fin de la colonne la plus haute,
-                 ce qui etait le defaut de la version d'origine. col="4"
-                 remet deux dates par ligne au lieu d'une. -->
-            <xpath expr="//group[@name='sale_header']" position="after">
+            <!-- Chronologie en pleine largeur sur deux colonnes (col="4" :
+                 deux paires libelle/date par ligne), placee juste apres les
+                 deux colonnes de l'entete.
+
+                 Elle etait auparavant *dans* "order_details", la colonne de
+                 droite, donc repoussee en bord d'ecran. La mettre apres
+                 "sale_header" la renvoyait tout en bas, sous les blocs
+                 Informations principales/supplementaires. En s'accrochant a
+                 "order_details" plutot qu'au groupe entier, elle reste au
+                 niveau de l'entete tout en occupant la largeur. -->
+            <xpath expr="//group[@name='order_details']" position="after">
                 <group string="Chronologie" col="4">
 
                     <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
