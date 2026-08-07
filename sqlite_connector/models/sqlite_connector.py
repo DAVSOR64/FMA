@@ -1376,17 +1376,22 @@ class SqliteConnector(models.Model):
                         refart = 'Frais de livraison'
                 else :
                     PourRem = PourRemProj
+                    # Meme convention que la creation de l'article :
+                    # <affaire>_<position>, position debarrassee du suffixe
+                    # de lot. Sans cet alignement, la ligne cherche un
+                    # article qui n'existe pas et n'est pas creee.
+                    position_ligne = base_position(row[11], row[3])
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                         NumLig = NumLig + 1
                         if Tranche == '0' :
                             #refart = '[' + str(NumLig) + '_' + projet + ']'
-                            refart = str(NumLig) + '_' + projet
+                            refart = projet + '_' + position_ligne
                             price = float(row[8])
                             Qty = float(row[6])
                         else :
                             #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
-                            refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
+                            refart = projet + '/' + str(Tranche) + '_' + position_ligne
                             price = float(row[8])
                             Qty = float(row[6])
                     else:
@@ -1395,12 +1400,12 @@ class SqliteConnector(models.Model):
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
                         if Tranche == '0'  :
                             #refart = '[' + str(NumLig) + '_' + projet + ']' 
-                            refart = str(NumLig) + '_' + projet
+                            refart = projet + '_' + position_ligne
                             price = float(row[8])
                             Qty = float(row[6])
                         else :
                             #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']' 
-                            refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
+                            refart = projet + '/' + str(Tranche) + '_' + position_ligne
                             price = float(row[8])
                             Qty = float(row[6])
                 
