@@ -9,7 +9,9 @@
             Task: 4098688
         """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.6",
+    # 1.0.7 : le bouton « Validé » renseigne « Devis validé le », qui
+    # alimente le taux de transformation du tableau de bord.
+    "version": "19.0.1.0.7",
     "depends": [
         "sale_management",
         "custom",

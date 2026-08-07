@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    "version": "19.0.1.0.30",
+    # 1.0.31 : Chronologie sortie de la colonne de droite, ou elle etait
+    # repoussee en bord d'ecran ; deux dates par ligne.
+    "version": "19.0.1.0.31",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [

@@ -144,7 +144,11 @@ class SaleOrder(models.Model):
         for order in self:
             order.state = "validated"
             order.x_studio_date_de_la_commande = fields.Datetime.today()
-            # order.so_date_devis_valide = fields.Datetime.today()
+            # so_date_devis_valide est un fields.Date : on y met une date, pas
+            # un datetime. C'est ce champ qui alimente le taux de
+            # transformation (x_nb_valide / x_montant_valide) du tableau de
+            # bord : un devis validé compte comme commande.
+            order.so_date_devis_valide = fields.Date.context_today(order)
             order.x_studio_avancement = "5"  # Mettre x_studio_avancement à '5'
 
     # Extra: Allows confirmation from the custom 'validated' state as well.
