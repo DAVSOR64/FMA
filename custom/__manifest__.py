@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    # 1.0.31 : Chronologie sortie de la colonne de droite ou elle etait
-    # repoussee en bord d'ecran. Pleine largeur, deux dates par ligne,
-    # accrochee a l'entete plutot qu'en bas de la fiche.
+    # 1.0.31 : reorganisation de la fiche devis (handoff ergonomie) :
+    # frise de chronologie en lecture seule en haut, onglets « Livraison &
+    # acces » et « Chronologie », horaires en float_time, libelles colores
+    # retires.
     "version": "19.0.1.0.31",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",

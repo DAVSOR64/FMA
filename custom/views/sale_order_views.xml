@@ -5,49 +5,21 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- Chronologie en pleine largeur sur deux colonnes (col="4" :
-                 deux paires libelle/date par ligne), placee juste apres les
-                 deux colonnes de l'entete.
-
-                 Elle etait auparavant *dans* "order_details", la colonne de
-                 droite, donc repoussee en bord d'ecran. La mettre apres
-                 "sale_header" la renvoyait tout en bas, sous les blocs
-                 Informations principales/supplementaires. En s'accrochant a
-                 "order_details" plutot qu'au groupe entier, elle reste au
-                 niveau de l'entete tout en occupant la largeur. -->
-            <xpath expr="//group[@name='order_details']" position="after">
-                <group string="Chronologie" col="4">
-
-                    <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
-                    <field name="so_date_de_reception_devis" nolabel="1"/>
-
-                    <label for="so_date_du_devis" string="Devis fait le :" class="label-blue"/>
-                    <field name="so_date_du_devis" nolabel="1"/>
-
-                    <label for="so_date_de_modification_devis" string="Devis modifié le :" class="label-blue"/>
-                    <field name="so_date_de_modification_devis" nolabel="1"/>
-
-                    <label for="so_date_devis_valide" string="Devis validé le :" class="label-blue"/>
-                    <field name="so_date_devis_valide" nolabel="1"/>
-
-                    <label for="so_date_ARC" string="ARC du :" class="label-green"/>
-                    <field name="so_date_ARC" nolabel="1"/>
-
-                    <label for="so_date_bpe" string="BPE du :" class="label-green"/>
-                    <field name="so_date_bpe" nolabel="1"/>
-
-                    <label for="so_date_bon_pour_fab" string="Bon pour Fab. le :" class="label-orange"/>
-                    <field name="so_date_bon_pour_fab" nolabel="1"/>
-
-                    <label for="so_date_de_fin_de_production_reel" string="Fin de production du :" class="label-orange"/>
-                    <field name="so_date_de_fin_de_production_reel" nolabel="1"/>
-
-                    <label for="so_date_de_livraison" string="Date de livraison prévue :" class="label-orange"/>
-                    <field name="so_date_de_livraison" nolabel="1"/>
-
-                    <label for="so_date_de_livraison_prevu" string="Date de livraison :" class="label-orange"/>
-                    <field name="so_date_de_livraison_prevu" nolabel="1"/>
-
+            <!-- §3A du handoff : la chronologie devient une frise de suivi en
+                 lecture seule, juste sous le titre et avant les groupes. Les
+                 dates restent modifiables dans l'onglet Chronologie, qui en
+                 est la source de verite. Les libelles colores sont retires
+                 (§6) : la couleur ne sert plus qu'aux badges de statut. -->
+            <xpath expr="//group[@name='sale_header']" position="before">
+                <group name="fma_chronologie" string="Chronologie" col="8">
+                    <field name="so_date_de_reception_devis" readonly="1"/>
+                    <field name="so_date_du_devis" readonly="1"/>
+                    <field name="so_date_devis_valide" readonly="1"/>
+                    <field name="so_date_ARC" readonly="1"/>
+                    <field name="so_date_bpe" readonly="1"/>
+                    <field name="so_date_bon_pour_fab" readonly="1"/>
+                    <field name="so_date_de_fin_de_production_reel" readonly="1"/>
+                    <field name="so_date_de_livraison" readonly="1"/>
                 </group>
             </xpath>
 
@@ -64,18 +36,54 @@
                            context="{'default_parent_id': partner_id}"/>
                 </group>
 
-                <group string="Informations supplémentaires">
-                    <field name="so_acces_bl"/>
-                    <field name="so_type_camion_bl"/>
-                    <field name="so_horaire_ouverture_bl"/>
-                    <field name="so_horaire_fermeture_bl"/>
-                </group>
-
-                <!-- ⚠️ on ne met PLUS Communication affaire ici -->
+                <!-- « Informations supplementaires » a disparu de l'entete :
+                     ses champs sont dans l'onglet Livraison & acces (§5). -->
             </xpath>
 
             <!-- Onglets en bas de la vue -->
             <xpath expr="//sheet/notebook" position="inside">
+
+                <!-- §5 : acces chantier et expedition, sortis de l'entete.
+                     float_time sur les horaires pour afficher 8:00 et non
+                     0,00 (§6). -->
+                <page string="Livraison &amp; accès" name="fma_livraison">
+                    <group>
+                        <group string="Accès chantier">
+                            <field name="so_acces_bl"/>
+                            <field name="so_type_camion_bl"/>
+                            <field name="so_horaire_ouverture_bl" widget="float_time"/>
+                            <field name="so_horaire_fermeture_bl" widget="float_time"/>
+                        </group>
+                        <group string="Expédition">
+                            <field name="commitment_date"/>
+                            <field name="so_date_de_livraison_prevu"/>
+                            <field name="so_date_de_livraison" readonly="1"/>
+                        </group>
+                    </group>
+                </page>
+
+                <!-- §5 : source de verite des dates. La frise du haut n'en est
+                     que le reflet, en lecture seule. -->
+                <page string="Chronologie" name="fma_chronologie_page">
+                    <group>
+                        <group string="Devis">
+                            <field name="so_date_de_reception_devis"/>
+                            <field name="so_date_du_devis"/>
+                            <field name="so_date_de_modification_devis"/>
+                            <field name="so_date_devis_valide"/>
+                            <field name="x_studio_date_de_relance_1"/>
+                            <field name="x_studio_date_de_relance_2"/>
+                        </group>
+                        <group string="Commande et production">
+                            <field name="so_date_ARC"/>
+                            <field name="so_date_bpe"/>
+                            <field name="so_date_bon_pour_fab"/>
+                            <field name="so_date_de_fin_de_production_reel"/>
+                            <field name="so_statut_avancement_production"/>
+                            <field name="x_studio_commentaire_supplmentaire"/>
+                        </group>
+                    </group>
+                </page>
 
                 <!-- Onglet Analyse Financière (déjà existant) -->
                 <page string="Analyse Financière">
