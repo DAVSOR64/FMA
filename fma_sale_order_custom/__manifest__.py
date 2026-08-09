@@ -16,7 +16,12 @@
     # ne peut pas dependre de ce module : il en est la dependance.
     # 1.0.9 : barre d'etat allegee, Pro forma et Annuler passent dans le
     # menu Action (actions serveur liees au modele).
-    "version": "19.0.1.0.9",
+    # 1.0.10 : portage des 4 derniers champs Studio de sale.order
+    # (x_studio_avancement, x_studio_commercial_si_prospect,
+    # x_studio_motif_annul, x_studio_commercial_client_mtn), definitions
+    # relevees en base. Prealable indispensable a la refonte de la vue :
+    # un champ « manual » n'existe pas au chargement des vues des modules.
+    "version": "19.0.1.0.10",
     "depends": [
         "sale_management",
         "custom",
