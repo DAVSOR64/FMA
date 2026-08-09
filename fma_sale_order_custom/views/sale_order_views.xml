@@ -56,4 +56,29 @@
             </xpath>
         </field>
     </record>
+
+    <!--
+        Complements a l'onglet Chronologie cree par le module « custom ».
+        Ces champs sont declares ici, et « custom » ne peut pas dependre de ce
+        module (il en est la dependance) : c'est donc a cette vue-ci, chargee
+        apres, de les poser.
+    -->
+    <record id="view_order_form_chronologie_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.chronologie.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//page[@name='fma_chronologie_page']/group/group[1]" position="inside">
+                <field name="x_studio_date_de_relance_1"/>
+                <field name="x_studio_date_de_relance_2"/>
+            </xpath>
+
+            <xpath expr="//page[@name='fma_chronologie_page']/group/group[2]" position="inside">
+                <field name="x_studio_commentaire_supplmentaire"/>
+            </xpath>
+
+        </field>
+    </record>
+
 </odoo>

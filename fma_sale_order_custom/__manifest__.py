@@ -11,7 +11,10 @@
     "author": "Odoo PS",
     # 1.0.7 : le bouton « Validé » renseigne « Devis validé le », qui
     # alimente le taux de transformation du tableau de bord.
-    "version": "19.0.1.0.7",
+    # 1.0.8 : pose les champs de relance et le commentaire dans l'onglet
+    # Chronologie cree par « custom ». Ils sont declares ici, et « custom »
+    # ne peut pas dependre de ce module : il en est la dependance.
+    "version": "19.0.1.0.8",
     "depends": [
         "sale_management",
         "custom",

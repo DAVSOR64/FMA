@@ -71,8 +71,6 @@
                             <field name="so_date_du_devis"/>
                             <field name="so_date_de_modification_devis"/>
                             <field name="so_date_devis_valide"/>
-                            <field name="x_studio_date_de_relance_1"/>
-                            <field name="x_studio_date_de_relance_2"/>
                         </group>
                         <group string="Commande et production">
                             <field name="so_date_ARC"/>
@@ -80,7 +78,6 @@
                             <field name="so_date_bon_pour_fab"/>
                             <field name="so_date_de_fin_de_production_reel"/>
                             <field name="so_statut_avancement_production"/>
-                            <field name="x_studio_commentaire_supplmentaire"/>
                         </group>
                     </group>
                 </page>

@@ -5,7 +5,10 @@
     # frise de chronologie en lecture seule en haut, onglets « Livraison &
     # acces » et « Chronologie », horaires en float_time, libelles colores
     # retires.
-    "version": "19.0.1.0.31",
+    # 1.0.33 : un numero de version ne doit jamais reculer. Le commit casse
+    # etait en .32 ; revenir a .31 a fait passer trois commits de vue sans
+    # que la mise a jour soit rejouee. On repart au-dessus de .32.
+    "version": "19.0.1.0.33",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
