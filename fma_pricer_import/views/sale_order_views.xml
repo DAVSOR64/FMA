@@ -20,14 +20,20 @@
                 </button>
             </xpath>
 
-            <header position="inside">
-                <button name="action_open_pricer_import" type="object"
-                        string="Import Pricer" class="btn-secondary"
-                        invisible="state not in ('draft', 'sent')"
-                        help="Deposer le fichier de chiffrage LOGIKAL pour alimenter les lignes de ce devis."/>
-            </header>
+            <!-- L'import n'est plus un bouton de la barre d'etat : il rejoint
+                 le menu Action (cf. action serveur ci-dessous), pour ne garder
+                 en tete que les actions du quotidien. -->
 
         </field>
+    </record>
+
+    <record id="action_server_pricer_import" model="ir.actions.server">
+        <field name="name">Import Pricer</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_open_pricer_import()</field>
     </record>
 
 </odoo>

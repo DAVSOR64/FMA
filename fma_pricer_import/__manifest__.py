@@ -21,7 +21,8 @@
     # 1.6.0 : la nomenclature n'est plus reconstruite quand l'empreinte n'a
     # pas change ni quand un composant reste introuvable ; le temps de debit
     # part sur le sous-ensemble debite.
-    "version": "19.0.1.6.0",
+    # 1.7.0 : « Import Pricer » quitte la barre d'etat pour le menu Action.
+    "version": "19.0.1.7.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

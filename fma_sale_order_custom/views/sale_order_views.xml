@@ -81,4 +81,48 @@
         </field>
     </record>
 
+
+    <!--
+        §1/§2 du handoff : la barre d'etat ne garde que les actions du
+        quotidien. Pro forma et Annuler passent dans le menu Action via des
+        actions serveur liees au modele (binding), comme le veut le standard
+        Odoo. Import Pricer fait de meme, mais depuis son propre module.
+    -->
+    <record id="view_order_form_actions_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.actions.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//header/button[@id='send_proforma_primary']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@id='send_proforma']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='action_cancel']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="action_server_proforma" model="ir.actions.server">
+        <field name="name">Envoyer la facture pro forma</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.with_context(proforma=True, validate_analytic=True).action_quotation_send()</field>
+    </record>
+
+    <record id="action_server_cancel" model="ir.actions.server">
+        <field name="name">Annuler le devis</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_cancel()</field>
+    </record>
+
 </odoo>
