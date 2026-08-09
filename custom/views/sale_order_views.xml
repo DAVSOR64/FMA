@@ -5,26 +5,17 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- §3A du handoff : la chronologie devient une frise de suivi en
-                 lecture seule, juste sous le titre et avant les groupes. Les
-                 dates restent modifiables dans l'onglet Chronologie, qui en
-                 est la source de verite. Les libelles colores sont retires
-                 (§6) : la couleur ne sert plus qu'aux badges de statut.
+            <!-- §3B du handoff : frise graphique, sous le titre et avant les
+                 groupes. C'est un composant OWL, pas un groupe de champs :
+                 il ne declare rien dans l'arch, ses dependances sont portees
+                 par le widget lui-meme.
 
-                 col="4" et non 8 : avec le chatter, la fiche fait ~1200 px.
-                 Huit colonnes laissaient aux valeurs une cellule si etroite
-                 que « 4 aout » se coupait caractere par caractere. -->
+                 Les dates restent dans l'onglet Chronologie, qui en est la
+                 source de verite. C'est important au-dela de l'ergonomie :
+                 les vues Studio s'accrochent a so_date_devis_valide, elles
+                 l'y retrouvent. Retirer ce champ de l'arch les casserait. -->
             <xpath expr="//group[@name='sale_header']" position="before">
-                <group name="fma_chronologie" string="Chronologie" col="4">
-                    <field name="so_date_de_reception_devis" readonly="1"/>
-                    <field name="so_date_du_devis" readonly="1"/>
-                    <field name="so_date_devis_valide" readonly="1"/>
-                    <field name="so_date_ARC" readonly="1"/>
-                    <field name="so_date_bpe" readonly="1"/>
-                    <field name="so_date_bon_pour_fab" readonly="1"/>
-                    <field name="so_date_de_fin_de_production_reel" readonly="1"/>
-                    <field name="so_date_de_livraison" readonly="1"/>
-                </group>
+                <widget name="fma_timeline"/>
             </xpath>
 
             <!-- Informations principales/supplémentaires restent une nouvelle
