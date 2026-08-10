@@ -181,6 +181,10 @@
                          lisent mrp_capacity_planning et fma_mrp_dashboard, et
                          lui qui porte le compte analytique du chantier. -->
                     <field name="project_id" string="Projet"/>
+                    <!-- Affiche seulement quand le projet en compte plusieurs :
+                         sur un chantier a une seule commande, « Tranche 1 »
+                         n'apprend rien. -->
+                    <field name="tranche_no" invisible="tranche_no &lt; 2"/>
                     <field name="x_studio_numro_iziqo"/>
                     <field name="user_id" widget="many2one_avatar_user"/>
                     <field name="commercial_id"/>

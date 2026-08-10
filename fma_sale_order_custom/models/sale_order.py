@@ -158,6 +158,41 @@ class SaleOrder(models.Model):
     def _compute_x_studio_bureau_dtude(self):
         for order in self:
             order.x_studio_bureau_dtude = order.project_id.user_id
+
+    # Rang de la commande au sein de son projet : la « tranche ». Il n'y a pas
+    # d'objet tranche — une tranche EST une commande, et un projet a une ou
+    # plusieurs commandes. Le numero est donc deduit, jamais saisi : il ne
+    # peut etre ni oublie, ni faux, ni duplique.
+    #
+    # Le classement se fait par identifiant, pas par date : les identifiants
+    # sont monotones, donc une nouvelle tranche prend toujours le rang
+    # suivant et ne renumerote jamais ses aînées. Classer par date_order
+    # obligerait a recalculer toute la fratrie des qu'on antidate un devis.
+    tranche_no = fields.Integer(
+        string="Tranche",
+        compute="_compute_tranche_no",
+        store=True,
+        help="Rang de cette commande parmi celles de son projet.",
+    )
+
+    @api.depends("project_id")
+    def _compute_tranche_no(self):
+        # Une seule recherche pour tout le lot, et non un comptage par
+        # enregistrement : le calcul se declenche sur l'ensemble des devis a
+        # la creation de la colonne.
+        rangs = {}
+        projets = self.mapped("project_id")
+        if projets:
+            compteur = {}
+            freres = self.env["sale.order"].search(
+                [("project_id", "in", projets.ids)], order="project_id, id"
+            )
+            for frere in freres:
+                rang = compteur.get(frere.project_id.id, 0) + 1
+                compteur[frere.project_id.id] = rang
+                rangs[frere.id] = rang
+        for order in self:
+            order.tranche_no = rangs.get(order.id, 0) if order.project_id else 0
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")
