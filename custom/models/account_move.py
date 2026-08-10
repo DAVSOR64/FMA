@@ -56,9 +56,12 @@ class AccountMove(models.Model):
 
     @api.depends("partner_id")
     def _compute_commercial_id(self):
+        # Meme regle que sur sale.order : affectation inconditionnelle, sans
+        # jamais lire le champ calcule. Les factures issues d'une commande
+        # recoivent leur commercial par _prepare_invoice, ce qui court-circuite
+        # ce calcul.
         for move in self:
-            if not move.commercial_id and move.partner_id:
-                move.commercial_id = move.partner_id.x_studio_commercial_1
+            move.commercial_id = move.partner_id.x_studio_commercial_1
     inv_commande_client = fields.Char(string="N° Commande Client")
     inv_affacturage = fields.Boolean(
         related="partner_id.part_affacturage", string="Affacturage"

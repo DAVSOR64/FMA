@@ -209,11 +209,13 @@ class SaleOrder(models.Model):
 
     @api.depends("partner_id")
     def _compute_commercial_id(self):
+        # Un compute doit affecter une valeur a *chaque* enregistrement, et ne
+        # jamais lire le champ qu'il calcule : le lire declencherait son propre
+        # calcul. On affecte donc sans condition. Une valeur fournie a la
+        # creation (cf. _prepare_invoice) reste prioritaire : Odoo n'appelle
+        # pas le calcul quand le champ est dans les valeurs ecrites.
         for order in self:
-            if order.partner_id:
-                order.commercial_id = order.partner_id.x_studio_commercial_1
-            elif not order.commercial_id:
-                order.commercial_id = False
+            order.commercial_id = order.partner_id.x_studio_commercial_1
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
     so_commande_client = fields.Char(string="N° Commande Client")
 
