@@ -194,6 +194,35 @@ class SaleOrder(models.Model):
         for order in self:
             order.tranche_no = rangs.get(order.id, 0) if order.project_id else 0
 
+    def action_creer_chantier(self):
+        """Ouvre la fiche chantier, deja numerotee depuis ce devis.
+
+        Le geste reste celui d'aujourd'hui : on part du devis, on tape le
+        libelle de l'affaire, et le chantier s'appelle « <numero du devis> -
+        <libelle> ». Seule la recopie du numero disparait.
+
+        On ouvre le formulaire au lieu de creer directement : le libelle
+        n'est pas devinable, et un projet cree puis renomme laisserait des
+        traces dans le suivi. L'utilisateur voit ce qu'il valide.
+        """
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "project.project",
+            "view_mode": "form",
+            "target": "new",
+            "name": "Nouveau chantier",
+            "context": {
+                "default_name": "%s - " % self.name,
+                "default_x_code_affaire": self.name,
+                "default_partner_id": self.partner_id.id,
+                "default_company_id": self.company_id.id,
+                # Rattache le devis des la sauvegarde du chantier : sans ca il
+                # faudrait revenir sur le devis pour le selectionner.
+                "fma_devis_a_rattacher": self.id,
+            },
+        }
+
     # La reference que lisent les metiers : « A24-04-01435/2 ». Elle reproduit
     # a l'identique le format ecrit a la main jusqu'ici dans le nom du projet,
     # mais elle est fabriquee — donc jamais oubliee, jamais fausse, jamais en
