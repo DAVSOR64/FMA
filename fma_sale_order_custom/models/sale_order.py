@@ -152,10 +152,12 @@ class SaleOrder(models.Model):
         domain="[('employee_ids.department_id.name', 'in', ['BEC-Ventes', 'Sales'])]",
     )
 
-    @api.depends("x_studio_projet")
+    # Depuis project_id et non x_studio_projet : le projet du devis est
+    # desormais porte par le champ natif. Voir la migration 19.0.1.0.26.
+    @api.depends("project_id")
     def _compute_x_studio_bureau_dtude(self):
         for order in self:
-            order.x_studio_bureau_dtude = order.x_studio_projet.user_id
+            order.x_studio_bureau_dtude = order.project_id.user_id
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")

@@ -22,13 +22,18 @@
     # relevees en base. Prealable indispensable a la refonte de la vue :
     # un champ « manual » n'existe pas au chargement des vues des modules.
     # 1.0.11 : x_studio_commercial_1 devient le reflet de commercial_id.
-    "version": "19.0.1.0.25",
+    "version": "19.0.1.0.26",
     "depends": [
         "sale_management",
         "custom",
         "fma_studio_models",
         "crm",
         "project",
+        # Porte sale.order.project_id, le champ projet natif retenu en
+        # 19.0.1.0.3 comme remplacant d'analytic_account_id (supprime en v19)
+        # et deja lu par mrp_capacity_planning et fma_mrp_dashboard. Sans
+        # cette dependance, nos vues ne peuvent pas le placer.
+        "sale_project",
         "documents",
     ],
     "data": ["views/sale_order_views.xml"],

@@ -388,7 +388,11 @@ class ExportSFTPScheduler(models.Model):
                         getattr(o, "x_studio_avancement", "") or "",
                         _m2o_name(getattr(o, "x_studio_bureau_dtude", None))
                         or (getattr(o, "x_studio_bureau_dtude", "") or ""),
-                        _m2o_name(getattr(o, "x_studio_projet", None))
+                        # project_id (natif) d'abord, x_studio_projet ensuite.
+                        # Les deux portent la meme valeur depuis la reprise ;
+                        # le repli couvre les devis crees avant celle-ci.
+                        _m2o_name(getattr(o, "project_id", None))
+                        or _m2o_name(getattr(o, "x_studio_projet", None))
                         or (getattr(o, "x_studio_projet", "") or ""),
                         getattr(o, "so_delai_confirme_en_semaine", "") or "",
                         getattr(o, "so_commande_client", "") or "",
@@ -542,8 +546,11 @@ class ExportSFTPScheduler(models.Model):
                     # Lien commande
                     (str(l.order_id.id) if getattr(l, "order_id", False) else ""),
                     (l.order_id.name if getattr(l, "order_id", False) else ""),
+                    # Cette colonne sortait l'enregistrement lui-meme et non
+                    # son nom, faute de passer par _m2o_name comme les autres.
                     (
-                        l.order_id.x_studio_projet
+                        _m2o_name(getattr(l.order_id, "project_id", None))
+                        or _m2o_name(getattr(l.order_id, "x_studio_projet", None))
                         if getattr(l, "order_id", False)
                         else ""
                     ),
