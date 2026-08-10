@@ -25,21 +25,103 @@ class SaleOrder(models.Model):
 
     date_bpe = fields.Date(string="Date BPE")
 
+    # Le « Vendeur » natif d'Odoo est, chez FMA, le deviseur : l'utilisateur
+    # qui etablit le devis. Le commercial, lui, est un employe sans licence,
+    # porte par commercial_id. On ne change que le libelle : le champ reste le
+    # user_id standard, avec ses filtres, ses droits et ses rapports.
+    user_id = fields.Many2one(string="Deviseur")
+
     # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
     # Champs volontairement exclus de ce portage (voir STUDIO_AUDIT.md) :
-    # - x_studio_avancement, x_studio_bureau_etudes, x_studio_com,
-    #   x_studio_commercial_si_prospect, x_studio_deviseur_1,
-    #   x_studio_motif_annul, x_studio_nom_com_2 : sélections dont les
-    #   valeurs n'ont pas pu être vérifiées en base au moment du portage.
+    # - x_studio_bureau_etudes, x_studio_com, x_studio_deviseur_1,
+    #   x_studio_nom_com_2 : sélections dont les valeurs n'ont pas pu être
+    #   vérifiées en base au moment du portage. (x_studio_avancement,
+    #   x_studio_commercial_si_prospect et x_studio_motif_annul l'ont été
+    #   depuis, cf. plus bas.)
     # - x_studio_related_field_* (6 champs) : champs liés Studio dont la
     #   cible ("related=") n'a pas pu être vérifiée en base.
     # - x_studio_calcul_raf_ht : non stocké côté Studio (probablement un
     #   champ lié), pas porté tel quel pour éviter de figer sa valeur.
-    # - x_studio_commercial, x_studio_commercial_client_mtn,
-    #   x_studio_commercial_mtn_1, x_studio_montant_facturer_en_ht,
+    # - x_studio_commercial, x_studio_commercial_mtn_1,
+    #   x_studio_montant_facturer_en_ht,
     #   x_studio_mtt_facturer_en_ht, x_studio_mtt_facturer_ht_ : marqués
     #   "OLD"/déprécié par le métier lui-même côté Studio.
+    # --- Champs Studio portes le 2026-08-09 ------------------------------
+    # Definitions relevees directement en base (ir_model_fields et
+    # ir_model_fields_selection) : les valeurs sont reprises a l'identique,
+    # y compris quand la valeur stockee et son libelle divergent. Toute
+    # retouche ici rendrait invisibles les devis portant l'ancienne valeur.
+    #
+    # Ce portage est necessaire pour que les vues du depot puissent placer
+    # ces champs : un champ « manual » cree par Studio n'existe pas encore
+    # dans le registre au moment ou les vues des modules sont chargees.
+    x_studio_avancement = fields.Selection(
+        selection=[("1", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5", "5")],
+        string="Avancement",
+    )
+    x_studio_commercial_si_prospect = fields.Selection(
+        selection=[
+            ("Adrien LAISNE", "Adrien LAISNE"),
+            ("Alexandre BLOT", "Alexandre BLOT"),
+            ("Alexandre POILANE", "Alexandre POILANE"),
+            ("Arnaud Kherfouche", "Arnaud Kherfouche"),
+            ("Baptiste BOUJU", "Baptiste BOUJU"),
+            ("Carlos DA TORRE", "Carlos DA TORRE"),
+            ("Cedric KERGOSIEN", "Cédric KERGOSIEN"),
+            ("Cédric SEGUIN", "Cédric SEGUIN"),
+            ("Christian GUIHARD", "Christian GUIHARD"),
+            ("Christophe CARPENTIER", "Christophe CARPENTIER"),
+            ("Cyril JACQUEMET", "Cyril JACQUEMET"),
+            ("David CHARPENTIER", "David CHARPENTIER"),
+            ("David MAILLOT", "David MAILLOT"),
+            ("David PROVOST", "David PROVOST"),
+            ("Frédéric RAVIER", "Frédéric RAVIER"),
+            ("Hubert BOURDARIAS", "Hubert BOURDARIAS"),
+            ("Jean-Jacques LOPES", "Jean-Jacques LOPES"),
+            ("Jérôme DECAIX", "Jérôme DECAIX"),
+            ("Karine HERVOUET", "Karine HERVOUET"),
+            ("Laurent MILANO", "Laurent MILANO"),
+            ("Lucas DESBRINI", "Lucas DESBRINI"),
+            ("Mathieu LACAM", "Mathieu LACAM"),
+            ("Mathieu LOISEAUX", "Mathieu LOISEAUX"),
+            ("Mickael DUH", "Mickael DUH"),
+            ("Nicolas HUTIN", "Nicolas HUTIN"),
+            ("Paul DOS SANTOS", "Paul DOS SANTOS"),
+            ("Pierre MONTIN", "Pierre MONTIN"),
+            ("Pierre PINEAU", "Pierre PINEAU"),
+            ("Richard ROTH", "Richard ROTH"),
+            ("Rosa ALVES", "Rosa ALVES"),
+            ("Sami ABID", "Sami ABID"),
+            ("Sébastien LAVENU", "Sébastien LAVENU"),
+            ("Stephane MOUSSEL", "Stephane MOUSSEL"),
+            ("Vincent PERROT", "Vincent PERROT"),
+            ("NON DEFINI", "NON DEFINI"),
+        ],
+        string="Commercial SI PROSPECT",
+    )
+    x_studio_motif_annul = fields.Selection(
+        selection=[
+            # Valeurs telles quelles en base. Deux d'entre elles ont un
+            # libelle qui ne correspond pas a la valeur stockee ; c'est le
+            # cas en production, on ne le corrige pas ici.
+            ("KKJN?", "Dossier transmis - Pas de retour"),
+            ("Retard Travaux", "Retard Travaux"),
+            ("Projet ajourné", "En bonne voie"),
+            ("Changement Typologie", "Changement Typologie"),
+            ("Perdu par le client", "Perdu par le client"),
+            ("Perdu face à un concurrent", "Perdu face à un concurrent"),
+        ],
+        string="Statut Affaire",
+    )
+    # Marque « OLD » par le metier. Porte uniquement pour que les vues du
+    # depot puissent le retirer de l'ecran ; a supprimer le jour ou les
+    # donnees auront ete reprises.
+    x_studio_commercial_client_mtn = fields.Many2one(
+        "hr.employee",
+        string="OLD",
+    )
+
     x_studio_ach_matire = fields.Monetary(string="Achat Matière (BE)", currency_field="currency_id")
     x_studio_ach_vitrage = fields.Monetary(string="Achat Vitrage (BE)", currency_field="currency_id")
     x_studio_achat_mat = fields.Monetary(string="Achat Matière (Réel)", currency_field="currency_id")
@@ -47,19 +129,46 @@ class SaleOrder(models.Model):
     x_studio_achat_vit = fields.Monetary(string="Achat Vitrage (Réel)", currency_field="currency_id")
     x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis)", currency_field="currency_id")
     x_studio_avancement_crm = fields.Many2one("crm.stage", string="Avancement CRM")
-    x_studio_bureau_dtude = fields.Many2one("res.users", string="Bureau d'étude")
+    # Le bureau d'etude est le responsable du projet. Mesure avant bascule :
+    # 6 348 devis renseignes, 6 348 identiques au responsable du projet,
+    # 0 divergent — et tout devis ayant un bureau d'etude a un projet. Le
+    # recalcul est donc sans perte.
+    #
+    # compute + store + readonly=False, comme commercial_id : la valeur est
+    # figee sur le devis. Changer le responsable d'un projet ne doit pas
+    # reecrire l'historique, notamment les destinataires des mails de retard
+    # deja envoyes.
+    #
+    # Domaine : le departement porte deux libelles selon la langue
+    # (« BEC-Ventes » en francais, « Sales » en anglais). On accepte les deux
+    # plutot que de filtrer sur un identifiant, qui differe d'un
+    # environnement a l'autre.
+    x_studio_bureau_dtude = fields.Many2one(
+        "res.users",
+        string="Bureau d'étude",
+        compute="_compute_x_studio_bureau_dtude",
+        store=True,
+        readonly=False,
+        domain="[('employee_ids.department_id.name', 'in', ['BEC-Ventes', 'Sales'])]",
+    )
+
+    @api.depends("x_studio_projet")
+    def _compute_x_studio_bureau_dtude(self):
+        for order in self:
+            order.x_studio_bureau_dtude = order.x_studio_projet.user_id
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")
     x_studio_commentaire_supplmentaire = fields.Char(string="Commentaire Supplémentaire")
-    # Recopie le nom du commercial (employé) assigné au client sélectionné.
-    # FMA/Janneau n'utilise pas le "Commercial" natif d'Odoo (user_id, lié à
-    # une licence utilisateur) mais un employé (res.partner.x_studio_commercial_1,
-    # Many2one hr.employee) -- ce champ existait avant la migration mais sa
-    # synchronisation automatique avait été perdue au portage.
-    x_studio_commercial_1 = fields.Char(
-        string="Commercial", compute="_compute_x_studio_commercial_1", store=True, readonly=True
-    )
+    # Nom du commercial, HISTORIQUE. 13 494 devis le portent, herite de
+    # Studio. On le laisse volontairement fige : les commerciaux des devis
+    # deja etablis ne doivent pas etre reecrits.
+    #
+    # Il n'est donc PAS calcule depuis commercial_id : en faire un reflet
+    # aurait vide ou reecrit ces 13 494 valeurs des qu'on aurait alimente le
+    # nouveau champ. Les consommateurs (export PowerBI, mails de retard)
+    # lisent commercial_id en priorite et retombent sur celui-ci.
+    x_studio_commercial_1 = fields.Char(string="Commercial (historique)", readonly=True)
     x_studio_date_bpe = fields.Date(string="Date BPE")
     x_studio_date_de_modification = fields.Datetime(string="Date de Modification")
     x_studio_date_de_rception = fields.Date(string="Date de Réception")
@@ -67,7 +176,9 @@ class SaleOrder(models.Model):
     x_studio_date_de_relance_2 = fields.Datetime(string="Date de relance 2")
     x_studio_date_field_IuGus = fields.Date(string="New Date")
     x_studio_datetime_field_22b_1jcrk40tn = fields.Datetime(string="Nouveau Datetime")
-    x_studio_deviseur = fields.Char(string="Deviseur")
+    # Ancien champ texte, 592 enregistrements, remplace par user_id.
+    # Libelle distinct pour ne pas le confondre avec le vrai deviseur.
+    x_studio_deviseur = fields.Char(string="Deviseur (ancien)")
     # Many2many auto-référencé sur sale.order lui-même : aucune table de
     # relation ni donnée existante côté Studio (champ probablement
     # abandonné/mal configuré, x_studio_etiquette_1 ci-dessous porte le
@@ -122,16 +233,15 @@ class SaleOrder(models.Model):
     x_studio_nom_commercial = fields.Char(string="Sélection commercial", readonly=True)
     x_studio_numro_iziqo = fields.Char(string="Numéro Iziqo")
     x_studio_plannifier_en_prod = fields.Boolean(string="Planifié en Prod")
-    x_studio_projet = fields.Many2one("project.project", string="Projet mtn")
+    # « Projet » tout court : c'est ce champ qui pilote l'affaire chez FMA.
+    # Il est consomme par le tableau de bord MRP (jointures SQL directes sur
+    # so.x_studio_projet), la rentabilite projet, la propagation vers les
+    # achats et l'export PowerBI. Le nom technique ne bouge donc pas.
+    x_studio_projet = fields.Many2one("project.project", string="Projet")
     x_studio_restant_a_facturer_ht_pivot = fields.Monetary(string="RAF HT", currency_field="currency_id", readonly=True)
     x_studio_so_cout_appro_affaire = fields.Monetary(string="Appro Affaire", currency_field="currency_id")
     x_studio_so_cout_appro_stock = fields.Monetary(string="Appro Stock", currency_field="currency_id")
     x_studio_srie = fields.Many2one("x_serie_mtn", string="Série")
-
-    @api.depends("partner_id")
-    def _compute_x_studio_commercial_1(self):
-        for order in self:
-            order.x_studio_commercial_1 = order.partner_id.x_studio_commercial_1.name or False
 
     @api.onchange("so_date_de_livraison")
     def _onchange_so_date_de_livraison(self):
@@ -144,7 +254,11 @@ class SaleOrder(models.Model):
         for order in self:
             order.state = "validated"
             order.x_studio_date_de_la_commande = fields.Datetime.today()
-            # order.so_date_devis_valide = fields.Datetime.today()
+            # so_date_devis_valide est un fields.Date : on y met une date, pas
+            # un datetime. C'est ce champ qui alimente le taux de
+            # transformation (x_nb_valide / x_montant_valide) du tableau de
+            # bord : un devis validé compte comme commande.
+            order.so_date_devis_valide = fields.Date.context_today(order)
             order.x_studio_avancement = "5"  # Mettre x_studio_avancement à '5'
 
     # Extra: Allows confirmation from the custom 'validated' state as well.
@@ -301,7 +415,10 @@ class SaleOrder(models.Model):
 
         # Appel de la méthode write parente
         res = super(SaleOrder, self).write(vals)
-        _logger.info("Devis mis à jour: %s", self.id)
+        # self.ids et non self.id : write s'applique a un ensemble, et self.id
+        # sur plus d'un enregistrement leve « Expected singleton ». Une simple
+        # trace rendait donc impossible toute ecriture groupee sur les devis.
+        _logger.info("Devis mis à jour: %s", self.ids)
 
         # Mise à jour de l'entrepôt si les tags sont modifiés
         if "tag_ids" in vals:
@@ -312,7 +429,7 @@ class SaleOrder(models.Model):
 
     # Mise à jour de l'entrepôt en fonction des tags
     def _update_warehouse(self):
-        _logger.info("Début de _update_warehouse pour le devis: %s", self.id)
+        _logger.info("Début de _update_warehouse pour le devis: %s", self.ids)
         fma_tag = self.env["crm.tag"].search([("name", "=", "FMA")], limit=1)
         f2m_tag = self.env["crm.tag"].search([("name", "=", "F2M")], limit=1)
         for order in self:

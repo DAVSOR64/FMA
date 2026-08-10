@@ -56,4 +56,170 @@
             </xpath>
         </field>
     </record>
+
+    <!--
+        Complements a l'onglet Chronologie cree par le module « custom ».
+        Ces champs sont declares ici, et « custom » ne peut pas dependre de ce
+        module (il en est la dependance) : c'est donc a cette vue-ci, chargee
+        apres, de les poser.
+    -->
+    <record id="view_order_form_chronologie_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.chronologie.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//page[@name='fma_chronologie_page']/group/group[1]" position="inside">
+                <field name="x_studio_date_de_relance_1"/>
+                <field name="x_studio_date_de_relance_2"/>
+            </xpath>
+
+            <xpath expr="//page[@name='fma_chronologie_page']/group/group[2]" position="inside">
+                <field name="x_studio_commentaire_supplmentaire"/>
+            </xpath>
+
+        </field>
+    </record>
+
+
+    <!--
+        §1/§2 du handoff : la barre d'etat ne garde que les actions du
+        quotidien. Pro forma et Annuler passent dans le menu Action via des
+        actions serveur liees au modele (binding), comme le veut le standard
+        Odoo. Import Pricer fait de meme, mais depuis son propre module.
+    -->
+    <record id="view_order_form_actions_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.actions.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//header/button[@id='send_proforma_primary']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@id='send_proforma']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='action_cancel']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="action_server_proforma" model="ir.actions.server">
+        <field name="name">Envoyer la facture pro forma</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.with_context(proforma=True, validate_analytic=True).action_quotation_send()</field>
+    </record>
+
+    <record id="action_server_cancel" model="ir.actions.server">
+        <field name="name">Annuler le devis</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_cancel()</field>
+    </record>
+
+
+    <!--
+        Note : on ne peut PAS remplacer x_studio_commercial_1 par heritage.
+        Studio le pose via sa propre vue, et cette vue est ecartee pendant la
+        mise a jour des modules parce qu'elle reference des champs « manual »
+        absents du registre a ce moment-la. Aucune priorite ne contourne ca :
+        l'element n'existe tout simplement pas quand nos vues sont validees.
+        Le retrait de l'ancien champ se fait donc dans Studio.
+    -->
+
+
+    <!--
+        §4 du handoff : les quatre paves de la maquette.
+
+        Ces groupes ne contiennent que des champs declares en code — c'est la
+        condition pour qu'une vue de module puisse les poser. Les memes champs
+        etant aujourd'hui places par Studio dans la colonne client, il faut
+        les y retirer cote Studio, sinon ils apparaitront deux fois.
+
+        payment_term_id n'y figure pas volontairement : il est pose par la vue
+        standard puis deplace par Studio. Le reprendre ici entrerait en
+        conflit avec l'un ou l'autre.
+    -->
+    <record id="view_order_form_paves_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.paves.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Le bloc natif n'a pas de titre : sans lui, « Client » serait le
+                 seul pave des quatre a ne pas etre annonce. -->
+            <xpath expr="//group[@name='partner_details']" position="attributes">
+                <attribute name="string">Client</attribute>
+            </xpath>
+
+            <!-- Client : on complete le bloc natif plutot que de le refaire. -->
+            <xpath expr="//group[@name='partner_details']" position="inside">
+                <field name="main_contact_id"
+                       string="Contact principal"
+                       domain="[('parent_id', '=', partner_id)]"
+                       context="{'default_parent_id': partner_id}"/>
+                <field name="so_commande_client"/>
+            </xpath>
+
+            <!-- « Affaire & equipe » prend la colonne de droite, en face du
+                 bloc Client : c'est la disposition en deux colonnes de la
+                 maquette. On l'insere comme frere de partner_details, dont
+                 l'existence est deja prouvee par l'xpath ci-dessus, plutot
+                 que dans le groupe de droite natif dont le nom varie d'une
+                 version a l'autre. -->
+            <xpath expr="//group[@name='partner_details']" position="after">
+                <group string="Affaire &amp; équipe" name="fma_affaire">
+                    <field name="x_studio_projet"/>
+                    <field name="x_studio_numro_iziqo"/>
+                    <field name="user_id" widget="many2one_avatar_user"/>
+                    <field name="commercial_id"/>
+                    <field name="x_studio_commercial_si_prospect"/>
+                    <field name="x_studio_bureau_dtude"/>
+                    <!-- Gamme et serie : la serie est filtree par la gamme
+                         choisie (x_serie_mtn.x_studio_gamme_de_la_srie), et
+                         les deux modeles ont « x_name » pour libelle, d'ou
+                         create_name_field — sans quoi la creation a la volee
+                         depuis le devis echouerait. C'est ce que faisait la
+                         vue Studio ; on le reprend. -->
+                    <field name="x_studio_gamme"
+                           options="{'create_name_field': 'x_name'}"/>
+                    <field name="x_studio_srie"
+                           options="{'create_name_field': 'x_name'}"
+                           domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
+                </group>
+            </xpath>
+
+            <!-- Deuxieme rangee de la maquette : Conditions a gauche, Statut
+                 de l'affaire a droite. -->
+            <xpath expr="//group[@name='sale_header']" position="after">
+                <group name="fma_paves">
+
+                    <group string="Conditions" name="fma_conditions">
+                        <field name="x_studio_mode_de_rglement"/>
+                        <field name="so_delai_confirme_en_semaine"/>
+                        <field name="so_date_de_livraison" readonly="1"/>
+                    </group>
+
+                    <group string="Statut de l'affaire" name="fma_statut">
+                        <field name="x_studio_motif_annul"/>
+                        <field name="x_studio_avancement"/>
+                        <field name="x_studio_date_de_relance_1"/>
+                        <field name="x_studio_date_de_relance_2"/>
+                        <field name="x_studio_commentaire_supplmentaire"/>
+                    </group>
+
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+
 </odoo>

@@ -1,7 +1,16 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    "version": "19.0.1.0.28",
+    # 1.0.31 : reorganisation de la fiche devis (handoff ergonomie) :
+    # frise de chronologie en lecture seule en haut, onglets « Livraison &
+    # acces » et « Chronologie », horaires en float_time, libelles colores
+    # retires.
+    # 1.0.33 : un numero de version ne doit jamais reculer. Le commit casse
+    # etait en .32 ; revenir a .31 a fait passer trois commits de vue sans
+    # que la mise a jour soit rejouee. On repart au-dessus de .32.
+    # 1.0.36 : champ Commercial unique (Many2one hr.employee) sur devis et
+    # facture, recopie du client puis fige. Filtre sur le departement Commerce.
+    "version": "19.0.1.0.49",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
@@ -25,6 +34,13 @@
     "assets": {
         "web.assets_backend": [
             "custom/static/src/css/custom_styles.css",  # Chemin vers votre fichier CSS
+        ],
+    },
+    "assets": {
+        "web.assets_backend": [
+            "custom/static/src/fma_timeline/fma_timeline.js",
+            "custom/static/src/fma_timeline/fma_timeline.xml",
+            "custom/static/src/fma_timeline/fma_timeline.scss",
         ],
     },
     "installable": True,

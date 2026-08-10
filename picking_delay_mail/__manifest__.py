@@ -1,7 +1,7 @@
 {
     "name": "Picking Delay Mail",
     "author": "Paxo Consulting",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.0.3",
     "summary": "Envoi de mail de retard depuis le BL",
     "category": "Inventory/Inventory",
     "depends": ["stock", "sale_management", "mail", "custom"],

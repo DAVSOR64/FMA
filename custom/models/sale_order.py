@@ -190,6 +190,32 @@ class SaleOrder(models.Model):
 
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
+
+    # Commercial de l'affaire : recopie depuis le client a la selection de
+    # celui-ci, puis **fige**. « compute + store + readonly=False » et non un
+    # related : changer le commercial d'un client ne doit rien changer aux
+    # devis et factures deja etablis, sans quoi la remuneration serait
+    # reecrite retroactivement. Le deviseur peut le modifier (conges, vente
+    # faite par un autre commercial).
+    commercial_id = fields.Many2one(
+        "hr.employee",
+        string="Commercial",
+        compute="_compute_commercial_id",
+        store=True,
+        readonly=False,
+        domain="[('department_id.name', '=', 'Commerce')]",
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_commercial_id(self):
+        # Un compute doit affecter une valeur a *chaque* enregistrement, et ne
+        # jamais lire le champ qu'il calcule : le lire declencherait son propre
+        # calcul. On affecte donc sans condition. Une valeur fournie a la
+        # creation (cf. _prepare_invoice) reste prioritaire : Odoo n'appelle
+        # pas le calcul quand le champ est dans les valeurs ecrites.
+        for order in self:
+            order.commercial_id = order.partner_id.x_studio_commercial_1
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
     so_commande_client = fields.Char(string="N° Commande Client")
 
@@ -242,6 +268,58 @@ class SaleOrder(models.Model):
         for record in self:
             mcv_arrondi = "{:.1f}".format(float_round(record.so_prc_mcv_devis, precision_digits=1))
             record.so_prc_mcv_devis_display = f"{mcv_arrondi} %"
+
+    # -------- Tranche de montant (Devis) --------
+    x_tranche_montant = fields.Selection(
+        selection=[
+            ('a_lt_10k', '< 10 K€'),
+            ('b_10_40k', '10 K€ à 40 K€'),
+            ('c_40_100k', '40 K€ à 100 K€'),
+            ('d_gt_100k', '> 100 K€'),
+        ],
+        string="Tranche de montant",
+        compute='_compute_x_tranche_montant',
+        store=True,
+        index=True,
+    )
+
+    @api.depends('so_mtt_facturer_devis')
+    def _compute_x_tranche_montant(self):
+        for order in self:
+            montant = order.so_mtt_facturer_devis or 0.0
+            if montant < 10000:
+                order.x_tranche_montant = 'a_lt_10k'
+            elif montant < 40000:
+                order.x_tranche_montant = 'b_10_40k'
+            elif montant < 100000:
+                order.x_tranche_montant = 'c_40_100k'
+            else:
+                order.x_tranche_montant = 'd_gt_100k'
+
+    # -------- Taux de transformation (numérateurs sommables) --------
+    # Entiers/montants plutôt que booléens : seuls des champs sommables sont
+    # proposés comme mesure dans le pivot. Le taux lui-même est une mesure
+    # calculée côté vue, pour être recalculé à chaque niveau d'agrégation.
+    x_nb_valide = fields.Integer(
+        string="Devis validé",
+        compute='_compute_x_nb_valide',
+        store=True,
+    )
+    x_montant_valide = fields.Monetary(
+        string="Montant validé H.T.",
+        compute='_compute_x_montant_valide',
+        store=True,
+    )
+
+    @api.depends('so_date_devis_valide')
+    def _compute_x_nb_valide(self):
+        for order in self:
+            order.x_nb_valide = 1 if order.so_date_devis_valide else 0
+
+    @api.depends('so_date_devis_valide', 'so_mtt_facturer_devis')
+    def _compute_x_montant_valide(self):
+        for order in self:
+            order.x_montant_valide = order.so_mtt_facturer_devis if order.so_date_devis_valide else 0.0
 
     # -------- Analyse Financière (B.E.) --------
     so_achat_matiere_be = fields.Monetary(string="Achat Matière (B.E.)")
@@ -315,6 +393,10 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_com_delegation_fac'] = self.x_studio_com_delegation
         invoice_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
+        # La facture garde le commercial du moment de la vente, pas celui que
+        # porte le client aujourd'hui : c'est ce qui rend la remuneration
+        # auditable.
+        invoice_vals['commercial_id'] = self.commercial_id.id
         return invoice_vals
 
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')

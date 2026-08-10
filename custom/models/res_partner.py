@@ -32,7 +32,17 @@ class ResPartner(models.Model):
     x_studio_code_diap = fields.Char(string="Code Diap")
     x_studio_code_naf = fields.Char(string="code NAF")
     x_studio_code_tiers = fields.Char(string="Code (tiers)")
-    x_studio_commercial_1 = fields.Many2one("hr.employee", string="Commercial")
+    # Le commercial rattache au client. Filtre sur le departement Commerce :
+    # ces employes n'ont pas de licence Odoo, ils servent au suivi et a la
+    # remuneration. On filtre sur le nom du departement et non sur son id,
+    # qui differe d'un environnement a l'autre ; « Commerce » porte le meme
+    # libelle en francais et en anglais, il n'y a donc pas de piege de
+    # traduction (contrairement a « BEC-Ventes », traduit « Sales »).
+    x_studio_commercial_1 = fields.Many2one(
+        "hr.employee",
+        string="Commercial",
+        domain="[('department_id.name', '=', 'Commerce')]",
+    )
     x_studio_compte = fields.Integer(string="Compte")
     x_studio_compte_proginov = fields.Char(string="Compte PROGINOV")
     x_studio_encours_autoris = fields.Float(string="Encours Autorisé")

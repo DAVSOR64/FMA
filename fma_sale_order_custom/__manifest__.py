@@ -9,7 +9,20 @@
             Task: 4098688
         """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.6",
+    # 1.0.7 : le bouton « Validé » renseigne « Devis validé le », qui
+    # alimente le taux de transformation du tableau de bord.
+    # 1.0.8 : pose les champs de relance et le commentaire dans l'onglet
+    # Chronologie cree par « custom ». Ils sont declares ici, et « custom »
+    # ne peut pas dependre de ce module : il en est la dependance.
+    # 1.0.9 : barre d'etat allegee, Pro forma et Annuler passent dans le
+    # menu Action (actions serveur liees au modele).
+    # 1.0.10 : portage des 4 derniers champs Studio de sale.order
+    # (x_studio_avancement, x_studio_commercial_si_prospect,
+    # x_studio_motif_annul, x_studio_commercial_client_mtn), definitions
+    # relevees en base. Prealable indispensable a la refonte de la vue :
+    # un champ « manual » n'existe pas au chargement des vues des modules.
+    # 1.0.11 : x_studio_commercial_1 devient le reflet de commercial_id.
+    "version": "19.0.1.0.25",
     "depends": [
         "sale_management",
         "custom",
