@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
+import re
+
 from odoo import api, fields, models
+
+# Un code affaire commence par A, deux chiffres d'annee, deux de mois, puis un
+# compteur : « A24-04-01435 ». C'est le numero du premier devis du chantier —
+# c'est ainsi que les affaires sont nommees chez FMA, et on le conserve. Ce
+# qui suit dans le nom du projet (« /1 », un separateur, un libelle) n'en fait
+# pas partie.
+MOTIF_CODE = re.compile(r"^A\d{2}-\d{2}-\d+")
 
 
 class ProjectProject(models.Model):
@@ -73,6 +82,46 @@ class ProjectProject(models.Model):
         compute="_compute_montants_chantier",
         store=True,
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Deduit le code affaire du nom quand il n'est pas fourni.
+
+        Le nom d'un chantier commence par le numero de son premier devis :
+        « A24-04-01435 - COULISSANTS COPRO ». Plutot que d'exiger une saisie
+        de plus, on relit ce numero dans le nom. Un projet cree depuis un
+        autre ecran que le devis recoit donc son code sans que personne y
+        pense.
+        """
+        for vals in vals_list:
+            if vals.get("x_code_affaire"):
+                continue
+            nom = vals.get("name")
+            # Le nom peut arriver en dictionnaire de traductions.
+            if isinstance(nom, dict):
+                nom = nom.get("fr_FR") or nom.get("en_US")
+            trouve = MOTIF_CODE.match((nom or "").strip())
+            if trouve:
+                vals["x_code_affaire"] = trouve.group(0)
+
+        projets = super().create(vals_list)
+
+        # Chantier cree depuis un devis : on le rattache tout de suite, sinon
+        # il faudrait revenir sur le devis pour le selectionner a la main.
+        devis_id = self.env.context.get("fma_devis_a_rattacher")
+        if devis_id and len(projets) == 1:
+            devis = self.env["sale.order"].browse(devis_id).exists()
+            if devis and not devis.project_id:
+                # x_studio_bureau_dtude se recalcule depuis project_id.user_id.
+                # Sur un devis qui n'en a pas encore, laisser le calcul poser
+                # le responsable du chantier est exactement ce qu'on veut ;
+                # sur un devis deja renseigne, ce serait un ecrasement.
+                avant = devis.x_studio_bureau_dtude
+                devis.project_id = projets.id
+                if avant and devis.x_studio_bureau_dtude != avant:
+                    devis.x_studio_bureau_dtude = avant
+
+        return projets
 
     @api.depends(
         "x_commande_ids.state",

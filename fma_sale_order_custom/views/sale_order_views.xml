@@ -181,6 +181,14 @@
                          lisent mrp_capacity_planning et fma_mrp_dashboard, et
                          lui qui porte le compte analytique du chantier. -->
                     <field name="project_id" string="Projet"/>
+                    <!-- Le chantier se cree depuis le devis, comme aujourd'hui :
+                         son numero est celui du devis, il ne reste qu'a taper
+                         le libelle. Pour une deuxieme tranche, on choisit le
+                         chantier existant dans le champ ci-dessus. -->
+                    <button name="action_creer_chantier" type="object"
+                            string="Créer le chantier"
+                            class="btn-link ps-0"
+                            invisible="project_id or not partner_id"/>
                     <!-- La reference telle que les metiers la lisent, avec son
                          suffixe de tranche quand le chantier en compte
                          plusieurs. Calculee, jamais saisie. -->
