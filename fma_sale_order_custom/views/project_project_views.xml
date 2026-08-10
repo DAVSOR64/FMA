@@ -1,0 +1,32 @@
+<odoo>
+
+    <!-- Le chantier sur la fiche projet : code affaire, chiffrage, vendu.
+         L'ancrage est « //sheet » et non un groupe nomme : les noms des
+         groupes de la vue projet varient d'une version d'Odoo a l'autre,
+         alors que la presence d'un sheet, elle, est certaine. Le bloc arrive
+         donc en bas de la fiche ; on le remontera une fois sa place vue. -->
+    <record id="view_project_form_chantier_fma" model="ir.ui.view">
+        <field name="name">project.project.form.chantier.fma</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//sheet" position="inside">
+                <group string="Chantier" name="fma_chantier">
+                    <group>
+                        <field name="x_code_affaire"/>
+                        <field name="x_currency_id" invisible="1"/>
+                        <field name="x_montant_chiffrage"/>
+                    </group>
+                    <group>
+                        <field name="x_tranche_count"/>
+                        <field name="x_montant_vendu"/>
+                        <field name="x_reste_a_vendre"/>
+                    </group>
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

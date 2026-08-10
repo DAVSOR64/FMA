@@ -181,10 +181,11 @@
                          lisent mrp_capacity_planning et fma_mrp_dashboard, et
                          lui qui porte le compte analytique du chantier. -->
                     <field name="project_id" string="Projet"/>
-                    <!-- Affiche seulement quand le projet en compte plusieurs :
-                         sur un chantier a une seule commande, « Tranche 1 »
-                         n'apprend rien. -->
-                    <field name="tranche_no" invisible="tranche_no &lt; 2"/>
+                    <!-- La reference telle que les metiers la lisent, avec son
+                         suffixe de tranche quand le chantier en compte
+                         plusieurs. Calculee, jamais saisie. -->
+                    <field name="x_ref_tranche" readonly="1"
+                           invisible="not x_ref_tranche"/>
                     <field name="x_studio_numro_iziqo"/>
                     <field name="user_id" widget="many2one_avatar_user"/>
                     <field name="commercial_id"/>

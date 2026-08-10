@@ -193,6 +193,38 @@ class SaleOrder(models.Model):
                 rangs[frere.id] = rang
         for order in self:
             order.tranche_no = rangs.get(order.id, 0) if order.project_id else 0
+
+    # La reference que lisent les metiers : « A24-04-01435/2 ». Elle reproduit
+    # a l'identique le format ecrit a la main jusqu'ici dans le nom du projet,
+    # mais elle est fabriquee — donc jamais oubliee, jamais fausse, jamais en
+    # double, et sans toucher a la moindre sequence.
+    #
+    # Pas de suffixe quand le chantier n'a qu'une commande : « /1 » tout seul
+    # n'apprend rien, et c'est deja l'usage constate dans les donnees. Le
+    # suffixe apparait de lui-meme sur les deux commandes le jour ou une
+    # deuxieme tranche est creee, puisque le calcul depend du compte de
+    # tranches porte par le projet.
+    x_ref_tranche = fields.Char(
+        string="Référence affaire",
+        compute="_compute_x_ref_tranche",
+        store=True,
+        index="btree_not_null",
+    )
+
+    @api.depends(
+        "project_id.x_code_affaire",
+        "project_id.x_tranche_count",
+        "tranche_no",
+    )
+    def _compute_x_ref_tranche(self):
+        for order in self:
+            code = order.project_id.x_code_affaire
+            if not code:
+                order.x_ref_tranche = False
+            elif order.project_id.x_tranche_count > 1 and order.tranche_no:
+                order.x_ref_tranche = "%s/%s" % (code, order.tranche_no)
+            else:
+                order.x_ref_tranche = code
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")
