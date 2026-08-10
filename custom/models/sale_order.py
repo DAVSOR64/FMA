@@ -190,6 +190,30 @@ class SaleOrder(models.Model):
 
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
+
+    # Commercial de l'affaire : recopie depuis le client a la selection de
+    # celui-ci, puis **fige**. « compute + store + readonly=False » et non un
+    # related : changer le commercial d'un client ne doit rien changer aux
+    # devis et factures deja etablis, sans quoi la remuneration serait
+    # reecrite retroactivement. Le deviseur peut le modifier (conges, vente
+    # faite par un autre commercial).
+    commercial_id = fields.Many2one(
+        "hr.employee",
+        string="Commercial",
+        compute="_compute_commercial_id",
+        store=True,
+        readonly=False,
+        domain="[('department_id.name', '=', 'Commerce')]",
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_commercial_id(self):
+        for order in self:
+            if order.partner_id:
+                order.commercial_id = order.partner_id.x_studio_commercial_1
+            elif not order.commercial_id:
+                order.commercial_id = False
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
     so_commande_client = fields.Char(string="N° Commande Client")
 
@@ -367,6 +391,10 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_com_delegation_fac'] = self.x_studio_com_delegation
         invoice_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
+        # La facture garde le commercial du moment de la vente, pas celui que
+        # porte le client aujourd'hui : c'est ce qui rend la remuneration
+        # auditable.
+        invoice_vals['commercial_id'] = self.commercial_id.id
         return invoice_vals
 
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')

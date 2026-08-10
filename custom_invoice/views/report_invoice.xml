@@ -31,7 +31,11 @@
                 <div style="text-align: right;">
                     <br>
                         <strong>Commercial :</strong>
-                        <span t-field="o.inv_commercial" />
+                        <!-- Nouveau champ s'il est renseigne, ancienne
+                             sélection sinon : les factures anterieures a la
+                             bascule continuent d'afficher le bon nom. -->
+                        <span t-if="o.commercial_id" t-field="o.commercial_id"/>
+                        <span t-else="" t-field="o.inv_commercial"/>
                     </br>
                 </div>
             </div>

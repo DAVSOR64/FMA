@@ -8,7 +8,9 @@
     # 1.0.33 : un numero de version ne doit jamais reculer. Le commit casse
     # etait en .32 ; revenir a .31 a fait passer trois commits de vue sans
     # que la mise a jour soit rejouee. On repart au-dessus de .32.
-    "version": "19.0.1.0.35",
+    # 1.0.36 : champ Commercial unique (Many2one hr.employee) sur devis et
+    # facture, recopie du client puis fige. Filtre sur le departement Commerce.
+    "version": "19.0.1.0.36",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [

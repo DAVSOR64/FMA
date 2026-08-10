@@ -21,7 +21,8 @@
     # x_studio_motif_annul, x_studio_commercial_client_mtn), definitions
     # relevees en base. Prealable indispensable a la refonte de la vue :
     # un champ « manual » n'existe pas au chargement des vues des modules.
-    "version": "19.0.1.0.10",
+    # 1.0.11 : x_studio_commercial_1 devient le reflet de commercial_id.
+    "version": "19.0.1.0.11",
     "depends": [
         "sale_management",
         "custom",

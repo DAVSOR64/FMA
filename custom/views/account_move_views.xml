@@ -10,7 +10,8 @@
                     <field name="inv_code_tiers"/>
                     <field name="inv_affacturage"/>
                     <field name="inv_commande_client"/>
-                    <field name="inv_commercial"/>
+                    <field name="commercial_id"/>
+                    <field name="inv_commercial" readonly="1"/>
                     <field name="inv_activite"/>
                 </group>
             </xpath>

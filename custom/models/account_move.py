@@ -41,6 +41,24 @@ class AccountMove(models.Model):
     inv_commercial = fields.Selection(
         related="partner_id.part_commercial", string="Commercial"
     )
+    # Recopie depuis la commande (cf. sale.order._prepare_invoice) ou, a
+    # defaut, depuis le client. Stocke et modifiable : une facture emise ne
+    # doit plus suivre les changements de commercial du client.
+    commercial_id = fields.Many2one(
+        "hr.employee",
+        string="Commercial",
+        compute="_compute_commercial_id",
+        store=True,
+        readonly=False,
+        domain="[('department_id.name', '=', 'Commerce')]",
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_commercial_id(self):
+        for move in self:
+            if not move.commercial_id and move.partner_id:
+                move.commercial_id = move.partner_id.x_studio_commercial_1
     inv_commande_client = fields.Char(string="N° Commande Client")
     inv_affacturage = fields.Boolean(
         related="partner_id.part_affacturage", string="Affacturage"
