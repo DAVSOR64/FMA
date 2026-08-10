@@ -163,28 +163,38 @@
                 <field name="so_commande_client"/>
             </xpath>
 
+            <!-- « Affaire & equipe » prend la colonne de droite, en face du
+                 bloc Client : c'est la disposition en deux colonnes de la
+                 maquette. On l'insere comme frere de partner_details, dont
+                 l'existence est deja prouvee par l'xpath ci-dessus, plutot
+                 que dans le groupe de droite natif dont le nom varie d'une
+                 version a l'autre. -->
+            <xpath expr="//group[@name='partner_details']" position="after">
+                <group string="Affaire &amp; équipe" name="fma_affaire">
+                    <field name="x_studio_projet"/>
+                    <field name="x_studio_numro_iziqo"/>
+                    <field name="user_id" widget="many2one_avatar_user"/>
+                    <field name="commercial_id"/>
+                    <field name="x_studio_commercial_si_prospect"/>
+                    <field name="x_studio_bureau_dtude"/>
+                    <!-- Gamme et serie : la serie est filtree par la gamme
+                         choisie (x_serie_mtn.x_studio_gamme_de_la_srie), et
+                         les deux modeles ont « x_name » pour libelle, d'ou
+                         create_name_field — sans quoi la creation a la volee
+                         depuis le devis echouerait. C'est ce que faisait la
+                         vue Studio ; on le reprend. -->
+                    <field name="x_studio_gamme"
+                           options="{'create_name_field': 'x_name'}"/>
+                    <field name="x_studio_srie"
+                           options="{'create_name_field': 'x_name'}"
+                           domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
+                </group>
+            </xpath>
+
+            <!-- Deuxieme rangee de la maquette : Conditions a gauche, Statut
+                 de l'affaire a droite. -->
             <xpath expr="//group[@name='sale_header']" position="after">
                 <group name="fma_paves">
-
-                    <group string="Affaire &amp; équipe" name="fma_affaire">
-                        <field name="x_studio_projet"/>
-                        <field name="x_studio_numro_iziqo"/>
-                        <field name="user_id" widget="many2one_avatar_user"/>
-                        <field name="commercial_id"/>
-                        <field name="x_studio_commercial_si_prospect"/>
-                        <field name="x_studio_bureau_dtude"/>
-                        <!-- Gamme et serie : la serie est filtree par la
-                             gamme choisie (x_serie_mtn.x_studio_gamme_de_la_srie),
-                             et les deux modeles ont « x_name » pour libelle,
-                             d'ou create_name_field — sans quoi la creation a
-                             la volee depuis le devis echouerait. C'est ce que
-                             faisait la vue Studio ; on le reprend. -->
-                        <field name="x_studio_gamme"
-                               options="{'create_name_field': 'x_name'}"/>
-                        <field name="x_studio_srie"
-                               options="{'create_name_field': 'x_name'}"
-                               domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
-                    </group>
 
                     <group string="Conditions" name="fma_conditions">
                         <field name="x_studio_mode_de_rglement"/>
