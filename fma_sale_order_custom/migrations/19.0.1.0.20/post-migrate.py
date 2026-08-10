@@ -58,11 +58,19 @@ def migrate(cr, version):
 
         projet = Project.search([("name", "=", nom)], limit=1)
         if not projet:
-            projet = Project.create({
+            vals = {
                 "name": nom,
                 "partner_id": premier.partner_id.id,
                 "company_id": premier.company_id.id,
-            })
+            }
+            # billing_type (sale_timesheet) est calcule, stocke ET requis. Son
+            # calcul ne produit pas de valeur ici et le defaut ne prend pas le
+            # relais : la creation echoue sur la contrainte NOT NULL. On le
+            # fournit donc explicitement. Ces projets reprennent d'anciennes
+            # affaires, ils ne sont pas factures a la tache.
+            if "billing_type" in Project._fields:
+                vals["billing_type"] = "not_billable"
+            projet = Project.create(vals)
             crees += 1
 
         devis.write({"x_studio_projet": projet.id})
@@ -73,7 +81,7 @@ def migrate(cr, version):
         " (name, type, level, message, path, line, func, dbname, create_date)"
         " VALUES (%s, 'server', 'INFO', %s, %s, %s, %s, current_database(), now())",
         ("custom",
-         f"Migration 19.0.1.0.19: {crees} projet(s) cree(s) depuis les affaires, "
+         f"Migration 19.0.1.0.20: {crees} projet(s) cree(s) depuis les affaires, "
          f"{rattaches} devis rattache(s)",
          __file__, "0", "migrate"),
     )
