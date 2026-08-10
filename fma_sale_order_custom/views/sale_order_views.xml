@@ -154,6 +154,12 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
+            <!-- Le bloc natif n'a pas de titre : sans lui, « Client » serait le
+                 seul pave des quatre a ne pas etre annonce. -->
+            <xpath expr="//group[@name='partner_details']" position="attributes">
+                <attribute name="string">Client</attribute>
+            </xpath>
+
             <!-- Client : on complete le bloc natif plutot que de le refaire. -->
             <xpath expr="//group[@name='partner_details']" position="inside">
                 <field name="main_contact_id"
