@@ -10,10 +10,22 @@
                     <field name="inv_code_tiers"/>
                     <field name="inv_affacturage"/>
                     <field name="inv_commande_client"/>
-                    <!-- inv_commercial n'est plus affiche : il reste en base
-                         pour le repli du rapport imprime sur les factures
-                         anterieures a la bascule. -->
                     <field name="commercial_id"/>
+                    <!-- Meme repli qu'a l'impression : les factures
+                         anterieures a la bascule n'ont pas de commercial_id
+                         (migration 19.0.1.0.41), et leur PDF retombe sur
+                         inv_commercial. Sans cette ligne l'ecran affichait un
+                         Commercial vide alors que le document imprime, lui,
+                         portait bien un nom.
+                         Le libelle dit « client » et non « origine » : ce
+                         champ est un related vers le client, il suit donc les
+                         changements de commercial de celui-ci. C'est ce que le
+                         rapport imprimait deja avant la bascule, d'ou
+                         l'absence de regression a la reimpression. -->
+                    <field name="inv_commercial"
+                           string="Commercial (client)"
+                           readonly="1"
+                           invisible="commercial_id"/>
                     <field name="inv_activite"/>
                 </group>
             </xpath>
