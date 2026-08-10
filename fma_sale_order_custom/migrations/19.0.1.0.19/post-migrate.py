@@ -21,6 +21,12 @@ def migrate(cr, version):
     analytique et l'application des valeurs par defaut de la societe, ce qu'un
     INSERT direct raterait.
 
+    Ce script vit dans fma_sale_order_custom et non dans custom : c'est ici
+    qu'est declare x_studio_projet. Une migration de custom s'executerait
+    avant le chargement de ce module, et le champ serait introuvable dans le
+    registre. x_studio_ref_affaire, lui, vient de custom, dont ce module
+    depend — il est donc bien visible.
+
     Idempotent : les devis deja rattaches a un projet ne sont pas repris, et
     une affaire dont le projet existe deja est simplement reliee.
     """
@@ -67,7 +73,7 @@ def migrate(cr, version):
         " (name, type, level, message, path, line, func, dbname, create_date)"
         " VALUES (%s, 'server', 'INFO', %s, %s, %s, %s, current_database(), now())",
         ("custom",
-         f"Migration 19.0.1.0.43: {crees} projet(s) cree(s) depuis les affaires, "
+         f"Migration 19.0.1.0.19: {crees} projet(s) cree(s) depuis les affaires, "
          f"{rattaches} devis rattache(s)",
          __file__, "0", "migrate"),
     )
