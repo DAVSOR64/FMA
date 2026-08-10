@@ -22,7 +22,7 @@
     # relevees en base. Prealable indispensable a la refonte de la vue :
     # un champ « manual » n'existe pas au chargement des vues des modules.
     # 1.0.11 : x_studio_commercial_1 devient le reflet de commercial_id.
-    "version": "19.0.1.0.27",
+    "version": "19.0.1.0.28",
     "depends": [
         "sale_management",
         "custom",
@@ -36,6 +36,9 @@
         "sale_project",
         "documents",
     ],
-    "data": ["views/sale_order_views.xml"],
+    "data": [
+        "views/sale_order_views.xml",
+        "views/project_project_views.xml",
+    ],
     "license": "LGPL-3",
 }
