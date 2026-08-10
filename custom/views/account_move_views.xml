@@ -10,22 +10,25 @@
                     <field name="inv_code_tiers"/>
                     <field name="inv_affacturage"/>
                     <field name="inv_commande_client"/>
-                    <field name="commercial_id"/>
-                    <!-- Meme repli qu'a l'impression : les factures
-                         anterieures a la bascule n'ont pas de commercial_id
-                         (migration 19.0.1.0.41), et leur PDF retombe sur
-                         inv_commercial. Sans cette ligne l'ecran affichait un
-                         Commercial vide alors que le document imprime, lui,
-                         portait bien un nom.
-                         Le libelle dit « client » et non « origine » : ce
-                         champ est un related vers le client, il suit donc les
-                         changements de commercial de celui-ci. C'est ce que le
-                         rapport imprimait deja avant la bascule, d'ou
-                         l'absence de regression a la reimpression. -->
+                    <!-- Un seul « Commercial » a l'ecran, jamais deux. Meme
+                         repli qu'a l'impression : les factures anterieures a
+                         la bascule n'ont pas de commercial_id (migration
+                         19.0.1.0.41) et leur PDF retombe sur inv_commercial.
+                         La condition porte sur l'etat et non sur le seul
+                         commercial_id : sur un brouillon, le champ doit rester
+                         saisissable meme vide, sinon plus aucune facture
+                         manuelle ne pourrait recevoir de commercial.
+                         inv_commercial est un related vers le client : il suit
+                         les changements de commercial de celui-ci. C'est ce
+                         que le rapport imprimait deja avant la bascule, d'ou
+                         l'absence d'ecart a la reimpression. -->
+                    <field name="commercial_id"
+                           string="Commercial"
+                           invisible="not commercial_id and state == 'posted'"/>
                     <field name="inv_commercial"
-                           string="Commercial (client)"
+                           string="Commercial"
                            readonly="1"
-                           invisible="commercial_id"/>
+                           invisible="commercial_id or state != 'posted'"/>
                     <field name="inv_activite"/>
                 </group>
             </xpath>
