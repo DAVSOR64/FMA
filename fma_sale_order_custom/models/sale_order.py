@@ -25,6 +25,12 @@ class SaleOrder(models.Model):
 
     date_bpe = fields.Date(string="Date BPE")
 
+    # Le « Vendeur » natif d'Odoo est, chez FMA, le deviseur : l'utilisateur
+    # qui etablit le devis. Le commercial, lui, est un employe sans licence,
+    # porte par commercial_id. On ne change que le libelle : le champ reste le
+    # user_id standard, avec ses filtres, ses droits et ses rapports.
+    user_id = fields.Many2one(string="Deviseur")
+
     # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
     # Champs volontairement exclus de ce portage (voir STUDIO_AUDIT.md) :
@@ -123,19 +129,46 @@ class SaleOrder(models.Model):
     x_studio_achat_vit = fields.Monetary(string="Achat Vitrage (Réel)", currency_field="currency_id")
     x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis)", currency_field="currency_id")
     x_studio_avancement_crm = fields.Many2one("crm.stage", string="Avancement CRM")
-    x_studio_bureau_dtude = fields.Many2one("res.users", string="Bureau d'étude")
+    # Le bureau d'etude est le responsable du projet. Mesure avant bascule :
+    # 6 348 devis renseignes, 6 348 identiques au responsable du projet,
+    # 0 divergent — et tout devis ayant un bureau d'etude a un projet. Le
+    # recalcul est donc sans perte.
+    #
+    # compute + store + readonly=False, comme commercial_id : la valeur est
+    # figee sur le devis. Changer le responsable d'un projet ne doit pas
+    # reecrire l'historique, notamment les destinataires des mails de retard
+    # deja envoyes.
+    #
+    # Domaine : le departement porte deux libelles selon la langue
+    # (« BEC-Ventes » en francais, « Sales » en anglais). On accepte les deux
+    # plutot que de filtrer sur un identifiant, qui differe d'un
+    # environnement a l'autre.
+    x_studio_bureau_dtude = fields.Many2one(
+        "res.users",
+        string="Bureau d'étude",
+        compute="_compute_x_studio_bureau_dtude",
+        store=True,
+        readonly=False,
+        domain="[('employee_ids.department_id.name', 'in', ['BEC-Ventes', 'Sales'])]",
+    )
+
+    @api.depends("x_studio_projet")
+    def _compute_x_studio_bureau_dtude(self):
+        for order in self:
+            order.x_studio_bureau_dtude = order.x_studio_projet.user_id
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")
     x_studio_commentaire_supplmentaire = fields.Char(string="Commentaire Supplémentaire")
-    # Nom du commercial, désormais simple reflet de sale.order.commercial_id.
-    # Conservé en Char parce que plusieurs consommateurs le lisent tel quel :
-    # l'export PowerBI et le mail de retard de picking_delay_mail. Ils
-    # continuent donc de fonctionner sans modification, le temps qu'on les
-    # bascule sur commercial_id.
-    x_studio_commercial_1 = fields.Char(
-        string="Commercial", compute="_compute_x_studio_commercial_1", store=True, readonly=True
-    )
+    # Nom du commercial, HISTORIQUE. 13 494 devis le portent, herite de
+    # Studio. On le laisse volontairement fige : les commerciaux des devis
+    # deja etablis ne doivent pas etre reecrits.
+    #
+    # Il n'est donc PAS calcule depuis commercial_id : en faire un reflet
+    # aurait vide ou reecrit ces 13 494 valeurs des qu'on aurait alimente le
+    # nouveau champ. Les consommateurs (export PowerBI, mails de retard)
+    # lisent commercial_id en priorite et retombent sur celui-ci.
+    x_studio_commercial_1 = fields.Char(string="Commercial (historique)", readonly=True)
     x_studio_date_bpe = fields.Date(string="Date BPE")
     x_studio_date_de_modification = fields.Datetime(string="Date de Modification")
     x_studio_date_de_rception = fields.Date(string="Date de Réception")
@@ -143,7 +176,9 @@ class SaleOrder(models.Model):
     x_studio_date_de_relance_2 = fields.Datetime(string="Date de relance 2")
     x_studio_date_field_IuGus = fields.Date(string="New Date")
     x_studio_datetime_field_22b_1jcrk40tn = fields.Datetime(string="Nouveau Datetime")
-    x_studio_deviseur = fields.Char(string="Deviseur")
+    # Ancien champ texte, 592 enregistrements, remplace par user_id.
+    # Libelle distinct pour ne pas le confondre avec le vrai deviseur.
+    x_studio_deviseur = fields.Char(string="Deviseur (ancien)")
     # Many2many auto-référencé sur sale.order lui-même : aucune table de
     # relation ni donnée existante côté Studio (champ probablement
     # abandonné/mal configuré, x_studio_etiquette_1 ci-dessous porte le
@@ -198,16 +233,15 @@ class SaleOrder(models.Model):
     x_studio_nom_commercial = fields.Char(string="Sélection commercial", readonly=True)
     x_studio_numro_iziqo = fields.Char(string="Numéro Iziqo")
     x_studio_plannifier_en_prod = fields.Boolean(string="Planifié en Prod")
-    x_studio_projet = fields.Many2one("project.project", string="Projet mtn")
+    # « Projet » tout court : c'est ce champ qui pilote l'affaire chez FMA.
+    # Il est consomme par le tableau de bord MRP (jointures SQL directes sur
+    # so.x_studio_projet), la rentabilite projet, la propagation vers les
+    # achats et l'export PowerBI. Le nom technique ne bouge donc pas.
+    x_studio_projet = fields.Many2one("project.project", string="Projet")
     x_studio_restant_a_facturer_ht_pivot = fields.Monetary(string="RAF HT", currency_field="currency_id", readonly=True)
     x_studio_so_cout_appro_affaire = fields.Monetary(string="Appro Affaire", currency_field="currency_id")
     x_studio_so_cout_appro_stock = fields.Monetary(string="Appro Stock", currency_field="currency_id")
     x_studio_srie = fields.Many2one("x_serie_mtn", string="Série")
-
-    @api.depends("commercial_id")
-    def _compute_x_studio_commercial_1(self):
-        for order in self:
-            order.x_studio_commercial_1 = order.commercial_id.name or False
 
     @api.onchange("so_date_de_livraison")
     def _onchange_so_date_de_livraison(self):

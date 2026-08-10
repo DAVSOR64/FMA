@@ -171,8 +171,16 @@ class StockPicking(models.Model):
         if be_user and be_user.partner_id and be_user.partner_id.email:
             partner_ids.append(be_user.partner_id.id)
 
-        # Commercial : champ Char contenant le nom du commercial.
-        commercial_name = getattr(sale_order, "x_studio_commercial_1", False)
+        # Commercial : le nouveau Many2one donne directement l'employe ; on ne
+        # retombe sur le nom historique que pour les devis anterieurs a la
+        # bascule. La resolution employe -> partenaire, plus bas, est celle qui
+        # existait deja : elle gere les differences de version Odoo.
+        commercial = getattr(sale_order, "commercial_id", False)
+        commercial_name = (
+            commercial.name
+            if commercial
+            else getattr(sale_order, "x_studio_commercial_1", False)
+        )
         if commercial_name:
             employee = self.env["hr.employee"].search(
                 [("name", "=", commercial_name)],

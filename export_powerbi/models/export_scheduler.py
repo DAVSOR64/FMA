@@ -368,8 +368,19 @@ class ExportSFTPScheduler(models.Model):
                         if getattr(o, "tag_ids", False)
                         else "",
                         # getattr(o, 'confirmation_date', False) and o.confirmation_date.strftime('%Y-%m-%d %H:%M:%S') or '',
-                        _m2o_name(getattr(o, "x_studio_commercial_1", None))
-                        or (getattr(o, "x_studio_commercial_1", "") or ""),
+                        # Commercial : le nom HISTORIQUE d'abord, le nouveau
+                        # champ seulement s'il est vide.
+                        #
+                        # L'ordre compte. commercial_id a ete calcule sur tous
+                        # les devis existants a la creation du champ ; le
+                        # prendre en priorite reecrirait le commercial des
+                        # 4 365 devis deja factures dans les rapports Power BI.
+                        # Le champ historique n'etant alimente que sur les
+                        # devis anterieurs a la bascule, ce repli donne
+                        # l'historique pour les anciens et le nouveau
+                        # commercial pour les suivants.
+                        (getattr(o, "x_studio_commercial_1", "") or "")
+                        or _m2o_name(getattr(o, "commercial_id", None)),
                         _m2o_name(getattr(o, "x_studio_srie", None))
                         or (getattr(o, "x_studio_srie", "") or ""),
                         _m2o_name(getattr(o, "x_studio_gamme", None))

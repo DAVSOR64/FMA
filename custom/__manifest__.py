@@ -10,7 +10,7 @@
     # que la mise a jour soit rejouee. On repart au-dessus de .32.
     # 1.0.36 : champ Commercial unique (Many2one hr.employee) sur devis et
     # facture, recopie du client puis fige. Filtre sur le departement Commerce.
-    "version": "19.0.1.0.40",
+    "version": "19.0.1.0.41",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
