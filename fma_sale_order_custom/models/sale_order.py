@@ -415,7 +415,10 @@ class SaleOrder(models.Model):
 
         # Appel de la méthode write parente
         res = super(SaleOrder, self).write(vals)
-        _logger.info("Devis mis à jour: %s", self.id)
+        # self.ids et non self.id : write s'applique a un ensemble, et self.id
+        # sur plus d'un enregistrement leve « Expected singleton ». Une simple
+        # trace rendait donc impossible toute ecriture groupee sur les devis.
+        _logger.info("Devis mis à jour: %s", self.ids)
 
         # Mise à jour de l'entrepôt si les tags sont modifiés
         if "tag_ids" in vals:
@@ -426,7 +429,7 @@ class SaleOrder(models.Model):
 
     # Mise à jour de l'entrepôt en fonction des tags
     def _update_warehouse(self):
-        _logger.info("Début de _update_warehouse pour le devis: %s", self.id)
+        _logger.info("Début de _update_warehouse pour le devis: %s", self.ids)
         fma_tag = self.env["crm.tag"].search([("name", "=", "FMA")], limit=1)
         f2m_tag = self.env["crm.tag"].search([("name", "=", "F2M")], limit=1)
         for order in self:
