@@ -135,4 +135,67 @@
         Le retrait de l'ancien champ se fait donc dans Studio.
     -->
 
+
+    <!--
+        §4 du handoff : les quatre paves de la maquette.
+
+        Ces groupes ne contiennent que des champs declares en code — c'est la
+        condition pour qu'une vue de module puisse les poser. Les memes champs
+        etant aujourd'hui places par Studio dans la colonne client, il faut
+        les y retirer cote Studio, sinon ils apparaitront deux fois.
+
+        payment_term_id n'y figure pas volontairement : il est pose par la vue
+        standard puis deplace par Studio. Le reprendre ici entrerait en
+        conflit avec l'un ou l'autre.
+    -->
+    <record id="view_order_form_paves_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.paves.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Client : on complete le bloc natif plutot que de le refaire. -->
+            <xpath expr="//group[@name='partner_details']" position="inside">
+                <field name="main_contact_id"
+                       string="Contact principal"
+                       domain="[('parent_id', '=', partner_id)]"
+                       context="{'default_parent_id': partner_id}"/>
+                <field name="so_commande_client"/>
+            </xpath>
+
+            <xpath expr="//group[@name='sale_header']" position="after">
+                <group name="fma_paves">
+
+                    <group string="Affaire &amp; équipe" name="fma_affaire">
+                        <field name="x_studio_projet"/>
+                        <field name="x_studio_numro_iziqo"/>
+                        <field name="user_id" widget="many2one_avatar_user"/>
+                        <field name="commercial_id"/>
+                        <field name="x_studio_commercial_si_prospect"/>
+                        <field name="x_studio_bureau_dtude"/>
+                        <field name="x_studio_gamme"/>
+                        <field name="x_studio_srie"/>
+                    </group>
+
+                    <group string="Conditions" name="fma_conditions">
+                        <field name="x_studio_mode_de_rglement"/>
+                        <field name="so_delai_confirme_en_semaine"/>
+                        <field name="so_date_de_livraison" readonly="1"/>
+                    </group>
+
+                    <group string="Statut de l'affaire" name="fma_statut">
+                        <field name="x_studio_motif_annul"/>
+                        <field name="x_studio_avancement"/>
+                        <field name="x_studio_avancement_crm"/>
+                        <field name="x_studio_date_de_relance_1"/>
+                        <field name="x_studio_date_de_relance_2"/>
+                        <field name="x_studio_commentaire_supplmentaire"/>
+                    </group>
+
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+
 </odoo>
