@@ -23,7 +23,6 @@
                  placées par le métier le 20/07). -->
             <xpath expr="//group[@name='sale_header']" position="inside">
                 <group string="Informations principales">
-                    <field name="commercial_id"/>
                     <field name="so_commande_client"/>
                     <field name="so_delai_confirme_en_semaine"/>
                     <field name="main_contact_id"

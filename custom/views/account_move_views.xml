@@ -10,8 +10,10 @@
                     <field name="inv_code_tiers"/>
                     <field name="inv_affacturage"/>
                     <field name="inv_commande_client"/>
+                    <!-- inv_commercial n'est plus affiche : il reste en base
+                         pour le repli du rapport imprime sur les factures
+                         anterieures a la bascule. -->
                     <field name="commercial_id"/>
-                    <field name="inv_commercial" readonly="1"/>
                     <field name="inv_activite"/>
                 </group>
             </xpath>

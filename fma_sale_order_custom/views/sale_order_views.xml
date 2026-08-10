@@ -125,4 +125,30 @@
         <field name="code">action = records.action_cancel()</field>
     </record>
 
+
+    <!--
+        Un seul champ « Commercial » a l'ecran.
+
+        priority = 100 : la vue Studio de sale.order est en 99 et c'est elle
+        qui pose x_studio_commercial_1 sur le formulaire. Une vue de module
+        (priorite 16) passerait avant et ne trouverait pas le champ. Ce
+        remplacement ne fonctionne que parce que x_studio_commercial_1 est
+        declare en code : un champ « manual » de Studio n'existe pas encore
+        au chargement des vues des modules.
+
+        Le champ reste en base : l'export PowerBI et picking_delay_mail le
+        lisent, il est desormais le reflet de commercial_id.
+    -->
+    <record id="view_order_form_commercial_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.commercial.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <field name="x_studio_commercial_1" position="replace">
+                <field name="commercial_id"/>
+            </field>
+        </field>
+    </record>
+
 </odoo>
