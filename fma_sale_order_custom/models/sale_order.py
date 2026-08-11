@@ -550,7 +550,17 @@ class SaleOrder(models.Model):
                             if warehouse_remaudiere:
                                 vals["warehouse_id"] = warehouse_remaudiere.id
 
-        return super(SaleOrder, self).create(vals_list)
+        commandes = super(SaleOrder, self).create(vals_list)
+
+        # Numero de tranche pose des la creation : un devis cree d'un seul
+        # geste avec son chantier et sa tranche ne passe jamais par write, et
+        # le renommage n'avait donc pas lieu. L'appel vit ici, dans l'unique
+        # methode create de la classe — en ajouter une seconde la rendrait
+        # muette, la derniere definie ecrasant les precedentes.
+        if any(v.get("x_tranche") for v in vals_list):
+            commandes._appliquer_suffixe_tranche(explicite=True)
+
+        return commandes
 
     # Méthode write : mise à jour du mode de règlement et de la date de modification du devis
     def write(self, vals):
