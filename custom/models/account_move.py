@@ -54,6 +54,23 @@ class AccountMove(models.Model):
         index="btree_not_null",
     )
 
+    # Mode de reglement, sur le referentiel x_reglements. Recopie depuis la
+    # commande (_prepare_invoice) ou, a defaut, depuis le client. Fige comme
+    # commercial_id : une facture emise ne suit plus les changements du client.
+    mode_reglement_id = fields.Many2one(
+        "x_reglements",
+        string="Mode de règlement",
+        compute="_compute_mode_reglement_id",
+        store=True,
+        readonly=False,
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_mode_reglement_id(self):
+        for move in self:
+            move.mode_reglement_id = move.partner_id.x_studio_mode_de_rglement_dsa
+
     @api.depends("partner_id")
     def _compute_commercial_id(self):
         # Meme regle que sur sale.order : affectation inconditionnelle, sans
