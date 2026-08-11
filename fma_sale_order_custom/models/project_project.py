@@ -77,6 +77,24 @@ class ProjectProject(models.Model):
         store=True,
     )
 
+    x_montant_facture = fields.Monetary(
+        string="Montant facturé",
+        currency_field="x_currency_id",
+        compute="_compute_montants_chantier",
+        store=True,
+        help="Somme hors taxes des factures comptabilisees du chantier, "
+             "avoirs deduits.",
+    )
+
+    x_reste_a_facturer = fields.Monetary(
+        string="Reste à facturer",
+        currency_field="x_currency_id",
+        compute="_compute_montants_chantier",
+        store=True,
+        help="Vendu moins facture : l'engagement pris envers le client qui "
+             "reste a transformer en facture.",
+    )
+
     x_tranche_count = fields.Integer(
         string="Nombre de tranches",
         compute="_compute_montants_chantier",
@@ -126,6 +144,9 @@ class ProjectProject(models.Model):
     @api.depends(
         "x_commande_ids.state",
         "x_commande_ids.amount_untaxed",
+        "x_commande_ids.invoice_ids.state",
+        "x_commande_ids.invoice_ids.move_type",
+        "x_commande_ids.invoice_ids.amount_untaxed",
         "x_montant_chiffrage",
     )
     def _compute_montants_chantier(self):
@@ -136,6 +157,23 @@ class ProjectProject(models.Model):
             projet.x_reste_a_vendre = (
                 projet.x_montant_chiffrage - projet.x_montant_vendu
             )
+
+            # mapped dedoublonne : une facture qui couvre deux commandes du
+            # meme chantier n'est comptee qu'une fois. Les avoirs se
+            # soustraient, sinon un geste commercial gonflerait le facture.
+            # Seules les factures comptabilisees comptent : un brouillon
+            # n'engage rien.
+            factures = commandes.mapped("invoice_ids").filtered(
+                lambda m: m.state == "posted"
+            )
+            projet.x_montant_facture = sum(
+                m.amount_untaxed * (-1 if m.move_type == "out_refund" else 1)
+                for m in factures
+            )
+            projet.x_reste_a_facturer = (
+                projet.x_montant_vendu - projet.x_montant_facture
+            )
+
             # Toutes les commandes comptent comme tranches, pas seulement les
             # confirmees : un devis en cours de negociation est une tranche, et
             # il doit deja porter son rang.

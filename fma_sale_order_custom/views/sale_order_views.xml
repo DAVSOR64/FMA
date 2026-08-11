@@ -189,11 +189,11 @@
                             string="Créer le chantier"
                             class="btn-link ps-0"
                             invisible="project_id or not partner_id"/>
-                    <!-- La reference telle que les metiers la lisent, avec son
-                         suffixe de tranche quand le chantier en compte
-                         plusieurs. Calculee, jamais saisie. -->
-                    <field name="x_ref_tranche" readonly="1"
-                           invisible="not x_ref_tranche"/>
+                    <!-- Saisir la tranche renomme le devis en
+                         « <code affaire>/<tranche> ». Masque tant qu'aucun
+                         chantier n'est rattache : sans code affaire, il n'y a
+                         pas de numero a fabriquer. -->
+                    <field name="x_tranche" invisible="not project_id"/>
                     <field name="x_studio_numro_iziqo"/>
                     <field name="user_id" widget="many2one_avatar_user"/>
                     <field name="commercial_id"/>

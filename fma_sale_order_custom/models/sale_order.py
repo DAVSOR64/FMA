@@ -1,6 +1,7 @@
 from datetime import timedelta
 import logging
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -159,40 +160,81 @@ class SaleOrder(models.Model):
         for order in self:
             order.x_studio_bureau_dtude = order.project_id.user_id
 
-    # Rang de la commande au sein de son projet : la « tranche ». Il n'y a pas
-    # d'objet tranche — une tranche EST une commande, et un projet a une ou
-    # plusieurs commandes. Le numero est donc deduit, jamais saisi : il ne
-    # peut etre ni oublie, ni faux, ni duplique.
+    # La tranche est SAISIE, pas deduite. Le numero de devis doit etre connu
+    # du chiffreur pour ouvrir la meme affaire dans LOGIKAL : c'est donc lui
+    # qui porte la tranche, et l'utilisateur decide quand il la pose.
     #
-    # Le classement se fait par identifiant, pas par date : les identifiants
-    # sont monotones, donc une nouvelle tranche prend toujours le rang
-    # suivant et ne renumerote jamais ses aînées. Classer par date_order
-    # obligerait a recalculer toute la fratrie des qu'on antidate un devis.
-    tranche_no = fields.Integer(
+    # Le devis est cree normalement, il recoit son numero de sequence ; on
+    # renseigne ensuite la tranche, et le numero devient « <code>/<tranche> ».
+    x_tranche = fields.Integer(
         string="Tranche",
-        compute="_compute_tranche_no",
-        store=True,
-        help="Rang de cette commande parmi celles de son projet.",
+        copy=False,
+        help="Numero de tranche du chantier. Une fois renseigne, il suffixe "
+             "le numero du devis : A24-04-01435/2.",
     )
 
-    @api.depends("project_id")
-    def _compute_tranche_no(self):
-        # Une seule recherche pour tout le lot, et non un comptage par
-        # enregistrement : le calcul se declenche sur l'ensemble des devis a
-        # la creation de la colonne.
-        rangs = {}
-        projets = self.mapped("project_id")
-        if projets:
-            compteur = {}
-            freres = self.env["sale.order"].search(
-                [("project_id", "in", projets.ids)], order="project_id, id"
-            )
-            for frere in freres:
-                rang = compteur.get(frere.project_id.id, 0) + 1
-                compteur[frere.project_id.id] = rang
-                rangs[frere.id] = rang
+    @api.onchange("project_id")
+    def _onchange_project_id_tranche(self):
+        """Propose la tranche suivante — seulement sur un chantier a tranches.
+
+        La plupart des affaires n'en ont pas, et leur devis doit garder son
+        numero tel quel, sans suffixe. On ne propose donc rien tant qu'aucune
+        autre commande du chantier ne porte de tranche.
+
+        Ouvrir une affaire a tranches, c'est saisir 1 sur le premier devis.
+        C'est une decision de gestion, pas une deduction : elle appartient a
+        celui qui sait, des le chiffrage, que le chantier sera decoupe. Les
+        tranches suivantes s'enchainent ensuite d'elles-memes.
+        """
+        if not self.project_id or self.x_tranche:
+            return
+        autres = self.project_id.x_commande_ids.filtered(
+            lambda o: o.id != self._origin.id
+        )
+        deja = [t for t in autres.mapped("x_tranche") if t]
+        if deja:
+            self.x_tranche = max(deja) + 1
+
+    def write(self, vals):
+        res = super().write(vals)
+        if "x_tranche" in vals or "project_id" in vals:
+            self._appliquer_suffixe_tranche()
+        return res
+
+    def _appliquer_suffixe_tranche(self):
+        """Renomme le devis en « <code affaire>/<tranche> ».
+
+        Le code affaire vient du chantier, et le chantier tient le sien du
+        numero de son premier devis. La deuxieme tranche d'une affaire porte
+        donc « A24-04-01435/2 » et non un numero de sequence sans rapport :
+        le chiffreur retrouve son affaire dans LOGIKAL.
+
+        Trois garde-fous. On ne renomme qu'un devis encore modifiable : une
+        fois une facture ou un bon de livraison emis, ces documents portent
+        l'ancien numero en origine et le renommage creerait une incoherence
+        que rien ne rattrape. On refuse un numero deja pris. Et on ne fait
+        rien tant que le chantier n'a pas de code affaire.
+        """
         for order in self:
-            order.tranche_no = rangs.get(order.id, 0) if order.project_id else 0
+            code = order.project_id.x_code_affaire
+            if not code or not order.x_tranche:
+                continue
+            if order.state not in ("draft", "sent", "validated"):
+                continue
+            if order.invoice_ids:
+                continue
+            if "picking_ids" in order._fields and order.picking_ids:
+                continue
+
+            nouveau = "%s/%s" % (code, order.x_tranche)
+            if order.name == nouveau:
+                continue
+            if self.search_count([("name", "=", nouveau), ("id", "!=", order.id)]):
+                raise UserError(
+                    "Le numéro %s est déjà utilisé par un autre devis. "
+                    "Vérifiez le numéro de tranche." % nouveau
+                )
+            order.name = nouveau
 
     def action_creer_chantier(self):
         """Ouvre la fiche chantier, deja numerotee depuis ce devis.
@@ -223,37 +265,6 @@ class SaleOrder(models.Model):
             },
         }
 
-    # La reference que lisent les metiers : « A24-04-01435/2 ». Elle reproduit
-    # a l'identique le format ecrit a la main jusqu'ici dans le nom du projet,
-    # mais elle est fabriquee — donc jamais oubliee, jamais fausse, jamais en
-    # double, et sans toucher a la moindre sequence.
-    #
-    # Pas de suffixe quand le chantier n'a qu'une commande : « /1 » tout seul
-    # n'apprend rien, et c'est deja l'usage constate dans les donnees. Le
-    # suffixe apparait de lui-meme sur les deux commandes le jour ou une
-    # deuxieme tranche est creee, puisque le calcul depend du compte de
-    # tranches porte par le projet.
-    x_ref_tranche = fields.Char(
-        string="Référence affaire",
-        compute="_compute_x_ref_tranche",
-        store=True,
-        index="btree_not_null",
-    )
-
-    @api.depends(
-        "project_id.x_code_affaire",
-        "project_id.x_tranche_count",
-        "tranche_no",
-    )
-    def _compute_x_ref_tranche(self):
-        for order in self:
-            code = order.project_id.x_code_affaire
-            if not code:
-                order.x_ref_tranche = False
-            elif order.project_id.x_tranche_count > 1 and order.tranche_no:
-                order.x_ref_tranche = "%s/%s" % (code, order.tranche_no)
-            else:
-                order.x_ref_tranche = code
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")
