@@ -169,8 +169,15 @@ class ProjectProject(models.Model):
                 lambda o: o.state in ("validated", "sale", "done")
             )
             projet.x_montant_vendu = sum(vendues.mapped("amount_untaxed"))
+
+            # Sans chiffrage, « reste a vendre » n'a pas de sens : la
+            # soustraction donnerait le vendu en negatif, et ce nombre
+            # remonterait tel quel dans les totaux et dans Power BI. On le
+            # laisse a zero tant que le montant chiffre n'est pas saisi.
             projet.x_reste_a_vendre = (
                 projet.x_montant_chiffrage - projet.x_montant_vendu
+                if projet.x_montant_chiffrage
+                else 0.0
             )
 
             # mapped dedoublonne : une facture qui couvre deux commandes du
