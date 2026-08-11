@@ -141,12 +141,19 @@ class ProjectProject(models.Model):
 
         return projets
 
+    # Le chemin vers les factures passe par order_line.invoice_lines.move_id
+    # et non par sale.order.invoice_ids. Ce dernier est un champ CALCULE et
+    # NON STOCKE : Odoo ne peut pas en faire un declencheur fiable, et le
+    # montant facture serait reste fige apres comptabilisation d'une facture.
+    # Le chemin retenu ne traverse que des champs stockes — la table de
+    # liaison sale_order_line_invoice_rel, puis move_id et son etat — donc le
+    # recalcul se declenche a coup sur.
     @api.depends(
         "x_commande_ids.state",
         "x_commande_ids.amount_untaxed",
-        "x_commande_ids.invoice_ids.state",
-        "x_commande_ids.invoice_ids.move_type",
-        "x_commande_ids.invoice_ids.amount_untaxed",
+        "x_commande_ids.order_line.invoice_lines.move_id.state",
+        "x_commande_ids.order_line.invoice_lines.move_id.move_type",
+        "x_commande_ids.order_line.invoice_lines.move_id.amount_untaxed",
         "x_montant_chiffrage",
     )
     def _compute_montants_chantier(self):
