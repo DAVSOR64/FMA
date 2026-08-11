@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Rattachement des achats a un lot de fabrication.
+"""Rattachement des achats aux lots de fabrication.
 
-Les appros se font au niveau du lot (et non ligne a ligne). Le lien est
-etabli en priorite par le groupe d'approvisionnement du lot, avec repli sur
-le champ ``origin`` — les regles de reappro y recopient la reference de l'OF
-ou du lot selon les configurations.
+Le lien vit sur la LIGNE d'achat, pas sur l'en-tete. C'est la regle metier
+qui l'impose : une barre optimisee dans un lot ne sert pas ailleurs, mais un
+bon de commande regroupe les besoins de plusieurs lots des lors qu'ils
+partagent le fournisseur et le projet. Un lien porte par l'en-tete forcerait
+un PO par lot, ou perdrait tous les lots sauf un.
+
+L'en-tete porte donc la liste des lots concernes, deduite de ses lignes.
 """
 import re
 
@@ -14,8 +17,8 @@ from odoo import api, fields, models
 ORIGIN_TOKEN_RE = re.compile(r"[A-Za-z0-9_/\-]+")
 
 
-class PurchaseOrder(models.Model):
-    _inherit = "purchase.order"
+class PurchaseOrderLine(models.Model):
+    _inherit = "purchase.order.line"
 
     lot_fabrication_id = fields.Many2one(
         "fma.lot.fabrication",
@@ -23,52 +26,85 @@ class PurchaseOrder(models.Model):
         compute="_compute_lot_fabrication_id",
         store=True,
         readonly=False,
-        index=True,
+        index="btree_not_null",
         ondelete="set null",
-        help="Lot a l'origine de cet approvisionnement. Renseigne "
-        "automatiquement quand l'achat provient d'un OF du lot, modifiable "
-        "manuellement.",
+        help="Lot a l'origine de ce besoin. Renseigne automatiquement quand "
+        "la ligne provient d'un OF du lot, modifiable manuellement.",
     )
 
-    @api.depends("origin", "order_line.move_dest_ids")
+    @api.depends(
+        "move_dest_ids.raw_material_production_id.lot_fabrication_id",
+        "order_id.origin",
+    )
     def _compute_lot_fabrication_id(self):
         Lot = self.env["fma.lot.fabrication"]
-        for order in self:
-            if order.lot_fabrication_id:
-                # Ne jamais ecraser une affectation, manuelle ou deja calculee.
-                # Reassignation explicite : un compute stocke doit toujours
-                # affecter une valeur a chaque enregistrement du lot traite.
-                order.lot_fabrication_id = order.lot_fabrication_id
-                continue
-
+        for line in self:
             # 1. Via les mouvements de destination -> OF -> lot.
-            productions = order.order_line.mapped(
-                "move_dest_ids.raw_material_production_id"
-            )
-            lot = productions.mapped("lot_fabrication_id")[:1]
+            lot = line.move_dest_ids.raw_material_production_id.lot_fabrication_id[:1]
 
-            # 2. Repli : la reference de lot figure dans l'origine.
-            if not lot and order.origin:
-                tokens = ORIGIN_TOKEN_RE.findall(order.origin)
-                if tokens:
+            # 2. Repli : la reference de lot figure dans l'origine du PO. Les
+            #    regles de reappro y recopient la reference de l'OF ou du lot
+            #    selon les configurations.
+            if not lot and line.order_id.origin:
+                jetons = ORIGIN_TOKEN_RE.findall(line.order_id.origin)
+                if jetons:
                     lot = Lot.search(
                         [
-                            ("name", "in", tokens),
-                            ("company_id", "=", order.company_id.id),
+                            ("name", "in", jetons),
+                            ("company_id", "=", line.order_id.company_id.id),
                         ],
                         limit=1,
                     )
 
-            order.lot_fabrication_id = lot
+            # Une affectation manuelle fait foi. L'affectation est
+            # inconditionnelle : un compute stocke doit donner une valeur a
+            # CHAQUE enregistrement, sans quoi Odoo leve « failed to assign ».
+            line.lot_fabrication_id = line.lot_fabrication_id or lot
+
+
+class PurchaseOrder(models.Model):
+    _inherit = "purchase.order"
+
+    lot_fabrication_ids = fields.Many2many(
+        "fma.lot.fabrication",
+        string="Lots de fabrication",
+        compute="_compute_lot_fabrication_ids",
+        store=True,
+        help="Lots dont ce bon de commande couvre les besoins.",
+    )
+
+    @api.depends("order_line.lot_fabrication_id")
+    def _compute_lot_fabrication_ids(self):
+        for order in self:
+            order.lot_fabrication_ids = order.order_line.lot_fabrication_id
+
+    # Ancien lien d'en-tete. Conserve declare et retire des ecrans : il ne
+    # pouvait porter qu'un lot, ce qui interdisait le regroupement des achats.
+    # Sa suppression viendra dans une version ulterieure — retirer un champ et
+    # sa reference en vue dans la meme mise a jour fait echouer le
+    # deploiement, les vues etant validees une par une.
+    lot_fabrication_id = fields.Many2one(
+        "fma.lot.fabrication",
+        string="Lot de fabrication (obsolète)",
+        index="btree_not_null",
+        ondelete="set null",
+    )
 
     def action_view_lot_fabrication(self):
         self.ensure_one()
-        if not self.lot_fabrication_id:
+        lots = self.lot_fabrication_ids
+        if not lots:
             return False
-        return {
+        action = {
             "type": "ir.actions.act_window",
-            "name": "Lot de fabrication",
+            "name": "Lots de fabrication",
             "res_model": "fma.lot.fabrication",
-            "res_id": self.lot_fabrication_id.id,
-            "view_mode": "form",
         }
+        if len(lots) == 1:
+            action.update({"res_id": lots.id, "view_mode": "form"})
+        else:
+            action.update({
+                "domain": [("id", "in", lots.ids)],
+                "view_mode": "list,form",
+            })
+        return action

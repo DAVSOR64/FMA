@@ -160,10 +160,14 @@ class FmaLotFabrication(models.Model):
         string="Nb OF",
         compute="_compute_production_count",
     )
-    purchase_ids = fields.One2many(
+    # Les achats se retrouvent par les LIGNES et non par l'en-tete : un bon
+    # de commande regroupe plusieurs lots des lors qu'ils partagent le
+    # fournisseur et le projet, et un One2many sur l'en-tete n'en aurait
+    # rattache qu'un seul.
+    purchase_ids = fields.Many2many(
         "purchase.order",
-        "lot_fabrication_id",
         string="Achats du lot",
+        compute="_compute_purchase_ids",
     )
     purchase_count = fields.Integer(
         string="Nb achats",
@@ -216,6 +220,12 @@ class FmaLotFabrication(models.Model):
             lot.production_count = len(lot.production_ids)
 
     @api.depends("purchase_ids")
+    def _compute_purchase_ids(self):
+        Ligne = self.env["purchase.order.line"]
+        for lot in self:
+            lignes = Ligne.search([("lot_fabrication_id", "=", lot.id)])
+            lot.purchase_ids = lignes.order_id
+
     def _compute_purchase_count(self):
         for lot in self:
             lot.purchase_count = len(lot.purchase_ids)
@@ -522,8 +532,10 @@ class FmaLotFabrication(models.Model):
         action = self.env["ir.actions.act_window"]._for_xml_id(
             "purchase.purchase_rfq"
         )
-        action["domain"] = [("lot_fabrication_id", "=", self.id)]
-        action["context"] = {"default_lot_fabrication_id": self.id}
+        # Par les lignes : un bon de commande couvrant plusieurs lots doit
+        # apparaitre sous chacun d'eux.
+        action["domain"] = [("id", "in", self.purchase_ids.ids)]
+        action["context"] = {}
         return action
 
     def action_view_sale_orders(self):

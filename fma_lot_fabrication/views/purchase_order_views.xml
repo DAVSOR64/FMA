@@ -6,10 +6,26 @@
         <field name="model">purchase.order</field>
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="arch" type="xml">
+
+            <!-- Les lots couverts par ce bon de commande, en lecture seule :
+                 ils se deduisent des lignes, ou vit le vrai rattachement. -->
             <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="lot_fabrication_ids"
+                       widget="many2many_tags"
+                       readonly="1"
+                       invisible="not lot_fabrication_ids"/>
+            </xpath>
+
+            <!-- C'est ici que le lot se lit et se corrige : une ligne, un lot.
+                 Colonne facultative, affichee par defaut — elle n'a de sens
+                 que sur les achats issus de la fabrication. -->
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_id']"
+                   position="after">
                 <field name="lot_fabrication_id"
+                       optional="show"
                        options="{'no_create': True}"/>
             </xpath>
+
         </field>
     </record>
 
@@ -18,12 +34,11 @@
         <field name="model">purchase.order</field>
         <field name="inherit_id" ref="purchase.view_purchase_order_filter"/>
         <field name="arch" type="xml">
+            <!-- Recherche seulement : Odoo ne sait pas regrouper sur un
+                 Many2many. Le regroupement par lot se fait desormais depuis
+                 le lot lui-meme, qui liste ses achats. -->
             <xpath expr="//search" position="inside">
-                <field name="lot_fabrication_id"/>
-                <group name="group_by_lot">
-                    <filter name="group_lot_fabrication" string="Lot de fabrication"
-                            domain="[]" context="{'group_by': 'lot_fabrication_id'}"/>
-                </group>
+                <field name="lot_fabrication_ids"/>
             </xpath>
         </field>
     </record>
