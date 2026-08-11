@@ -213,11 +213,16 @@ class SaleOrder(models.Model):
     def write(self, vals):
         res = super().write(vals)
         if "x_tranche" in vals or "project_id" in vals:
-            self._appliquer_suffixe_tranche()
+            self._appliquer_suffixe_tranche(explicite="x_tranche" in vals)
         return res
 
-    def _appliquer_suffixe_tranche(self):
+    def _appliquer_suffixe_tranche(self, explicite=False):
         """Renomme le devis en « <code affaire>/<tranche> ».
+
+        « explicite » distingue une saisie de tranche par l'utilisateur d'un
+        simple rattachement de chantier. Dans le premier cas, un empechement
+        merite un message : la personne attend un renumerotage. Dans le
+        second, elle ne demandait rien, et une exception serait deplacee.
 
         Le code affaire vient du chantier, et le chantier tient le sien du
         numero de son premier devis. La deuxieme tranche d'une affaire porte
@@ -231,14 +236,43 @@ class SaleOrder(models.Model):
         rien tant que le chantier n'a pas de code affaire.
         """
         for order in self:
+            if not order.x_tranche:
+                continue
+
             code = order.project_id.x_code_affaire
-            if not code or not order.x_tranche:
-                continue
+            if not code:
+                # Silencieux, ce cas est incomprehensible cote utilisateur :
+                # on saisit la tranche, on enregistre, et le numero ne bouge
+                # pas sans qu'aucun message n'explique pourquoi.
+                if not order.project_id:
+                    raise UserError(
+                        "Rattachez d'abord un chantier à ce devis : le numéro "
+                        "de tranche se construit sur le code de l'affaire."
+                    )
+                raise UserError(
+                    "Le chantier « %s » n'a pas de code affaire. Renseignez-le "
+                    "sur la fiche chantier — c'est lui qui sert de base au "
+                    "numéro : <code>/%s."
+                    % (order.project_id.display_name, order.x_tranche)
+                )
+
+            bloquants = []
             if order.state not in ("draft", "sent", "validated"):
-                continue
+                bloquants.append("la commande est confirmée")
             if order.invoice_ids:
-                continue
+                bloquants.append("une facture a été émise")
             if "picking_ids" in order._fields and order.picking_ids:
+                bloquants.append("un bon de livraison existe")
+            if bloquants:
+                # Ces documents portent l'ancien numero en origine, et rien ne
+                # les met a jour. On refuse plutot que de creer une
+                # incoherence, mais on le dit.
+                if explicite:
+                    raise UserError(
+                        "Le numéro de ce devis ne peut plus être modifié : %s. "
+                        "La tranche n'a pas été appliquée au numéro."
+                        % ", ".join(bloquants)
+                    )
                 continue
 
             nouveau = "%s/%s" % (code, order.x_tranche)
