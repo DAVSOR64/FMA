@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Ventes -->
-    <menuitem id="menu_x_affaire" name="Affaire" parent="sale.sale_menu_root" action="action_x_affaire" sequence="90"/>
+    <!-- « Affaire » retire des Ventes : la notion est reprise par le projet,
+         qui porte desormais le code affaire, le chiffrage et les tranches
+         (menu Ventes > Chantiers). L'action et le modele restent declares —
+         les donnees historiques de x_affaire ne sont pas perdues, seul
+         l'acces en doublon disparait. -->
 
     <!-- « Configuration personnalisée » retire des Ventes : c'etait un second
          menu de configuration a cote du menu standard, qui expose deja

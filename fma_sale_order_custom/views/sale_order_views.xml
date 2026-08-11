@@ -180,7 +180,17 @@
                     <!-- Le projet natif, pas le champ Studio : c'est lui que
                          lisent mrp_capacity_planning et fma_mrp_dashboard, et
                          lui qui porte le compte analytique du chantier. -->
-                    <field name="project_id" string="Projet"/>
+                    <!-- Domaine vide, explicitement.
+                         project_id vient de sale_project, ou il designe le
+                         projet de SERVICE d'une commande : son domaine natif
+                         ecarte les projets qui ne peuvent pas porter de
+                         taches facturables, et aucun chantier ne remontait
+                         donc dans la liste.
+                         Chez FMA ce champ porte le chantier, une notion de
+                         gestion sans rapport avec les taches : tout projet
+                         doit pouvoir etre choisi. Le domaine natif est donc
+                         remplace, pas complete. -->
+                    <field name="project_id" string="Projet" domain="[]"/>
                     <!-- Le chantier se cree depuis le devis, comme aujourd'hui :
                          son numero est celui du devis, il ne reste qu'a taper
                          le libelle. Pour une deuxieme tranche, on choisit le
