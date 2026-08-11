@@ -159,7 +159,15 @@ class ProjectProject(models.Model):
     def _compute_montants_chantier(self):
         for projet in self:
             commandes = projet.x_commande_ids
-            vendues = commandes.filtered(lambda o: o.state in ("sale", "done"))
+            # « validated » est un etat propre a FMA, entre le devis envoye et
+            # la commande : le client a valide, la vente est acquise meme si
+            # la confirmation administrative n'a pas encore eu lieu. Il compte
+            # donc dans le vendu, au meme titre que « sale » et « done ».
+            # L'ignorer sous-estimerait le portefeuille de tout ce qui est
+            # gagne mais pas encore transforme en commande.
+            vendues = commandes.filtered(
+                lambda o: o.state in ("validated", "sale", "done")
+            )
             projet.x_montant_vendu = sum(vendues.mapped("amount_untaxed"))
             projet.x_reste_a_vendre = (
                 projet.x_montant_chiffrage - projet.x_montant_vendu
