@@ -22,6 +22,8 @@
                         <field name="x_tranche_count"/>
                         <field name="x_montant_vendu"/>
                         <field name="x_reste_a_vendre"/>
+                        <field name="x_montant_facture"/>
+                        <field name="x_reste_a_facturer"/>
                     </group>
                 </group>
             </xpath>

@@ -175,13 +175,25 @@ class SaleOrder(models.Model):
 
     @api.onchange("project_id")
     def _onchange_project_id_tranche(self):
-        """Propose la tranche suivante, sans jamais ecraser une saisie."""
+        """Propose la tranche suivante — seulement sur un chantier a tranches.
+
+        La plupart des affaires n'en ont pas, et leur devis doit garder son
+        numero tel quel, sans suffixe. On ne propose donc rien tant qu'aucune
+        autre commande du chantier ne porte de tranche.
+
+        Ouvrir une affaire a tranches, c'est saisir 1 sur le premier devis.
+        C'est une decision de gestion, pas une deduction : elle appartient a
+        celui qui sait, des le chiffrage, que le chantier sera decoupe. Les
+        tranches suivantes s'enchainent ensuite d'elles-memes.
+        """
         if not self.project_id or self.x_tranche:
             return
         autres = self.project_id.x_commande_ids.filtered(
             lambda o: o.id != self._origin.id
         )
-        self.x_tranche = max(autres.mapped("x_tranche") or [0]) + 1
+        deja = [t for t in autres.mapped("x_tranche") if t]
+        if deja:
+            self.x_tranche = max(deja) + 1
 
     def write(self, vals):
         res = super().write(vals)
