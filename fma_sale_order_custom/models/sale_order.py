@@ -166,6 +166,21 @@ class SaleOrder(models.Model):
     #
     # Le devis est cree normalement, il recoit son numero de sequence ; on
     # renseigne ensuite la tranche, et le numero devient « <code>/<tranche> ».
+    # Ces deux champs ont ete deployes puis remplaces par x_tranche. Ils sont
+    # conserves declares, et volontairement absents de toute vue.
+    #
+    # Raison : Odoo valide les vues UNE PAR UNE pendant la mise a jour d'un
+    # module. Quand il valide la premiere vue du fichier, les autres vues du
+    # meme module sont encore, en base, dans leur version precedente — celle
+    # qui reference ces champs. Supprimer un champ et sa reference dans la
+    # meme mise a jour fait donc echouer le deploiement sur « Field ... does
+    # not exist in model », alors que le code est coherent.
+    #
+    # On les supprimera dans une version ulterieure, quand les vues stockees
+    # ne les mentionneront plus.
+    x_ref_tranche = fields.Char(string="Référence affaire (obsolète)")
+    tranche_no = fields.Integer(string="Tranche (obsolète)")
+
     x_tranche = fields.Integer(
         string="Tranche",
         copy=False,
