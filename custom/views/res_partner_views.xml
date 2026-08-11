@@ -22,6 +22,13 @@
             <xpath expr="//page[@name='sales_purchases']//field[@name='user_id']"
                    position="after">
                 <field name="x_studio_commercial_1"/>
+                <!-- Le mode de reglement sur son referentiel (x_reglements),
+                     seul endroit ou la liste se maintient sans toucher au
+                     code. C'est lui qui alimente desormais le devis puis la
+                     facture. Les anciennes Selection en dur restent en base
+                     et continuent d'alimenter le PDF, le temps que le
+                     referentiel soit peuple. -->
+                <field name="x_studio_mode_de_rglement_dsa"/>
             </xpath>
 
             <xpath expr="//page[@name='sales_purchases']/group" position="inside">

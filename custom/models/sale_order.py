@@ -191,6 +191,34 @@ class SaleOrder(models.Model):
     so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
     so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
 
+    # Mode de reglement du devis, sur le referentiel x_reglements.
+    #
+    # Cette notion etait eclatee sur neuf champs : quatre sur le client
+    # (un Char mort, un Many2one vers x_reglements jamais affiche, et deux
+    # Selection aux valeurs strictement identiques), trois sur le devis, deux
+    # sur la facture. Celui qui etait affiche sur le devis — un Char — n'etait
+    # alimente que par _prepare_order, methode du portail jamais appelee ici :
+    # il etait donc toujours vide.
+    #
+    # On repart du referentiel, seul endroit ou la liste des modes se
+    # maintient sans toucher au code. Meme motif que commercial_id :
+    # pre-rempli depuis le client, modifiable, puis fige — changer le mode de
+    # reglement d'un client ne doit pas reecrire ses affaires en cours.
+    mode_reglement_id = fields.Many2one(
+        "x_reglements",
+        string="Mode de règlement",
+        compute="_compute_mode_reglement_id",
+        store=True,
+        readonly=False,
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_mode_reglement_id(self):
+        # Affectation inconditionnelle, et sans jamais lire le champ calcule.
+        for order in self:
+            order.mode_reglement_id = order.partner_id.x_studio_mode_de_rglement_dsa
+
     # Commercial de l'affaire : recopie depuis le client a la selection de
     # celui-ci, puis **fige**. « compute + store + readonly=False » et non un
     # related : changer le commercial d'un client ne doit rien changer aux
@@ -397,6 +425,11 @@ class SaleOrder(models.Model):
         # porte le client aujourd'hui : c'est ce qui rend la remuneration
         # auditable.
         invoice_vals['commercial_id'] = self.commercial_id.id
+        # Meme regle pour le mode de reglement : la facture garde celui de la
+        # vente. Le PDF continue de lire les anciens champs tant que le
+        # referentiel n'est pas peuple ; c'est un basculement a faire une fois
+        # les donnees en place, pas maintenant.
+        invoice_vals['mode_reglement_id'] = self.mode_reglement_id.id
         return invoice_vals
 
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')

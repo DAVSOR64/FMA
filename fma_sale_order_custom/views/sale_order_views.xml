@@ -219,7 +219,11 @@
                 <group name="fma_paves">
 
                     <group string="Conditions" name="fma_conditions">
-                        <field name="x_studio_mode_de_rglement"/>
+                        <!-- mode_reglement_id et non x_studio_mode_de_rglement :
+                             ce dernier est un Char alimente uniquement par
+                             _prepare_order, methode du portail jamais appelee
+                             ici. Il etait donc toujours vide a l'ecran. -->
+                        <field name="mode_reglement_id"/>
                         <field name="so_delai_confirme_en_semaine"/>
                         <field name="so_date_de_livraison" readonly="1"/>
                     </group>
