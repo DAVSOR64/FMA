@@ -4,6 +4,26 @@
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
+
+            <!-- Le « Vendeur » natif est un utilisateur Odoo ; il sert a
+                 l'affectation des opportunites et au vendeur par defaut des
+                 devis. Chez FMA, le commercial est un EMPLOYE du departement
+                 Commerce, sans licence : c'est lui qui sert au suivi et a la
+                 remuneration, et c'est lui qui doit remonter sur le devis
+                 puis sur la facture.
+
+                 Le champ existait deja et toute la chaine etait cablee
+                 (sale.order.commercial_id le recopie a la selection du
+                 client, puis _prepare_invoice le transmet a la facture) —
+                 il n'etait simplement affiche nulle part.
+
+                 On le pose a cote du Vendeur plutot qu'a la place : le champ
+                 natif reste utilise par Odoo pour ses propres mecanismes. -->
+            <xpath expr="//page[@name='sales_purchases']//field[@name='user_id']"
+                   position="after">
+                <field name="x_studio_commercial_1"/>
+            </xpath>
+
             <xpath expr="//page[@name='sales_purchases']/group" position="inside">
                 <group>
                     <field name="part_siren" string="SIREN"/>
