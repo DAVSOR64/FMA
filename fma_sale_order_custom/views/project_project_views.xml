@@ -17,11 +17,14 @@
                         <field name="x_code_affaire"/>
                         <field name="x_currency_id" invisible="1"/>
                         <field name="x_montant_chiffrage"/>
+                        <field name="x_tranche_count"/>
                     </group>
                     <group>
-                        <field name="x_tranche_count"/>
                         <field name="x_montant_vendu"/>
-                        <field name="x_reste_a_vendre"/>
+                        <!-- Masque tant que le chiffrage n'est pas saisi : la
+                             soustraction n'aurait rien a dire. -->
+                        <field name="x_reste_a_vendre"
+                               invisible="not x_montant_chiffrage"/>
                         <field name="x_montant_facture"/>
                         <field name="x_reste_a_facturer"/>
                     </group>
@@ -30,5 +33,73 @@
 
         </field>
     </record>
+
+    <!-- Ecran dedie « Chantiers ».
+         Une vue autonome plutot qu'une greffe sur la liste native des
+         projets : celle-ci sert au pilotage des taches, ses colonnes n'ont
+         rien a voir, et l'heritage supposerait de parier sur l'identifiant
+         d'une vue standard.
+         C'est ici que se lit le portefeuille : les totaux en bas de colonne
+         donnent le cumul sur tous les chantiers affiches, et donc sur ceux
+         que le filtre retient. -->
+    <record id="view_project_list_chantier_fma" model="ir.ui.view">
+        <field name="name">project.project.list.chantier.fma</field>
+        <field name="model">project.project</field>
+        <field name="arch" type="xml">
+            <list string="Chantiers" create="false">
+                <field name="x_currency_id" column_invisible="1"/>
+                <field name="x_code_affaire"/>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="user_id" widget="many2one_avatar_user"/>
+                <field name="x_tranche_count" sum="Tranches"/>
+                <field name="x_montant_chiffrage" sum="Chiffré"/>
+                <field name="x_montant_vendu" sum="Vendu"/>
+                <field name="x_reste_a_vendre" sum="Reste à vendre"/>
+                <field name="x_montant_facture" sum="Facturé"/>
+                <field name="x_reste_a_facturer" sum="Reste à facturer"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_project_search_chantier_fma" model="ir.ui.view">
+        <field name="name">project.project.search.chantier.fma</field>
+        <field name="model">project.project</field>
+        <field name="arch" type="xml">
+            <search string="Chantiers">
+                <field name="x_code_affaire"/>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <filter name="chiffres" string="Chiffrés"
+                        domain="[('x_montant_chiffrage', '&gt;', 0)]"/>
+                <filter name="a_vendre" string="Reste à vendre"
+                        domain="[('x_reste_a_vendre', '&gt;', 0)]"/>
+                <filter name="a_facturer" string="Reste à facturer"
+                        domain="[('x_reste_a_facturer', '&gt;', 0)]"/>
+                <filter name="a_tranches" string="À tranches"
+                        domain="[('x_tranche_count', '&gt;', 1)]"/>
+                <group expand="0" string="Regrouper par">
+                    <filter name="par_client" string="Client"
+                            context="{'group_by': 'partner_id'}"/>
+                    <filter name="par_responsable" string="Responsable"
+                            context="{'group_by': 'user_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_project_chantier_fma" model="ir.actions.act_window">
+        <field name="name">Chantiers</field>
+        <field name="res_model">project.project</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_project_list_chantier_fma"/>
+        <field name="search_view_id" ref="view_project_search_chantier_fma"/>
+    </record>
+
+    <menuitem id="menu_project_chantier_fma"
+              name="Chantiers"
+              parent="sale.sale_menu_root"
+              action="action_project_chantier_fma"
+              sequence="89"/>
 
 </odoo>
