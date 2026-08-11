@@ -22,7 +22,7 @@
     # pas change ni quand un composant reste introuvable ; le temps de debit
     # part sur le sous-ensemble debite.
     # 1.7.0 : « Import Pricer » quitte la barre d'etat pour le menu Action.
-    "version": "19.0.1.7.0",
+    "version": "19.0.1.8.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
@@ -56,6 +56,7 @@ enregistrement, avec ses logs, pour consultation.
         "security/ir.model.access.csv",
         "wizard/fma_pricer_import_wizard_views.xml",
         "views/sale_order_views.xml",
+        "views/mrp_workcenter_views.xml",
         "views/fma_lot_fabrication_views.xml",
     ],
     "installable": True,

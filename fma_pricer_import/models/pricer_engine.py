@@ -17,6 +17,7 @@ toucher aux autres.
 """
 import hashlib
 import logging
+import unicodedata
 
 from odoo import _, models
 from odoo.exceptions import UserError
@@ -24,6 +25,17 @@ from odoo.exceptions import UserError
 from ..pivot import logikal
 
 _logger = logging.getLogger(__name__)
+
+
+def sans_accent(texte):
+    """Minuscules et sans accent, pour rapprocher des noms saisis a la main.
+
+    Le pricer nomme ses temps « Debit », l'atelier a baptise ses postes
+    « Debit FMA » avec un accent. Une comparaison litterale ne les rapproche
+    pas, et l'operation disparaissait de la nomenclature.
+    """
+    plie = unicodedata.normalize("NFD", texte or "")
+    return "".join(c for c in plie if not unicodedata.combining(c)).strip().lower()
 
 
 def signature_hash(menuiserie):
@@ -360,6 +372,33 @@ class FmaPricerEngine(models.AbstractModel):
             Bom.create(vals)
         return missing
 
+    def _workcenters(self, product):
+        """Postes de charge candidats, et ceux explicitement rattaches.
+
+        Renvoie deux structures : le rattachement declare par le metier
+        (champ « Operation pricer » sur le poste), qui fait foi, et la liste
+        des postes tries du nom le plus court au plus long, pour le
+        rapprochement par nom en repli.
+
+        La societe est celle de l'article, ou a defaut celle de
+        l'utilisateur : un article sans societe — le cas courant — reduisait
+        le filtre a « company_id = False » et ne trouvait aucun poste, alors
+        que tous en portent une.
+        """
+        company = product.company_id or self.env.company
+        postes = self.env["mrp.workcenter"].search(
+            [("company_id", "in", [company.id, False])]
+        )
+        declares = {}
+        for poste in postes:
+            if poste.pricer_operation:
+                declares.setdefault(sans_accent(poste.pricer_operation), poste)
+        par_nom = sorted(
+            ((sans_accent(w.name), w) for w in postes),
+            key=lambda couple: (len(couple[0]), couple[0]),
+        )
+        return declares, par_nom
+
     def _bom_operations(self, men, product, skip=(), keep=None):
         """Gamme d'une menuiserie, a partir des temps du pricer.
 
@@ -367,29 +406,49 @@ class FmaPricerEngine(models.AbstractModel):
         nomenclature de projet. Ici ils sont ramenes a la menuiserie et a
         l'unite, ce qui les rend exploitables par OF d'assemblage.
         """
-        Workcenter = self.env["mrp.workcenter"]
         operations = []
         missing = []
+        declares, par_nom = self._workcenters(product)
         for operation in men.operations:
             if keep is not None and operation.name not in keep:
                 continue
             if operation.name in skip:
                 continue
-            workcenter = Workcenter.search(
-                [
-                    ("name", "=like", "%s%%" % operation.name),
-                    ("company_id", "in", (product.company_id.id, False)),
-                ],
-                limit=1,
-            )
+
+            prefixe = sans_accent(operation.name)
+
+            # 1. Le rattachement declare par le metier fait foi.
+            workcenter = declares.get(prefixe)
             if not workcenter:
-                label = _(
-                    "operation %(name)s : aucun poste de charge de ce nom",
-                    name=operation.name,
-                )
-                if label not in missing:
-                    missing.append(label)
-                continue
+                # 2. Repli : rapprochement par le debut du nom.
+                candidats = [w for cle, w in par_nom if cle.startswith(prefixe)]
+                if not candidats:
+                    label = _(
+                        "operation %(name)s : aucun poste de charge de ce nom. "
+                        "Renseignez « Opération pricer » sur le poste concerné.",
+                        name=operation.name,
+                    )
+                    if label not in missing:
+                        missing.append(label)
+                    continue
+
+                # Plusieurs postes commencent par le meme mot (« Usinage
+                # FMA », « Usinage F2M », « Usinage Simple »...). On retient
+                # le nom le plus court, et on signale : c'est au metier de
+                # trancher, pas au code de choisir en silence.
+                workcenter = candidats[0]
+                if len(candidats) > 1:
+                    label = _(
+                        "operation %(name)s : %(nb)s postes possibles "
+                        "(%(liste)s). %(retenu)s a ete retenu — renseignez "
+                        "« Opération pricer » sur le bon poste pour lever le doute.",
+                        name=operation.name,
+                        nb=len(candidats),
+                        liste=", ".join(c.display_name for c in candidats),
+                        retenu=workcenter.display_name,
+                    )
+                    if label not in missing:
+                        missing.append(label)
             operations.append(
                 (0, 0, {
                     "name": operation.name,
