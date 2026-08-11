@@ -78,7 +78,11 @@
                         domain="[('x_reste_a_facturer', '&gt;', 0)]"/>
                 <filter name="a_tranches" string="À tranches"
                         domain="[('x_tranche_count', '&gt;', 1)]"/>
-                <group expand="0" string="Regrouper par">
+                <!-- Groupe sans attribut : « expand » et « string » ont ete
+                     retires des groupes de vue search en v19, et le depot
+                     porte deja les correctifs qui les avaient supprimes
+                     ailleurs. C'est l'idiome utilise par fma_mrp_dashboard. -->
+                <group>
                     <filter name="par_client" string="Client"
                             context="{'group_by': 'partner_id'}"/>
                     <filter name="par_responsable" string="Responsable"
