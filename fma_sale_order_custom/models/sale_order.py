@@ -210,12 +210,6 @@ class SaleOrder(models.Model):
         if deja:
             self.x_tranche = max(deja) + 1
 
-    def write(self, vals):
-        res = super().write(vals)
-        if "x_tranche" in vals or "project_id" in vals:
-            self._appliquer_suffixe_tranche(explicite="x_tranche" in vals)
-        return res
-
     def _appliquer_suffixe_tranche(self, explicite=False):
         """Renomme le devis en « <code affaire>/<tranche> ».
 
@@ -582,6 +576,12 @@ class SaleOrder(models.Model):
         if "tag_ids" in vals:
             _logger.info("Appel de _update_warehouse après mise à jour")
             self._update_warehouse()
+
+        # Numero de tranche : il suffixe le numero du devis. Cet appel vit ici
+        # et non dans une seconde methode write — la classe n'en accepte
+        # qu'une, la derniere definie ecrase silencieusement les precedentes.
+        if "x_tranche" in vals or "project_id" in vals:
+            self._appliquer_suffixe_tranche(explicite="x_tranche" in vals)
 
         return res
 
