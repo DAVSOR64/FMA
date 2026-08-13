@@ -296,17 +296,29 @@ class FmaPricerEngine(models.AbstractModel):
             limit=1,
         )
 
-        # Cinq lots d'une meme menuiserie decrivent la meme chose : seule la
-        # quantite a fabriquer change. Si l'empreinte du chiffrage n'a pas
-        # bouge et que la nomenclature existe deja, il n'y a rien a refaire.
-        if unchanged and bom and bom.bom_line_ids:
-            return issues
+        # La gamme se calcule avant les garde-fous : elle ne depend pas des
+        # composants, et elle doit pouvoir etre corrigee sur une nomenclature
+        # existante. Sans cela, un poste de charge cree ou renomme apres le
+        # premier import n'entrait jamais dans les nomenclatures deja faites.
+        #
+        # Le debit est mutualise sur le lot : son temps appartient a l'OF de
+        # debit, pas aux OF d'assemblage. Il part donc sur la nomenclature du
+        # sous-ensemble debite.
+        operations, missing_wc = self._bom_operations(men, product, skip=("Debit",))
+        issues_gamme = list(missing_wc)
+        issues_gamme.extend(self._sync_debit_bom(debit, men))
 
-        # Une resolution incomplete ne doit jamais ecraser une nomenclature
-        # correcte : c'est ce qui faisait disparaitre le vitrage au deuxieme
-        # import. On signale le manque et on laisse l'existant en place.
-        if issues and bom and bom.bom_line_ids:
-            return issues
+        # Deux raisons de ne pas retoucher les COMPOSANTS d'une nomenclature
+        # existante : l'empreinte du chiffrage n'a pas bouge — cinq lots d'une
+        # meme menuiserie decrivent la meme chose —, ou un composant reste
+        # introuvable, et une resolution incomplete ecraserait une
+        # nomenclature correcte. Dans les deux cas la gamme, elle, est mise a
+        # jour : c'est une autre information.
+        if bom and bom.bom_line_ids and (unchanged or issues):
+            bom.write({"operation_ids": [(5, 0, 0)] + operations})
+            return issues + issues_gamme
+
+        issues.extend(issues_gamme)
         merged = {}
         for item, qty in components:
             merged[item] = merged.get(item, 0.0) + qty
@@ -319,13 +331,6 @@ class FmaPricerEngine(models.AbstractModel):
             for item, qty in merged.items()
             if qty
         ]
-        # Le debit est mutualise sur le lot : son temps appartient a l'OF de
-        # debit, pas aux OF d'assemblage. Il part donc sur la nomenclature du
-        # sous-ensemble debite.
-        operations, missing_wc = self._bom_operations(men, product, skip=("Debit",))
-        issues.extend(missing_wc)
-        issues.extend(self._sync_debit_bom(debit, men))
-
         vals = {
             "product_tmpl_id": product.product_tmpl_id.id,
             "product_id": product.id,
