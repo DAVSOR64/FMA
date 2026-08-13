@@ -27,7 +27,18 @@ class StockPicking(models.Model):
             )
         if "scheduled_date" in vals:  # Mise à jour de la date de livraison si modifiée
             for picking in self:
-                if picking.sale_id:
+                # Seul le BL fait foi. Sans ce filtre, n'importe quel
+                # transfert lie a la commande ecrasait la date de livraison —
+                # y compris les transferts de COMPOSANTS, que le macro
+                # planning deplace vers l'amont. La commande recevait donc une
+                # date de fabrication en guise de date de livraison, et le
+                # rétroplanning suivant repartait de cette date-la : une
+                # boucle qui tirait les dates vers le passe.
+                #
+                # Constate sur la staging : livraison promise au 15/10/2026,
+                # so_date_de_livraison_prevu tombee au 12/12/2025, et des OF
+                # planifies en decembre 2025.
+                if picking.sale_id and picking.picking_type_id.code == "outgoing":
                     picking.sale_id.so_date_de_livraison_prevu = picking.scheduled_date
         return res
 
