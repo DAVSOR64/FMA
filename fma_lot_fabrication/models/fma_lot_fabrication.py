@@ -366,8 +366,84 @@ class FmaLotFabrication(models.Model):
             if a_confirmer:
                 a_confirmer.action_confirm()
 
+            lot._chainer_debit_et_assemblage()
+
             if lot.state == "confirmed":
                 lot.state = "progress"
+        return True
+
+    def _chainer_debit_et_assemblage(self, security_days=6):
+        """Planifie le lot : l'assemblage depuis la livraison, le debit avant.
+
+        Le retroplanning existe deja dans mrp_capacity_planning, mais il
+        raisonne par OF isole : chaque assemblage remontait de son cote depuis
+        la date de livraison, et le debit — cree apres la confirmation, sans
+        ligne de commande — n'etait jamais planifie. On obtenait des
+        assemblages dates avant le debit qui les alimente.
+
+        On ne reecrit aucune regle metier : on enchaine les deux methodes
+        existantes.
+
+        1. Les assemblages remontent depuis la date de livraison, delai de
+           securite deduit.
+        2. Le debit doit etre fini la veille ouvree du premier assemblage.
+        3. Il remonte a son tour depuis cette date de fin.
+
+        Un echec de planification ne doit pas empecher les OF d'exister : ils
+        sont deja crees quand on arrive ici. On trace dans le fil du lot.
+        """
+        self.ensure_one()
+        debit = self.production_debit_id
+        assemblages = self.production_assembly_ids.filtered(
+            lambda p: p.state not in ("done", "cancel")
+        )
+        if not debit or debit.state in ("done", "cancel") or not assemblages:
+            return False
+
+        # mrp_capacity_planning n'est pas une dependance de ce module.
+        if not hasattr(debit, "compute_macro_schedule_from_sale"):
+            return False
+
+        try:
+            for mo in assemblages:
+                cible, commande = mo._get_macro_target_date()
+                if cible:
+                    mo.compute_macro_schedule_from_sale(
+                        commande or mo, security_days=security_days
+                    )
+
+            debuts = [d for d in assemblages.mapped("date_start") if d]
+            if not debuts:
+                return False
+
+            premier = fields.Datetime.to_datetime(min(debuts)).date()
+            poste = debit.workorder_ids[:1].workcenter_id
+            veille = debit._previous_working_day(premier, poste)
+
+            if "x_studio_date_de_fin" not in debit._fields:
+                return False
+            debit.x_studio_date_de_fin = veille
+            debit.compute_macro_schedule_from_date_fin()
+        except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception("Chainage debit/assemblage du lot %s", self.name)
+            self.message_post(
+                body=_(
+                    "Planification du lot impossible : %(erreur)s<br/>"
+                    "Les ordres de fabrication existent, seules leurs dates "
+                    "restent a caler.",
+                    erreur=erreur,
+                )
+            )
+            return False
+
+        self.message_post(
+            body=_(
+                "Planification : assemblage a partir du %(assemblage)s, "
+                "debit termine le %(debit)s.",
+                assemblage=min(debuts),
+                debit=veille,
+            )
+        )
         return True
 
     def _get_product_debit(self):
