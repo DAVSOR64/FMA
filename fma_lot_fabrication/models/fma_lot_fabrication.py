@@ -354,8 +354,17 @@ class FmaLotFabrication(models.Model):
             if lot.state == "draft":
                 lot.action_confirm()
 
-            lot._generate_debit_order()
-            lot._generate_assembly_orders()
+            productions = lot._generate_debit_order()
+            productions |= lot._generate_assembly_orders()
+
+            # Un OF cree reste en brouillon : il ne reserve rien, n'entre pas
+            # au planning et n'apparait pas dans le flux atelier. Les OF
+            # d'assemblage issus de l'appro natif, eux, arrivent confirmes —
+            # le lot produisait donc des OF de debit invisibles a cote d'OF
+            # d'assemblage actifs.
+            a_confirmer = productions.filtered(lambda p: p.state == "draft")
+            if a_confirmer:
+                a_confirmer.action_confirm()
 
             if lot.state == "confirmed":
                 lot.state = "progress"
