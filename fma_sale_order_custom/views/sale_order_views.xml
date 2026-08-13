@@ -122,7 +122,13 @@
         <field name="binding_model_id" ref="sale.model_sale_order"/>
         <field name="binding_view_types">form</field>
         <field name="state">code</field>
-        <field name="code">action = records.action_cancel()</field>
+        <field name="code">resultat = records.action_cancel()
+# action_cancel renvoie soit un dictionnaire d'action — l'assistant qui
+# demande quoi faire des documents lies —, soit True quand il n'y a rien a
+# demander. Assigner True a « action » fait planter le client, qui attend un
+# dictionnaire : « 'bool' object has no attribute 'setdefault' ».
+if resultat and resultat is not True:
+    action = resultat</field>
     </record>
 
 
