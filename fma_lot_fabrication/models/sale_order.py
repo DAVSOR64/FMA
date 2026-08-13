@@ -68,8 +68,15 @@ class SaleOrder(models.Model):
         Production = self.env["mrp.production"]
         for order in self:
             for line in order.order_line:
+                # Une affectation dont l'OF a ete ANNULE redevient a traiter :
+                # sinon, apres une annulation, la commande reconfirmee ne
+                # scindait plus rien — l'affectation restait marquee comme
+                # deja produite et le decoupage passait son chemin. Constate
+                # sur la staging : une seule production de 30 au lieu de trois
+                # de 10.
                 allocations = line.lot_line_ids.filtered(
-                    lambda a: not a.production_id and a.product_qty > 0
+                    lambda a: a.product_qty > 0
+                    and (not a.production_id or a.production_id.state == "cancel")
                 ).sorted(lambda a: (a.lot_id.name or "", a.id))
                 if not allocations:
                     continue
