@@ -67,6 +67,7 @@ class FmaPricerEngine(models.AbstractModel):
         # contexte, plutot que par la signature de six methodes
         # intermediaires.
         self = self.with_context(fma_site=quotation.site)
+        self._check_offer_matches(order, quotation)
         self._check_bars_usable(order, quotation)
 
         sale_lines, missing_lines = self._sync_sale_lines(order, quotation)
@@ -136,6 +137,41 @@ class FmaPricerEngine(models.AbstractModel):
     # ------------------------------------------------------------------
     # Controles
     # ------------------------------------------------------------------
+    def _check_offer_matches(self, order, quotation):
+        """Refuse un fichier chiffre pour un autre devis.
+
+        LOGIKAL inscrit le numero du devis dans ``Projects.OfferNo``, tranche
+        comprise : « A26-08-09999/3 ». Deposer ce fichier sur le devis
+        « A26-08-09999/1 » y cree un deuxieme article, une deuxieme
+        nomenclature et une deuxieme ligne — la commande melange alors deux
+        tranches, et plus rien ne le signale.
+
+        Le cas s'est produit : les exports sont nommes « Tranche 1 Lot 3 » et
+        « Tranche 3 Lot 1 », deux noms qui se ressemblent pour deux devis
+        differents. Le controle coute une comparaison de chaines.
+
+        On ne bloque que si le fichier porte un numero : un export sans
+        OfferNo n'apprend rien et ne doit pas empecher de travailler.
+        """
+        offre = (quotation.project.get("offer_no") or "").strip()
+        if not offre:
+            return
+        if offre.upper() == (order.name or "").strip().upper():
+            return
+        raise UserError(
+            _(
+                "Ce fichier a ete chiffre pour le devis %(offre)s, or vous "
+                "l'importez dans %(devis)s.\n\n"
+                "Deposer le chiffrage d'une autre tranche creerait ici un "
+                "second article et une seconde nomenclature, et la commande "
+                "melangerait deux tranches.\n\n"
+                "Verifiez le fichier : « Tranche 1 Lot 3 » et « Tranche 3 "
+                "Lot 1 » ne designent pas le meme devis.",
+                offre=offre,
+                devis=order.name or "",
+            )
+        )
+
     def _check_bars_usable(self, order, quotation):
         """Refuse un fichier dont l'optimisation deborde du lot.
 

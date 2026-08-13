@@ -22,7 +22,7 @@
     # pas change ni quand un composant reste introuvable ; le temps de debit
     # part sur le sous-ensemble debite.
     # 1.7.0 : « Import Pricer » quitte la barre d'etat pour le menu Action.
-    "version": "19.0.1.11.0",
+    "version": "19.0.1.12.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
