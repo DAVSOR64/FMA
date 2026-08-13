@@ -38,6 +38,10 @@
                             string="Completer les OF"
                             invisible="state != 'progress'"
                             help="Regenere les OF manquants (menuiseries ajoutees apres coup)."/>
+                    <button name="action_replanifier_lot" type="object"
+                            string="Replanifier"
+                            invisible="state not in ('confirmed', 'progress')"
+                            help="Recalcule les dates de debut depuis la date de fin de fabrication saisie, debit compris."/>
                     <button name="action_cancel" type="object" string="Annuler"
                             invisible="state in ('cancel', 'done')"
                             confirm="Annuler le lot annulera aussi ses OF non termines. Continuer ?"/>
@@ -76,6 +80,7 @@
                         <group>
                             <field name="partner_id"/>
                             <field name="date_planned_start"/>
+                            <field name="date_fin_fab"/>
                             <field name="logikal_ref"/>
                         </group>
                         <group>

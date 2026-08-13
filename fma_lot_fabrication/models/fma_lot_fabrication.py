@@ -85,6 +85,32 @@ class FmaLotFabrication(models.Model):
         help="Client du (ou du premier) devis loti. Un lot peut couvrir "
         "plusieurs commandes d'un meme chantier.",
     )
+    # Fin de fabrication du lot : la plus tardive de ses assemblages. Stockee
+    # et modifiable — la modifier puis « Replanifier » fait remonter tout le
+    # lot depuis cette date, debit compris. C'est la prise de l'ordonnanceur
+    # sur le planning, la ou la date de livraison est la promesse au client.
+    date_fin_fab = fields.Datetime(
+        string="Fin de fabrication",
+        compute="_compute_date_fin_fab",
+        store=True,
+        readonly=False,
+        help="Date de fin des OF d'assemblage du lot. La modifier puis "
+        "cliquer sur « Replanifier » recalcule les dates de debut, debit "
+        "compris.",
+    )
+
+    @api.depends(
+        "production_assembly_ids.date_finished",
+        "production_assembly_ids.state",
+    )
+    def _compute_date_fin_fab(self):
+        for lot in self:
+            actifs = lot.production_assembly_ids.filtered(
+                lambda p: p.state not in ("done", "cancel")
+            )
+            dates = [d for d in actifs.mapped("date_finished") if d]
+            lot.date_fin_fab = max(dates) if dates else False
+
     date_planned_start = fields.Datetime(
         string="Date planifiee",
         default=fields.Datetime.now,
@@ -372,7 +398,27 @@ class FmaLotFabrication(models.Model):
                 lot.state = "progress"
         return True
 
-    def _chainer_debit_et_assemblage(self, security_days=6):
+    def action_replanifier_lot(self):
+        """Replanifie le lot depuis la date de fin de fabrication saisie.
+
+        Le rétroplanning part normalement de la date de livraison. Ici, c'est
+        l'ordonnanceur qui impose la fin : on garde la meme mecanique, mais
+        bornee par sa date. Le debit suit, comme toujours une veille ouvree
+        avant le premier assemblage.
+        """
+        self.ensure_one()
+        if not self.date_fin_fab:
+            raise UserError(
+                _(
+                    "Renseignez la date de fin de fabrication du lot %s avant "
+                    "de replanifier.",
+                    self.name,
+                )
+            )
+        self._chainer_debit_et_assemblage(fin_forcee=self.date_fin_fab)
+        return True
+
+    def _chainer_debit_et_assemblage(self, security_days=6, fin_forcee=None):
         """Planifie le lot : l'assemblage depuis la livraison, le debit avant.
 
         Le retroplanning existe deja dans mrp_capacity_planning, mais il
@@ -406,6 +452,14 @@ class FmaLotFabrication(models.Model):
 
         try:
             for mo in assemblages:
+                if fin_forcee and "x_studio_date_de_fin" in mo._fields:
+                    # Fin imposee par l'ordonnanceur : meme retroplanning,
+                    # autre borne.
+                    mo.x_studio_date_de_fin = fields.Datetime.to_datetime(
+                        fin_forcee
+                    ).date()
+                    mo.compute_macro_schedule_from_date_fin()
+                    continue
                 cible, commande = mo._get_macro_target_date()
                 if cible:
                     mo.compute_macro_schedule_from_sale(
