@@ -384,14 +384,34 @@ class FmaLotFabrication(models.Model):
         return product
 
     def _get_picking_type(self):
+        """Type d'operation de fabrication, sur l'atelier de la commande.
+
+        Les OF d'assemblage viennent de l'appro natif, qui suit l'entrepot du
+        devis. Ceux que le lot cree — le debit en tete — doivent partir du
+        meme atelier, sinon le debit se fabrique a un endroit et l'assemblage
+        a un autre : constate sur la staging, un OF de debit sur CBM face a
+        des assemblages sur LRE.
+
+        On cherche le type de l'entrepot de la commande, et on ne retombe sur
+        le premier type de la societe que si le lot n'est rattache a aucune
+        commande.
+        """
         self.ensure_one()
-        picking_type = self.env["stock.picking.type"].search(
-            [
-                ("code", "=", "mrp_operation"),
-                ("company_id", "in", (self.company_id.id, False)),
-            ],
-            limit=1,
-        )
+        Type = self.env["stock.picking.type"]
+        domaine = [
+            ("code", "=", "mrp_operation"),
+            ("company_id", "in", (self.company_id.id, False)),
+        ]
+
+        entrepot = self.sale_order_ids.warehouse_id[:1]
+        if entrepot:
+            picking_type = Type.search(
+                domaine + [("warehouse_id", "=", entrepot.id)], limit=1
+            )
+            if picking_type:
+                return picking_type
+
+        picking_type = Type.search(domaine, limit=1)
         if not picking_type:
             raise UserError(
                 _(
