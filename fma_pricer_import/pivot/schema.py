@@ -170,6 +170,9 @@ class Quotation:
     project: dict = field(default_factory=dict)
     lots: list = field(default_factory=list)  # [Lot]
     warnings: list = field(default_factory=list)
+    #: Site qui a chiffre — « FMA » ou « F2M ». Il departage les postes de
+    #: charge homonymes des deux ateliers (« Debit FMA » / « Debit F2M »).
+    site: str = ""
     #: Vrai si l'optimisation de debit est attribuable lot par lot. Faux quand
     #: une barre porte des coupes de plusieurs lots : les barres du fichier ne
     #: sont alors exploitables ni en achat ni en production.

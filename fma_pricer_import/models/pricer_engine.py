@@ -61,6 +61,12 @@ class FmaPricerEngine(models.AbstractModel):
         Renvoie les lots crees ou mis a jour.
         """
         order.ensure_one()
+        # Le site qui a chiffre — « FMA » ou « F2M » — departage les postes de
+        # charge homonymes des deux ateliers. Il est lu dans les parametres du
+        # fichier (REPORTVARIABLES / Addresses / OwnAddress01) et voyage par le
+        # contexte, plutot que par la signature de six methodes
+        # intermediaires.
+        self = self.with_context(fma_site=quotation.site)
         self._check_bars_usable(order, quotation)
 
         sale_lines, missing_lines = self._sync_sale_lines(order, quotation)
@@ -389,15 +395,23 @@ class FmaPricerEngine(models.AbstractModel):
         postes = self.env["mrp.workcenter"].search(
             [("company_id", "in", [company.id, False])]
         )
+        # Le site du fichier departage les postes homonymes. La cle inclut
+        # donc le site quand le poste en declare un ; un poste sans site sert
+        # de valeur par defaut, utilisee quand le fichier ne dit rien ou
+        # qu'aucun poste ne correspond au site.
+        site = sans_accent(self.env.context.get("fma_site") or "")
         declares = {}
         for poste in postes:
-            if poste.pricer_operation:
-                declares.setdefault(sans_accent(poste.pricer_operation), poste)
+            if not poste.pricer_operation:
+                continue
+            operation = sans_accent(poste.pricer_operation)
+            declares.setdefault((operation, sans_accent(poste.pricer_site)), poste)
+
         par_nom = sorted(
             ((sans_accent(w.name), w) for w in postes),
             key=lambda couple: (len(couple[0]), couple[0]),
         )
-        return declares, par_nom
+        return site, declares, par_nom
 
     def _bom_operations(self, men, product, skip=(), keep=None):
         """Gamme d'une menuiserie, a partir des temps du pricer.
@@ -408,7 +422,7 @@ class FmaPricerEngine(models.AbstractModel):
         """
         operations = []
         missing = []
-        declares, par_nom = self._workcenters(product)
+        site, declares, par_nom = self._workcenters(product)
         for operation in men.operations:
             if keep is not None and operation.name not in keep:
                 continue
@@ -417,11 +431,17 @@ class FmaPricerEngine(models.AbstractModel):
 
             prefixe = sans_accent(operation.name)
 
-            # 1. Le rattachement declare par le metier fait foi.
-            workcenter = declares.get(prefixe)
+            # 1. Le rattachement declare par le metier fait foi : d'abord le
+            #    poste du site qui a chiffre, puis le poste sans site.
+            workcenter = declares.get((prefixe, site)) or declares.get((prefixe, ""))
             if not workcenter:
-                # 2. Repli : rapprochement par le debut du nom.
+                # 2. Repli : rapprochement par le debut du nom, en preferant
+                #    les postes dont le nom porte le site du fichier.
                 candidats = [w for cle, w in par_nom if cle.startswith(prefixe)]
+                if site:
+                    du_site = [w for w in candidats if site in sans_accent(w.name)]
+                    if du_site:
+                        candidats = du_site
                 if not candidats:
                     label = _(
                         "operation %(name)s : aucun poste de charge de ce nom. "

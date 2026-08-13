@@ -145,6 +145,31 @@ def parse(path, source=None):
         con.close()
 
 
+def _site(con):
+    """Site qui a chiffre, lu dans les parametres du poste LOGIKAL.
+
+    ``REPORTVARIABLES`` porte, sous le noeud « Addresses », l'adresse de
+    l'entreprise qui edite les documents : ``OwnAddress01`` vaut « FMA » ou
+    « F2M », ``OwnAddress06`` donne la ville. C'est le seul endroit du
+    fichier qui distingue les deux ateliers — ni le projet, ni la phase, ni
+    la menuiserie ne le portent.
+
+    Ce site departage les postes de charge homonymes : « Debit FMA » et
+    « Debit F2M » existent tous deux dans Odoo.
+    """
+    try:
+        row = con.execute(
+            "select SValue from REPORTVARIABLES"
+            " where SubNode = 'Addresses' and FieldName = 'OwnAddress01'"
+            " limit 1"
+        ).fetchone()
+    except Exception:
+        # Table absente d'un export ancien : on continue sans site plutot que
+        # de faire echouer tout l'import pour un poste de charge.
+        return ""
+    return (row[0] or "").strip() if row else ""
+
+
 def _parse(con, source):
     quo = Quotation(pricer="logikal", source=source)
 
@@ -154,6 +179,8 @@ def _parse(con, source):
     if row:
         quo.project = {"name": row[0] or "", "offer_no": row[1] or "",
                        "order_no": row[2] or ""}
+
+    quo.site = _site(con)
 
     suppliers = _suppliers(con)
 

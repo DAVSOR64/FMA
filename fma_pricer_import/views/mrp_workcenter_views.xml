@@ -15,6 +15,7 @@
                 <group string="Import Pricer" name="pricer">
                     <field name="pricer_operation"
                            placeholder="Debit, Usinage, Montage, CU (banc), Vitrage"/>
+                    <field name="pricer_site" placeholder="FMA ou F2M"/>
                 </group>
             </xpath>
         </field>

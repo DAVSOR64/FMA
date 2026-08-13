@@ -22,6 +22,13 @@ class MrpWorkcenter(models.Model):
         string="Opération pricer",
         index="btree_not_null",
         help="Nom de l'operation telle que le pricer la designe : Debit, "
-        "Usinage, Montage, CU (banc), Vitrage. Renseigne sur un seul poste "
-        "par operation — c'est lui qui portera le temps importe.",
+        "Usinage, Montage, CU (banc), Vitrage.",
+    )
+
+    pricer_site = fields.Char(
+        string="Site pricer",
+        help="Site qui chiffre, tel que LOGIKAL l'inscrit dans ses parametres "
+        "(REPORTVARIABLES / Addresses / OwnAddress01) : FMA ou F2M. Il "
+        "departage les postes homonymes des deux ateliers. Laisser vide fait "
+        "de ce poste le choix par defaut pour son operation.",
     )
