@@ -132,6 +132,47 @@ class SaleOrder(models.Model):
                 alloc.lot_id._get_product_debit(), alloc.product_qty
             )
 
+    def action_view_mrp_production(self):
+        """Ajoute les OF des lots a la liste ouverte depuis la commande.
+
+        La liste native remonte les OF par les mouvements de stock issus des
+        lignes de commande. Les OF de DEBIT n'en ont pas : ils produisent le
+        sous-ensemble debite du lot, pas un article vendu. Ils etaient donc
+        absents de cet ecran alors qu'ils appartiennent bien a l'affaire —
+        trois OF visibles sur six.
+
+        On elargit le domaine plutot que de rattacher l'OF a une ligne de
+        commande : ce rattachement-la pilote la livraison, et un debit ne se
+        livre pas.
+        """
+        parent = super()
+        action = (
+            parent.action_view_mrp_production()
+            if hasattr(parent, "action_view_mrp_production")
+            else {
+                "type": "ir.actions.act_window",
+                "name": _("Ordres de fabrication"),
+                "res_model": "mrp.production",
+                "view_mode": "list,form",
+                "domain": [("id", "in", [])],
+            }
+        )
+
+        des_lots = self.lot_ids.production_ids
+        if not des_lots:
+            return action
+
+        deja = self.env["mrp.production"].search(action.get("domain") or [])
+        toutes = deja | des_lots
+        action["domain"] = [("id", "in", toutes.ids)]
+        # La liste comptant desormais plusieurs OF, on ne peut plus ouvrir
+        # directement un formulaire.
+        action.pop("res_id", None)
+        if len(toutes) > 1 and action.get("view_mode", "").startswith("form"):
+            action["view_mode"] = "list,form"
+            action.pop("views", None)
+        return action
+
     def action_open_lot_wizard(self):
         """Ouvre le wizard de mise en lot pour cette commande."""
         self.ensure_one()
