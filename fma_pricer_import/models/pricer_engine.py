@@ -66,7 +66,13 @@ class FmaPricerEngine(models.AbstractModel):
         # fichier (REPORTVARIABLES / Addresses / OwnAddress01) et voyage par le
         # contexte, plutot que par la signature de six methodes
         # intermediaires.
-        self = self.with_context(fma_site=quotation.site)
+        # Le site departage les postes de charge, l'affaire departage les
+        # articles crees par le connecteur — vitrages en tete, qui portent la
+        # position « A » dans toutes les affaires.
+        self = self.with_context(
+            fma_site=quotation.site,
+            fma_affaire=quotation.project.get("offer_no") or "",
+        )
         self._check_offer_matches(order, quotation)
         self._check_bars_usable(order, quotation)
 
@@ -570,6 +576,21 @@ class FmaPricerEngine(models.AbstractModel):
         candidates = Product.search([("x_studio_position", "=", position)])
         if not candidates:
             return Product, absent
+
+        # La position ne suffit pas : « A » existe dans toutes les affaires.
+        # Sans ce filtre, la nomenclature se garnissait du vitrage d'une
+        # AUTRE affaire — constate sur la staging, ou les vitrages de
+        # A26-08-09999/1 pointaient A26-07-03112, un chiffrage anterieur du
+        # meme produit. On restreint donc a l'affaire en cours, et on ne
+        # retombe sur l'ensemble que si elle n'a aucun vitrage a cette
+        # position.
+        affaire = (self.env.context.get("fma_affaire") or "").strip().upper()
+        if affaire:
+            propres = candidates.filtered(
+                lambda p: (p.default_code or "").strip().upper().startswith(affaire)
+            )
+            if propres:
+                candidates = propres
         if len(candidates) == 1:
             return candidates, None
 
