@@ -413,6 +413,14 @@ class FmaLotFabrication(models.Model):
         }
         if self.date_planned_start:
             vals[date_start_fname(Production)] = self.date_planned_start
+
+        # Le chantier de la commande, repris sur l'OF. Le champ existe depuis
+        # Studio mais plus rien ne l'alimentait : les OF sortaient sans
+        # projet, donc hors de tout suivi par chantier. Il est declare par le
+        # module « custom », dont celui-ci ne depend pas — d'ou le controle.
+        projet = self.sale_order_ids.project_id[:1]
+        if projet and "x_studio_projet_de_la_vente" in Production._fields:
+            vals["x_studio_projet_de_la_vente"] = projet.id
         return vals
 
     def _generate_debit_order(self):

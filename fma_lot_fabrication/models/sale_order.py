@@ -106,14 +106,20 @@ class SaleOrder(models.Model):
             productions = production._split_productions({production: amounts})
 
         for alloc, split in zip(allocations, productions):
-            split.write(
-                {
-                    "lot_fabrication_id": alloc.lot_id.id,
-                    "lot_line_id": alloc.id,
-                    "lot_sale_line_id": alloc.sale_line_id.id,
-                    "lot_production_type": "assemblage",
-                }
-            )
+            vals = {
+                "lot_fabrication_id": alloc.lot_id.id,
+                "lot_line_id": alloc.id,
+                "lot_sale_line_id": alloc.sale_line_id.id,
+                "lot_production_type": "assemblage",
+            }
+            # Le chantier, repris depuis la commande. Ces OF viennent de
+            # l'appro natif et ne passent pas par le lot : sans cette ligne,
+            # ils sortaient sans projet. Champ declare par « custom », dont ce
+            # module ne depend pas — d'ou le controle.
+            projet = alloc.sale_line_id.order_id.project_id
+            if projet and "x_studio_projet_de_la_vente" in split._fields:
+                vals["x_studio_projet_de_la_vente"] = projet.id
+            split.write(vals)
             alloc.production_id = split
             split._add_debit_component(
                 alloc.lot_id._get_product_debit(), alloc.product_qty
