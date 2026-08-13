@@ -11,9 +11,17 @@ class MrpWorkcenter(models.Model):
     « Usinage Technique ». Rapprocher les deux par le nom donne cinq
     candidats et un choix arbitraire.
 
-    Ce champ tranche : on inscrit ici le nom de l'operation du pricer sur LE
-    poste qui doit la recevoir. L'import s'y fie en priorite, et ne retombe
-    sur le rapprochement par nom que pour les operations non renseignees.
+    L'import resout dans cet ordre :
+
+    1. le rattachement declare ici, qui fait foi ;
+    2. le **code** du poste, qui vaut la sequence de l'operation — 10 Debit,
+       20 CU (banc), 30 Usinage, 40 Montage, 50 Vitrage, 60 Emballage. C'est
+       la convention deja en place dans l'atelier, et elle ecarte d'elle-meme
+       les postes secondaires, qui n'ont pas de code ;
+    3. a defaut, le debut du nom, en preferant le site du fichier.
+
+    Les champs ci-dessous ne servent donc qu'aux cas que le code ne couvre
+    pas.
     """
 
     _inherit = "mrp.workcenter"

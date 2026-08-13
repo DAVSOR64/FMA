@@ -400,18 +400,33 @@ class FmaPricerEngine(models.AbstractModel):
         # de valeur par defaut, utilisee quand le fichier ne dit rien ou
         # qu'aucun poste ne correspond au site.
         site = sans_accent(self.env.context.get("fma_site") or "")
+
         declares = {}
+        par_code = {}
         for poste in postes:
-            if not poste.pricer_operation:
-                continue
-            operation = sans_accent(poste.pricer_operation)
-            declares.setdefault((operation, sans_accent(poste.pricer_site)), poste)
+            nom = sans_accent(poste.name)
+            site_poste = "fma" if "fma" in nom else ("f2m" if "f2m" in nom else "")
+
+            if poste.pricer_operation:
+                declares.setdefault(
+                    (sans_accent(poste.pricer_operation),
+                     sans_accent(poste.pricer_site) or site_poste),
+                    poste,
+                )
+
+            # Le code du poste vaut la sequence de l'operation : 10 Debit,
+            # 20 CU (banc), 30 Usinage, 40 Montage, 50 Vitrage, 60 Emballage.
+            # C'est la convention deja en place dans l'atelier, et elle
+            # ecarte d'elle-meme les postes secondaires — « Usinage 2 FMA »
+            # n'a pas de code.
+            if poste.code:
+                par_code.setdefault((poste.code.strip(), site_poste), poste)
 
         par_nom = sorted(
             ((sans_accent(w.name), w) for w in postes),
             key=lambda couple: (len(couple[0]), couple[0]),
         )
-        return site, declares, par_nom
+        return site, declares, par_code, par_nom
 
     def _bom_operations(self, men, product, skip=(), keep=None):
         """Gamme d'une menuiserie, a partir des temps du pricer.
@@ -422,7 +437,7 @@ class FmaPricerEngine(models.AbstractModel):
         """
         operations = []
         missing = []
-        site, declares, par_nom = self._workcenters(product)
+        site, declares, par_code, par_nom = self._workcenters(product)
         for operation in men.operations:
             if keep is not None and operation.name not in keep:
                 continue
@@ -431,12 +446,18 @@ class FmaPricerEngine(models.AbstractModel):
 
             prefixe = sans_accent(operation.name)
 
-            # 1. Le rattachement declare par le metier fait foi : d'abord le
-            #    poste du site qui a chiffre, puis le poste sans site.
+            # 1. Le rattachement declare a la main fait foi.
             workcenter = declares.get((prefixe, site)) or declares.get((prefixe, ""))
+
+            # 2. Sinon le code du poste, qui vaut la sequence de l'operation.
+            #    C'est la convention de l'atelier et elle est sans ambiguite.
             if not workcenter:
-                # 2. Repli : rapprochement par le debut du nom, en preferant
-                #    les postes dont le nom porte le site du fichier.
+                code = str(operation.sequence)
+                workcenter = par_code.get((code, site)) or par_code.get((code, ""))
+
+            if not workcenter:
+                # 3. Dernier repli : rapprochement par le debut du nom, en
+                #    preferant les postes dont le nom porte le site du fichier.
                 candidats = [w for cle, w in par_nom if cle.startswith(prefixe)]
                 if site:
                     du_site = [w for w in candidats if site in sans_accent(w.name)]
