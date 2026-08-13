@@ -1464,7 +1464,15 @@ class SqliteConnector(models.Model):
             dimension = ''
             pro = self.env['product.product'].search([('default_code', '=', proj)], limit=1)
             
-            if sale_order:
+            # L'article « projet » n'est ajoute qu'une fois. Sans ce controle,
+            # chaque import en reposait une ligne : trois lots importes
+            # donnaient trois lignes identiques a 1 unite, donc trois ordres
+            # de fabrication parasites a la confirmation. Constate sur la
+            # staging le 13/08/2026.
+            deja_pose = bool(pro) and bool(sale_order.order_line.filtered(
+                lambda l: l.product_id == pro
+            ))
+            if sale_order and not deja_pose:
             # stagging before merge if sale_order and so_data:
                if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                     so_data[sale_order.id].get('order_line').append(Command.create({

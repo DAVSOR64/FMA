@@ -11,7 +11,7 @@
     # 1.1.1 : la ligne de devis construisait encore sa reference sur le rang
     # (<n>_<affaire>) alors que l'article est cree en <affaire>_<position> :
     # elle ne retrouvait pas l'article et n'etait pas creee.
-    "version": "19.0.1.1.1",
+    "version": "19.0.1.1.2",
     "description": """
 
     """,
