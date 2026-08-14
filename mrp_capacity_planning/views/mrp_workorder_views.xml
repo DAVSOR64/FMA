@@ -5,8 +5,19 @@
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
+            <!-- « Fin de fab » : c'est cette date-la que le metier lit et
+                 corrige, pas la fin native calculee. Elle etait affichee en
+                 lecture seule sous le libelle technique « Fin macro forcee »,
+                 et le client ne savait pas ce qu'elle designait.
+                 Renommee et rendue modifiable : la changer puis « Replanifier »
+                 recale tout l'OF depuis cette date. -->
             <xpath expr="//field[@name='date_finished']" position="after">
-                <field name="macro_forced_end" readonly="1"/>
+                <field name="macro_forced_end" string="Fin de fab"/>
+            </xpath>
+            <!-- La fin native, elle, est calculee : deux dates de fin cote a
+                 cote n'apprennent rien et se contredisent des qu'on replanifie. -->
+            <xpath expr="//field[@name='date_finished']" position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
         </field>
     </record>
