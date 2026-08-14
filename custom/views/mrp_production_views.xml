@@ -11,6 +11,19 @@
             <xpath expr="//field[@name='bom_id']" position="after">
                 <field name="x_studio_niveau_de_complexite" string="Niveau de complexité"/>
             </xpath>
+
+            <!-- « Fin de fab » : la date forcee du macro planning, celle sur
+                 laquelle l'ordonnanceur agit. Elle etait posee par Studio
+                 au-dessus du numero d'OF, sans libelle — personne ne pouvait
+                 savoir ce qu'elle designait. Elle rejoint la colonne de
+                 planification, juste avant le responsable, avec un nom.
+
+                 L'ancre est « user_id » hors de tout sous-formulaire : c'est
+                 le Responsable, et il est dans la bonne colonne. -->
+            <xpath expr="//field[@name='user_id'][not(ancestor::field)]"
+                   position="before">
+                <field name="x_studio_date_de_fin" string="Fin de fab"/>
+            </xpath>
         </field>
     </record>
 </odoo>
