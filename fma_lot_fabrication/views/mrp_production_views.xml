@@ -6,14 +6,32 @@
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='product_id']" position="after">
-                <field name="lot_fabrication_id"
-                       options="{'no_create': True}"
-                       readonly="state not in ('draft', 'confirmed')"/>
-                <field name="lot_production_type" readonly="1"
-                       invisible="not lot_production_type"/>
-                <field name="lot_sale_line_id" readonly="1"
-                       invisible="lot_production_type != 'assemblage'"/>
+            <!-- Un seul bloc pour tous les champs metier de l'OF, en deux
+                 colonnes, pose SOUS le groupe natif. Aucun champ d'Odoo n'est
+                 deplace : c'est ce qui rendait la mise en page impossible a
+                 maitriser. Les insertions dispersees de custom, fma_atelier et
+                 mrp_capacity_planning ont ete retirees a leur profit. -->
+            <xpath expr="//field[@name='product_id'][not(ancestor::field)]/ancestor::group[last()]"
+                   position="after">
+                <group name="fma_of">
+                    <group string="Fabrication FMA" name="fma_of_fabrication">
+                        <field name="lot_fabrication_id"
+                               options="{'no_create': True}"
+                               readonly="state not in ('draft', 'confirmed')"/>
+                        <field name="lot_production_type" readonly="1"
+                               invisible="not lot_production_type"/>
+                        <field name="lot_sale_line_id" readonly="1"
+                               invisible="lot_production_type != 'assemblage'"/>
+                    </group>
+                    <group string="Planification FMA" name="fma_of_planification">
+                        <field name="macro_forced_end" string="Fin de fab"/>
+                        <field name="atelier_id"
+                               options="{'no_create_edit': False}"
+                               placeholder="Atelier de production"/>
+                        <field name="x_studio_niveau_de_complexite"
+                               string="Niveau de complexité"/>
+                    </group>
+                </group>
             </xpath>
         </field>
     </record>

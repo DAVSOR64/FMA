@@ -11,9 +11,8 @@
                  et le client ne savait pas ce qu'elle designait.
                  Renommee et rendue modifiable : la changer puis « Replanifier »
                  recale tout l'OF depuis cette date. -->
-            <xpath expr="//field[@name='date_finished']" position="after">
-                <field name="macro_forced_end" string="Fin de fab"/>
-            </xpath>
+            <!-- Champ regroupe dans le bloc « Fabrication FMA »
+                 porte par fma_lot_fabrication. -->
             <!-- La fin native, elle, est calculee : deux dates de fin cote a
                  cote n'apprennent rien et se contredisent des qu'on replanifie. -->
             <xpath expr="//field[@name='date_finished']" position="attributes">
