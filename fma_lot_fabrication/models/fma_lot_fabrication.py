@@ -478,6 +478,15 @@ class FmaLotFabrication(models.Model):
                 return False
             debit.x_studio_date_de_fin = veille
             debit.compute_macro_schedule_from_date_fin()
+
+            # macro_forced_end n'est ecrit que par la planification depuis la
+            # vente. Le debit, lui, est planifie depuis une date de fin : le
+            # champ restait vide, et « Fin de fab » n'affichait rien sur ces
+            # OF. On y pose la fin reellement calculee.
+            if "macro_forced_end" in debit._fields and debit.date_finished:
+                debit.with_context(mail_notrack=True).macro_forced_end = (
+                    debit.date_finished
+                )
         except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
             _logger.exception("Chainage debit/assemblage du lot %s", self.name)
             self.message_post(
