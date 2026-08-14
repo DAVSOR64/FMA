@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Ajout du champ Atelier sur l'OF -->
-    <record id="view_mrp_production_form_inherit_fma_atelier" model="ir.ui.view">
-        <field name="name">mrp.production.form.inherit.fma.atelier</field>
-        <field name="model">mrp.production</field>
-        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
-        <field name="arch" type="xml">
-            <!-- Champ regroupe dans le bloc « Fabrication FMA »
-                 porte par fma_lot_fabrication. -->
-        </field>
-    </record>
+    <!-- Le champ Atelier de l'OF est desormais pose par le bloc
+         « Fabrication FMA » de fma_lot_fabrication. Cet enregistrement a ete
+         supprime : un arch reduit a un commentaire est refuse par Odoo. -->
+
 
     <!-- Ajout du champ Atelier dans la liste des OF -->
     <record id="view_mrp_production_tree_inherit_fma_atelier" model="ir.ui.view">
