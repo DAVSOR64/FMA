@@ -68,9 +68,13 @@
         <field name="priority">99</field>
         <field name="arch" type="xml">
 
-            <xpath expr="//field[@name='product_id'][not(ancestor::field)]"
+            <!-- Le groupe est pose AVANT le groupe natif le plus externe,
+                 et non avant « product_id » : insere a l'interieur du groupe
+                 existant, il heritait de sa grille et les deux colonnes se
+                 retrouvaient ecrasees dans une seule cellule. -->
+            <xpath expr="//field[@name='product_id'][not(ancestor::field)]/ancestor::group[last()]"
                    position="before">
-                <group name="fma_of_colonnes">
+                <group name="fma_of_colonnes" col="4">
                     <group string="Fabrication" name="fma_of_fabrication"/>
                     <group string="Planification" name="fma_of_planification"/>
                 </group>
