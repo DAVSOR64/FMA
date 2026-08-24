@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'FMA - Planning & Capacité',
-    'version': '19.0.1.0.8',
+    'version': '19.0.1.0.9',
     'category': 'Manufacturing',
     'summary': 'Planification macro, capacité ressources et réordonnancement FMA',
     'author': 'Paxo Consulting',
     
-    'depends': ['mrp', 'sale_management', 'planning', 'hr', 'hr_holidays', 'stock', 'purchase_stock', 'fma_atelier'],
+    'depends': ['mrp', 'sale_management', 'planning', 'hr', 'hr_holidays', 'stock', 'purchase_stock', 'fma_atelier', 'custom'],
     'data': [
         'security/ir.model.access.csv',
         'data/cron.xml',
