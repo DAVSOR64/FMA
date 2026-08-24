@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'FMA/F2M - Laquage sous-traitance',
-    'version': '19.0.1.14.0',
+    'version': '19.0.1.15.0',
     'category': 'Manufacturing',
     'summary': 'Planification du laquage externe F2M, création achat et coût de sous-traitance',
     'author': 'Paxo Consulting',

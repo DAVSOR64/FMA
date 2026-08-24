@@ -53,7 +53,9 @@
     # 1.54.0 : le document devient « Liste de quincaillerie » : profiles et
     # vitrages quittent aussi le recapitulatif, le repere se reduit a la
     # position et l'emplacement au nom court.
-    "version": "19.0.1.54.0",
+    # 1.55.0 : « Fin de fab » n'est plus qu'une date, posee par
+    # _set_date_fin_de_fab sur les deux champs d'un seul geste.
+    "version": "19.0.1.55.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
