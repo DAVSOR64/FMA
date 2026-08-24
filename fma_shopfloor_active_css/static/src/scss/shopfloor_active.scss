@@ -24,22 +24,42 @@
 
 /* =====================================================
    OT EN COURS
+
+   Odoo pose « o_active » des qu'un operateur pointe sur la carte, qui que
+   ce soit. Le patch JS ajoute « o_fma_mine » quand c'est l'operateur de
+   session. Deux signaux distincts valent mieux qu'une couleur unique qui
+   melange « mon poste » et « poste occupe ».
    ===================================================== */
 
+/* En cours, mais par quelqu'un d'autre : discret, informatif. */
 .o_mrp_display_record.o_active {
-    background: #e8fff0 !important;
-    border-left: 10px solid #00a651 !important;
-    box-shadow: 0 0 8px rgba(0,166,81,.25);
+    background: #f5faf7 !important;
+    border-left: 6px solid #a8ccb8 !important;
+    box-shadow: none;
 }
 
 .o_mrp_display_record.o_active::before {
-    content: "▶ EN COURS";
+    content: "● OCCUPÉ";
     display: block;
-    background: #00a651;
-    color: white;
+    background: #a8ccb8;
+    color: #14532d;
     font-weight: bold;
     text-align: center;
     padding: 4px;
     margin-bottom: 6px;
+    font-size: 12px;
+}
+
+/* En cours par moi : c'est ce que l'operateur doit voir en premier. */
+.o_mrp_display_record.o_active.o_fma_mine {
+    background: #e8fff0 !important;
+    border-left: 10px solid #00a651 !important;
+    box-shadow: 0 0 8px rgba(0, 166, 81, .25);
+}
+
+.o_mrp_display_record.o_active.o_fma_mine::before {
+    content: "▶ EN COURS";
+    background: #00a651;
+    color: white;
     font-size: 12px;
 }
