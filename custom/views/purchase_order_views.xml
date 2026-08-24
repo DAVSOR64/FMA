@@ -17,6 +17,9 @@
             <xpath expr="//field[@name='requisition_id']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
+            <xpath expr="//field[@name='order_line']" position="attributes">
+                <attribute name="widget">fma_product_and_description_o2m</attribute>
+            </xpath>
 
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
                 <field name="x_studio_posit" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
