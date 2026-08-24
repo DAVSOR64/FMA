@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Affiche le chantier sous les badges de poste, dans la carte de chaque
+    operateur connecte. La donnee est jointe cote serveur par la surcharge de
+    hr.employee.get_employees_wo_by_employees.
+
+    On ajoute apres la boucle des postes plutot que dedans : la ligne du poste
+    est un « justify-content-between » a deux elements (nom du poste, minutes),
+    y glisser un troisieme les tasserait. Un operateur n'a d'ordinaire qu'un
+    poste ouvert, la lecture reste immediate.
+-->
+<templates xml:space="preserve">
+    <t t-name="fma_shopfloor_chantier.EmployeesPanelChantier"
+       t-inherit="mrp_workorder.MrpDisplayEmployeesPanel_content"
+       t-inherit-mode="extension">
+        <xpath expr="//div[@t-foreach='employee.workcenters']" position="after">
+            <t t-foreach="employee.workcenters" t-as="wc" t-key="'chantier_' + wc.id">
+                <div t-if="wc.chantier" class="o_fma_chantier text-truncate">
+                    <span t-esc="wc.chantier"/>
+                </div>
+            </t>
+        </xpath>
+    </t>
+</templates>

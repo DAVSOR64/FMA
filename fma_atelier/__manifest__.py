@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "FMA Atelier",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.1.0",
     "category": "Manufacturing",
     "summary": "Gestion des ateliers de production FMA",
     "description": """
