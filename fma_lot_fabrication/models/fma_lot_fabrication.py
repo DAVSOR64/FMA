@@ -452,12 +452,13 @@ class FmaLotFabrication(models.Model):
 
         try:
             for mo in assemblages:
-                if fin_forcee and "x_studio_date_de_fin" in mo._fields:
+                if fin_forcee:
                     # Fin imposee par l'ordonnanceur : meme retroplanning,
-                    # autre borne.
-                    mo.x_studio_date_de_fin = fields.Datetime.to_datetime(
-                        fin_forcee
-                    ).date()
+                    # autre borne. « Fin de fab » porte la date, le champ
+                    # Studio la suit.
+                    mo._set_date_fin_de_fab(
+                        fields.Datetime.to_datetime(fin_forcee).date()
+                    )
                     mo.compute_macro_schedule_from_date_fin()
                     continue
                 cible, commande = mo._get_macro_target_date()
@@ -474,19 +475,13 @@ class FmaLotFabrication(models.Model):
             poste = debit.workorder_ids[:1].workcenter_id
             veille = debit._previous_working_day(premier, poste)
 
-            if "x_studio_date_de_fin" not in debit._fields:
-                return False
-            debit.x_studio_date_de_fin = veille
+            # « Fin de fab » du debit : la veille ouvree du premier
+            # assemblage. Un seul geste pose les deux champs — le debit etait
+            # jusqu'ici le seul OF ou « Fin de fab » restait vide, parce que
+            # macro_forced_end n'etait ecrit que par la planification depuis
+            # la vente.
+            debit._set_date_fin_de_fab(veille)
             debit.compute_macro_schedule_from_date_fin()
-
-            # macro_forced_end n'est ecrit que par la planification depuis la
-            # vente. Le debit, lui, est planifie depuis une date de fin : le
-            # champ restait vide, et « Fin de fab » n'affichait rien sur ces
-            # OF. On y pose la fin reellement calculee.
-            if "macro_forced_end" in debit._fields and debit.date_finished:
-                debit.with_context(mail_notrack=True).macro_forced_end = (
-                    debit.date_finished
-                )
         except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
             _logger.exception("Chainage debit/assemblage du lot %s", self.name)
             self.message_post(

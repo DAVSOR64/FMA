@@ -30,6 +30,67 @@ class MrpProduction(models.Model):
             active_wos = production.workorder_ids.filtered(lambda w: w.state not in ('done', 'cancel'))
             production.is_programmed = any(w.date_start or w.date_finished for w in active_wos)
 
+    # ============================================================
+    # « FIN DE FAB » : UNE SEULE DATE, DEUX CHAMPS
+    # ============================================================
+    # Le metier saisit « Fin de fab » sur l'OF : c'est ``macro_forced_end``,
+    # le seul des deux champs qui soit affiche et modifiable. Le retroplanning
+    # lisait pourtant ``x_studio_date_de_fin``, une date Studio retiree du
+    # formulaire le 14/08/2026 — corriger « Fin de fab » restait donc sans
+    # effet, le calcul repartait de l'ancienne date.
+    #
+    # Le champ Studio n'est pas supprime : ``export_powerbi`` et
+    # ``fma_laquage_subcontracting`` le lisent, et la base porte l'historique.
+    # Il devient un miroir, tenu par ``_set_date_fin_de_fab`` et par ``write``.
+    # Plus jamais une seconde date saisissable qui contredit la premiere.
+
+    def _date_fin_de_fab(self):
+        """Jour de fin de fabrication de l'OF, ou ``False``.
+
+        ``macro_forced_end`` fait foi. Le repli sur la date Studio couvre les
+        OF planifies avant la bascule, dont seul ce champ etait renseigne.
+
+        Seul le **jour** compte : le retroplanning raisonne en jours ouvres et
+        repose l'heure lui-meme, celle de fermeture du dernier poste. On lit
+        donc la date brute, sans conversion de fuseau — exactement ce que
+        faisait ``end_fab_dt.date()`` jusqu'ici.
+        """
+        self.ensure_one()
+        fin = self.macro_forced_end or getattr(self, 'x_studio_date_de_fin', False)
+        return fields.Date.to_date(fin) if fin else False
+
+    def _set_date_fin_de_fab(self, valeur, workcenter=None):
+        """Pose la fin de fab sur les deux champs d'un seul geste.
+
+        ``valeur`` accepte un jour ou un datetime. Un jour est ramene au soir
+        du dernier poste replanifiable : « Fin de fab » designe la fin d'une
+        journee de travail, pas son debut.
+
+        ``x_studio_date_de_fin`` n'existe que si le module ``custom`` est
+        charge — il n'est pas une dependance d'ici.
+        """
+        self.ensure_one()
+        if not valeur:
+            return False
+        jour = fields.Date.to_date(valeur)
+        if isinstance(valeur, datetime):
+            fin_dt = valeur
+        else:
+            poste = workcenter or self._dernier_poste_planifie()
+            fin_dt = self._evening_dt(jour, poste) if poste \
+                else datetime.combine(jour, time(17, 0))
+        vals = {'macro_forced_end': fin_dt}
+        if 'x_studio_date_de_fin' in self._fields:
+            vals['x_studio_date_de_fin'] = jour
+        self.with_context(mail_notrack=True).write(vals)
+        return jour
+
+    def _dernier_poste_planifie(self):
+        """Poste de la derniere operation replanifiable, pour l'heure de fin."""
+        self.ensure_one()
+        workorders = self._get_replannable_workorders_from_date_fin()
+        return workorders[-1].workcenter_id if workorders else False
+
 
     def action_open_add_component_need_wizard(self):
         self.ensure_one()
@@ -322,8 +383,9 @@ class MrpProduction(models.Model):
         end_fab_dt = self._add_working_days_company(delivery_dt, -float(security_days))
         end_fab_day = end_fab_dt.date()
 
-        self.with_context(mail_notrack=True).write({"macro_forced_end": end_fab_dt,})
-        self.with_context(mail_notrack=True).write({"x_studio_date_de_fin": end_fab_day})
+        # Une seule ecriture pour les deux champs : ils ne peuvent plus
+        # diverger, et l'heure calculee est conservee telle quelle.
+        self._set_date_fin_de_fab(end_fab_dt)
 
         _logger.info("MO %s : delivery=%s security_days=%s end_fab_day=%s",
                      self.name, delivery_dt, security_days, end_fab_day)
@@ -397,27 +459,19 @@ class MrpProduction(models.Model):
     def compute_macro_schedule_from_date_fin(self):
         """
         Appelé par le bouton Replanifier (via action_apply_replan_preview).
-        - Source : x_studio_date_de_fin (saisi par l'utilisateur)
-        - Bloque si x_studio_date_de_fin > so_date_de_livraison_prevu
-        - Calcule backward depuis x_studio_date_de_fin
+        - Source : « Fin de fab » (macro_forced_end, saisi par l'utilisateur)
+        - Bloque si cette date > so_date_de_livraison_prevu
+        - Calcule backward depuis cette date
         - Écrit macro_planned_start + date_start + date_finished sur chaque WO
         - Met à jour dates OF + transfert composants
         """
         self.ensure_one()
         from odoo.exceptions import UserError, ValidationError
 
-        # 1) Récupérer x_studio_date_de_fin
-        x_end = (
-            getattr(self, 'x_studio_date_de_fin', False)
-            or getattr(self, 'x_studio_date_fin', False)
-        )
+        # 1) Récupérer « Fin de fab » : macro_forced_end, repli date Studio
+        x_end = self._date_fin_de_fab()
         if not x_end:
-            raise UserError(_("La date de fin de fabrication (x_studio_date_de_fin) n'est pas renseignée sur l'OF."))
-
-        # Convertir en date si nécessaire
-        from datetime import date as date_type
-        if not isinstance(x_end, date_type):
-            x_end = fields.Date.to_date(x_end)
+            raise UserError(_("La date « Fin de fab » n'est pas renseignée sur l'OF."))
 
         workorders = self._get_replannable_workorders_from_date_fin()
         if not workorders:
@@ -448,7 +502,7 @@ class MrpProduction(models.Model):
         end_fab_dt = self._evening_dt(x_end, last_wc_sorted) if last_wc_sorted \
             else datetime.combine(x_end, time(17, 0))
 
-        _logger.info("MO %s : REPLANIFIER depuis x_studio_date_de_fin=%s → end_fab_dt=%s",
+        _logger.info("MO %s : REPLANIFIER depuis Fin de fab=%s → end_fab_dt=%s",
                      self.name, x_end, end_fab_dt)
 
         # 5) Backward : dernière opération → première
@@ -1037,17 +1091,24 @@ class MrpProduction(models.Model):
           - via le bouton « Replanifier » sur le formulaire OF,
           - via le cron 3×/jour (8h, 12h, 18h) mrp_macro_cron_replan_all.
 
-        Seule la synchronisation date_deadline ← x_studio_date_de_fin reste
+        Seule la synchronisation date_deadline ← « Fin de fab » reste
         immédiate (opération légère, pas de calcul de calendrier).
         """
         # Détecter changement de dates
         date_start_changed = 'date_start' in vals
         date_finished_changed = 'date_finished' in vals or 'date_deadline' in vals
-        x_end_changed = ('x_studio_date_fin' in vals or 'x_studio_date_de_fin' in vals)
+        # « Fin de fab » est macro_forced_end ; la date Studio n'en est plus
+        # que le miroir. Les deux entrees declenchent la meme synchronisation.
+        fin_fab_changed = 'macro_forced_end' in vals
+        x_end_changed = ('x_studio_date_fin' in vals
+                         or 'x_studio_date_de_fin' in vals
+                         or fin_fab_changed)
 
         x_end_input = None
         if x_end_changed:
-            x_end_input = vals.get('x_studio_date_fin') or vals.get('x_studio_date_de_fin')
+            x_end_input = (vals.get('x_studio_date_fin')
+                           or vals.get('x_studio_date_de_fin')
+                           or vals.get('macro_forced_end'))
             try:
                 if isinstance(x_end_input, datetime):
                     x_end_input = x_end_input.date()
@@ -1062,14 +1123,28 @@ class MrpProduction(models.Model):
         # ── Appel standard ──────────────────────────────────────────────────
         res = super().write(vals)
 
-        # ── Sync légère : date_deadline ← x_studio_date_de_fin ─────────────
+        # ── Sync légère : date_deadline ← « Fin de fab » ────────────────────
         # (pas de recalcul macro ici — sera fait au prochain cron / bouton)
         if x_end_changed                 and not self.env.context.get('skip_macro_recalc')                 and not self.env.context.get('from_macro_update'):
             for production in self:
                 try:
-                    x_end = x_end_input                         or getattr(production, 'x_studio_date_fin', False)                         or getattr(production, 'x_studio_date_de_fin', False)
+                    x_end = x_end_input or production._date_fin_de_fab()
                     if not x_end:
                         continue
+
+                    # Miroir : la date Studio suit « Fin de fab », jamais
+                    # l'inverse. Sans quoi les deux divergent des la premiere
+                    # correction manuelle, et le calcul repart de l'ancienne.
+                    if (fin_fab_changed
+                            and 'x_studio_date_de_fin' not in vals
+                            and 'x_studio_date_de_fin' in production._fields
+                            and production.x_studio_date_de_fin != x_end):
+                        production.with_context(
+                            skip_macro_recalc=True,
+                            from_macro_update=True,
+                            mail_notrack=True,
+                        ).write({'x_studio_date_de_fin': x_end})
+
                     wos = production.workorder_ids.sorted(lambda w: (w.operation_id.sequence, w.id))
                     last_wc = wos[-1].workcenter_id if wos else False
                     end_dt = production._evening_dt(x_end, last_wc) if last_wc                         else datetime.combine(x_end, time(17, 0))
@@ -1137,7 +1212,7 @@ class MrpProduction(models.Model):
     def cron_replan_all_productions(self):
         """
         Recalcule les dates macro à 13h et 18h pour tous les OF non programmés.
-        Source de fin : x_studio_date_fin puis x_studio_date_de_fin.
+        Source de fin : « Fin de fab » (macro_forced_end, repli date Studio).
         """
         import traceback
         from datetime import datetime as dt_now
@@ -1156,9 +1231,9 @@ class MrpProduction(models.Model):
                     stats['ignores'] += 1
                     continue
 
-                x_end = getattr(mo, 'x_studio_date_fin', False) or getattr(mo, 'x_studio_date_de_fin', False)
+                x_end = mo._date_fin_de_fab()
                 if not x_end:
-                    _logger.info("CRON | %s ignoré (pas de x_studio_date_fin)", mo.name)
+                    _logger.info("CRON | %s ignoré (pas de date « Fin de fab »)", mo.name)
                     stats['ignores'] += 1
                     continue
 
@@ -1313,17 +1388,10 @@ class MrpProduction(models.Model):
         from odoo.exceptions import UserError, ValidationError
         self.ensure_one()
 
-        # Date de fin fab custom
-        x_end = (
-            getattr(self, 'x_studio_date_de_fin', False)
-            or getattr(self, 'x_studio_date_fin', False)
-        )
+        # Fin de fab : la meme source que le calcul qui suivra le clic OK.
+        x_end = self._date_fin_de_fab()
         if not x_end:
-            raise UserError(_("La date de fin de fabrication n'est pas renseignée sur l'OF."))
-
-        from datetime import date as date_type
-        if not isinstance(x_end, date_type):
-            x_end = fields.Date.to_date(x_end)
+            raise UserError(_("La date « Fin de fab » n'est pas renseignée sur l'OF."))
 
         workorders = self._get_replannable_workorders_from_date_fin()
         if not workorders:
