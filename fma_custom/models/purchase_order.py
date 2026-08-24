@@ -10,7 +10,9 @@ Origin (Studio):
   original code: it looped `for po in records` but read/wrote `record`
   instead of `po`, so it only behaved correctly for single-record triggers).
 - base.automation "DSA : Mise à jour du responsable PO par le responsable
-  PROJECT".
+  PROJECT" (le portage s'écarte volontairement de l'original : il ne remet
+  plus l'acheteur à vide quand la commande n'a pas de projet -- voir
+  `_sync_responsible_from_project`).
 See STUDIO_AUDIT.md at the repo root for the full inventory.
 """
 from odoo import models
@@ -85,5 +87,6 @@ class PurchaseOrder(models.Model):
 
     def _sync_responsible_from_project(self):
         for po in self:
-            projet = po.x_studio_projet_du_so
-            po.user_id = projet.user_id if projet and projet.user_id else False
+            responsible = po.x_studio_projet_du_so.user_id
+            if responsible and po.user_id != responsible:
+                po.user_id = responsible
