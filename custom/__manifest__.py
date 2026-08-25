@@ -31,16 +31,17 @@
         "views/product_views.xml",
         "data/message_templates.xml",
     ],
-    "assets": {
-        "web.assets_backend": [
-            "custom/static/src/css/custom_styles.css",  # Chemin vers votre fichier CSS
-        ],
-    },
+    # Une seule cle "assets" : il y en avait deux, et la seconde ecrasait
+    # silencieusement la premiere (dictionnaire Python). static/src/css/
+    # custom_styles.css n'etait donc plus charge depuis longtemps -- il colore
+    # les libelles de dates du devis, retires volontairement en 1.0.31 : il
+    # reste hors bundle, a supprimer si plus personne n'en veut.
     "assets": {
         "web.assets_backend": [
             "custom/static/src/fma_timeline/fma_timeline.js",
             "custom/static/src/fma_timeline/fma_timeline.xml",
             "custom/static/src/fma_timeline/fma_timeline.scss",
+            "custom/static/src/purchase_order_line/product_and_description_o2m.js",
         ],
     },
     "installable": True,

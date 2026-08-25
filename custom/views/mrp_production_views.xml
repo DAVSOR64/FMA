@@ -1,14 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- x_studio_niveau_de_complexite existe et est sécurisé en Python
-         (models/mrp_production.py) depuis le portage Studio, mais n'était
-         affiché dans aucune vue. -->
     <record id="view_mrp_production_form_inherit_complexite" model="ir.ui.view">
         <field name="name">mrp.production.form.inherit.niveau.complexite</field>
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='bom_id']" position="after">
+            <xpath expr="//div[@name='bom_div']" position="after">
                 <field name="x_studio_niveau_de_complexite" string="Niveau de complexité"/>
             </xpath>
         </field>

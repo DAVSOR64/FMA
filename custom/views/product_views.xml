@@ -63,4 +63,26 @@
             </notebook>
         </field>
     </record>
+    <record id="view_product_variant_easy_edit_inherit_studio" model="ir.ui.view">
+        <field name="name">product.product.view.form.easy.inherit.studio</field>
+        <field name="model">product.product</field>
+        <field name="inherit_id" ref="product.product_variant_easy_edit_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group>
+                    <group name="fma_references" string="Références">
+                        <field name="x_studio_code_tarifaire"/>
+                        <field name="x_studio_ref_diapason"/>
+                        <field name="x_studio_ref_int_logikal"/>
+                        <field name="x_studio_color_logikal"/>
+                        <field name="x_studio_unit_logikal"/>
+                    </group>
+                    <group name="fma_gestion" string="Gestion">
+                        <field name="x_studio_conso_laffaire"/>
+                        <field name="x_studio_cration_auto"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
 </odoo>
