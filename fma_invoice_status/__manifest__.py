@@ -9,8 +9,8 @@
             Task: 4115364
         """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.1",
-    "depends": ["account_accountant"],
+    "version": "19.0.1.0.2",
+    "depends": ["account_accountant", "documents"],
     "data": [
         "data/ir_cron.xml",
         "views/res_config_settings_views.xml",
