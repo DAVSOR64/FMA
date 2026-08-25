@@ -45,34 +45,66 @@ class AccountMove(models.Model):
         - Sinon on cherche globalement dans Documents
         Retourne un io.BytesIO
         """
-        Documents = self.env["documents.document"].sudo()
-
-        folder = self.env["documents.folder"].sudo().search([("name", "=", "Imports Factures")], limit=1)
-
-        domain = [
-            ("attachment_id", "!=", False),
-            ("attachment_id.name", "=", filename),
-        ]
-        if folder:
-            domain.append(("folder_id", "=", folder.id))
-
-        doc = Documents.search(domain, order="create_date desc", limit=1)
-
-        # Si pas trouvé dans le dossier, on tente globalement
-        if not doc and folder:
-            doc = Documents.search([
-                ("attachment_id", "!=", False),
-                ("attachment_id.name", "=", filename),
-            ], order="create_date desc", limit=1)
-
-        if not doc or not doc.attachment_id or not doc.attachment_id.datas:
+        if "documents.document" not in self.env:
+            _logger.warning("Module Documents non installé : import CSV impossible.")
             return None
 
-        att = doc.attachment_id
-        file_bytes = base64.b64decode(att.datas)
-        _logger.info("CSV trouvé dans Documents: %s (doc=%s, attachment=%s, taille=%s octets)",
-                     filename, doc.id, att.id, len(file_bytes))
+        Documents = self.env["documents.document"].sudo()
+
+        folder = self._get_documents_folder("Imports Factures")
+
+        domain = ["|", ("name", "=", filename), ("attachment_id.name", "=", filename)]
+        if "type" in Documents._fields:
+            domain = [("type", "!=", "folder")] + domain
+
+        doc = Documents.browse()
+        if folder:
+            doc = Documents.search(
+                domain + [("folder_id", "=", folder.id)],
+                order="create_date desc",
+                limit=1,
+            )
+
+        # Si pas trouvé dans le dossier, on tente globalement
+        if not doc:
+            doc = Documents.search(domain, order="create_date desc", limit=1)
+
+        if not doc:
+            return None
+
+        file_bytes = self._get_document_bytes(doc)
+        if not file_bytes:
+            _logger.warning("Document %s trouvé (id=%s) mais sans contenu.", filename, doc.id)
+            return None
+
+        _logger.info("CSV trouvé dans Documents: %s (doc=%s, taille=%s octets)",
+                     filename, doc.id, len(file_bytes))
         return io.BytesIO(file_bytes)
+
+    def _get_documents_folder(self, name):
+        """
+        Depuis Odoo 18, le modèle 'documents.folder' n'existe plus : un dossier est
+        un 'documents.document' avec type = 'folder'. On garde l'ancien modèle en
+        repli pour rester compatible avec les bases antérieures.
+        """
+        Documents = self.env["documents.document"].sudo()
+        if "type" in Documents._fields:
+            return Documents.search([("type", "=", "folder"), ("name", "=", name)], limit=1)
+        if "documents.folder" in self.env:
+            return self.env["documents.folder"].sudo().search([("name", "=", name)], limit=1)
+        return Documents.browse()
+
+    def _get_document_bytes(self, doc):
+        """Contenu binaire d'un document, que le stockage passe ou non par une pièce jointe."""
+        if doc.attachment_id and doc.attachment_id.datas:
+            return base64.b64decode(doc.attachment_id.datas)
+        raw = getattr(doc, "raw", False)
+        if raw:
+            return raw
+        datas = getattr(doc, "datas", False)
+        if datas:
+            return base64.b64decode(datas)
+        return None
 
     # -------------------------
     # UPDATE FACTURES
