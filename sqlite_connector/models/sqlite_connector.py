@@ -1644,7 +1644,7 @@ class SqliteConnector(models.Model):
             #                name = 'Débit'  + ' ' + eticom													  
             #            else :
             #                name = rowOpe[2].strip() + ' ' + eticom
-            if eticom = 'FMA' :
+            if eticom == 'FMA' :
                 if rowOpe[6] is not None and rowOpe[6] == 0 :
                     name = 'Débit'  + ' ' + eticom
                 else:
@@ -1669,7 +1669,7 @@ class SqliteConnector(models.Model):
                         if rowOpe[6] is not None and rowOpe[6] in (0, 12) :
                             name = 'Débit'  + ' ' + eticom
                         else:
-                            if rowOpe[6] is not None and rowOpe[6] = 6:
+                            if rowOpe[6] is not None and rowOpe[6] == 6:
                                 name = 'Assemblage'  + ' ' + eticom
                             
             _logger.warning("**********Qty ********* %s " % str(Qty) )
