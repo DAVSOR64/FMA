@@ -15,6 +15,11 @@
                     <field name="part_montant_couverture" string="ALLIANZ COUVERTURE EULEUR"/>
                     <field name="part_decision" string="ASSURANCE-CREDIT"/>
                 </group>
+                <group string="Suivi commercial">
+                    <field name="x_studio_commercial_1" string="Commercial"/>
+                    <field name="x_studio_cgv_rib" string="CGV + RIB"/>
+                    <field name="x_studio_client_bloque" string="Client bloqué"/>
+                </group>
             </xpath>
         </field>
     </record>
