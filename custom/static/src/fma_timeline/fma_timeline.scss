@@ -1,67 +1,143 @@
 // Frise de suivi de l'affaire, en haut de la fiche devis.
-// Grille a colonnes egales : chaque etape occupe la meme largeur, quel que
-// soit le nombre d'etapes, et le trait relie les points d'une etape a l'autre.
+//
+// Une fleche epaisse et non plus des points relies par un trait : a la
+// distance de lecture d'un ecran d'atelier ou d'un partage de session, un
+// point de 8 px ne se voit pas. Chaque etape est un chevron, les chevrons
+// s'emboitent : la teinte dit la phase, le remplissage dit l'avancement.
+//
+// La pointe est decoupee au clip-path : une seule forme, pas de pseudo
+// element a positionner, et le chevron suit la largeur reelle de sa colonne
+// quel que soit le nombre d'etapes.
+
+$fma-frise-pointe: 1.1rem; // profondeur de la pointe et de l'encoche
+$fma-frise-jour: 0.25rem; // filet de fond visible entre deux chevrons
+
+// Les trois teintes de la fiche devis : label-blue, label-green,
+// label-orange. La frise ne cree pas son propre code couleur, elle reprend
+// celui que les libelles de dates portent deja.
+$fma-frise-bleu: #0000ff;
+$fma-frise-vert: #008000;
+$fma-frise-orange: #ffa500;
 
 .fma_timeline {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    margin: 1rem 0 1.5rem;
+    display: flex;
+    align-items: stretch;
+    margin: 0.25rem 0 1.25rem;
+    // Huit etapes ne tiennent pas sur une fiche etroite : on defile
+    // horizontalement plutot que d'ecraser les libelles.
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
 
     .fma_timeline_etape {
-        position: relative;
+        flex: 1 1 0;
+        min-width: 7.5rem;
+        min-height: 3.4rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 0.1rem;
+        padding: 0.5rem 1.5rem 0.5rem 1.9rem;
         text-align: center;
-        padding-top: 1.25rem;
+        // Trois variables portent la phase, et les trois etats (a venir, en
+        // cours, franchie) se definissent une seule fois quelle que soit la
+        // couleur : « teinte » remplit le chevron, « lisible » ecrit dessus
+        // quand il est clair, « encre » ecrit dessus quand il est plein.
+        --fma-frise-teinte: var(--bs-secondary-color, #6c757d);
+        --fma-frise-lisible: var(--bs-secondary-color, #6c757d);
+        --fma-frise-encre: #fff;
+        background-color: var(--bs-tertiary-bg, #f0f1f3);
+        color: var(--fma-frise-lisible);
+        clip-path: polygon(
+            0 0,
+            calc(100% - #{$fma-frise-pointe}) 0,
+            100% 50%,
+            calc(100% - #{$fma-frise-pointe}) 100%,
+            0 100%,
+            #{$fma-frise-pointe} 50%
+        );
+        // L'encoche du chevron vient se loger dans la pointe du precedent.
+        margin-left: calc(-1 * #{$fma-frise-pointe} + #{$fma-frise-jour});
     }
 
-    // Le trait part du point et rejoint le suivant. On le tire vers la droite
-    // sur toute la largeur de la colonne ; la derniere etape n'en a pas besoin
-    // mais le debordement est masque par overflow du conteneur parent.
-    .fma_timeline_trait {
-        position: absolute;
-        top: 0.4rem;
-        left: 50%;
-        width: 100%;
-        height: 2px;
-        background-color: var(--bs-border-color, #dee2e6);
+    // Le premier chevron n'a pas d'encoche, le dernier n'a pas de pointe :
+    // la frise commence et finit droit, comme une barre.
+    .fma_timeline_etape:first-child {
+        margin-left: 0;
+        padding-left: 1.1rem;
+        clip-path: polygon(
+            0 0,
+            calc(100% - #{$fma-frise-pointe}) 0,
+            100% 50%,
+            calc(100% - #{$fma-frise-pointe}) 100%,
+            0 100%
+        );
     }
 
-    .fma_timeline_etape:last-child .fma_timeline_trait {
-        display: none;
-    }
-
-    .fma_timeline_point {
-        position: absolute;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 0.85rem;
-        height: 0.85rem;
-        border-radius: 50%;
-        border: 2px solid var(--bs-border-color, #dee2e6);
-        background-color: var(--bs-body-bg, #fff);
+    .fma_timeline_etape:last-child {
+        padding-right: 0.9rem;
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, #{$fma-frise-pointe} 50%);
     }
 
     .fma_timeline_libelle {
         font-size: 0.8rem;
-        color: var(--bs-secondary-color, #6c757d);
-        padding: 0 0.25rem;
+        line-height: 1.15;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .fma_timeline_date {
-        font-size: 0.85rem;
-        font-weight: 600;
-        min-height: 1.2rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        line-height: 1.2;
+        font-variant-numeric: tabular-nums;
     }
 
-    // Etape franchie : point plein et trait sortant colores.
+    // Bleu pour le devis, vert pour la commande, orange pour la production
+    // et la livraison.
+    //
+    // L'orange de la fiche remplit tres bien un chevron, mais ne se lit pas
+    // en texte sur fond clair : il garde la teinte pour le remplissage et
+    // prend un ambre fonce pour l'ecriture. Le bleu et le vert se lisent
+    // dans les deux roles, ils ne se dedoublent pas.
+    .fma_timeline_bleu {
+        --fma-frise-teinte: #{$fma-frise-bleu};
+        --fma-frise-lisible: #{$fma-frise-bleu};
+    }
+
+    .fma_timeline_vert {
+        --fma-frise-teinte: #{$fma-frise-vert};
+        --fma-frise-lisible: #{$fma-frise-vert};
+    }
+
+    .fma_timeline_orange {
+        --fma-frise-teinte: #{$fma-frise-orange};
+        --fma-frise-lisible: #8a5a00;
+        --fma-frise-encre: #402c00;
+    }
+
+    // Etape franchie : chevron plein dans la teinte de sa phase.
     .fma_timeline_faite {
-        .fma_timeline_point {
-            background-color: #017e84;
-            border-color: #017e84;
+        background-color: var(--fma-frise-teinte);
+        color: var(--fma-frise-encre);
+
+        .fma_timeline_libelle {
+            opacity: 0.85;
         }
-        .fma_timeline_trait {
-            background-color: #017e84;
-        }
+    }
+
+    // Etape en cours : la premiere non franchie. Chevron clair cerne d'un
+    // halo, pour qu'on lise d'un coup d'oeil ou s'arrete l'avancement.
+    //
+    // Halo et non bordure : un box-shadow interieur suit la boite
+    // rectangulaire et se ferait couper par le clip-path, laissant les
+    // diagonales sans trait. Le filtre, lui, s'applique apres la decoupe et
+    // epouse le chevron.
+    .fma_timeline_encours {
+        background-color: var(--bs-body-bg, #fff);
+        font-weight: 600;
+        filter: drop-shadow(0 0 0.16rem var(--fma-frise-teinte));
     }
 }

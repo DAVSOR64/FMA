@@ -2,13 +2,14 @@
 <templates xml:space="preserve">
 
     <t t-name="custom.FmaTimeline">
-        <div class="fma_timeline">
+        <div class="fma_timeline" role="list">
             <t t-foreach="etapes" t-as="etape" t-key="etape_index">
-                <div class="fma_timeline_etape" t-att-class="etape.faite ? 'fma_timeline_faite' : ''">
-                    <div class="fma_timeline_trait"/>
-                    <div class="fma_timeline_point"/>
-                    <div class="fma_timeline_libelle" t-esc="etape.libelle"/>
-                    <div class="fma_timeline_date" t-esc="etape.date"/>
+                <div class="fma_timeline_etape"
+                     t-att-class="etape.classe"
+                     t-att-title="etape.titre"
+                     role="listitem">
+                    <span class="fma_timeline_libelle" t-esc="etape.libelle"/>
+                    <span class="fma_timeline_date" t-esc="etape.date"/>
                 </div>
             </t>
         </div>
