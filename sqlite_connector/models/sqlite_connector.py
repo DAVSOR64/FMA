@@ -1666,7 +1666,7 @@ class SqliteConnector(models.Model):
                     if rowOpe[6] is not None and rowOpe[6] in (4, 5) :
                         name = 'Usinage'  + ' ' + eticom
                     else :
-                        if rowOpe[6] is not None and rowOpe[6] in 0 (0, 12) :
+                        if rowOpe[6] is not None and rowOpe[6] in (0, 12) :
                             name = 'Débit'  + ' ' + eticom
                         else:
                             if rowOpe[6] is not None and rowOpe[6] = 6:
@@ -1690,6 +1690,8 @@ class SqliteConnector(models.Model):
             'Usinage': 30,
             'Montage': 40,
             'Vitrage': 50,
+            'Remontage': 70,
+            'Assemblage': 60,
         }
         
         for ope, data in aggregated_data.items():
