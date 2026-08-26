@@ -6,7 +6,7 @@
     "author": "Odoo PS",
     "website": "http://www.yourcompany.com",
     "category": "Inventory/Delivery",
-    "version": "19.0.1.0.2",
+    "version": "19.0.1.0.3",
     "license": "LGPL-3",
     "depends": ["base", "stock", "sale_stock", "mail"],
     "data": [
