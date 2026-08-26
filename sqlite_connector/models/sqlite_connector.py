@@ -1501,20 +1501,34 @@ class SqliteConnector(models.Model):
             #                name = 'Débit'  + ' ' + eticom													  
             #            else :
             #                name = rowOpe[2].strip() + ' ' + eticom
-            if rowOpe[6] is not None and rowOpe[6] == 0 :
-                name = 'Débit'  + ' ' + eticom
-            else:
-                if rowOpe[6] is not None and rowOpe[6] == 5 :
-                        name = 'CU (banc)'  + ' ' + eticom
-                else :
-                    if rowOpe[6] is not None and rowOpe[6] == 4 :
-                        name = 'Usinage'  + ' ' + eticom
-                    else:
-                        if rowOpe[6] is not None and rowOpe[6] in (6, 11):
-                            name = 'Montage'  + ' ' + eticom
+            if eticom == 'FMA' :
+                if rowOpe[6] is not None and rowOpe[6] == 0 :
+                    name = 'Débit'  + ' ' + eticom
+                else:
+                    if rowOpe[6] is not None and rowOpe[6] == 5 :
+                            name = 'CU (banc)'  + ' ' + eticom
+                    else :
+                        if rowOpe[6] is not None and rowOpe[6] == 4 :
+                            name = 'Usinage'  + ' ' + eticom
                         else:
-                            if rowOpe[6] is not None and rowOpe[6] == 10 :
-                                name = 'Vitrage'  + ' ' + eticom
+                            if rowOpe[6] is not None and rowOpe[6] in (6, 11):
+                                name = 'Montage'  + ' ' + eticom
+                            else:
+                                if rowOpe[6] is not None and rowOpe[6] == 10 :
+                                    name = 'Vitrage'  + ' ' + eticom
+            else :
+                if rowOpe[6] is not None and rowOpe[6] == 11 :
+                    name = 'Remontage'  + ' ' + eticom
+                else:
+                    if rowOpe[6] is not None and rowOpe[6] in (4, 5) :
+                        name = 'Usinage'  + ' ' + eticom
+                    else :
+                        if rowOpe[6] is not None and rowOpe[6] in (0, 12) :
+                            name = 'Débit'  + ' ' + eticom
+                        else:
+                            if rowOpe[6] is not None and rowOpe[6] == 6:
+                                name = 'Assemblage'  + ' ' + eticom
+                            
             _logger.warning("**********Qty ********* %s " % str(Qty) )
             _logger.warning("**********Name ********* %s " % str(name) )
             _logger.warning("**********Elevation******** %s " % str(rowOpe[5]) )
@@ -1533,6 +1547,8 @@ class SqliteConnector(models.Model):
             'Usinage': 30,
             'Montage': 40,
             'Vitrage': 50,
+            'Remontage': 70,
+            'Assemblage': 60,
         }
         
         for ope, data in aggregated_data.items():
