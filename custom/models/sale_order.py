@@ -112,7 +112,14 @@ class SaleOrder(models.Model):
             ref_client = self.client_order_ref or self.so_commande_client or self.name
 
         if not picking and self.picking_ids:
-            sorted_pickings = self.picking_ids.sorted(lambda p: p.scheduled_date or fields.Datetime.from_string("9999-12-31 00:00:00"))
+            # Le retard se raconte sur la livraison client, pas sur un
+            # transfert interne de la chaine de fabrication : ces transferts
+            # portent la meme commande en document d'origine et se glissaient
+            # en tete du tri par date planifiee.
+            livraisons = self.picking_ids.filtered(
+                lambda p: p.picking_type_id.code == "outgoing" and p.state != "cancel"
+            )
+            sorted_pickings = livraisons.sorted(lambda p: p.scheduled_date or fields.Datetime.from_string("9999-12-31 00:00:00"))
             picking = sorted_pickings[:1]
 
         # Ancienne semaine = date_deadline du BL
@@ -261,8 +268,15 @@ class SaleOrder(models.Model):
     so_date_ARC = fields.Date(string="ARC du : ")
     so_date_bon_pour_fab = fields.Date(string="Bon pour Fab. le : ")
     so_date_de_fin_de_production_reel = fields.Date(string="Fin de production du : ")
-    so_date_de_livraison = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison', store=True)
-    so_date_de_livraison_prevu = fields.Date(string="Date livraison saisie")
+    # Deux dates de livraison, et deux seulement -- ce sont les libelles de
+    # la prod :
+    #  - « Date de livraison prévue » : la date promise au client, BPE +
+    #    delai confirme. C'est elle qui alimente commitment_date (cf.
+    #    _compute_so_date_de_livraison), inutile d'afficher les deux.
+    #  - « Date de livraison » : celle du bon de livraison client, recopiee
+    #    depuis son scheduled_date (custom_delivery).
+    so_date_de_livraison = fields.Date(string="Date de livraison prévue", compute='_compute_so_date_de_livraison', store=True)
+    so_date_de_livraison_prevu = fields.Date(string="Date de livraison")
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 

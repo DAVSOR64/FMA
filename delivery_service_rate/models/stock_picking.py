@@ -35,20 +35,33 @@ class StockPicking(models.Model):
         compute="_compute_is_customer_delivery",
     )
 
-    @api.depends("move_ids", "origin")
+    @api.depends("move_ids.sale_line_id", "origin", "picking_type_id.code")
     def _compute_sale_id(self):
+        """Ne rattacher a la commande que les transferts client.
+
+        Le rapprochement se faisait d'abord sur `origin` : tout transfert
+        portant le nom de la commande en document d'origine etait rattache a
+        celle-ci. En 19.0, la route de fabrication propage ce document
+        d'origine sur *tous* les transferts de la chaine -- dont le transfert
+        interne « Collecter les composants » (LRE/STOCK -> LRE/Pre-fabrication).
+        Ce transfert atterrissait donc dans `sale.order.picking_ids` (un
+        One2many sur ce champ depuis la 19.0) : il gonflait le bouton
+        « Livraison » et sa date planifiee etait recopiee dans la date de
+        livraison de la commande.
+
+        On ne garde donc que les transferts entrants/sortants, et on ne
+        retombe sur `origin` que pour une livraison client : un transfert
+        interne n'a pas a porter de commande de vente.
+        """
         SaleOrder = self.env["sale.order"]
         for picking in self:
-            sale = False
-            if picking.origin:
+            code = picking.picking_type_id.code
+            if code not in ("outgoing", "incoming"):
+                picking.sale_id = False
+                continue
+            sale = picking.move_ids.sale_line_id.order_id[:1]
+            if not sale and code == "outgoing" and picking.origin:
                 sale = SaleOrder.search([("name", "=", picking.origin)], limit=1)
-            if not sale and picking.move_ids:
-                try:
-                    sale_lines = picking.move_ids.mapped("sale_line_id")
-                    if sale_lines:
-                        sale = sale_lines.mapped("order_id")[:1]
-                except Exception:
-                    pass
             picking.sale_id = sale.id if sale else False
 
     @api.depends("date_done", "state", "sale_id")
