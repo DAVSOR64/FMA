@@ -25,7 +25,8 @@ const ETAPES = [
     ["so_date_bpe", "BPE", "vert"],
     ["so_date_bon_pour_fab", "Bon pour fab.", "orange"],
     ["so_date_de_fin_de_production_reel", "Fin de production", "orange"],
-    ["so_date_de_livraison", "Livraison", "orange"],
+    ["so_date_de_livraison", "Livraison prévue", "orange"],
+    ["so_date_de_livraison_prevu", "Livraison", "orange"],
 ];
 
 export class FmaTimeline extends Component {

@@ -37,10 +37,12 @@
                             <field name="so_horaire_ouverture_bl" widget="float_time"/>
                             <field name="so_horaire_fermeture_bl" widget="float_time"/>
                         </group>
+                        <!-- commitment_date n'est pas affiche : il vaut
+                             toujours so_date_de_livraison, qui l'alimente, et
+                             en Datetime il s'affichait « 7 oct. 02:00 ». -->
                         <group string="Expédition">
-                            <field name="commitment_date"/>
-                            <field name="so_date_de_livraison_prevu"/>
                             <field name="so_date_de_livraison" readonly="1"/>
+                            <field name="so_date_de_livraison_prevu"/>
                         </group>
                     </group>
                 </page>
