@@ -112,7 +112,14 @@ class SaleOrder(models.Model):
             ref_client = self.client_order_ref or self.so_commande_client or self.name
 
         if not picking and self.picking_ids:
-            sorted_pickings = self.picking_ids.sorted(lambda p: p.scheduled_date or fields.Datetime.from_string("9999-12-31 00:00:00"))
+            # Le retard se raconte sur la livraison client, pas sur un
+            # transfert interne de la chaine de fabrication : ces transferts
+            # portent la meme commande en document d'origine et se glissaient
+            # en tete du tri par date planifiee.
+            livraisons = self.picking_ids.filtered(
+                lambda p: p.picking_type_id.code == "outgoing" and p.state != "cancel"
+            )
+            sorted_pickings = livraisons.sorted(lambda p: p.scheduled_date or fields.Datetime.from_string("9999-12-31 00:00:00"))
             picking = sorted_pickings[:1]
 
         # Ancienne semaine = date_deadline du BL

@@ -27,7 +27,19 @@ class StockPicking(models.Model):
             )
         if "scheduled_date" in vals:  # Mise à jour de la date de livraison si modifiée
             for picking in self:
-                if picking.sale_id:
+                # Seule la livraison client porte la date de livraison de la
+                # commande. Sans ce filtre, n'importe quel transfert de la
+                # chaine remontait sa date planifiee sur le devis : depuis la
+                # 19.0 la route de fabrication en deux etapes cree un
+                # transfert interne « Collecter les composants » rattache a la
+                # meme commande, et c'est sa date qui s'affichait en date de
+                # livraison. Un transfert annule ne dit rien non plus de la
+                # date promise.
+                if (
+                    picking.sale_id
+                    and picking.picking_type_id.code == "outgoing"
+                    and picking.state != "cancel"
+                ):
                     picking.sale_id.so_date_de_livraison_prevu = picking.scheduled_date
         return res
 
