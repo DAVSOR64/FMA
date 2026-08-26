@@ -150,9 +150,11 @@ if resultat and resultat is not True:
         etant aujourd'hui places par Studio dans la colonne client, il faut
         les y retirer cote Studio, sinon ils apparaitront deux fois.
 
-        payment_term_id n'y figure pas volontairement : il est pose par la vue
-        standard puis deplace par Studio. Le reprendre ici entrerait en
-        conflit avec l'un ou l'autre.
+        payment_term_id fait exception : il est pose par la vue standard, et
+        c'est ce champ-la qu'on deplace (position="move") dans le pave
+        Conditions, en fin de vue. Si Studio le deplacait deja de son cote, sa
+        propre specification ne le trouvera plus a l'emplacement standard : il
+        faut retirer ce deplacement cote Studio.
     -->
     <record id="view_order_form_paves_fma" model="ir.ui.view">
         <field name="name">sale.order.form.paves.fma</field>
@@ -257,6 +259,20 @@ if resultat and resultat is not True:
                     </group>
 
                 </group>
+            </xpath>
+
+            <!-- Les conditions de paiement rejoignent le pave Conditions,
+                 aupres du mode de reglement : c'est la meme question posee au
+                 client, elle se lisait a deux endroits differents de la fiche.
+                 On *deplace* le champ standard au lieu d'en poser un second :
+                 payment_term_id existe deja dans la vue heritee, un deuxieme
+                 l'afficherait deux fois.
+                 Le deplacement est une specification a part entiere : Odoo ne
+                 traite position="move" que sur les enfants directs du noeud
+                 positionne (cf. template_inheritance.apply_inheritance_specs),
+                 il ne le verrait pas imbrique dans le groupe ci-dessus. -->
+            <xpath expr="//group[@name='fma_conditions']/field[@name='so_delai_confirme_en_semaine']" position="before">
+                <xpath expr="//field[@name='payment_term_id']" position="move"/>
             </xpath>
 
         </field>
