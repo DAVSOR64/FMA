@@ -23,7 +23,7 @@ $fma-frise-orange: #ffa500;
     display: flex;
     align-items: stretch;
     margin: 0.25rem 0 1.25rem;
-    // Huit etapes ne tiennent pas sur une fiche etroite : on defile
+    // Neuf etapes ne tiennent pas sur une fiche etroite : on defile
     // horizontalement plutot que d'ecraser les libelles.
     overflow-x: auto;
     padding-bottom: 0.25rem;
