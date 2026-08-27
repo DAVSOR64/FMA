@@ -86,8 +86,8 @@
                         domain="[('state', '=', 'done')]"/>
                 <separator/>
                 <filter name="filter_today" string="Aujourd'hui"
-                        domain="[('create_date', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0)))]"/>
-                <group expand="0" string="Regrouper par">
+                        domain="[('create_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+                <group name="group_by">
                     <filter name="group_state" string="État" context="{'group_by': 'state'}"/>
                     <filter name="group_operation" string="Opération" context="{'group_by': 'operation'}"/>
                     <filter name="group_partner" string="Client" context="{'group_by': 'partner_id'}"/>
