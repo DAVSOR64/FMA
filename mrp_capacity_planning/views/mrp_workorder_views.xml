@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="mrp_production_form_inherit_macro_forced_end" model="ir.ui.view">
-        <field name="name">mrp.production.form.inherit.macro_forced_end</field>
+        <field name="name">mrp.production.form.inherit.date_de_fin</field>
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='components_availability']" position="after">
-                <field name="macro_forced_end"
+                <field name="x_studio_date_de_fin"
                        string="Date de fin"
                        readonly="state in ('done', 'cancel')"/>
             </xpath>
