@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_iziqo_sync_job_system,iziqo.sync.job.system,model_iziqo_sync_job,base.group_system,1,1,1,1
+access_iziqo_sync_job_user,iziqo.sync.job.user,model_iziqo_sync_job,base.group_user,1,0,0,0
