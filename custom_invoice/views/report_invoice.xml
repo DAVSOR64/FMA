@@ -30,7 +30,10 @@
                     <br></br>
                     <br>TVA : <span t-field="o.partner_id.vat" />
                     </br>
-                    <br>SIRET : <span t-field="o.partner_id.siret" /></br>
+                    <!-- res.partner.siret a disparu avec l10n_fr en v19, le SIRET
+                         est porte par le champ standard company_registry. On lit
+                         le partenaire commercial, comme le fait l10n_fr_account. -->
+                    <br>SIRET : <span t-field="o.partner_id.commercial_partner_id.company_registry" /></br>
                 </div>
                 <div style="text-align: right;">
                     <br>

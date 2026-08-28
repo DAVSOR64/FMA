@@ -12,7 +12,9 @@
     # 1.0.6 : priority forcee par le record, dans la meme ecriture que active.
     # 1.0.7 : le gabarit masque les blocs standard au lieu de les supprimer,
     # pour ne plus casser les ancrages des autres vues heritees du rapport.
-    "version": "19.0.1.0.7",
+    # 1.0.8 : partner.siret -> partner.commercial_partner_id.company_registry,
+    # le champ de l10n_fr n'existe plus en v19.
+    "version": "19.0.1.0.8",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom"],
