@@ -984,7 +984,7 @@ class SqliteConnector(models.Model):
                 
                 Frsid = row[17]
                 Id = str(row[16])
-                #_logger.warning('fournisseur %s :' % str(Frsid))
+                _logger.warning('fournisseur %s :' % str(Frsid))
                 typeglass = ''
                 type = row[18]
                 if type == 0:
@@ -996,11 +996,11 @@ class SqliteConnector(models.Model):
                 for sup in suppliers :
                     if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
                         sname = sup['name']
-                        
+                         _logger.warning('----- %sname' % sname)
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
                     if sname == (part.x_studio_ref_logikal):
                         res_partner = part
-                        #_logger.warning('----- %s' % res_partner)
+                        _logger.warning('----- %s' % res_partner)
                 
                 if res_partner:
                     for partner in res_partner:
