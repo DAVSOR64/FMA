@@ -10,7 +10,9 @@
     # 1.0.5 : priority 99, pour s'appliquer apres l10n_fr_account (v19) au lieu
     # de le casser.
     # 1.0.6 : priority forcee par le record, dans la meme ecriture que active.
-    "version": "19.0.1.0.6",
+    # 1.0.7 : le gabarit masque les blocs standard au lieu de les supprimer,
+    # pour ne plus casser les ancrages des autres vues heritees du rapport.
+    "version": "19.0.1.0.7",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom"],

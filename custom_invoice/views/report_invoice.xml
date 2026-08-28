@@ -44,7 +44,10 @@
                 </div>
             </div>
         </xpath>
-        <xpath expr="//div[@class='row'][1]" position="replace">
+        <!-- Masque au lieu d'etre supprime : l10n_fr_account accroche ses
+             mentions SIRET sur (//address)[1..3], toutes contenues ici. -->
+        <xpath expr="//div[@class='row'][1]" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->
 
@@ -295,13 +298,10 @@
                 </t>
             </tbody>
         </xpath>
-        <!-- Suppression du bloc de code standard -->
-        <xpath expr="//p[@name='payment_communication']" position="replace" />
-        <!-- <xpath expr="//p[@name='payment_term']" position="replace" /> -->
-        <xpath expr="//div[@name='comment']" position="replace" />
-        <xpath expr="//p[@name='note']" position="replace" />
-        <!-- <xpath expr="//p[@name='incoterm']" position="replace" /> -->
-        <xpath expr="//div[@id='qrcode']" position="replace" />
+        <!-- payment_communication, note, comment, qrcode et qr_code_placeholder
+             sont tous contenus dans #payment_term, masque plus bas : les
+             supprimer un a un ne changeait rien au rendu et privait
+             account_edi_ubl_cii et l10n_fr_account de leurs points d'accroche. -->
 
         <!-- Ancrage sur l'id : en v19 le div porte class="clearfix mt-3",
              le match exact sur @class ne resolvait plus. -->
@@ -488,7 +488,11 @@
             <attribute name="class" add="avoid-page-break" />
         </xpath>
 
-        <xpath expr="//div[@id='payment_term']" position="replace">
+        <!-- Masque au lieu d'etre supprime : ce div contient les ancrages de
+             account_edi_ubl_cii (payment_communication) et l10n_fr_account
+             (qr_code_placeholder). Rendu identique, arbre preserve. -->
+        <xpath expr="//div[@id='payment_term']" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
 
     </template>
