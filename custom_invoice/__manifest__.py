@@ -14,7 +14,8 @@
     # pour ne plus casser les ancrages des autres vues heritees du rapport.
     # 1.0.8 : partner.siret -> partner.commercial_partner_id.company_registry,
     # le champ de l10n_fr n'existe plus en v19.
-    "version": "19.0.1.0.8",
+    # 1.0.9 : le titre repasse sous le pave adresse, comme en v17.
+    "version": "19.0.1.0.9",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom"],
