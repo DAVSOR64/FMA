@@ -996,7 +996,7 @@ class SqliteConnector(models.Model):
                 for sup in suppliers :
                     if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
                         sname = sup['name']
-                         _logger.warning('----- %sname' % sname)
+                        _logger.warning('----- %sname' % sname)
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
                     if sname == (part.x_studio_ref_logikal):
                         res_partner = part
