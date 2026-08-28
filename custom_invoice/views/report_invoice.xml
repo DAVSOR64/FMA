@@ -1,5 +1,9 @@
 <odoo>
-    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">
+    <!-- priority 99 : l10n_fr_account herite du meme rapport en priorite 16 et
+         accroche ses mentions legales sur les <address> et #informations, que ce
+         gabarit remplace. A priorite egale Odoo applique par id croissant, donc
+         custom_invoice passait avant et faisait echouer la vue francaise. -->
+    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document" priority="99">
         <xpath expr="//div[hasclass('page')]" position="before">
             <style>
                 .avoid-page-break {

@@ -7,7 +7,9 @@
     # classe a change en v19 et qui desactivait toute la vue heritee.
     # 1.0.4 : reactive les deux vues du module, eteintes par la migration et
     # qu'une mise a jour de module ne rallume pas d'elle-meme.
-    "version": "19.0.1.0.4",
+    # 1.0.5 : priority 99, pour s'appliquer apres l10n_fr_account (v19) au lieu
+    # de le casser.
+    "version": "19.0.1.0.5",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom"],
