@@ -5,7 +5,9 @@
     # l'ancienne selection pour les factures anterieures a la bascule.
     # 1.0.3 : xpath du bloc affacturage reancre sur #payment_term, dont la
     # classe a change en v19 et qui desactivait toute la vue heritee.
-    "version": "19.0.1.0.3",
+    # 1.0.4 : reactive les deux vues du module, eteintes par la migration et
+    # qu'une mise a jour de module ne rallume pas d'elle-meme.
+    "version": "19.0.1.0.4",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom"],

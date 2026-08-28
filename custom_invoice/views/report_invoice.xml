@@ -494,4 +494,15 @@
             <p></p>
         </xpath>
     </template>
+
+    <!-- La migration v19 a desactive ces vues (xpath non resolu) et une mise a
+         jour de module ne les reactive pas : _tag_template n'ecrit jamais le
+         champ active en mode update. Ces records le forcent, dans chaque base
+         et a chaque build, une fois l'arch ci-dessus rechargee. -->
+    <record id="report_invoice_document_inherit" model="ir.ui.view">
+        <field name="active" eval="True"/>
+    </record>
+    <record id="document_tax_totals_template_inherit" model="ir.ui.view">
+        <field name="active" eval="True"/>
+    </record>
 </odoo>
