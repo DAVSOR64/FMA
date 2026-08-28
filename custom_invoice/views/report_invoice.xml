@@ -299,7 +299,9 @@
         <!-- <xpath expr="//p[@name='incoterm']" position="replace" /> -->
         <xpath expr="//div[@id='qrcode']" position="replace" />
 
-        <xpath expr="//div[@class='clearfix']" position="before">
+        <!-- Ancrage sur l'id : en v19 le div porte class="clearfix mt-3",
+             le match exact sur @class ne resolvait plus. -->
+        <xpath expr="//div[@id='payment_term']" position="before">
             <t t-if="o.inv_show_affacturage">
                 <div class="text-block" style="font-size: 11px;">
                     <!-- Place your custom text block here -->
