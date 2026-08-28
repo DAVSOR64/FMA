@@ -505,6 +505,7 @@
          et a chaque build, une fois l'arch ci-dessus rechargee. -->
     <record id="report_invoice_document_inherit" model="ir.ui.view">
         <field name="active" eval="True"/>
+        <field name="priority" eval="99"/>
     </record>
     <record id="document_tax_totals_template_inherit" model="ir.ui.view">
         <field name="active" eval="True"/>

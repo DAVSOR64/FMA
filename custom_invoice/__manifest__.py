@@ -9,7 +9,8 @@
     # qu'une mise a jour de module ne rallume pas d'elle-meme.
     # 1.0.5 : priority 99, pour s'appliquer apres l10n_fr_account (v19) au lieu
     # de le casser.
-    "version": "19.0.1.0.5",
+    # 1.0.6 : priority forcee par le record, dans la meme ecriture que active.
+    "version": "19.0.1.0.6",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom"],
