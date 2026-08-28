@@ -1,9 +1,18 @@
 <odoo>
-    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document">
+    <!-- priority 99 : l10n_fr_account herite du meme rapport en priorite 16 et
+         accroche ses mentions legales sur les <address> et #informations, que ce
+         gabarit remplace. A priorite egale Odoo applique par id croissant, donc
+         custom_invoice passait avant et faisait echouer la vue francaise. -->
+    <template id="report_invoice_document_inherit" inherit_id="account.report_invoice_document" priority="99">
         <xpath expr="//div[hasclass('page')]" position="before">
             <style>
                 .avoid-page-break {
                 page-break-inside: avoid;
+                }
+                /* Le h2 du layout est vide, cf. plus bas : on reprend aussi la
+                   place qu'il laisserait en haut de l'article. */
+                h2:empty {
+                display: none;
                 }
             </style>
         </xpath>
@@ -26,7 +35,10 @@
                     <br></br>
                     <br>TVA : <span t-field="o.partner_id.vat" />
                     </br>
-                    <br>SIRET : <span t-field="o.partner_id.siret" /></br>
+                    <!-- res.partner.siret a disparu avec l10n_fr en v19, le SIRET
+                         est porte par le champ standard company_registry. On lit
+                         le partenaire commercial, comme le fait l10n_fr_account. -->
+                    <br>SIRET : <span t-field="o.partner_id.commercial_partner_id.company_registry" /></br>
                 </div>
                 <div style="text-align: right;">
                     <br>
@@ -36,11 +48,23 @@
                 </div>
             </div>
         </xpath>
-        <xpath expr="//div[@class='row'][1]" position="replace">
+        <!-- Masque au lieu d'etre supprime : l10n_fr_account accroche ses
+             mentions SIRET sur (//address)[1..3], toutes contenues ici. -->
+        <xpath expr="//div[@class='row'][1]" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->
 
         <!-- Modif de l'entete -->
+        <!-- En v19 le titre est rendu par web.external_layout, avant le contenu
+             du rapport, donc au-dessus du pave adresse. On le sort ici, a la
+             place qu'il occupait en v17 : sous le bloc Commercial, au-dessus du
+             tableau d'entete. Le t-set qui suit vide la variable, de sorte que
+             le h2 du layout ne rende plus rien. -->
+        <xpath expr="//div[@id='informations']" position="before">
+            <h2 t-out="layout_document_title"/>
+            <t t-set="layout_document_title"/>
+        </xpath>
         <xpath expr="//div[@id='informations']" position="replace">
             <div id="informations">
                 <style>
@@ -287,15 +311,14 @@
                 </t>
             </tbody>
         </xpath>
-        <!-- Suppression du bloc de code standard -->
-        <xpath expr="//p[@name='payment_communication']" position="replace" />
-        <!-- <xpath expr="//p[@name='payment_term']" position="replace" /> -->
-        <xpath expr="//div[@name='comment']" position="replace" />
-        <xpath expr="//p[@name='note']" position="replace" />
-        <!-- <xpath expr="//p[@name='incoterm']" position="replace" /> -->
-        <xpath expr="//div[@id='qrcode']" position="replace" />
+        <!-- payment_communication, note, comment, qrcode et qr_code_placeholder
+             sont tous contenus dans #payment_term, masque plus bas : les
+             supprimer un a un ne changeait rien au rendu et privait
+             account_edi_ubl_cii et l10n_fr_account de leurs points d'accroche. -->
 
-        <xpath expr="//div[@class='clearfix']" position="before">
+        <!-- Ancrage sur l'id : en v19 le div porte class="clearfix mt-3",
+             le match exact sur @class ne resolvait plus. -->
+        <xpath expr="//div[@id='payment_term']" position="before">
             <t t-if="o.inv_show_affacturage">
                 <div class="text-block" style="font-size: 11px;">
                     <!-- Place your custom text block here -->
@@ -478,7 +501,11 @@
             <attribute name="class" add="avoid-page-break" />
         </xpath>
 
-        <xpath expr="//div[@id='payment_term']" position="replace">
+        <!-- Masque au lieu d'etre supprime : ce div contient les ancrages de
+             account_edi_ubl_cii (payment_communication) et l10n_fr_account
+             (qr_code_placeholder). Rendu identique, arbre preserve. -->
+        <xpath expr="//div[@id='payment_term']" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
 
     </template>
@@ -488,4 +515,16 @@
             <p></p>
         </xpath>
     </template>
+
+    <!-- La migration v19 a desactive ces vues (xpath non resolu) et une mise a
+         jour de module ne les reactive pas : _tag_template n'ecrit jamais le
+         champ active en mode update. Ces records le forcent, dans chaque base
+         et a chaque build, une fois l'arch ci-dessus rechargee. -->
+    <record id="report_invoice_document_inherit" model="ir.ui.view">
+        <field name="active" eval="True"/>
+        <field name="priority" eval="99"/>
+    </record>
+    <record id="document_tax_totals_template_inherit" model="ir.ui.view">
+        <field name="active" eval="True"/>
+    </record>
 </odoo>
