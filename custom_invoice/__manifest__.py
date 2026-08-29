@@ -15,10 +15,12 @@
     # 1.0.8 : partner.siret -> partner.commercial_partner_id.company_registry,
     # le champ de l10n_fr n'existe plus en v19.
     # 1.0.9 : le titre repasse sous le pave adresse, comme en v17.
-    "version": "19.0.1.0.9",
+    # 1.0.10 : la TVA societe quitte l'entete repete et revient dans le
+    # corps, donc sur la seule premiere page, comme en v17.
+    "version": "19.0.1.0.10",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
-    "depends": ["account", "custom"],
+    "depends": ["account", "custom", "web"],
     "data": [
         "views/report_invoice.xml",
     ],

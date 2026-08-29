@@ -40,6 +40,14 @@
                          le partenaire commercial, comme le fait l10n_fr_account. -->
                     <br>SIRET : <span t-field="o.partner_id.commercial_partner_id.company_registry" /></br>
                 </div>
+                <!-- Reprise de la ligne TVA societe que l'entete n'imprime plus :
+                     ici elle est dans le corps du document, donc rendue une seule
+                     fois, sur la premiere page. Le cas TVA etrangere forcee par la
+                     position fiscale reste traite par l'entete, d'ou la condition. -->
+                <div t-if="not o.fiscal_position_id.foreign_vat and o.company_id.vat">
+                    <t t-esc="o.company_id.country_id.vat_label or 'TVA'"/>:
+                    <span t-esc="o.company_id.vat"/>
+                </div>
                 <div style="text-align: right;">
                     <br>
                         <strong>Commercial :</strong>
@@ -524,6 +532,18 @@
          jour de module ne les reactive pas : _tag_template n'ecrit jamais le
          champ active en mode update. Ces records le forcent, dans chaque base
          et a chaque build, une fois l'arch ci-dessus rechargee. -->
+    <!-- En 17.0 ce <li> etait vide : la TVA societe ne s'imprimait dans l'entete
+         que si la position fiscale forcait une TVA etrangere. La 19.0 y a ajoute
+         un repli sur company.vat, et comme l'entete est repete par wkhtmltopdf en
+         haut de chaque page, la ligne se retrouvait sur toutes les pages. On
+         retablit le <li> vide ; la ligne est reemise une fois dans le corps de la
+         facture, et la TVA societe figure de toute facon dans le pied de page. -->
+    <template id="external_layout_standard_no_company_vat" inherit_id="web.external_layout_standard">
+        <xpath expr="//li[@t-if='not forced_vat']" position="replace">
+            <li t-if="not forced_vat"/>
+        </xpath>
+    </template>
+
     <record id="report_invoice_document_inherit" model="ir.ui.view">
         <field name="active" eval="True"/>
         <field name="priority" eval="99"/>
