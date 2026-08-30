@@ -25,7 +25,10 @@ class AccountMove(models.Model):
     inv_delegation_txt = fields.Char(
         string="Texte de Délégation (facture)", compute="_compute_delegation_txt"
     )
-    inv_mode_de_reglement = fields.Char(string="Mode de reglement :")
+    # inv_mode_de_reglement n'est volontairement pas redeclare ici : le module
+    # custom le definit en Selection liee a partner_id.part_mode_de_reglement, et
+    # comme custom_invoice charge apres lui, un Char sans related l'ecrasait et
+    # vidait le champ.
 
     @api.depends("partner_id")
     def _compute_show_text_block(self):
