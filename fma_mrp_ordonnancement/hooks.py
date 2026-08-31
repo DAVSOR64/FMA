@@ -4,12 +4,11 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-# Catégories de produit connues, reprises de fma_custom.sale_order, qui
-# identifie déjà le vitrage par ce biais. Le reste du paramétrage se fait en
-# configuration : la liste des familles est courte, contrairement à celle des
-# fournisseurs que le classeur maintenait en dur dans ses formules.
-CATEGORIES_CONNUES = {
-    'vitrage': ("all vitrage", "All / 02_REMPLISSAGE"),
+# Familles de produit dont la correspondance est certaine, d'apres le
+# referentiel FMA. 02_Remplissage n'y figure pas : elle recouvre a la fois le
+# vitrage et les panneaux, la distinction se fait au niveau sous-famille.
+FAMILLES_CONNUES = {
+    '01_PROFILS_BARRES_TOLES': 'profil',
 }
 
 
@@ -28,25 +27,22 @@ def _typer_postes_de_charge(env):
     _logger.info("Ordonnancement FMA : %s poste(s) de charge typé(s).", types)
 
 
-def _categoriser_produits(env):
-    """Amorce la famille d'approvisionnement sur les catégories connues."""
-    Categorie = env['product.category']
+def _rattacher_familles(env):
+    """Amorce la famille d'approvisionnement sur les familles certaines."""
+    Famille = env['product.family']
     total = 0
-    for famille, noms in CATEGORIES_CONNUES.items():
-        for nom in noms:
-            categories = Categorie.search([
-                '|',
-                ('complete_name', '=ilike', nom),
-                ('name', '=ilike', nom),
-                ('fma_famille_appro', '=', False),
-            ])
-            if categories:
-                categories.write({'fma_famille_appro': famille})
-                total += len(categories)
+    for code, famille_appro in FAMILLES_CONNUES.items():
+        familles = Famille.search([
+            '|', ('code', '=ilike', code), ('name', '=ilike', code),
+            ('fma_famille_appro', '=', False),
+        ])
+        if familles:
+            familles.write({'fma_famille_appro': famille_appro})
+            total += len(familles)
     _logger.info(
-        "Ordonnancement FMA : %s catégorie(s) de produit rattachée(s) à une "
-        "famille. Les autres familles (profilé, panneaux, complémentaire) "
-        "restent à renseigner dans Configuration > Catégories de produits.",
+        "Ordonnancement FMA : %s famille(s) de produit rattachée(s). "
+        "Le vitrage et les panneaux se distinguent au niveau sous-famille "
+        "(02_Remplissage) ; les complémentaires restent à définir.",
         total,
     )
 
@@ -58,5 +54,5 @@ def _recalcul_initial(env):
 
 def post_init_hook(env):
     _typer_postes_de_charge(env)
-    _categoriser_produits(env)
+    _rattacher_familles(env)
     _recalcul_initial(env)

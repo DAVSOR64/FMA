@@ -407,7 +407,7 @@ class MrpProduction(models.Model):
                 for ligne in purchase.order_line:
                     if ligne.display_type or not ligne.product_id:
                         continue
-                    famille = ligne.product_id.categ_id.fma_famille_appro
+                    famille = ligne.product_id.product_tmpl_id._fma_famille_appro()
                     if famille in par_famille:
                         par_famille[famille].append(ligne)
 

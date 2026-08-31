@@ -66,7 +66,7 @@ champ. Là où aucun chemin de dépendance n'existe, l'invalidation est explicit
 | `fma_heure_*`, `fma_score_*` | **typage d'un poste de charge** | invalidation explicite depuis `mrp.workcenter` |
 | `fma_*_appro` | **achat créé, confirmé, annulé, date d'arrivée modifiée** | invalidation explicite depuis `purchase.order` |
 | `fma_*_appro` | **réception validée ou annulée** | invalidation explicite depuis `stock.picking` |
-| `fma_*_appro` | **famille d'une catégorie de produit modifiée** | invalidation explicite depuis `product.category` |
+| `fma_*_appro` | **famille d'appro d'une famille ou sous-famille modifiée** | invalidation explicite depuis `product.family` et `product.subfamily` |
 | `fma_date_fin_prod` | **`x_studio_date_de_fin` modifié** | surcharge de `write` sur l'OF |
 | `fma_nb_reperes` | lignes de la commande de vente | `@api.depends` |
 | `fma_date_debut_debit` | `macro_planned_start` des OT de débit | `@api.depends` |
@@ -83,13 +83,14 @@ Un OF qui échapperait à ces trois voies est rattrapé par le cron nocturne.
 Le `post_init_hook` :
 
 1. type les postes de charge existants d'après leur libellé (Débit, CU, …) ;
-2. rattache à la famille « vitrage » les catégories de produit déjà connues de
-   `fma_custom` ; les autres familles restent à renseigner ;
+2. rattache `01_PROFILS_BARRES_TOLES` à « profilé » ; les autres familles
+   restent à renseigner, dont `02_Remplissage` au niveau sous-famille ;
 3. lance un premier calcul sur les OF ouverts.
 
 Ces trois opérations ne servent qu'au démarrage. Ensuite, tout se règle en
-configuration, sous le menu Séquencement : type de poste, famille par catégorie
-de produit, exclusions du comptage des repères, barèmes.
+configuration, sous le menu Séquencement : type de poste, famille
+d'approvisionnement par famille puis par sous-famille, exclusions du comptage
+des repères, barèmes.
 
 ## Points d'attention repris du classeur
 
@@ -97,10 +98,18 @@ de produit, exclusions du comptage des repères, barèmes.
   nom du fournisseur, avec quatre listes codées en dur dans les formules. C'est
   structurellement faux — `RODENBERG` figurait à la fois dans « panneaux » et
   dans « complémentaire », parce qu'un fournisseur vend plusieurs familles. La
-  famille est désormais portée par la **catégorie du produit acheté**, comme
-  `fma_custom` le fait déjà pour le vitrage, et la ventilation se fait ligne à
-  ligne. Les catégories restantes sont à renseigner dans
-  Configuration > Familles d'approvisionnement.
+  famille est désormais portée par le référentiel **`product.family`** de
+  `product_subfamily`, qui est déjà la source de `categ_id` via le triplet, et
+  la ventilation se fait ligne à ligne.
+
+  Le référentiel FMA ne se superpose pas exactement aux familles
+  d'approvisionnement du classeur : **`02_Remplissage` recouvre le vitrage et
+  les panneaux**, que le classeur suivait dans deux colonnes distinctes. La
+  famille d'appro se renseigne donc à deux niveaux, la **sous-famille
+  l'emportant sur la famille**. `01_PROFILS_BARRES_TOLES` est rattachée
+  automatiquement à « profilé » ; `02_Remplissage` doit être tranchée
+  sous-famille par sous-famille ; les complémentaires restent à définir avec le
+  métier.
 - **Éco-participation** : identifiée par la case « Exclu du comptage des
   repères » sur la fiche produit, à cocher par FMA. Aucune détection par le
   libellé, qui serait fragile.

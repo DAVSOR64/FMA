@@ -25,14 +25,20 @@
     <menuitem id="menu_fma_famille_appro"
               name="Familles d'approvisionnement"
               parent="menu_fma_ordonnancement_config"
-              action="action_product_category_fma"
+              action="action_product_family_fma"
               sequence="6"/>
+
+    <menuitem id="menu_fma_sous_famille_appro"
+              name="Affinage par sous-famille"
+              parent="menu_fma_ordonnancement_config"
+              action="action_product_subfamily_fma"
+              sequence="7"/>
 
     <menuitem id="menu_fma_exclusion_reperes"
               name="Exclusions du comptage des repères"
               parent="menu_fma_ordonnancement_config"
               action="action_product_template_fma"
-              sequence="7"/>
+              sequence="8"/>
 
     <menuitem id="menu_fma_complexite_niveau"
               name="Niveaux de complexité"
