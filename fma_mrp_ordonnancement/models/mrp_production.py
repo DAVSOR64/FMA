@@ -462,10 +462,9 @@ class MrpProduction(models.Model):
                 for ligne in purchase.order_line:
                     if ligne.display_type or not ligne.product_id:
                         continue
-                    famille = ligne.product_id.product_tmpl_id._fma_famille_appro()
-                    # Le complémentaire est la famille par défaut : tout ce qui
-                    # n'est ni profilé, ni vitrage, ni panneau y tombe, afin
-                    # qu'aucune commande rattachée à l'affaire ne soit perdue.
+                    # Le complémentaire est la famille par défaut : tout ce
+                    # qui n'est ni profilé, ni vitrage, ni panneau y tombe.
+                    famille = ligne.fma_famille_appro
                     if famille not in par_famille:
                         famille = 'complementaire'
                     par_famille[famille].append(ligne)
@@ -659,6 +658,43 @@ class MrpProduction(models.Model):
         if {'x_studio_date_de_fin', 'x_studio_date_fin'} & set(vals):
             self._fma_marquer_recalcul(['fma_date_fin_prod'], productions=self)
         return result
+
+    # ==================================================================
+    # Détail des approvisionnements
+    # ==================================================================
+    def action_fma_voir_achats(self):
+        """Ouvre les lignes d'achat de l'affaire, groupées par famille.
+
+        Six colonnes de dates en liste sont illisibles : le détail se consulte
+        ici, ligne par ligne, avec l'arrivée prévue et les quantités reçues.
+        On ouvre les lignes et non les commandes, car c'est au niveau de la
+        ligne que se lisent la famille et la date qui remonte sur l'OF.
+        """
+        self.ensure_one()
+        lignes = self.env['purchase.order.line']
+        for purchase in self._fma_purchase_orders():
+            lignes |= purchase.order_line.filtered(
+                lambda ligne: not ligne.display_type
+            )
+        return {
+            'type': 'ir.actions.act_window',
+            'name': "Achats de %s" % (self.name or ''),
+            'res_model': 'purchase.order.line',
+            'view_mode': 'list',
+            'views': [(
+                self.env.ref(
+                    'fma_mrp_ordonnancement.view_purchase_order_line_fma_list'
+                ).id,
+                'list',
+            )],
+            'search_view_id': self.env.ref(
+                'fma_mrp_ordonnancement.view_purchase_order_line_fma_search'
+            ).id,
+            'domain': [('id', 'in', lignes.ids)],
+            'context': {'search_default_group_famille': 1},
+            'help': """<p class="o_view_nocontent_smiling_face">
+                Aucune ligne d'achat rattachée à cet ordre de fabrication</p>""",
+        }
 
     # ==================================================================
     # Cron de rattrapage

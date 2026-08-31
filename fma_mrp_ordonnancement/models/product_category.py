@@ -28,6 +28,7 @@ class ProductCategory(models.Model):
     def write(self, vals):
         result = super().write(vals)
         if 'fma_famille_appro' in vals:
+            self.env['purchase.order.line']._fma_recalculer_familles()
             self.env['mrp.production']._fma_marquer_recalcul(
                 self.env['mrp.production']._fma_champs_appro()
             )

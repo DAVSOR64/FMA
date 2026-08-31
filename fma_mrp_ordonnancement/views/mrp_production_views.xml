@@ -60,6 +60,8 @@
                        decoration-success="fma_statut_reception_complementaire == 'full'"
                        optional="show"/>
 
+                <button name="action_fma_voir_achats" type="object"
+                        icon="fa-truck" title="Détail des approvisionnements"/>
                 <field name="fma_commentaire" string="Commentaires"/>
 
                 <field name="fma_nb_reperes" string="Nb rep." readonly="1" sum="Total repères" optional="show"/>
@@ -220,6 +222,10 @@
                             <field name="fma_score_montage"/>
                         </group>
                         <group string="Approvisionnements">
+                            <button name="action_fma_voir_achats" type="object"
+                                    string="Voir le détail des achats"
+                                    class="btn-link" icon="fa-truck"
+                                    colspan="2"/>
                             <field name="fma_appro_complet"/>
                             <field name="fma_date_arrivee_profil" widget="date"/>
                             <field name="fma_statut_reception_profil"/>

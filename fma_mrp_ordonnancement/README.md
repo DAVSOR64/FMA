@@ -82,7 +82,8 @@ champ. Là où aucun chemin de dépendance n'existe, l'invalidation est explicit
 | `fma_heure_*`, `fma_score_*` | **typage d'un poste de charge** | invalidation explicite depuis `mrp.workcenter` |
 | `fma_*_appro` | **achat créé, confirmé, annulé, date d'arrivée modifiée** | invalidation explicite depuis `purchase.order` |
 | `fma_*_appro` | **réception validée ou annulée** | invalidation explicite depuis `stock.picking` |
-| `fma_*_appro` | **famille d'appro modifiée sur une catégorie, famille ou sous-famille** | invalidation explicite depuis `product.category`, `product.family`, `product.subfamily` |
+| `purchase.order.line.fma_famille_appro` | **famille d'appro modifiée sur une catégorie, famille ou sous-famille** | invalidation explicite : aucun `@api.depends` ne remonte quand la valeur est portée par une catégorie parente |
+| `fma_*_appro` | idem, puis reclassement des lignes | invalidation explicite depuis `product.category`, `product.family`, `product.subfamily` |
 | `fma_date_fin_prod` | **`x_studio_date_de_fin` modifié** | surcharge de `write` sur l'OF |
 | `fma_nb_reperes` | lignes de la commande de vente | `@api.depends` |
 | `fma_date_debut_debit` | `macro_planned_start` des OT de débit | `@api.depends` |
@@ -231,6 +232,13 @@ juste quand une commande mélange plusieurs familles.
 ni vitrage, ni panneau y tombe — y compris les catégories non encore
 paramétrées. Aucune commande de l'affaire n'est ainsi perdue, et la colonne
 « Arr. complém. » donne la date la plus lointaine de ce reste.
+
+**Le détail** se consulte par le bouton camion, en liste comme sur la fiche :
+il ouvre les **lignes d'achat** de l'affaire, groupées par famille, avec
+fournisseur, arrivée prévue, quantité commandée et quantité reçue. Six
+colonnes de dates en liste seraient illisibles ; c'est ici qu'on voit d'où
+sort la date affichée. Les lignes plutôt que les commandes, parce que c'est au
+niveau de la ligne que se lisent la famille et la date.
 
 **Les commandes d'achat** sont cherchées par quatre voies cumulées : la
 méthode native côté OF (`purchase_mrp`), la méthode native côté commande de

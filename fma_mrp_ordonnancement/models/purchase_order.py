@@ -108,15 +108,3 @@ class PurchaseOrder(models.Model):
         result = super().button_cancel()
         self._fma_invalider_appro()
         return result
-
-
-class PurchaseOrderLine(models.Model):
-    _inherit = 'purchase.order.line'
-
-    def write(self, vals):
-        result = super().write(vals)
-        # La date d'arrivée prévue est portée par la ligne : c'est elle qui
-        # alimente les colonnes « Arrivée … » de l'OF.
-        if {'date_planned', 'product_qty', 'product_id'} & set(vals):
-            self.order_id._fma_invalider_appro()
-        return result
