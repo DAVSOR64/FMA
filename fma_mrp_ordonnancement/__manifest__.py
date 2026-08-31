@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': "FMA - Ordonnancement & Scores",
-    'version': '19.0.2.5.0',
+    'version': '19.0.2.6.0',
     'category': 'Manufacturing',
     'summary': "Reprise du fichier « Ordre de production FMA » : complexité, "
                "heures par poste, scores et suivi des approvisionnements sur l'OF",

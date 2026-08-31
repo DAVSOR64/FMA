@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+from datetime import datetime
 
 from odoo import api, fields, models
 
@@ -94,19 +95,19 @@ class MrpProduction(models.Model):
     # ------------------------------------------------------------------
     # Colonnes L à Q : approvisionnements par famille
     # ------------------------------------------------------------------
-    fma_date_arrivee_profil = fields.Date(
+    fma_date_arrivee_profil = fields.Datetime(
         string="Arrivée profilés", compute='_compute_fma_appro', store=True,
         help="Date d'arrivée prévue la plus tardive parmi les commandes "
              "d'achat de profilés rattachées à l'OF : c'est celle qui "
              "contraint le lancement.",
     )
-    fma_date_arrivee_vitrage = fields.Date(
+    fma_date_arrivee_vitrage = fields.Datetime(
         string="Arrivée vitrage", compute='_compute_fma_appro', store=True,
     )
-    fma_date_arrivee_panneaux = fields.Date(
+    fma_date_arrivee_panneaux = fields.Datetime(
         string="Arrivée panneaux", compute='_compute_fma_appro', store=True,
     )
-    fma_date_arrivee_complementaire = fields.Date(
+    fma_date_arrivee_complementaire = fields.Datetime(
         string="Arrivée complémentaire", compute='_compute_fma_appro', store=True,
     )
     fma_statut_reception_profil = fields.Selection(
@@ -135,7 +136,7 @@ class MrpProduction(models.Model):
     # ------------------------------------------------------------------
     # Colonnes J et K : livraison
     # ------------------------------------------------------------------
-    fma_date_livraison = fields.Date(
+    fma_date_livraison = fields.Datetime(
         string="Date livraison actuelle",
         compute='_compute_fma_livraison', store=True,
     )
@@ -191,12 +192,20 @@ class MrpProduction(models.Model):
     # ------------------------------------------------------------------
     # Colonne H : date de livraison initiale = engagement pris au devis
     # ------------------------------------------------------------------
-    fma_date_liv_initiale = fields.Date(
+    fma_date_liv_initiale = fields.Datetime(
         string="Date liv. initiale",
         compute='_compute_fma_date_liv_initiale', store=True,
         help="Livraison promise au client, portée par commitment_date. "
              "Distincte de la date révisée (so_date_de_livraison_prevu) et de "
              "la date planifiée du bon de livraison.",
+    )
+
+    fma_retard_previsionnel = fields.Boolean(
+        string="Retard prévisionnel",
+        compute='_compute_fma_retard_previsionnel', store=True,
+        help="La fin de production tombe après la livraison promise. Comparé "
+             "côté serveur : la fin de production est une date, la promesse un "
+             "horodatage, les confronter dans le navigateur serait hasardeux.",
     )
 
     # ------------------------------------------------------------------
@@ -403,7 +412,7 @@ class MrpProduction(models.Model):
                 getattr(production, 'x_studio_date_de_fin', False)
                 or getattr(production, 'x_studio_date_fin', False)
             )
-            production.fma_date_fin_prod = fields.Date.to_date(valeur) if valeur else False
+            production.fma_date_fin_prod = self._fma_en_date_locale(valeur)
 
     @api.depends('fma_nb_reperes', 'fma_heure_debit', 'fma_heure_banc',
                  'fma_heure_usinage', 'fma_heure_montage')
@@ -488,7 +497,7 @@ class MrpProduction(models.Model):
                 picking.scheduled_date for picking in livraisons
                 if picking.scheduled_date
             ]
-            production.fma_date_livraison = max(dates).date() if dates else False
+            production.fma_date_livraison = max(dates) if dates else False
 
             statut_natif = sale_order.delivery_status if sale_order else False
             if statut_natif:
@@ -509,6 +518,28 @@ class MrpProduction(models.Model):
                 else:
                     production.fma_statut_livraison = 'pending'
 
+    @api.depends('fma_date_fin_prod', 'fma_date_liv_initiale')
+    def _compute_fma_retard_previsionnel(self):
+        for production in self:
+            promesse = production._fma_en_date_locale(production.fma_date_liv_initiale)
+            fin = production.fma_date_fin_prod
+            production.fma_retard_previsionnel = bool(
+                promesse and fin and fin > promesse
+            )
+
+    @api.model
+    def _fma_en_date_locale(self, valeur):
+        """Convertit une valeur en date, en repassant par le fuseau local.
+
+        Un Datetime est stocké en UTC : « 24/08 00:00 » à Paris vaut
+        « 23/08 22:00 » en base. Tronquer sans reconvertir perd un jour.
+        """
+        if not valeur:
+            return False
+        if isinstance(valeur, datetime):
+            return fields.Datetime.context_timestamp(self, valeur).date()
+        return fields.Date.to_date(valeur)
+
     @api.depends('fma_sale_order_id.commitment_date')
     def _compute_fma_date_liv_initiale(self):
         """Colonne H : la livraison promise au client, et elle seule.
@@ -520,9 +551,7 @@ class MrpProduction(models.Model):
         """
         for production in self:
             engagement = production.fma_sale_order_id.commitment_date
-            production.fma_date_liv_initiale = (
-                fields.Date.to_date(engagement) if engagement else False
-            )
+            production.fma_date_liv_initiale = engagement or False
 
     # ==================================================================
     # Résolution des commandes d'achat rattachées à l'OF
@@ -575,10 +604,7 @@ class MrpProduction(models.Model):
         la première.
         """
         dates = [ligne.date_planned for ligne in lignes if ligne.date_planned]
-        if not dates:
-            return False
-        plus_tardive = max(dates)
-        return plus_tardive.date() if hasattr(plus_tardive, 'date') else plus_tardive
+        return max(dates) if dates else False
 
     @api.model
     def _fma_statut_reception(self, lignes):
@@ -635,6 +661,7 @@ class MrpProduction(models.Model):
             + self._fma_champs_appro()
             + ['fma_nb_reperes', 'fma_score_complexite', 'fma_date_livraison',
                'fma_statut_livraison', 'fma_date_liv_initiale',
+               'fma_retard_previsionnel',
                'fma_date_debut_debit', 'fma_date_fin_prod']
         )
         self._fma_marquer_recalcul(champs, productions=productions, force=True)

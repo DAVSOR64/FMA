@@ -198,3 +198,30 @@ instable.
 
 Les scores portent leur propre pastille : vert jusqu'à 1, orange à 2, rouge à
 partir de 3.
+
+## Dates et fuseau horaire
+
+`purchase.order.line.date_planned`, `stock.picking.scheduled_date` et
+`sale.order.commitment_date` sont des **Datetime stockés en UTC**. « 24/08 à
+00:00 » heure de Paris vaut « 23/08 22:00 » en base : appeler `.date()` dessus
+perd un jour. Le module a eu ce défaut, visible sur `A25-07-02581/2` où
+l'arrivée TECHNAL du 24 août s'affichait au 23.
+
+Les champs concernés restent donc des **Datetime** et sont affichés avec
+`widget="date"` : Odoo convertit dans le fuseau de l'utilisateur, le widget
+masque l'heure. Aucune troncature côté serveur. Là où une date est réellement
+nécessaire — comparer la fin de production à la promesse —, la conversion
+passe par `_fma_en_date_locale`.
+
+Corollaire : ne pas comparer une `Date` et un `Datetime` dans une décoration de
+vue, où la comparaison se fait côté navigateur sur deux types différents. C'est
+la raison d'être de `fma_retard_previsionnel`, calculé côté serveur.
+
+## Choix de la date d'arrivée par famille
+
+Quand plusieurs commandes d'achat concernent la même famille, la colonne
+« Arrivée … » retient la **date prévue la plus tardive** parmi les lignes de
+cette famille : c'est la dernière livraison attendue qui conditionne le
+lancement, pas la première. Le statut de réception, lui, s'agrège ligne à
+ligne sur les quantités reçues, ce qui reste juste quand une commande mélange
+plusieurs familles.

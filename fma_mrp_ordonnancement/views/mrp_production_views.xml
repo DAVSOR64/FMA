@@ -16,11 +16,12 @@
                   delete="false"
                   default_order="fma_date_liv_initiale asc, name asc"
                   decoration-danger="not fma_appro_complet and state not in ('done', 'cancel')"
-                  decoration-warning="fma_appro_complet and fma_date_liv_initiale and fma_date_fin_prod and fma_date_fin_prod &gt; fma_date_liv_initiale and state not in ('done', 'cancel')"
+                  decoration-warning="fma_appro_complet and fma_retard_previsionnel and state not in ('done', 'cancel')"
                   decoration-success="fma_appro_complet and fma_planifie and state not in ('done', 'cancel')"
                   decoration-muted="state in ('done', 'cancel')">
                 <field name="state" column_invisible="1"/>
                 <field name="fma_appro_complet" string="Appro OK" readonly="1" widget="boolean_toggle"/>
+                <field name="fma_retard_previsionnel" column_invisible="1"/>
                 <field name="name" string="Référence" readonly="1"/>
                 <field name="product_id" string="Produit" readonly="1" optional="show"/>
                 <field name="fma_sale_order_id" string="Commande" readonly="1" optional="hide"/>
@@ -31,28 +32,28 @@
                        decoration-success="fma_planifie"/>
                 <field name="is_programmed" string="OT datés" readonly="1" optional="hide"/>
                 <field name="fma_date_fin_prod" string="Fin prod" readonly="1"/>
-                <field name="fma_date_liv_initiale" string="Date liv. initiale" readonly="1"/>
-                <field name="fma_date_livraison" string="Date liv. actuelle" readonly="1" optional="show"/>
+                <field name="fma_date_liv_initiale" string="Date liv. initiale" readonly="1" widget="date"/>
+                <field name="fma_date_livraison" string="Date liv. actuelle" readonly="1" optional="show" widget="date"/>
                 <field name="fma_statut_livraison" string="Livraison" readonly="1" widget="badge"
                        decoration-danger="fma_statut_livraison == 'pending'"
                        decoration-warning="fma_statut_livraison == 'partial'"
                        decoration-success="fma_statut_livraison == 'full'"
                        optional="show"/>
 
-                <field name="fma_date_arrivee_profil" string="Arr. profilés" readonly="1" optional="show"/>
+                <field name="fma_date_arrivee_profil" string="Arr. profilés" readonly="1" optional="show" widget="date"/>
                 <field name="fma_statut_reception_profil" string="Réc. profilés" readonly="1" widget="badge"
                        decoration-danger="fma_statut_reception_profil == 'pending'"
                        decoration-warning="fma_statut_reception_profil == 'partial'"
                        decoration-success="fma_statut_reception_profil == 'full'"
                        optional="show"/>
-                <field name="fma_date_arrivee_vitrage" string="Arr. vitrage" readonly="1" optional="show"/>
+                <field name="fma_date_arrivee_vitrage" string="Arr. vitrage" readonly="1" optional="show" widget="date"/>
                 <field name="fma_statut_reception_vitrage" string="Réc. vitrage" readonly="1" widget="badge"
                        decoration-danger="fma_statut_reception_vitrage == 'pending'"
                        decoration-warning="fma_statut_reception_vitrage == 'partial'"
                        decoration-success="fma_statut_reception_vitrage == 'full'"
                        optional="hide"/>
-                <field name="fma_date_arrivee_panneaux" string="Arr. panneaux" readonly="1" optional="hide"/>
-                <field name="fma_date_arrivee_complementaire" string="Arr. complém." readonly="1" optional="hide"/>
+                <field name="fma_date_arrivee_panneaux" string="Arr. panneaux" readonly="1" optional="hide" widget="date"/>
+                <field name="fma_date_arrivee_complementaire" string="Arr. complém." readonly="1" optional="hide" widget="date"/>
                 <field name="fma_statut_reception_complementaire" string="Réc. complém." readonly="1" widget="badge"
                        decoration-danger="fma_statut_reception_complementaire == 'pending'"
                        decoration-warning="fma_statut_reception_complementaire == 'partial'"
@@ -140,6 +141,8 @@
                 <filter name="fma_en_retard" string="Livraison initiale dépassée"
                         domain="[('fma_date_liv_initiale', '&lt;', context_today().strftime('%Y-%m-%d')),
                                  ('state', 'not in', ['done', 'cancel'])]"/>
+                <filter name="fma_retard_previsionnel" string="Retard prévisionnel"
+                        domain="[('fma_retard_previsionnel', '=', True)]"/>
                 <filter name="fma_non_livre" string="Non livrés"
                         domain="[('fma_statut_livraison', '=', 'pending')]"/>
 
@@ -218,13 +221,13 @@
                         </group>
                         <group string="Approvisionnements">
                             <field name="fma_appro_complet"/>
-                            <field name="fma_date_arrivee_profil"/>
+                            <field name="fma_date_arrivee_profil" widget="date"/>
                             <field name="fma_statut_reception_profil"/>
-                            <field name="fma_date_arrivee_vitrage"/>
+                            <field name="fma_date_arrivee_vitrage" widget="date"/>
                             <field name="fma_statut_reception_vitrage"/>
-                            <field name="fma_date_arrivee_panneaux"/>
+                            <field name="fma_date_arrivee_panneaux" widget="date"/>
                             <field name="fma_statut_reception_panneaux"/>
-                            <field name="fma_date_arrivee_complementaire"/>
+                            <field name="fma_date_arrivee_complementaire" widget="date"/>
                             <field name="fma_statut_reception_complementaire"/>
                         </group>
                         <group string="Ordonnancement">
@@ -232,10 +235,10 @@
                             <field name="is_programmed"/>
                             <field name="fma_date_debut_debit"/>
                             <field name="fma_date_fin_prod"/>
-                            <field name="fma_date_liv_initiale"/>
+                            <field name="fma_date_liv_initiale" widget="date"/>
                         </group>
                         <group string="Livraison">
-                            <field name="fma_date_livraison"/>
+                            <field name="fma_date_livraison" widget="date"/>
                             <field name="fma_statut_livraison"/>
                         </group>
                     </group>
