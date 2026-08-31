@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ==========================================================
+         Vue liste : remplaçant direct de l'onglet TDB_SAISIE.
+         Éditable, parce que le classeur servait aussi à la saisie
+         (colonne F « planifier » et colonne S « commentaires »).
+         ========================================================== -->
+    <record id="view_mrp_production_ordonnancement_list" model="ir.ui.view">
+        <field name="name">mrp.production.ordonnancement.list</field>
+        <field name="model">mrp.production</field>
+        <field name="arch" type="xml">
+            <list string="Ordonnancement FMA"
+                  editable="bottom"
+                  create="false"
+                  delete="false"
+                  default_order="fma_date_liv_initiale asc, name asc"
+                  decoration-danger="not fma_appro_complet and state not in ('done', 'cancel')"
+                  decoration-warning="fma_appro_complet and fma_retard_previsionnel and state not in ('done', 'cancel')"
+                  decoration-success="fma_appro_complet and fma_planifie and state not in ('done', 'cancel')"
+                  decoration-muted="state in ('done', 'cancel')">
+                <field name="state" column_invisible="1"/>
+                <field name="fma_appro_complet" string="Appro OK" readonly="1" widget="boolean_toggle"/>
+                <field name="fma_retard_previsionnel" column_invisible="1"/>
+                <field name="name" string="Référence" readonly="1"/>
+                <field name="product_id" string="Produit" readonly="1" optional="show"/>
+                <field name="fma_sale_order_id" string="Commande" readonly="1" optional="hide"/>
+                <field name="atelier_id" string="Atelier" readonly="1" optional="show"/>
+                <field name="x_studio_niveau_de_complexite" string="Niveaux de complexité"/>
+                <field name="fma_date_debut_debit" string="Début débit" readonly="1" optional="show"/>
+                <field name="fma_planifie" string="Planifié" widget="boolean_toggle"
+                       decoration-success="fma_planifie"/>
+                <field name="is_programmed" string="OT datés" readonly="1" optional="hide"/>
+                <field name="fma_date_fin_prod" string="Fin prod" readonly="1"/>
+                <field name="fma_date_liv_initiale" string="Date liv. initiale" readonly="1" widget="date"/>
+                <field name="fma_date_livraison" string="Date liv. actuelle" readonly="1" optional="show" widget="date"/>
+                <field name="fma_statut_livraison" string="Livraison" readonly="1" widget="badge"
+                       decoration-danger="fma_statut_livraison == 'pending'"
+                       decoration-warning="fma_statut_livraison == 'partial'"
+                       decoration-success="fma_statut_livraison == 'full'"
+                       optional="show"/>
+
+                <field name="fma_date_arrivee_profil" string="Arr. profilés" readonly="1" optional="show" widget="date"/>
+                <field name="fma_statut_reception_profil" string="Réc. profilés" readonly="1" widget="badge"
+                       decoration-danger="fma_statut_reception_profil == 'pending'"
+                       decoration-warning="fma_statut_reception_profil == 'partial'"
+                       decoration-success="fma_statut_reception_profil == 'full'"
+                       optional="show"/>
+                <field name="fma_date_arrivee_vitrage" string="Arr. vitrage" readonly="1" optional="show" widget="date"/>
+                <field name="fma_statut_reception_vitrage" string="Réc. vitrage" readonly="1" widget="badge"
+                       decoration-danger="fma_statut_reception_vitrage == 'pending'"
+                       decoration-warning="fma_statut_reception_vitrage == 'partial'"
+                       decoration-success="fma_statut_reception_vitrage == 'full'"
+                       optional="hide"/>
+                <field name="fma_date_arrivee_panneaux" string="Arr. panneaux" readonly="1" optional="hide" widget="date"/>
+                <field name="fma_date_arrivee_complementaire" string="Arr. complém." readonly="1" optional="show" widget="date"/>
+                <field name="fma_statut_reception_complementaire" string="Réc. complém." readonly="1" widget="badge"
+                       decoration-danger="fma_statut_reception_complementaire == 'pending'"
+                       decoration-warning="fma_statut_reception_complementaire == 'partial'"
+                       decoration-success="fma_statut_reception_complementaire == 'full'"
+                       optional="show"/>
+
+                <button name="action_fma_voir_achats" type="object"
+                        icon="fa-truck" title="Détail des approvisionnements"/>
+                <field name="fma_commentaire" string="Commentaires"/>
+
+                <field name="fma_nb_reperes" string="Nb rep." readonly="1" sum="Total repères" optional="show"/>
+                <field name="fma_score_complexite" string="Score complex." readonly="1" sum="Total" optional="show"/>
+                <field name="fma_score_debit" string="Score débit" readonly="1" widget="badge"
+                       decoration-danger="fma_score_debit &gt;= 3"
+                       decoration-warning="fma_score_debit == 2"
+                       decoration-success="fma_score_debit &lt;= 1"/>
+                <field name="fma_heure_debit" string="H. débit" readonly="1" sum="Total"/>
+                <field name="fma_heure_banc" string="H. banc" readonly="1" sum="Total" optional="show"/>
+                <field name="fma_heure_usinage" string="H. usinage" readonly="1" sum="Total" optional="show"/>
+                <field name="fma_heure_montage" string="H. montage" readonly="1" sum="Total" optional="show"/>
+                <field name="fma_heure_vitrage" string="H. vitrage" readonly="1" sum="Total" optional="show"/>
+                <field name="fma_heure_totale" string="H. total" readonly="1" sum="Total" optional="hide"/>
+                <field name="fma_score_banc" string="Score banc" readonly="1" widget="badge"
+                       decoration-danger="fma_score_banc &gt;= 3"
+                       decoration-warning="fma_score_banc == 2"
+                       decoration-success="fma_score_banc &lt;= 1" optional="hide"/>
+                <field name="fma_score_usinage" string="Score usinage" readonly="1" widget="badge"
+                       decoration-danger="fma_score_usinage &gt;= 3"
+                       decoration-warning="fma_score_usinage == 2"
+                       decoration-success="fma_score_usinage &lt;= 1" optional="hide"/>
+                <field name="fma_score_montage" string="Score montage" readonly="1" widget="badge"
+                       decoration-danger="fma_score_montage &gt;= 3"
+                       decoration-warning="fma_score_montage == 2"
+                       decoration-success="fma_score_montage &lt;= 1" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ==========================================================
+         Pivot : la restitution agrégée que le classeur ne savait pas faire.
+         ========================================================== -->
+    <record id="view_mrp_production_ordonnancement_pivot" model="ir.ui.view">
+        <field name="name">mrp.production.ordonnancement.pivot</field>
+        <field name="model">mrp.production</field>
+        <field name="arch" type="xml">
+            <pivot string="Charge d'ordonnancement">
+                <field name="atelier_id" type="row"/>
+                <field name="fma_date_liv_initiale" interval="week" type="col"/>
+                <field name="fma_heure_debit" type="measure"/>
+                <field name="fma_heure_banc" type="measure"/>
+                <field name="fma_heure_usinage" type="measure"/>
+                <field name="fma_heure_montage" type="measure"/>
+                <field name="fma_heure_vitrage" type="measure"/>
+                <field name="fma_nb_reperes" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- ==========================================================
+         Recherche : les filtres remplacent les onglets LISTE_OF et
+         « of 26 stock », et la mise en forme conditionnelle par atelier.
+         ========================================================== -->
+    <record id="view_mrp_production_ordonnancement_search" model="ir.ui.view">
+        <field name="name">mrp.production.ordonnancement.search</field>
+        <field name="model">mrp.production</field>
+        <field name="arch" type="xml">
+            <search string="Ordonnancement FMA">
+                <field name="name" string="Référence"/>
+                <field name="product_id"/>
+                <field name="atelier_id"/>
+                <field name="fma_commentaire"/>
+
+                <filter name="fma_en_cours" string="OF ouverts"
+                        domain="[('state', 'not in', ['done', 'cancel'])]"/>
+                <filter name="fma_a_planifier" string="À planifier"
+                        domain="[('fma_planifie', '=', False), ('state', 'not in', ['done', 'cancel'])]"/>
+                <filter name="fma_planifies" string="Planifiés"
+                        domain="[('fma_planifie', '=', True)]"/>
+                <separator/>
+                <filter name="fma_appro_incomplet" string="Appro incomplet"
+                        domain="[('fma_appro_complet', '=', False)]"/>
+                <filter name="fma_profil_non_recu" string="Profilés non reçus"
+                        domain="[('fma_statut_reception_profil', '=', 'pending')]"/>
+                <filter name="fma_vitrage_non_recu" string="Vitrage non reçu"
+                        domain="[('fma_statut_reception_vitrage', '=', 'pending')]"/>
+                <separator/>
+                <filter name="fma_en_retard" string="Livraison initiale dépassée"
+                        domain="[('fma_date_liv_initiale', '&lt;', context_today().strftime('%Y-%m-%d')),
+                                 ('state', 'not in', ['done', 'cancel'])]"/>
+                <filter name="fma_retard_previsionnel" string="Retard prévisionnel"
+                        domain="[('fma_retard_previsionnel', '=', True)]"/>
+                <filter name="fma_non_livre" string="Non livrés"
+                        domain="[('fma_statut_livraison', '=', 'pending')]"/>
+
+                <group>
+                    <filter name="group_atelier" string="Atelier"
+                            context="{'group_by': 'atelier_id'}"/>
+                    <filter name="group_statut" string="Statut OF"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="group_reception_profil" string="Réception profilés"
+                            context="{'group_by': 'fma_statut_reception_profil'}"/>
+                    <filter name="group_livraison" string="Statut de livraison"
+                            context="{'group_by': 'fma_statut_livraison'}"/>
+                    <filter name="group_deadline_semaine" string="Livraison initiale (semaine)"
+                            context="{'group_by': 'fma_date_liv_initiale:week'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mrp_production_ordonnancement" model="ir.actions.act_window">
+        <field name="name">Ordonnancement FMA</field>
+        <field name="res_model">mrp.production</field>
+        <field name="view_mode">list,pivot,form</field>
+        <field name="search_view_id" ref="view_mrp_production_ordonnancement_search"/>
+        <field name="context">{'search_default_fma_en_cours': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucun ordre de fabrication à ordonnancer</p>
+            <p>Cet écran remplace l'onglet TDB_SAISIE du classeur « Ordre de production FMA ».
+               Les colonnes sont des champs : elles se filtrent, se regroupent et s'agrègent.</p>
+        </field>
+    </record>
+
+    <record id="action_mrp_production_ordonnancement_list" model="ir.actions.act_window.view">
+        <field name="sequence">1</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_mrp_production_ordonnancement_list"/>
+        <field name="act_window_id" ref="action_mrp_production_ordonnancement"/>
+    </record>
+
+    <record id="action_mrp_production_ordonnancement_pivot" model="ir.actions.act_window.view">
+        <field name="sequence">2</field>
+        <field name="view_mode">pivot</field>
+        <field name="view_id" ref="view_mrp_production_ordonnancement_pivot"/>
+        <field name="act_window_id" ref="action_mrp_production_ordonnancement"/>
+    </record>
+
+    <!-- Onglet dédié sur la fiche OF -->
+    <record id="view_mrp_production_form_ordonnancement" model="ir.ui.view">
+        <field name="name">mrp.production.form.ordonnancement</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page name="fma_ordonnancement" string="Ordonnancement FMA">
+                    <group>
+                        <group string="Complexité">
+                            <!-- x_studio_niveau_de_complexite est déjà posé sur ce
+                                 formulaire par le module custom : ne pas le répéter. -->
+                            <field name="fma_nb_reperes"/>
+                            <field name="fma_score_complexite"/>
+                        </group>
+                        <group string="Charge prévue (h)">
+                            <field name="fma_heure_debit"/>
+                            <field name="fma_heure_banc"/>
+                            <field name="fma_heure_usinage"/>
+                            <field name="fma_heure_montage"/>
+                            <field name="fma_heure_vitrage"/>
+                            <field name="fma_heure_emballage"/>
+                            <field name="fma_heure_totale"/>
+                        </group>
+                        <group string="Scores">
+                            <field name="fma_score_debit"/>
+                            <field name="fma_score_banc"/>
+                            <field name="fma_score_usinage"/>
+                            <field name="fma_score_montage"/>
+                        </group>
+                        <group string="Approvisionnements">
+                            <button name="action_fma_voir_achats" type="object"
+                                    string="Voir le détail des achats"
+                                    class="btn-link" icon="fa-truck"
+                                    colspan="2"/>
+                            <field name="fma_appro_complet"/>
+                            <field name="fma_date_arrivee_profil" widget="date"/>
+                            <field name="fma_statut_reception_profil"/>
+                            <field name="fma_date_arrivee_vitrage" widget="date"/>
+                            <field name="fma_statut_reception_vitrage"/>
+                            <field name="fma_date_arrivee_panneaux" widget="date"/>
+                            <field name="fma_statut_reception_panneaux"/>
+                            <field name="fma_date_arrivee_complementaire" widget="date"/>
+                            <field name="fma_statut_reception_complementaire"/>
+                        </group>
+                        <group string="Ordonnancement">
+                            <field name="fma_planifie"/>
+                            <field name="is_programmed"/>
+                            <field name="fma_date_debut_debit"/>
+                            <field name="fma_date_fin_prod"/>
+                            <field name="fma_date_liv_initiale" widget="date"/>
+                        </group>
+                        <group string="Livraison">
+                            <field name="fma_date_livraison" widget="date"/>
+                            <field name="fma_statut_livraison"/>
+                        </group>
+                    </group>
+                    <group string="Commentaires">
+                        <field name="fma_commentaire" nolabel="1"/>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+</odoo>

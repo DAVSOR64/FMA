@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_fma_complexite_niveau_user,fma.complexite.niveau.user,model_fma_complexite_niveau,mrp.group_mrp_user,1,0,0,0
+access_fma_complexite_niveau_manager,fma.complexite.niveau.manager,model_fma_complexite_niveau,mrp.group_mrp_manager,1,1,1,1
+access_fma_complexite_regle_user,fma.complexite.regle.user,model_fma_complexite_regle,mrp.group_mrp_user,1,0,0,0
+access_fma_complexite_regle_manager,fma.complexite.regle.manager,model_fma_complexite_regle,mrp.group_mrp_manager,1,1,1,1
+access_fma_bareme_score_user,fma.bareme.score.user,model_fma_bareme_score,mrp.group_mrp_user,1,0,0,0
+access_fma_bareme_score_manager,fma.bareme.score.manager,model_fma_bareme_score,mrp.group_mrp_manager,1,1,1,1

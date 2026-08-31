@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fma_complexite_niveau_list" model="ir.ui.view">
+        <field name="name">fma.complexite.niveau.list</field>
+        <field name="model">fma.complexite.niveau</field>
+        <field name="arch" type="xml">
+            <list string="Niveaux de complexité" editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="poids"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_fma_complexite_niveau" model="ir.actions.act_window">
+        <field name="name">Niveaux de complexité</field>
+        <field name="res_model">fma.complexite.niveau</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_fma_complexite_regle_list" model="ir.ui.view">
+        <field name="name">fma.complexite.regle.list</field>
+        <field name="model">fma.complexite.regle</field>
+        <field name="arch" type="xml">
+            <list string="Règles de complexité" editable="bottom">
+                <field name="gammiste"/>
+                <field name="typologie"/>
+                <field name="niveau_id"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fma_complexite_regle_search" model="ir.ui.view">
+        <field name="name">fma.complexite.regle.search</field>
+        <field name="model">fma.complexite.regle</field>
+        <field name="arch" type="xml">
+            <search string="Règles de complexité">
+                <field name="gammiste"/>
+                <field name="typologie"/>
+                <field name="niveau_id"/>
+                <group>
+                    <filter name="group_gammiste" string="Gammiste"
+                            context="{'group_by': 'gammiste'}"/>
+                    <filter name="group_niveau" string="Niveau"
+                            context="{'group_by': 'niveau_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fma_complexite_regle" model="ir.actions.act_window">
+        <field name="name">Complexité par gammiste et typologie</field>
+        <field name="res_model">fma.complexite.regle</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_group_gammiste': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucune règle</p>
+            <p>Reprise de la matrice de l'onglet SEQUENCAGE. Ce référentiel sert
+               à déterminer le niveau de complexité d'un repère à partir de son
+               gammiste et de sa typologie.</p>
+        </field>
+    </record>
+</odoo>
