@@ -53,12 +53,12 @@
                        decoration-success="fma_statut_reception_vitrage == 'full'"
                        optional="hide"/>
                 <field name="fma_date_arrivee_panneaux" string="Arr. panneaux" readonly="1" optional="hide" widget="date"/>
-                <field name="fma_date_arrivee_complementaire" string="Arr. complém." readonly="1" optional="hide" widget="date"/>
+                <field name="fma_date_arrivee_complementaire" string="Arr. complém." readonly="1" optional="show" widget="date"/>
                 <field name="fma_statut_reception_complementaire" string="Réc. complém." readonly="1" widget="badge"
                        decoration-danger="fma_statut_reception_complementaire == 'pending'"
                        decoration-warning="fma_statut_reception_complementaire == 'partial'"
                        decoration-success="fma_statut_reception_complementaire == 'full'"
-                       optional="hide"/>
+                       optional="show"/>
 
                 <field name="fma_commentaire" string="Commentaires"/>
 

@@ -97,9 +97,9 @@ class MrpProduction(models.Model):
     # ------------------------------------------------------------------
     fma_date_arrivee_profil = fields.Datetime(
         string="Arrivée profilés", compute='_compute_fma_appro', store=True,
-        help="Date d'arrivée prévue la plus tardive parmi les commandes "
-             "d'achat de profilés rattachées à l'OF : c'est celle qui "
-             "contraint le lancement.",
+        help="Arrivée prévue la plus tardive parmi les lignes d'achat de "
+             "profilés de l'affaire, réceptions déjà faites comprises : c'est "
+             "la promesse du fournisseur. Le statut dit ce qui est arrivé.",
     )
     fma_date_arrivee_vitrage = fields.Datetime(
         string="Arrivée vitrage", compute='_compute_fma_appro', store=True,
@@ -443,7 +443,13 @@ class MrpProduction(models.Model):
         La famille est portée par la catégorie du produit acheté, pas par le
         fournisseur : une même commande peut mélanger des familles, et un même
         fournisseur en livrer plusieurs. La ventilation se fait donc ligne à
-        ligne.
+        ligne, et le **complémentaire est la famille par défaut** : tout ce qui
+        n'est ni profilé, ni vitrage, ni panneau y tombe, de sorte qu'aucune
+        commande de l'affaire ne passe à la trappe.
+
+        La date retenue est l'arrivée **prévue la plus tardive**, y compris
+        pour des lignes déjà réceptionnées : c'est la promesse du fournisseur
+        qui est affichée, le statut se chargeant de dire ce qui est arrivé.
 
         Le lien OF -> commandes d'achat est algorithmique (voir
         _fma_purchase_orders), donc hors de portée d'@api.depends : le recalcul
@@ -457,8 +463,12 @@ class MrpProduction(models.Model):
                     if ligne.display_type or not ligne.product_id:
                         continue
                     famille = ligne.product_id.product_tmpl_id._fma_famille_appro()
-                    if famille in par_famille:
-                        par_famille[famille].append(ligne)
+                    # Le complémentaire est la famille par défaut : tout ce qui
+                    # n'est ni profilé, ni vitrage, ni panneau y tombe, afin
+                    # qu'aucune commande rattachée à l'affaire ne soit perdue.
+                    if famille not in par_famille:
+                        famille = 'complementaire'
+                    par_famille[famille].append(ligne)
 
             complet = True
             for famille, lignes in par_famille.items():
@@ -557,12 +567,17 @@ class MrpProduction(models.Model):
     # Résolution des commandes d'achat rattachées à l'OF
     # ==================================================================
     def _fma_purchase_orders(self):
-        """Commandes d'achat liées à l'OF.
+        """Toutes les commandes d'achat rattachées à l'affaire.
 
-        Reprend la stratégie déjà éprouvée dans
-        mrp_capacity_planning.mrp.production : méthode native de purchase_mrp,
-        repli sur l'origine, puis rattachement par projet du SO pour les
-        commandes saisies à la main hors chaîne d'approvisionnement.
+        Quatre voies cumulées, pour n'en perdre aucune :
+
+        1. la méthode native de purchase_mrp, côté ordre de fabrication ;
+        2. la méthode native côté commande de vente — c'est ce que compte le
+           bouton « Achats » du SO, et donc la liste que voit l'utilisateur ;
+        3. l'origine, si rien n'a été trouvé ;
+        4. le projet du SO, pour les achats saisis à la main hors chaîne
+           d'approvisionnement.
+
         Remplace le découpage de texte du nom d'affaire (colonne R du
         classeur, qui était d'ailleurs en erreur).
         """
@@ -573,16 +588,19 @@ class MrpProduction(models.Model):
         except AttributeError:
             purchases = self.env['purchase.order']
 
+        # Côté commande de vente : c'est ce que compte le bouton « Achats »
+        # du SO, et donc la liste complète des achats de l'affaire.
+        sale_order = self.fma_sale_order_id
+        if sale_order:
+            try:
+                purchases |= sale_order._get_purchase_orders()
+            except AttributeError:
+                pass
+
         if not purchases and self.name:
             purchases = self.env['purchase.order'].search([
                 ('origin', 'ilike', self.name),
             ])
-
-        sale_order = False
-        try:
-            sale_order = self._get_macro_target_date()[1]
-        except Exception:  # pragma: no cover - dépend de mrp_capacity_planning
-            _logger.debug("OF %s : commande de vente non résolue", self.name)
 
         if (
             sale_order

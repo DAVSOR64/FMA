@@ -217,11 +217,22 @@ Corollaire : ne pas comparer une `Date` et un `Datetime` dans une décoration de
 vue, où la comparaison se fait côté navigateur sur deux types différents. C'est
 la raison d'être de `fma_retard_previsionnel`, calculé côté serveur.
 
-## Choix de la date d'arrivée par famille
+## Approvisionnements : ce qui est retenu
 
-Quand plusieurs commandes d'achat concernent la même famille, la colonne
-« Arrivée … » retient la **date prévue la plus tardive** parmi les lignes de
-cette famille : c'est la dernière livraison attendue qui conditionne le
-lancement, pas la première. Le statut de réception, lui, s'agrège ligne à
-ligne sur les quantités reçues, ce qui reste juste quand une commande mélange
-plusieurs familles.
+**La date** est l'arrivée **prévue la plus tardive** parmi les lignes d'achat
+de la famille, **y compris les lignes déjà réceptionnées**. La colonne affiche
+donc la promesse du fournisseur, pas un reste à livrer ; c'est le statut qui
+dit ce qui est arrivé — « Partiellement reçu » tant que tout n'est pas là.
+
+**Le statut** s'agrège ligne à ligne sur les quantités reçues, ce qui reste
+juste quand une commande mélange plusieurs familles.
+
+**Le complémentaire est la famille par défaut.** Tout ce qui n'est ni profilé,
+ni vitrage, ni panneau y tombe — y compris les catégories non encore
+paramétrées. Aucune commande de l'affaire n'est ainsi perdue, et la colonne
+« Arr. complém. » donne la date la plus lointaine de ce reste.
+
+**Les commandes d'achat** sont cherchées par quatre voies cumulées : la
+méthode native côté OF (`purchase_mrp`), la méthode native côté commande de
+vente — celle que compte le bouton « Achats » du SO —, l'origine, puis le
+projet du SO pour les achats saisis à la main.
