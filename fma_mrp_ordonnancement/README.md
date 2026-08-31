@@ -196,9 +196,10 @@ relevé fait sur les 78 règles de mise en forme conditionnelle du fichier :
 | K Statut livraison | valeur | pastille |
 | M, Q Statuts de réception | valeur | pastille |
 
-La règle des 9 jours dépend de la date du jour : un champ stocké ne peut pas
-suivre le temps qui passe, c'est le cron de 4 h qui la rafraîchit, avant la
-prise de poste.
+Les deux conditions sont portées par des booléens **non stockés**, calculés à
+la lecture. Deux raisons : la règle des 9 jours dépend de la date du jour,
+qu'un champ stocké figerait à son dernier recalcul ; et un champ non stocké
+n'exige aucune colonne en base, donc aucune mise à jour de module.
 
 Les pastilles de score ont été retirées : le classeur n'en avait pas.
 
@@ -285,3 +286,24 @@ dans les logs, sur les lignes « Ordonnancement FMA : … ignoré ».
 | Barème, poids de niveau, famille d'appro, typage de poste | immédiat, sur tous les OF ouverts |
 | Installation ou mise à jour du module | recalcul complet |
 | Chaque nuit à 4 h | recalcul complet, filet de sécurité |
+
+## Livraison : ce qu'un déploiement exige
+
+Un champ **stocké** ne crée sa colonne qu'à la **mise à jour du module**. Un
+simple déploiement de code laisse alors Odoo interroger une colonne
+inexistante, et toute lecture du modèle échoue — y compris celle du menu
+d'activités, ce qui rend le client web inutilisable. C'est arrivé en
+production le 31/08/2026 avec `fma_livraison_imminente`.
+
+Deux règles en découlent :
+
+1. **Tout lot ajoutant un champ stocké doit s'accompagner d'une mise à jour du
+   module, vérifiée**, pas seulement d'un push.
+2. **Un champ qui ne sert qu'à l'affichage n'a pas à être stocké.** Le
+   stockage ne se justifie que pour filtrer, regrouper, trier ou agréger. Les
+   deux booléens de couleur sont dans ce cas et sont restés non stockés.
+
+Même précaution pour les données du module : le groupe « Modif Ordo » est créé
+par la mise à jour. Sa lecture passe par `env.ref(..., raise_if_not_found=False)`
+afin qu'un module non mis à jour dégrade l'écran en lecture seule, plutôt que
+de lever sur un identifiant introuvable.

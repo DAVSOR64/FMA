@@ -219,16 +219,18 @@ class MrpProduction(models.Model):
     # ------------------------------------------------------------------
     fma_livraison_imminente = fields.Boolean(
         string="Livraison sous 9 jours",
-        compute='_compute_fma_signaux_livraison', store=True,
-        help="Règle du classeur : J < AUJOURD'HUI + 9. Comme toute condition "
-             "qui dépend de la date du jour, elle est rafraîchie par le cron "
-             "de 4 h, avant la prise de poste.",
+        compute='_compute_fma_signaux_livraison',
+        help="Règle du classeur : J < AUJOURD'HUI + 9. Volontairement NON "
+             "stocké : ce champ ne sert qu'à colorer une colonne, jamais à "
+             "filtrer ni trier. Il n'exige donc aucune colonne en base, et "
+             "reste juste au fil de la journée — un champ stocké aurait figé "
+             "la comparaison à la date du dernier recalcul.",
     )
     fma_livraison_reportee = fields.Boolean(
         string="Livraison repoussée",
-        compute='_compute_fma_signaux_livraison', store=True,
+        compute='_compute_fma_signaux_livraison',
         help="Règle du classeur : J > H, la livraison actuelle tombe après "
-             "l'engagement pris au devis.",
+             "l'engagement pris au devis. Non stocké, comme le précédent.",
     )
 
     # ------------------------------------------------------------------
@@ -246,7 +248,14 @@ class MrpProduction(models.Model):
     )
 
     def _compute_fma_peut_modifier_ordo(self):
-        autorise = self.env.user.has_group(
+        # Le groupe est créé par les données du module. Si celles-ci n'ont pas
+        # encore été chargées, has_group lèverait sur un xml_id introuvable et
+        # rendrait l'écran inutilisable. On dégrade en lecture seule.
+        groupe = self.env.ref(
+            'fma_mrp_ordonnancement.group_fma_modif_ordo',
+            raise_if_not_found=False,
+        )
+        autorise = bool(groupe) and self.env.user.has_group(
             'fma_mrp_ordonnancement.group_fma_modif_ordo'
         )
         for production in self:
@@ -584,8 +593,8 @@ class MrpProduction(models.Model):
     def _compute_fma_signaux_livraison(self):
         """Les deux règles de couleur du classeur, sur la colonne J.
 
-        La première dépend de la date du jour : un champ stocké ne peut pas
-        suivre le temps qui passe, c'est le cron de 4 h qui la rafraîchit.
+        Calculé à la lecture, donc toujours juste : la première règle dépend de
+        la date du jour, qu'un champ stocké ne saurait suivre.
         """
         limite = fields.Date.context_today(self) + timedelta(days=9)
         for production in self:
@@ -775,8 +784,7 @@ class MrpProduction(models.Model):
             + self._fma_champs_appro()
             + ['fma_nb_reperes', 'fma_score_complexite', 'fma_date_livraison',
                'fma_statut_livraison', 'fma_date_liv_initiale',
-               'fma_retard_previsionnel', 'fma_livraison_imminente',
-               'fma_livraison_reportee',
+               'fma_retard_previsionnel',
                'fma_date_fin_prod']
         )
         self._fma_marquer_recalcul(champs, productions=productions, force=True)
