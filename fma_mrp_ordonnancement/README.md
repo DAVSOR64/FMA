@@ -23,13 +23,13 @@ onglets d'export n'ont plus de raison d'être.
 | E Début débit | `fma_date_debut_debit` | `macro_planned_start` de l'opération de débit |
 | F planifier | `fma_planifie` | ce module |
 | G Fin prod | `fma_date_fin_prod` | recopie de `x_studio_date_de_fin` |
-| H Date liv. initiale | `fma_date_liv_initiale` | `so_date_de_livraison_prevu`, puis `commitment_date` |
+| H Date liv. initiale | `fma_date_liv_initiale` | `commitment_date` du SO |
 | J Date liv. actuelle | `fma_date_livraison` | date planifiée du BL de la commande de vente |
 | K Statut livraison | `fma_statut_livraison` | `delivery_status`, repli sur les BL |
 | L à Q Appro par famille | `fma_date_arrivee_*`, `fma_statut_reception_*` | ce module |
 | R nom d'affaire nettoyé | *supprimée* | remplacée par la relation réelle |
 | S Commentaires | `fma_commentaire` | ce module |
-| T Nb repères | `fma_nb_reperes` | lignes de la commande de vente |
+| T Nb repères | `fma_nb_reperes` | lignes de devis portant une position de repère |
 | U Score complexité | `fma_score_complexite` | ce module |
 | V + banc/usinage/montage | `fma_score_*` | ce module |
 | W à AA Heures par poste | `fma_heure_*` | ce module |
@@ -39,11 +39,11 @@ Trois colonnes ne se lisent pas là où le classeur les prenait :
 - **E Début débit** : ce n'est pas la date de l'OF mais le `macro_planned_start`
   de la première opération de débit, quel que soit l'atelier (Débit FMA,
   Débit F2M).
-- **H Date liv. initiale** : l'engagement pris au devis. FMA ne renseigne pas
-  `commitment_date` : la promesse est portée par `so_date_de_livraison_prevu`
-  (module `custom`). On applique la même chaîne de priorité que
-  `mrp_capacity_planning._get_macro_target_date`, pour que l'ordonnancement et
-  le macro-planning lisent la même date.
+- **H Date liv. initiale** : la livraison **promise**, portée par
+  `commitment_date`. À ne pas confondre avec `so_date_de_livraison_prevu`, qui
+  porte la date *révisée* : sur `A25-07-02581/2` l'engagement est au 26/08
+  alors que le client a demandé le 01/09 par la suite. C'est bien le 26/08 qui
+  mesure la tenue du délai.
 - **J et K Livraison** : les bons de livraison appartiennent à la commande de
   vente, pas à l'OF. `mrp.production.picking_ids` ne porte que les mouvements
   de composants et de produit fini — jamais le BL client.
@@ -55,9 +55,12 @@ toujours renseigné chez FMA ; s'y fier seul vidait d'un coup la date
 d'engagement, les colonnes de livraison, le nombre de repères, et donc les
 quatre scores, qui se divisent par ce nombre.
 - **T Nb repères** : le classeur recopiait à la main les multiplicateurs du
-  champ de complexité (« A*3 » = 3 repères). On compte directement les lignes
-  de la commande de vente portant un bien non stockable, hors lignes cochées
-  « Exclu du comptage des repères ».
+  champ de complexité (« A*3 » = 3 repères). On compte les lignes de devis
+  portant une **position de repère** (`x_studio_position`, related du produit) :
+  sur `A25-07-02581/2`, les dix lignes menuiserie la portent, tandis que
+  l'éco-contribution, la ligne d'affaire et la remise commerciale ne la portent
+  pas. Le seul critère « bien non stockable » en retenait douze. Repli sur ce
+  critère pour les commandes où aucune ligne ne porte de position.
 
 L'onglet `SEQUENCAGE` donne trois modèles de configuration :
 `fma.complexite.niveau` (poids A=1, B=2, C=3, M=0),

@@ -194,9 +194,9 @@ class MrpProduction(models.Model):
     fma_date_liv_initiale = fields.Date(
         string="Date liv. initiale",
         compute='_compute_fma_date_liv_initiale', store=True,
-        help="Engagement pris au devis. Même chaîne de priorité que le "
-             "macro-planning : date de livraison saisie, puis champ Studio, "
-             "puis commitment_date natif.",
+        help="Livraison promise au client, portée par commitment_date. "
+             "Distincte de la date révisée (so_date_de_livraison_prevu) et de "
+             "la date planifiée du bon de livraison.",
     )
 
     # ------------------------------------------------------------------
@@ -301,6 +301,7 @@ class MrpProduction(models.Model):
             production.fma_heure_totale = sum(totaux.values())
 
     @api.depends(
+        'fma_sale_order_id.order_line.x_studio_position',
         'fma_sale_order_id.order_line.product_id.type',
         'fma_sale_order_id.order_line.product_id.is_storable',
         'fma_sale_order_id.order_line.product_id.fma_exclu_reperes',
@@ -308,20 +309,31 @@ class MrpProduction(models.Model):
     def _compute_fma_nb_reperes(self):
         """Colonne T : un repère = une ligne de devis portant une menuiserie.
 
-        Le classeur déduisait ce nombre des multiplicateurs saisis dans le
-        champ de complexité (« A*3 » = 3). C'était une recopie manuelle du
-        devis. On compte directement les lignes de la commande de vente qui
-        portent un bien non stockable, en excluant celles marquées « Exclu du
-        comptage des repères » — l'éco-participation en premier lieu.
+        Le critère est la **position** du repère (x_studio_position, related du
+        produit) : sur A25-07-02581/2, les dix lignes menuiserie la portent
+        (« Repère M », « Repère BG »...), tandis que l'éco-contribution, la
+        ligne d'affaire et la remise commerciale ne la portent pas. Le seul
+        critère « bien non stockable » en retenait douze.
+
+        Repli sur ce critère pour les commandes anciennes où la position n'est
+        renseignée sur aucune ligne.
         """
         for production in self:
-            lignes = production.fma_sale_order_id.order_line
-            production.fma_nb_reperes = len(lignes.filtered(
-                lambda ligne: ligne.product_id
-                and ligne.product_id.type == 'consu'
-                and not ligne.product_id.is_storable
+            lignes = production.fma_sale_order_id.order_line.filtered(
+                lambda ligne: not ligne.display_type
+                and ligne.product_id
                 and not ligne.product_id.fma_exclu_reperes
-            ))
+            )
+            avec_position = lignes.filtered(
+                lambda ligne: (ligne.x_studio_position or '').strip()
+            )
+            if avec_position:
+                production.fma_nb_reperes = len(avec_position)
+            else:
+                production.fma_nb_reperes = len(lignes.filtered(
+                    lambda ligne: ligne.product_id.type == 'consu'
+                    and not ligne.product_id.is_storable
+                ))
 
     @api.depends('x_studio_niveau_de_complexite')
     def _compute_fma_complexite(self):
@@ -497,29 +509,19 @@ class MrpProduction(models.Model):
                 else:
                     production.fma_statut_livraison = 'pending'
 
-    @api.depends(
-        'fma_sale_order_id.so_date_de_livraison_prevu',
-        'fma_sale_order_id.commitment_date',
-    )
+    @api.depends('fma_sale_order_id.commitment_date')
     def _compute_fma_date_liv_initiale(self):
-        """Colonne H : l'engagement pris au devis.
+        """Colonne H : la livraison promise au client, et elle seule.
 
-        FMA ne renseigne pas commitment_date : la promesse est portée par
-        so_date_de_livraison_prevu (module custom). On applique la même
-        priorité que mrp_capacity_planning._get_macro_target_date, pour que
-        l'ordonnancement et le macro-planning lisent la même date.
+        commitment_date porte l'engagement d'origine. Ne pas le confondre avec
+        so_date_de_livraison_prevu, qui porte la date *révisée* : sur
+        A25-07-02581/2, l'engagement est au 26/08 alors que le client a demandé
+        le 01/09 par la suite. C'est le 26/08 qui mesure la tenue du délai.
         """
         for production in self:
-            sale_order = production.fma_sale_order_id
-            valeur = False
-            if sale_order:
-                valeur = (
-                    getattr(sale_order, 'so_date_de_livraison_prevu', False)
-                    or getattr(sale_order, 'x_studio_date_de_livraison_prevu', False)
-                    or sale_order.commitment_date
-                )
+            engagement = production.fma_sale_order_id.commitment_date
             production.fma_date_liv_initiale = (
-                fields.Date.to_date(valeur) if valeur else False
+                fields.Date.to_date(engagement) if engagement else False
             )
 
     # ==================================================================
