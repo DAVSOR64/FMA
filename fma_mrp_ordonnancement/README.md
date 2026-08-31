@@ -209,6 +209,11 @@ Les pastilles de score ont été retirées : le classeur n'en avait pas.
 pour les membres du groupe **« Modif Ordo »**. Tout le reste est en lecture
 seule, y compris le marqueur « Planifié » et le niveau de complexité.
 
+Le groupe se trouve sur la fiche utilisateur, onglet des droits d'accès,
+section **« Ordonnancement FMA »**. Il est **vide à l'installation** : tant
+qu'aucun utilisateur n'y est ajouté, l'écran est en lecture seule pour tout le
+monde, commentaire compris.
+
 Le contrôle passe par `fma_peut_modifier_ordo`, booléen calculé non stocké.
 Odoo n'a pas de droit d'écriture par champ : poser `groups` sur le champ le
 rendrait **invisible** aux autres utilisateurs, alors qu'on veut qu'ils le

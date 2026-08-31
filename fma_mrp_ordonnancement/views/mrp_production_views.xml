@@ -19,8 +19,9 @@
                 <field name="fma_appro_complet" string="Appro OK" readonly="1" widget="boolean_toggle"/>
                 <field name="fma_peut_modifier_ordo" column_invisible="1"/>
                 <field name="name" string="Référence" readonly="1"/>
+                <field name="fma_of_id" string="Ouvrir l'OF" readonly="1" optional="show"/>
                 <field name="product_id" string="Produit" readonly="1" optional="show"/>
-                <field name="fma_sale_order_id" string="Commande" readonly="1" optional="hide"/>
+                <field name="fma_sale_order_id" string="Commande" readonly="1" optional="show"/>
                 <field name="atelier_id" string="Atelier" readonly="1" optional="show"/>
                 <field name="x_studio_niveau_de_complexite" string="Niveaux de complexité" readonly="1"/>
                 <field name="date_start" string="Début débit" readonly="1" optional="show"/>

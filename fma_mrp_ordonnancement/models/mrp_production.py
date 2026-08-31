@@ -150,6 +150,24 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Lien cliquable vers l'ordre de fabrication
+    #
+    # La liste est éditable : cliquer sur une ligne ouvre la cellule en
+    # saisie, pas la fiche. Il faut donc un lien explicite, du même type que
+    # celui de la commande de vente. Non stocké : c'est un pointeur sur soi,
+    # aucune colonne à créer.
+    # ------------------------------------------------------------------
+    fma_of_id = fields.Many2one(
+        'mrp.production',
+        string="OF",
+        compute='_compute_fma_of_id',
+    )
+
+    def _compute_fma_of_id(self):
+        for production in self:
+            production.fma_of_id = production._origin or production
+
+    # ------------------------------------------------------------------
     # Commande de vente de l'OF
     #
     # Tout ce qui vient du devis en dépend : date d'engagement, bons de
