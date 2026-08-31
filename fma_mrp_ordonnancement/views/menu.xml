@@ -2,7 +2,7 @@
 <odoo>
     <menuitem id="menu_fma_ordonnancement_root"
               name="Ordonnancement FMA"
-              parent="mrp.menu_mrp_manufacturing"
+              parent="mrp.menu_mrp_root"
               sequence="35"/>
 
     <menuitem id="menu_fma_ordonnancement_of"
@@ -15,6 +15,12 @@
               name="Séquencement"
               parent="mrp.menu_mrp_configuration"
               sequence="90"/>
+
+    <menuitem id="menu_fma_workcenter_typage"
+              name="Typage des postes de charge"
+              parent="menu_fma_ordonnancement_config"
+              action="action_mrp_workcenter_fma"
+              sequence="5"/>
 
     <menuitem id="menu_fma_complexite_niveau"
               name="Niveaux de complexité"

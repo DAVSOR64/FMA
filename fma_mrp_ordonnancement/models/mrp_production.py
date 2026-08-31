@@ -181,16 +181,20 @@ class MrpProduction(models.Model):
         return [('state', 'not in', FMA_ETATS_CLOS)]
 
     @api.model
-    def _fma_marquer_recalcul(self, champs, productions=None):
+    def _fma_marquer_recalcul(self, champs, productions=None, force=False):
         """Redemande le calcul de champs stockés dont la source a changé.
 
         Nécessaire pour tout ce qu'@api.depends ne peut pas atteindre :
         modification d'un barème, d'un niveau de complexité, du typage d'un
         poste de charge, de la famille d'un fournisseur, ou d'une commande
         d'achat rattachée à l'OF par résolution algorithmique.
+
+        `force` sert au post_init_hook et au cron : pendant le chargement d'un
+        module le registre n'est pas prêt, et la création des données de
+        configuration déclencherait sinon un recalcul par enregistrement chargé.
         """
-        if not self.env.registry.ready:
-            # Chargement du module : le post_init_hook fera un recalcul complet.
+        if not force and not self.env.registry.ready:
+            # Chargement du module : le post_init_hook fait le calcul complet.
             return
         if productions is None:
             productions = self.sudo().search(self._fma_domaine_ouvert())
@@ -473,7 +477,7 @@ class MrpProduction(models.Model):
             + ['fma_nb_reperes', 'fma_score_complexite',
                'fma_date_livraison', 'fma_statut_livraison']
         )
-        self._fma_marquer_recalcul(champs, productions=productions)
+        self._fma_marquer_recalcul(champs, productions=productions, force=True)
         productions.flush_recordset()
         _logger.info(
             "Ordonnancement FMA : %s OF réévalués par le cron.", len(productions),

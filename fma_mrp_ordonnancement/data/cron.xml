@@ -1,17 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo>
+<odoo noupdate="1">
     <!-- Filet de sécurité. Les recalculs sont normalement déclenchés au fil de
          l'eau (achat, réception, barème, typage de poste, famille fournisseur).
          Ce cron rattrape ce qui échappe à ces déclencheurs : imports en masse,
-         écritures directes en base, modules tiers. -->
+         écritures directes en base, modules tiers.
+         Programmé à 4h, avant la prise de poste et hors des créneaux des crons
+         de macro-planning (13h) et de visu atelier (23h30). -->
     <record id="cron_fma_recalcul_ordonnancement" model="ir.cron">
-        <field name="name">FMA : recalcul ordonnancement des OF</field>
+        <field name="name">FMA - Recalcul ordonnancement des OF</field>
         <field name="model_id" ref="mrp.model_mrp_production"/>
         <field name="state">code</field>
         <field name="code">model._cron_fma_recalcul_ordonnancement()</field>
         <field name="interval_number">1</field>
         <field name="interval_type">days</field>
-        <field name="numbercall">-1</field>
-        <field name="active" eval="True"/>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 04:00:00')"/>
     </record>
 </odoo>
