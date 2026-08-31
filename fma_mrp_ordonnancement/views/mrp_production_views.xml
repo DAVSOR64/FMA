@@ -24,7 +24,8 @@
                 <field name="atelier_id" string="Atelier" readonly="1" optional="show"/>
                 <field name="x_studio_niveau_de_complexite" string="Niveaux de complexité"/>
                 <field name="date_start" string="Début débit" readonly="1" optional="show"/>
-                <field name="is_programmed" string="Planifié" widget="boolean_toggle"/>
+                <field name="fma_planifie" string="Planifié" widget="boolean_toggle"/>
+                <field name="is_programmed" string="OT datés" readonly="1" optional="hide"/>
                 <field name="date_finished" string="Fin prod" readonly="1" optional="show"/>
                 <field name="date_deadline" string="Date limite" readonly="1"/>
                 <field name="fma_date_livraison" string="Date liv. actuelle" readonly="1" optional="show"/>
@@ -109,9 +110,9 @@
                 <filter name="fma_en_cours" string="OF ouverts"
                         domain="[('state', 'not in', ['done', 'cancel'])]"/>
                 <filter name="fma_a_planifier" string="À planifier"
-                        domain="[('is_programmed', '=', False), ('state', 'not in', ['done', 'cancel'])]"/>
+                        domain="[('fma_planifie', '=', False), ('state', 'not in', ['done', 'cancel'])]"/>
                 <filter name="fma_planifies" string="Planifiés"
-                        domain="[('is_programmed', '=', True)]"/>
+                        domain="[('fma_planifie', '=', True)]"/>
                 <separator/>
                 <filter name="fma_appro_incomplet" string="Appro incomplet"
                         domain="[('fma_appro_complet', '=', False)]"/>
@@ -209,6 +210,10 @@
                             <field name="fma_statut_reception_panneaux"/>
                             <field name="fma_date_arrivee_complementaire"/>
                             <field name="fma_statut_reception_complementaire"/>
+                        </group>
+                        <group string="Ordonnancement">
+                            <field name="fma_planifie"/>
+                            <field name="is_programmed"/>
                         </group>
                         <group string="Livraison">
                             <field name="fma_date_livraison"/>

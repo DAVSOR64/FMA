@@ -20,7 +20,7 @@ onglets d'export n'ont plus de raison d'être.
 | A, B, E, G, H, I | `name`, `product_id`, `date_start`, `date_finished`, `date_deadline`, `state` | natif |
 | C Atelier | `atelier_id` | `fma_atelier` |
 | D Complexité | `x_studio_niveau_de_complexite` | `custom` |
-| F planifier | `is_programmed` | `mrp_capacity_planning` |
+| F planifier | `fma_planifie` | ce module |
 | J Date liv. actuelle | `fma_date_livraison` | ce module |
 | K Statut livraison | `fma_statut_livraison` | ce module |
 | L à Q Appro par famille | `fma_date_arrivee_*`, `fma_statut_reception_*` | ce module |
@@ -86,6 +86,13 @@ fiche fournisseur, barèmes dans le menu Séquencement.
   `XLOOKUP` qui ne retenait que le premier ordre de travail d'un poste. Le
   module **somme** les ordres de travail, afin qu'un OF repassant deux fois sur
   le même poste soit correctement valorisé.
+- **Colonne F** : le « P » du classeur était une saisie manuelle de
+  l'ordonnanceur, pas un état déduit. Elle devient `fma_planifie`, champ
+  booléen ordinaire. À ne pas confondre avec `is_programmed`
+  (`mrp_capacity_planning`), qui vaut vrai dès qu'un ordre de travail porte une
+  date : ce champ est calculé **non stocké**, donc affichable mais ni
+  filtrable, ni groupable, ni triable. Les deux sont exposés côte à côte dans
+  la vue, « Planifié » et « OT datés ».
 - La colonne `R` du classeur, qui découpait le nom d'affaire au texte pour
   joindre les achats, était en `#VALUE!` sur la première ligne. Elle disparaît :
   la jonction passe par la relation réelle.

@@ -148,6 +148,22 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Colonne F : marqueur manuel « planifier »
+    #
+    # Le classeur ne calculait rien ici : l'ordonnanceur tapait « P » pour dire
+    # qu'il avait traité l'OF. C'est une intention, pas un état déduit.
+    # À ne pas confondre avec is_programmed (mrp_capacity_planning), qui vaut
+    # vrai dès qu'un ordre de travail porte une date. is_programmed est calculé
+    # non stocké : il s'affiche mais ne peut ni se filtrer ni se regrouper.
+    # ------------------------------------------------------------------
+    fma_planifie = fields.Boolean(
+        string="Planifié",
+        tracking=True,
+        help="Marqueur de l'ordonnanceur, équivalent du « P » de la colonne "
+             "« planifier » du classeur.",
+    )
+
+    # ------------------------------------------------------------------
     # Colonne S
     # ------------------------------------------------------------------
     fma_commentaire = fields.Text(string="Commentaires ordonnancement", tracking=True)
