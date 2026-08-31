@@ -82,7 +82,7 @@ champ. Là où aucun chemin de dépendance n'existe, l'invalidation est explicit
 | `fma_heure_*`, `fma_score_*` | **typage d'un poste de charge** | invalidation explicite depuis `mrp.workcenter` |
 | `fma_*_appro` | **achat créé, confirmé, annulé, date d'arrivée modifiée** | invalidation explicite depuis `purchase.order` |
 | `fma_*_appro` | **réception validée ou annulée** | invalidation explicite depuis `stock.picking` |
-| `fma_*_appro` | **famille d'appro d'une famille ou sous-famille modifiée** | invalidation explicite depuis `product.family` et `product.subfamily` |
+| `fma_*_appro` | **famille d'appro modifiée sur une catégorie, famille ou sous-famille** | invalidation explicite depuis `product.category`, `product.family`, `product.subfamily` |
 | `fma_date_fin_prod` | **`x_studio_date_de_fin` modifié** | surcharge de `write` sur l'OF |
 | `fma_nb_reperes` | lignes de la commande de vente | `@api.depends` |
 | `fma_date_debut_debit` | `macro_planned_start` des OT de débit | `@api.depends` |
@@ -100,8 +100,11 @@ Un OF qui échapperait à ces trois voies est rattrapé par le cron nocturne.
 Le `post_init_hook` :
 
 1. type les postes de charge existants d'après leur libellé (Débit, CU, …) ;
-2. rattache `01_PROFILS_BARRES_TOLES` à « profilé » ; les autres familles
-   restent à renseigner, dont `02_Remplissage` au niveau sous-famille ;
+2. rattache les catégories `01_PROFILS_BARRES_TOLES` à « profilé » et
+   `02_REMPLISSAGE` à « vitrage » — cette dernière suivant la convention déjà
+   retenue par `fma_custom._is_vitrage`. Les autres restent à renseigner,
+   notamment les complémentaires (`03_QUINCAILLERIE`, `07_JOINTS`,
+   `All / Accessoire`...) ;
 3. lance un premier calcul sur les OF ouverts.
 
 Ces trois opérations ne servent qu'au démarrage. Ensuite, tout se règle en
@@ -115,9 +118,17 @@ des repères, barèmes.
   nom du fournisseur, avec quatre listes codées en dur dans les formules. C'est
   structurellement faux — `RODENBERG` figurait à la fois dans « panneaux » et
   dans « complémentaire », parce qu'un fournisseur vend plusieurs familles. La
-  famille est désormais portée par le référentiel **`product.family`** de
-  `product_subfamily`, qui est déjà la source de `categ_id` via le triplet, et
-  la ventilation se fait ligne à ligne.
+  famille se règle désormais sur le produit, et la ventilation se fait ligne à
+  ligne.
+
+  La résolution se fait à trois niveaux, du plus précis au plus général :
+  **sous-famille**, puis **famille**, puis **catégorie** (en remontant les
+  parents). La catégorie est le niveau indispensable : les articles achetés —
+  un couvre-joint TECHNAL, un vitrage TIV — portent leur `categ_id`
+  (« All / 01_PROFILS_BARRES_TOLES », « All / 02_REMPLISSAGE ») sans avoir
+  nécessairement de triplet famille renseigné. S'appuyer sur `product.family`
+  seul laissait toutes les colonnes d'approvisionnement à « Aucune commande »
+  alors que les commandes d'achat étaient bien retrouvées.
 
   Le référentiel FMA ne se superpose pas exactement aux familles
   d'approvisionnement du classeur : **`02_Remplissage` recouvre le vitrage et

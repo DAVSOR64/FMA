@@ -15,13 +15,27 @@ class ProductTemplate(models.Model):
     def _fma_famille_appro(self):
         """Famille d'approvisionnement effective du produit.
 
-        La sous-famille l'emporte sur la famille : 02_Remplissage porte à la
-        fois le vitrage et les panneaux, seul le niveau sous-famille permet de
-        les distinguer.
+        Trois niveaux, du plus précis au plus général :
+
+        1. la sous-famille, seul niveau capable de séparer le vitrage des
+           panneaux à l'intérieur de 02_Remplissage ;
+        2. la famille ;
+        3. la catégorie du produit, en remontant les parents.
+
+        La catégorie est le filet indispensable : les articles achetés — un
+        couvre-joint TECHNAL, un vitrage TIV — portent leur catégorie sans
+        avoir nécessairement de triplet famille renseigné.
         """
         self.ensure_one()
-        return (
+        valeur = (
             self.subfamily_id.fma_famille_appro
             or self.family_id.fma_famille_appro
-            or False
         )
+        if valeur:
+            return valeur
+        categorie = self.categ_id
+        while categorie:
+            if categorie.fma_famille_appro:
+                return categorie.fma_famille_appro
+            categorie = categorie.parent_id
+        return False

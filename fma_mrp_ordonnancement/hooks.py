@@ -5,10 +5,20 @@ import logging
 _logger = logging.getLogger(__name__)
 
 # Familles de produit dont la correspondance est certaine, d'apres le
-# referentiel FMA. 02_Remplissage n'y figure pas : elle recouvre a la fois le
-# vitrage et les panneaux, la distinction se fait au niveau sous-famille.
+# referentiel FMA.
 FAMILLES_CONNUES = {
     '01_PROFILS_BARRES_TOLES': 'profil',
+}
+
+# Categories de produit. C'est le niveau qui porte reellement l'information
+# sur les articles achetes : un couvre-joint TECHNAL ou un vitrage TIV ont
+# leur categorie renseignee sans forcement avoir de triplet famille.
+# 02_REMPLISSAGE est rattachee au vitrage, ce qui est deja la convention de
+# fma_custom (_is_vitrage). Si des panneaux y sont melanges, les distinguer
+# ensuite au niveau sous-famille.
+CATEGORIES_CONNUES = {
+    '01_PROFILS_BARRES_TOLES': 'profil',
+    '02_REMPLISSAGE': 'vitrage',
 }
 
 
@@ -47,6 +57,25 @@ def _rattacher_familles(env):
     )
 
 
+def _rattacher_categories(env):
+    """Amorce la famille d'approvisionnement sur les catégories de produit."""
+    Categorie = env['product.category']
+    total = 0
+    for fragment, famille_appro in CATEGORIES_CONNUES.items():
+        categories = Categorie.search([
+            ('name', '=ilike', fragment),
+            ('fma_famille_appro', '=', False),
+        ])
+        if categories:
+            categories.write({'fma_famille_appro': famille_appro})
+            total += len(categories)
+    _logger.info(
+        "Ordonnancement FMA : %s catégorie(s) de produit rattachée(s). "
+        "Les autres restent à renseigner dans Séquencement > Familles par "
+        "catégorie.", total,
+    )
+
+
 def _recalcul_initial(env):
     """Premier calcul sur les OF ouverts."""
     env['mrp.production']._cron_fma_recalcul_ordonnancement()
@@ -55,4 +84,5 @@ def _recalcul_initial(env):
 def post_init_hook(env):
     _typer_postes_de_charge(env)
     _rattacher_familles(env)
+    _rattacher_categories(env)
     _recalcul_initial(env)

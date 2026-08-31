@@ -28,6 +28,12 @@
               action="action_product_family_fma"
               sequence="6"/>
 
+    <menuitem id="menu_fma_categorie_appro"
+              name="Familles par catégorie"
+              parent="menu_fma_ordonnancement_config"
+              action="action_product_category_fma"
+              sequence="4"/>
+
     <menuitem id="menu_fma_sous_famille_appro"
               name="Affinage par sous-famille"
               parent="menu_fma_ordonnancement_config"

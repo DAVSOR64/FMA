@@ -30,6 +30,48 @@
         </field>
     </record>
 
+    <record id="view_product_category_fma_list" model="ir.ui.view">
+        <field name="name">product.category.fma.list</field>
+        <field name="model">product.category</field>
+        <field name="arch" type="xml">
+            <list string="Familles par catégorie" editable="bottom"
+                  create="false" delete="false">
+                <field name="complete_name" string="Catégorie" readonly="1"/>
+                <field name="fma_famille_appro"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_product_category_fma_search" model="ir.ui.view">
+        <field name="name">product.category.fma.search</field>
+        <field name="model">product.category</field>
+        <field name="arch" type="xml">
+            <search string="Catégories">
+                <field name="name"/>
+                <filter name="fma_non_renseigne" string="Sans famille d'appro"
+                        domain="[('fma_famille_appro', '=', False)]"/>
+                <group>
+                    <filter name="group_famille_appro" string="Famille d'appro"
+                            context="{'group_by': 'fma_famille_appro'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_product_category_fma" model="ir.actions.act_window">
+        <field name="name">Familles par catégorie</field>
+        <field name="res_model">product.category</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_product_category_fma_list"/>
+        <field name="search_view_id" ref="view_product_category_fma_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucune catégorie</p>
+            <p>C'est ici que se règle l'essentiel : les articles achetés portent
+               leur catégorie sans avoir nécessairement de famille renseignée.
+               Une catégorie sans valeur hérite de sa catégorie parente.</p>
+        </field>
+    </record>
+
     <record id="view_product_subfamily_fma_list" model="ir.ui.view">
         <field name="name">product.subfamily.fma.list</field>
         <field name="model">product.subfamily</field>
