@@ -4,7 +4,8 @@ from . import fma_complexite_niveau
 from . import fma_complexite_regle
 from . import fma_bareme_score
 from . import mrp_workcenter
-from . import res_partner
+from . import product_category
+from . import product_template
 from . import mrp_production
 from . import purchase_order
 from . import stock_picking

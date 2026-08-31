@@ -14,7 +14,7 @@
                   editable="bottom"
                   create="false"
                   delete="false"
-                  default_order="date_deadline asc, name asc"
+                  default_order="fma_date_liv_initiale asc, name asc"
                   decoration-warning="not fma_appro_complet"
                   decoration-muted="state in ('done', 'cancel')">
                 <field name="state" column_invisible="1"/>
@@ -23,11 +23,11 @@
                 <field name="product_id" string="Produit" readonly="1" optional="show"/>
                 <field name="atelier_id" string="Atelier" readonly="1" optional="show"/>
                 <field name="x_studio_niveau_de_complexite" string="Niveaux de complexité"/>
-                <field name="date_start" string="Début débit" readonly="1" optional="show"/>
+                <field name="fma_date_debut_debit" string="Début débit" readonly="1" optional="show"/>
                 <field name="fma_planifie" string="Planifié" widget="boolean_toggle"/>
                 <field name="is_programmed" string="OT datés" readonly="1" optional="hide"/>
-                <field name="date_finished" string="Fin prod" readonly="1" optional="show"/>
-                <field name="date_deadline" string="Date limite" readonly="1"/>
+                <field name="fma_date_fin_prod" string="Fin prod" readonly="1" optional="show"/>
+                <field name="fma_date_liv_initiale" string="Date liv. initiale" readonly="1"/>
                 <field name="fma_date_livraison" string="Date liv. actuelle" readonly="1" optional="show"/>
                 <field name="fma_statut_livraison" string="Livraison" readonly="1" widget="badge"
                        decoration-danger="fma_statut_livraison == 'pending'"
@@ -82,7 +82,7 @@
         <field name="arch" type="xml">
             <pivot string="Charge d'ordonnancement">
                 <field name="atelier_id" type="row"/>
-                <field name="date_deadline" interval="week" type="col"/>
+                <field name="fma_date_liv_initiale" interval="week" type="col"/>
                 <field name="fma_heure_debit" type="measure"/>
                 <field name="fma_heure_banc" type="measure"/>
                 <field name="fma_heure_usinage" type="measure"/>
@@ -121,8 +121,8 @@
                 <filter name="fma_vitrage_non_recu" string="Vitrage non reçu"
                         domain="[('fma_statut_reception_vitrage', '=', 'pending')]"/>
                 <separator/>
-                <filter name="fma_en_retard" string="Date limite dépassée"
-                        domain="[('date_deadline', '&lt;', context_today().strftime('%Y-%m-%d')),
+                <filter name="fma_en_retard" string="Livraison initiale dépassée"
+                        domain="[('fma_date_liv_initiale', '&lt;', context_today().strftime('%Y-%m-%d')),
                                  ('state', 'not in', ['done', 'cancel'])]"/>
                 <filter name="fma_non_livre" string="Non livrés"
                         domain="[('fma_statut_livraison', '=', 'pending')]"/>
@@ -136,8 +136,8 @@
                             context="{'group_by': 'fma_statut_reception_profil'}"/>
                     <filter name="group_livraison" string="Statut de livraison"
                             context="{'group_by': 'fma_statut_livraison'}"/>
-                    <filter name="group_deadline_semaine" string="Date limite (semaine)"
-                            context="{'group_by': 'date_deadline:week'}"/>
+                    <filter name="group_deadline_semaine" string="Livraison initiale (semaine)"
+                            context="{'group_by': 'fma_date_liv_initiale:week'}"/>
                 </group>
             </search>
         </field>
@@ -214,6 +214,9 @@
                         <group string="Ordonnancement">
                             <field name="fma_planifie"/>
                             <field name="is_programmed"/>
+                            <field name="fma_date_debut_debit"/>
+                            <field name="fma_date_fin_prod"/>
+                            <field name="fma_date_liv_initiale"/>
                         </group>
                         <group string="Livraison">
                             <field name="fma_date_livraison"/>

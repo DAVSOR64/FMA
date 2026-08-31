@@ -63,9 +63,10 @@ class MrpProduction(models.Model):
     # ------------------------------------------------------------------
     fma_nb_reperes = fields.Integer(
         string="Nb repères",
-        compute='_compute_fma_complexite', store=True,
-        help="Somme des multiplicateurs du champ « Niveau de complexité ». "
-             "Une ligne « A*3 » compte 3 repères, une ligne « A » en compte 1.",
+        compute='_compute_fma_nb_reperes', store=True,
+        help="Nombre de lignes de la commande de vente portant un bien non "
+             "stockable, hors lignes marquées « Exclu du comptage des "
+             "repères » (éco-participation notamment).",
     )
     fma_score_complexite = fields.Integer(
         string="Score complexité",
@@ -138,13 +139,46 @@ class MrpProduction(models.Model):
         string="Date livraison actuelle",
         compute='_compute_fma_livraison', store=True,
     )
+    # Champ natif de la commande de vente, simplement remonté sur l'OF :
+    # mêmes valeurs, même sémantique, aucun calcul maison.
     fma_statut_livraison = fields.Selection(
-        [('pending', "Non livré"),
-         ('partial', "Partiellement livré"),
-         ('full', "Entièrement livré"),
-         ('none', "Pas de livraison")],
+        related='sale_line_id.order_id.delivery_status',
         string="Statut de livraison",
-        compute='_compute_fma_livraison', store=True, default='none',
+        store=True,
+    )
+
+    # ------------------------------------------------------------------
+    # Colonne E : début du débit
+    #
+    # Ce n'est pas la date de l'OF mais celle de la PREMIÈRE opération de
+    # débit (Débit FMA, Débit F2M...), et c'est la date du macro-planning
+    # qui fait foi, pas date_start de l'ordre de travail.
+    # ------------------------------------------------------------------
+    fma_date_debut_debit = fields.Datetime(
+        string="Début débit",
+        compute='_compute_fma_date_debut_debit', store=True,
+        help="macro_planned_start de l'opération de débit la plus précoce.",
+    )
+
+    # ------------------------------------------------------------------
+    # Colonne G : fin de production
+    #
+    # Champ Studio x_studio_date_de_fin, porté par l'OF. Il n'est pas déclaré
+    # en Python : on le lit comme le fait déjà mrp_capacity_planning, et on
+    # le recopie ici pour disposer d'une version cherchable.
+    # ------------------------------------------------------------------
+    fma_date_fin_prod = fields.Date(
+        string="Fin production",
+        compute='_compute_fma_date_fin_prod', store=True,
+    )
+
+    # ------------------------------------------------------------------
+    # Colonne H : date de livraison initiale = engagement pris au devis
+    # ------------------------------------------------------------------
+    fma_date_liv_initiale = fields.Datetime(
+        string="Date liv. initiale",
+        related='sale_line_id.order_id.commitment_date',
+        store=True,
     )
 
     # ------------------------------------------------------------------
@@ -248,26 +282,45 @@ class MrpProduction(models.Model):
                 production['fma_heure_%s' % key] = totaux[key]
             production.fma_heure_totale = sum(totaux.values())
 
+    @api.depends(
+        'sale_line_id.order_id.order_line.product_id.type',
+        'sale_line_id.order_id.order_line.product_id.is_storable',
+        'sale_line_id.order_id.order_line.product_id.fma_exclu_reperes',
+    )
+    def _compute_fma_nb_reperes(self):
+        """Colonne T : un repère = une ligne de devis portant une menuiserie.
+
+        Le classeur déduisait ce nombre des multiplicateurs saisis dans le
+        champ de complexité (« A*3 » = 3). C'était une recopie manuelle du
+        devis. On compte directement les lignes de la commande de vente qui
+        portent un bien non stockable, en excluant celles marquées « Exclu du
+        comptage des repères » — l'éco-participation en premier lieu.
+        """
+        for production in self:
+            lignes = production.sale_line_id.order_id.order_line
+            production.fma_nb_reperes = len(lignes.filtered(
+                lambda ligne: ligne.product_id
+                and ligne.product_id.type == 'consu'
+                and not ligne.product_id.is_storable
+                and not ligne.product_id.fma_exclu_reperes
+            ))
+
     @api.depends('x_studio_niveau_de_complexite')
     def _compute_fma_complexite(self):
-        """Colonnes T et U du TDB_SAISIE."""
+        """Colonne U : score de complexité, depuis le champ saisi sur l'OF."""
         poids_par_code = self.env['fma.complexite.niveau']._poids_par_code()
         for production in self:
-            nb_reperes, score = self._fma_parser_complexite(
+            production.fma_score_complexite = self._fma_score_complexite(
                 production.x_studio_niveau_de_complexite, poids_par_code,
             )
-            production.fma_nb_reperes = nb_reperes
-            production.fma_score_complexite = score
 
     @api.model
-    def _fma_parser_complexite(self, texte, poids_par_code):
+    def _fma_score_complexite(self, texte, poids_par_code):
         """Analyse le texte « A*3 » / « C*4 », une ligne par niveau.
 
-        Reproduit les formules T2 et U2 du classeur : une ligne sans « * »
-        compte pour un repère, un code inconnu pèse zéro dans le score mais
-        compte bien dans le nombre de repères.
+        Reproduit la formule U2 du classeur : une ligne sans « * » compte pour
+        un, un code inconnu pèse zéro.
         """
-        nb_reperes = 0
         score = 0
         for ligne in (texte or '').splitlines():
             ligne = ligne.strip()
@@ -280,11 +333,37 @@ class MrpProduction(models.Model):
                 quantite = int(float(multiplicateur)) if multiplicateur else 1
             except ValueError:
                 quantite = 1
-            if quantite < 0:
-                quantite = 0
-            nb_reperes += quantite
-            score += poids_par_code.get(code, 0) * quantite
-        return nb_reperes, score
+            score += poids_par_code.get(code, 0) * max(quantite, 0)
+        return score
+
+    @api.depends(
+        'workorder_ids.macro_planned_start',
+        'workorder_ids.workcenter_id.fma_poste_type',
+    )
+    def _compute_fma_date_debut_debit(self):
+        """Colonne E : macro_planned_start de la première opération de débit."""
+        for production in self:
+            debits = production.workorder_ids.filtered(
+                lambda wo: wo.workcenter_id.fma_poste_type == 'debit'
+                and wo.macro_planned_start
+            )
+            dates = debits.mapped('macro_planned_start')
+            production.fma_date_debut_debit = min(dates) if dates else False
+
+    @api.depends('state')
+    def _compute_fma_date_fin_prod(self):
+        """Colonne G : recopie du champ Studio de fin de fabrication.
+
+        x_studio_date_de_fin n'est pas declaré en Python : impossible de le
+        citer dans un @api.depends sans risquer une erreur au montage du
+        registre. Le recalcul est déclenché par write() ci-dessous.
+        """
+        for production in self:
+            valeur = (
+                getattr(production, 'x_studio_date_de_fin', False)
+                or getattr(production, 'x_studio_date_fin', False)
+            )
+            production.fma_date_fin_prod = fields.Date.to_date(valeur) if valeur else False
 
     @api.depends('fma_nb_reperes', 'fma_heure_debit', 'fma_heure_banc',
                  'fma_heure_usinage', 'fma_heure_montage')
@@ -310,40 +389,44 @@ class MrpProduction(models.Model):
 
     @api.depends('state', 'move_raw_ids')
     def _compute_fma_appro(self):
-        """Colonnes L à Q du TDB_SAISIE.
+        """Colonnes L à Q : dates d'arrivée et réceptions, par famille.
+
+        La famille est portée par la catégorie du produit acheté, pas par le
+        fournisseur : une même commande peut mélanger des familles, et un même
+        fournisseur en livrer plusieurs. La ventilation se fait donc ligne à
+        ligne.
 
         Le lien OF -> commandes d'achat est algorithmique (voir
         _fma_purchase_orders), donc hors de portée d'@api.depends : le recalcul
-        est déclenché depuis purchase.order et stock.picking, avec le cron en
-        filet de sécurité.
+        est déclenché depuis purchase.order, purchase.order.line, stock.picking
+        et product.category, avec le cron en filet de sécurité.
         """
         for production in self:
             par_famille = {famille: [] for famille in FMA_CATEGORIES_APPRO_KEYS}
             for purchase in production._fma_purchase_orders():
-                famille = purchase.partner_id.fma_categorie_appro
-                if famille in par_famille:
-                    par_famille[famille].append(purchase)
+                for ligne in purchase.order_line:
+                    if ligne.display_type or not ligne.product_id:
+                        continue
+                    famille = ligne.product_id.categ_id.fma_famille_appro
+                    if famille in par_famille:
+                        par_famille[famille].append(ligne)
 
             complet = True
-            for famille, commandes in par_famille.items():
-                date_arrivee = production._fma_date_arrivee(commandes)
-                statut = production._fma_statut_reception(commandes)
-                production['fma_date_arrivee_%s' % famille] = date_arrivee
+            for famille, lignes in par_famille.items():
+                production['fma_date_arrivee_%s' % famille] = \
+                    production._fma_date_arrivee(lignes)
+                statut = production._fma_statut_reception(lignes)
                 production['fma_statut_reception_%s' % famille] = statut
                 if statut in ('pending', 'partial'):
                     complet = False
             production.fma_appro_complet = complet
 
-    @api.depends('picking_ids', 'picking_ids.state', 'picking_ids.scheduled_date',
-                 'sale_line_id.order_id.delivery_status')
+    @api.depends('picking_ids', 'picking_ids.state', 'picking_ids.scheduled_date')
     def _compute_fma_livraison(self):
-        """Colonnes J et K du TDB_SAISIE.
+        """Colonne J : date planifiée du bon de livraison.
 
-        Colonne J : date planifiée du transfert de livraison.
-        Colonne K : statut de livraison de la commande de vente. On privilégie
-        sale.order.delivery_status, qui est la source exacte de l'export
-        Excel, et on retombe sur l'état des transferts si aucune commande
-        n'est résolue (OF sur stock).
+        Le statut de livraison (colonne K) n'est plus calculé ici : c'est un
+        related stocké sur sale.order.delivery_status.
         """
         for production in self:
             livraisons = production.picking_ids.filtered(
@@ -355,28 +438,6 @@ class MrpProduction(models.Model):
                 if picking.scheduled_date
             ]
             production.fma_date_livraison = max(dates).date() if dates else False
-
-            statut_so = False
-            sale_order = production.sale_line_id.order_id
-            if sale_order and 'delivery_status' in sale_order._fields:
-                statut_so = sale_order.delivery_status
-            if statut_so:
-                production.fma_statut_livraison = {
-                    'full': 'full',
-                    'partial': 'partial',
-                    'started': 'partial',
-                    'pending': 'pending',
-                }.get(statut_so, 'pending')
-            elif not livraisons:
-                production.fma_statut_livraison = 'none'
-            else:
-                etats = set(livraisons.mapped('state'))
-                if etats == {'done'}:
-                    production.fma_statut_livraison = 'full'
-                elif 'done' in etats:
-                    production.fma_statut_livraison = 'partial'
-                else:
-                    production.fma_statut_livraison = 'pending'
 
     # ==================================================================
     # Résolution des commandes d'achat rattachées à l'OF
@@ -422,57 +483,53 @@ class MrpProduction(models.Model):
         return purchases.filtered(lambda purchase: purchase.state != 'cancel')
 
     @api.model
-    def _fma_date_arrivee(self, commandes):
-        """Date d'arrivée prévue la plus tardive d'un lot de commandes."""
-        dates = []
-        for purchase in commandes:
-            lignes = [
-                ligne.date_planned for ligne in purchase.order_line
-                if ligne.date_planned
-            ]
-            if lignes:
-                dates.append(max(lignes))
-            elif getattr(purchase, 'date_planned', False):
-                dates.append(purchase.date_planned)
+    def _fma_date_arrivee(self, lignes):
+        """Arrivée prévue la plus tardive d'un lot de lignes d'achat.
+
+        C'est la ligne qui arrive en dernier qui contraint le lancement, pas
+        la première.
+        """
+        dates = [ligne.date_planned for ligne in lignes if ligne.date_planned]
         if not dates:
             return False
         plus_tardive = max(dates)
         return plus_tardive.date() if hasattr(plus_tardive, 'date') else plus_tardive
 
     @api.model
-    def _fma_statut_reception(self, commandes):
-        """Agrège les statuts de réception d'un lot de commandes."""
-        if not commandes:
+    def _fma_statut_reception(self, lignes):
+        """Agrège l'état de réception d'un lot de lignes d'achat.
+
+        On raisonne sur les quantités reçues ligne à ligne plutôt que sur le
+        statut d'en-tête de la commande : une commande peut mélanger des
+        familles, et seule la part qui concerne la famille compte.
+        """
+        if not lignes:
             return 'none'
-        statuts = set()
-        for purchase in commandes:
-            statut = getattr(purchase, 'receipt_status', False)
-            if not statut:
-                statut = self._fma_statut_reception_depuis_pickings(purchase)
-            statuts.add(statut)
-        statuts.discard(False)
-        if not statuts:
-            return 'none'
-        if statuts == {'full'}:
+        recues = 0
+        partielles = 0
+        for ligne in lignes:
+            attendu = ligne.product_qty or 0.0
+            recu = ligne.qty_received or 0.0
+            if attendu and recu >= attendu:
+                recues += 1
+            elif recu > 0:
+                partielles += 1
+        if recues == len(lignes):
             return 'full'
-        if 'partial' in statuts or 'full' in statuts:
+        if recues or partielles:
             return 'partial'
         return 'pending'
 
-    @api.model
-    def _fma_statut_reception_depuis_pickings(self, purchase):
-        """Repli si purchase.order.receipt_status n'est pas disponible."""
-        receptions = purchase.picking_ids.filtered(
-            lambda picking: picking.state != 'cancel'
-        )
-        if not receptions:
-            return 'pending'
-        etats = set(receptions.mapped('state'))
-        if etats == {'done'}:
-            return 'full'
-        if 'done' in etats:
-            return 'partial'
-        return 'pending'
+    # ==================================================================
+    # Déclencheur pour les champs Studio
+    # ==================================================================
+    def write(self, vals):
+        result = super().write(vals)
+        # x_studio_date_de_fin n'est pas déclaré en Python : aucun @api.depends
+        # ne peut le viser, on redemande donc le calcul à la main.
+        if {'x_studio_date_de_fin', 'x_studio_date_fin'} & set(vals):
+            self._fma_marquer_recalcul(['fma_date_fin_prod'], productions=self)
+        return result
 
     # ==================================================================
     # Cron de rattrapage
@@ -490,8 +547,8 @@ class MrpProduction(models.Model):
         champs = (
             self._fma_champs_heures_et_scores()
             + self._fma_champs_appro()
-            + ['fma_nb_reperes', 'fma_score_complexite',
-               'fma_date_livraison', 'fma_statut_livraison']
+            + ['fma_nb_reperes', 'fma_score_complexite', 'fma_date_livraison',
+               'fma_date_debut_debit', 'fma_date_fin_prod']
         )
         self._fma_marquer_recalcul(champs, productions=productions, force=True)
         productions.flush_recordset()
