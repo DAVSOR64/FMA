@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import fields, models
 
 from .constants import FMA_CATEGORIES_APPRO
+
+_logger = logging.getLogger(__name__)
 
 
 class ProductCategory(models.Model):

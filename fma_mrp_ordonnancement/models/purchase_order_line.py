@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import api, fields, models
 
 from .constants import FMA_CATEGORIES_APPRO
+
+_logger = logging.getLogger(__name__)
 
 
 class PurchaseOrderLine(models.Model):
@@ -52,12 +56,17 @@ class PurchaseOrderLine(models.Model):
         parente. On se limite aux commandes encore en cours, l'historique
         n'ayant pas d'intérêt pour l'ordonnancement.
         """
-        lignes = self.search([('state', 'not in', ('cancel', 'done'))])
-        if not lignes:
-            return
-        champ = self._fields['fma_famille_appro']
-        self.env.add_to_compute(champ, lignes)
-        lignes.flush_recordset()
+        try:
+            lignes = self.search([('state', 'not in', ('cancel', 'done'))])
+            if not lignes:
+                return
+            champ = self._fields['fma_famille_appro']
+            self.env.add_to_compute(champ, lignes)
+            lignes.flush_recordset()
+        except Exception:
+            _logger.exception(
+                "Ordonnancement FMA : reclassement des lignes d'achat ignoré."
+            )
 
     def write(self, vals):
         result = super().write(vals)

@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import api, fields, models
 
 from .constants import FMA_POSTE_TYPES, FMA_POSTE_TOKENS
+
+_logger = logging.getLogger(__name__)
 
 
 class MrpWorkcenter(models.Model):

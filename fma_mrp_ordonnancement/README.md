@@ -244,3 +244,31 @@ niveau de la ligne que se lisent la famille et la date.
 méthode native côté OF (`purchase_mrp`), la méthode native côté commande de
 vente — celle que compte le bouton « Achats » du SO —, l'origine, puis le
 projet du SO pour les achats saisis à la main.
+
+## Robustesse en production
+
+Le module se greffe sur des opérations métier : `purchase.order.button_confirm`,
+`stock.picking.button_validate`, l'écriture sur une ligne d'achat, les
+transitions d'état de l'OF. Une exception dans un recalcul y ferait échouer
+l'opération elle-même — une réception qu'on ne peut plus valider bloquerait
+l'atelier.
+
+Tous ces points d'accroche sont donc protégés : en cas d'échec, l'exception
+est tracée dans le journal, les colonnes concernées prennent des valeurs
+neutres, et l'opération métier se termine normalement. Le cron de 4 h
+rattrape. Une restitution périmée jusqu'au lendemain est un moindre mal.
+
+Conséquence à connaître : une anomalie ne se voit pas à l'écran, elle se lit
+dans les logs, sur les lignes « Ordonnancement FMA : … ignoré ».
+
+## Quand les colonnes se mettent à jour
+
+| Événement | Effet |
+|---|---|
+| Achat confirmé, annulé, date d'arrivée modifiée | immédiat, sur les OF concernés |
+| Réception validée ou annulée | immédiat |
+| Ordre de travail replanifié, durée modifiée | immédiat |
+| Complexité, commentaire, marqueur planifié | immédiat |
+| Barème, poids de niveau, famille d'appro, typage de poste | immédiat, sur tous les OF ouverts |
+| Installation ou mise à jour du module | recalcul complet |
+| Chaque nuit à 4 h | recalcul complet, filet de sécurité |

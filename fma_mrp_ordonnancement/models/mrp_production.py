@@ -273,14 +273,23 @@ class MrpProduction(models.Model):
         if not force and not self.env.registry.ready:
             # Chargement du module : le post_init_hook fait le calcul complet.
             return
-        if productions is None:
-            productions = self.sudo().search(self._fma_domaine_ouvert())
-        if not productions:
-            return
-        for nom in champs:
-            champ = self._fields.get(nom)
-            if champ is not None and champ.store and champ.compute:
-                self.env.add_to_compute(champ, productions)
+        try:
+            if productions is None:
+                productions = self.sudo().search(self._fma_domaine_ouvert())
+            if not productions:
+                return
+            for nom in champs:
+                champ = self._fields.get(nom)
+                if champ is not None and champ.store and champ.compute:
+                    self.env.add_to_compute(champ, productions)
+        except Exception:
+            # Ces invalidations sont declenchees depuis des operations metier :
+            # confirmation d'achat, validation de reception. Une restitution
+            # perimee jusqu'au cron de nuit est un moindre mal comparee a une
+            # reception qu'on ne peut plus valider.
+            _logger.exception(
+                "Ordonnancement FMA : invalidation ignorée pour %s.", champs,
+            )
 
     # ==================================================================
     # Calculs
@@ -440,7 +449,7 @@ class MrpProduction(models.Model):
     def _compute_fma_appro(self):
         """Colonnes L à Q : dates d'arrivée et réceptions, par famille.
 
-        La famille est portée par la catégorie du produit acheté, pas par le
+        La famille est portée par la ligne d'achat, pas par le
         fournisseur : une même commande peut mélanger des familles, et un même
         fournisseur en livrer plusieurs. La ventilation se fait donc ligne à
         ligne, et le **complémentaire est la famille par défaut** : tout ce qui
@@ -454,30 +463,56 @@ class MrpProduction(models.Model):
         Le lien OF -> commandes d'achat est algorithmique (voir
         _fma_purchase_orders), donc hors de portée d'@api.depends : le recalcul
         est déclenché depuis purchase.order, purchase.order.line, stock.picking
-        et product.category, avec le cron en filet de sécurité.
+        et les référentiels de familles, avec le cron en filet de sécurité.
         """
         for production in self:
-            par_famille = {famille: [] for famille in FMA_CATEGORIES_APPRO_KEYS}
-            for purchase in production._fma_purchase_orders():
-                for ligne in purchase.order_line:
-                    if ligne.display_type or not ligne.product_id:
-                        continue
-                    # Le complémentaire est la famille par défaut : tout ce
-                    # qui n'est ni profilé, ni vitrage, ni panneau y tombe.
-                    famille = ligne.fma_famille_appro
-                    if famille not in par_famille:
-                        famille = 'complementaire'
-                    par_famille[famille].append(ligne)
+            try:
+                production._fma_calculer_appro()
+            except Exception:
+                # Ce calcul part en recherche de commandes d'achat, et il
+                # est déclenché par des transitions d'état de l'OF. Le laisser
+                # remonter empêcherait de confirmer un ordre de fabrication.
+                _logger.exception(
+                    "Ordonnancement FMA : approvisionnements non calculés "
+                    "pour l'OF %s.", production.name or production.id,
+                )
+                production._fma_vider_appro()
 
-            complet = True
-            for famille, lignes in par_famille.items():
-                production['fma_date_arrivee_%s' % famille] = \
-                    production._fma_date_arrivee(lignes)
-                statut = production._fma_statut_reception(lignes)
-                production['fma_statut_reception_%s' % famille] = statut
-                if statut in ('pending', 'partial'):
-                    complet = False
-            production.fma_appro_complet = complet
+    def _fma_vider_appro(self):
+        """Valeurs neutres, à n'utiliser qu'en cas d'échec du calcul.
+
+        Un champ calculé stocké doit être affecté, sinon l'ORM lève. On évite
+        « appro incomplet », qui peindrait toute la liste en rouge sur une
+        erreur passagère.
+        """
+        for production in self:
+            for famille in FMA_CATEGORIES_APPRO_KEYS:
+                production['fma_date_arrivee_%s' % famille] = False
+                production['fma_statut_reception_%s' % famille] = 'none'
+            production.fma_appro_complet = True
+
+    def _fma_calculer_appro(self):
+        self.ensure_one()
+        par_famille = {famille: [] for famille in FMA_CATEGORIES_APPRO_KEYS}
+        for purchase in self._fma_purchase_orders():
+            for ligne in purchase.order_line:
+                if ligne.display_type or not ligne.product_id:
+                    continue
+                # Le complémentaire est la famille par défaut : tout ce qui
+                # n'est ni profilé, ni vitrage, ni panneau y tombe.
+                famille = ligne.fma_famille_appro
+                if famille not in par_famille:
+                    famille = 'complementaire'
+                par_famille[famille].append(ligne)
+
+        complet = True
+        for famille, lignes in par_famille.items():
+            self['fma_date_arrivee_%s' % famille] = self._fma_date_arrivee(lignes)
+            statut = self._fma_statut_reception(lignes)
+            self['fma_statut_reception_%s' % famille] = statut
+            if statut in ('pending', 'partial'):
+                complet = False
+        self.fma_appro_complet = complet
 
     @api.depends(
         'fma_sale_order_id.picking_ids.scheduled_date',

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import fields, models
 
 from .constants import FMA_CATEGORIES_APPRO
@@ -7,6 +9,8 @@ AIDE = (
     "Famille d'approvisionnement FMA, utilisée pour ventiler les dates "
     "d'arrivée et les statuts de réception sur l'ordre de fabrication."
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class ProductFamily(models.Model):

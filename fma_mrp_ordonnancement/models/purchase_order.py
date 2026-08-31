@@ -79,6 +79,18 @@ class PurchaseOrder(models.Model):
         return productions.filtered(lambda mo: mo.state not in FMA_ETATS_CLOS)
 
     def _fma_invalider_appro(self):
+        try:
+            self._fma_invalider_appro_impl()
+        except Exception:
+            # Declenche depuis button_confirm, write, button_cancel : une
+            # restitution perimee vaut mieux qu'un achat qu'on ne peut plus
+            # confirmer. Le cron de nuit rattrapera.
+            _logger.exception(
+                "Ordonnancement FMA : invalidation des appros ignorée pour %s.",
+                self.ids,
+            )
+
+    def _fma_invalider_appro_impl(self):
         productions = self._fma_productions_liees()
         if not productions:
             return
