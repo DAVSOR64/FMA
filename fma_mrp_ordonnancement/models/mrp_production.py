@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from odoo import api, fields, models
 
@@ -165,6 +165,19 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Colonne E : début du débit
+    #
+    # Ce n'est pas la date de l'OF mais celle de la PREMIÈRE opération de
+    # débit (Débit FMA, Débit F2M...), et c'est la date du macro-planning
+    # qui fait foi, pas date_start de l'ordre de travail.
+    # ------------------------------------------------------------------
+    fma_date_debut_debit = fields.Datetime(
+        string="Début débit",
+        compute='_compute_fma_date_debut_debit', store=True,
+        help="macro_planned_start de l'opération de débit la plus précoce.",
+    )
+
+    # ------------------------------------------------------------------
     # Colonne G : fin de production
     #
     # Champ Studio x_studio_date_de_fin, porté par l'OF. Il n'est pas déclaré
@@ -212,45 +225,9 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
-    # Signaux de couleur sur la date de livraison
-    #
-    # Reprise exacte des deux règles de mise en forme conditionnelle que le
-    # classeur portait sur la colonne J, et sur elle seule.
-    # ------------------------------------------------------------------
-    fma_livraison_imminente = fields.Boolean(
-        string="Livraison sous 9 jours",
-        compute='_compute_fma_signaux_livraison', store=True,
-        help="Règle du classeur : J < AUJOURD'HUI + 9. Comme toute condition "
-             "qui dépend de la date du jour, elle est rafraîchie par le cron "
-             "de 4 h, avant la prise de poste.",
-    )
-    fma_livraison_reportee = fields.Boolean(
-        string="Livraison repoussée",
-        compute='_compute_fma_signaux_livraison', store=True,
-        help="Règle du classeur : J > H, la livraison actuelle tombe après "
-             "l'engagement pris au devis.",
-    )
-
-    # ------------------------------------------------------------------
     # Colonne S
     # ------------------------------------------------------------------
     fma_commentaire = fields.Text(string="Commentaires ordonnancement", tracking=True)
-
-    fma_peut_modifier_ordo = fields.Boolean(
-        string="Peut modifier l'ordonnancement",
-        compute='_compute_fma_peut_modifier_ordo',
-        help="Vrai pour les membres du groupe « Modif Ordo ». Sert à rendre le "
-             "commentaire modifiable pour eux seuls, sans le masquer aux "
-             "autres : un droit d'écriture par champ n'existe pas nativement, "
-             "et poser `groups` sur le champ le rendrait invisible.",
-    )
-
-    def _compute_fma_peut_modifier_ordo(self):
-        autorise = self.env.user.has_group(
-            'fma_mrp_ordonnancement.group_fma_modif_ordo'
-        )
-        for production in self:
-            production.fma_peut_modifier_ordo = autorise
 
     # ==================================================================
     # Helpers d'invalidation
@@ -417,6 +394,20 @@ class MrpProduction(models.Model):
                 or False
             )
 
+    @api.depends(
+        'workorder_ids.macro_planned_start',
+        'workorder_ids.workcenter_id.fma_poste_type',
+    )
+    def _compute_fma_date_debut_debit(self):
+        """Colonne E : macro_planned_start de la première opération de débit."""
+        for production in self:
+            debits = production.workorder_ids.filtered(
+                lambda wo: wo.workcenter_id.fma_poste_type == 'debit'
+                and wo.macro_planned_start
+            )
+            dates = debits.mapped('macro_planned_start')
+            production.fma_date_debut_debit = min(dates) if dates else False
+
     @api.depends('state')
     def _compute_fma_date_fin_prod(self):
         """Colonne G : recopie du champ Studio de fin de fabrication.
@@ -578,22 +569,6 @@ class MrpProduction(models.Model):
             fin = production.fma_date_fin_prod
             production.fma_retard_previsionnel = bool(
                 promesse and fin and fin > promesse
-            )
-
-    @api.depends('fma_date_livraison', 'fma_date_liv_initiale')
-    def _compute_fma_signaux_livraison(self):
-        """Les deux règles de couleur du classeur, sur la colonne J.
-
-        La première dépend de la date du jour : un champ stocké ne peut pas
-        suivre le temps qui passe, c'est le cron de 4 h qui la rafraîchit.
-        """
-        limite = fields.Date.context_today(self) + timedelta(days=9)
-        for production in self:
-            livraison = production._fma_en_date_locale(production.fma_date_livraison)
-            promesse = production._fma_en_date_locale(production.fma_date_liv_initiale)
-            production.fma_livraison_imminente = bool(livraison and livraison < limite)
-            production.fma_livraison_reportee = bool(
-                livraison and promesse and livraison > promesse
             )
 
     @api.model
@@ -775,9 +750,8 @@ class MrpProduction(models.Model):
             + self._fma_champs_appro()
             + ['fma_nb_reperes', 'fma_score_complexite', 'fma_date_livraison',
                'fma_statut_livraison', 'fma_date_liv_initiale',
-               'fma_retard_previsionnel', 'fma_livraison_imminente',
-               'fma_livraison_reportee',
-               'fma_date_fin_prod']
+               'fma_retard_previsionnel',
+               'fma_date_debut_debit', 'fma_date_fin_prod']
         )
         self._fma_marquer_recalcul(champs, productions=productions, force=True)
         productions.flush_recordset()

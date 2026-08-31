@@ -20,7 +20,7 @@ onglets d'export n'ont plus de raison d'être.
 | A, B, I | `name`, `product_id`, `state` | natif |
 | C Atelier | `atelier_id` | `fma_atelier` |
 | D Complexité | `x_studio_niveau_de_complexite` | `custom` |
-| E Début débit | `date_start` | natif |
+| E Début débit | `fma_date_debut_debit` | `macro_planned_start` de l'opération de débit |
 | F planifier | `fma_planifie` | ce module |
 | G Fin prod | `fma_date_fin_prod` | recopie de `x_studio_date_de_fin` |
 | H Date liv. initiale | `fma_date_liv_initiale` | `commitment_date` du SO |
@@ -36,6 +36,9 @@ onglets d'export n'ont plus de raison d'être.
 
 Trois colonnes ne se lisent pas là où le classeur les prenait :
 
+- **E Début débit** : ce n'est pas la date de l'OF mais le `macro_planned_start`
+  de la première opération de débit, quel que soit l'atelier (Débit FMA,
+  Débit F2M).
 - **H Date liv. initiale** : la livraison **promise**, portée par
   `commitment_date`. À ne pas confondre avec `so_date_de_livraison_prevu`, qui
   porte la date *révisée* : sur `A25-07-02581/2` l'engagement est au 26/08
@@ -180,38 +183,22 @@ un `migrations/<version>/post-migrate.py` appelant
 `_cron_fma_recalcul_ordonnancement()`. Le `post_init_hook` ne suffit pas : il
 ne s'exécute qu'à la première installation.
 
-## Couleurs
+## Couleurs de la liste
 
-**Les lignes restent noires.** Aucune décoration au niveau de la ligne : le
-classeur n'en avait pas, et un tableau entièrement colorié ne hiérarchise
-plus rien.
+Elles reprennent la logique du classeur, mais ne s'appuient que sur des
+colonnes **toujours chargées** : un champ `optional` n'est pas récupéré tant
+que l'utilisateur ne l'a pas activé, et une décoration qui le cite est donc
+instable.
 
-Les colonnes colorées sont exactement celles que colorait le `TDB_SAISIE` —
-relevé fait sur les 78 règles de mise en forme conditionnelle du fichier :
+| Couleur | Signification |
+|---|---|
+| Rouge | Approvisionnement incomplet |
+| Orange | Appro complet mais fin de production après la livraison promise |
+| Vert | Appro complet et OF marqué planifié |
+| Grisé | OF terminé ou annulé |
 
-| Colonne | Règle du classeur | Rendu |
-|---|---|---|
-| J Date liv. actuelle | `J < AUJOURD'HUI + 9` (priorité 56) | rouge |
-| J Date liv. actuelle | `J > H`, livraison repoussée (priorité 58) | orange |
-| K Statut livraison | valeur | pastille |
-| M, Q Statuts de réception | valeur | pastille |
-
-La règle des 9 jours dépend de la date du jour : un champ stocké ne peut pas
-suivre le temps qui passe, c'est le cron de 4 h qui la rafraîchit, avant la
-prise de poste.
-
-Les pastilles de score ont été retirées : le classeur n'en avait pas.
-
-## Saisie
-
-**Le commentaire est la seule donnée modifiable** de l'écran, et seulement
-pour les membres du groupe **« Modif Ordo »**. Tout le reste est en lecture
-seule, y compris le marqueur « Planifié » et le niveau de complexité.
-
-Le contrôle passe par `fma_peut_modifier_ordo`, booléen calculé non stocké.
-Odoo n'a pas de droit d'écriture par champ : poser `groups` sur le champ le
-rendrait **invisible** aux autres utilisateurs, alors qu'on veut qu'ils le
-lisent.
+Les scores portent leur propre pastille : vert jusqu'à 1, orange à 2, rouge à
+partir de 3.
 
 ## Dates et fuseau horaire
 
