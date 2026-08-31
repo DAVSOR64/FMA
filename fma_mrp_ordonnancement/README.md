@@ -47,6 +47,13 @@ Trois colonnes ne se lisent pas là où le classeur les prenait :
 - **J et K Livraison** : les bons de livraison appartiennent à la commande de
   vente, pas à l'OF. `mrp.production.picking_ids` ne porte que les mouvements
   de composants et de produit fini — jamais le BL client.
+
+Tout ce qui vient du devis passe par **`fma_sale_order_id`**, un point de
+résolution unique et stocké : `sale_line_id.order_id`, puis
+`x_studio_mtn_mrp_sale_order` (module `custom`). `sale_line_id` n'est pas
+toujours renseigné chez FMA ; s'y fier seul vidait d'un coup la date
+d'engagement, les colonnes de livraison, le nombre de repères, et donc les
+quatre scores, qui se divisent par ce nombre.
 - **T Nb repères** : le classeur recopiait à la main les multiplicateurs du
   champ de complexité (« A*3 » = 3 repères). On compte directement les lignes
   de la commande de vente portant un bien non stockable, hors lignes cochées
@@ -76,7 +83,8 @@ champ. Là où aucun chemin de dépendance n'existe, l'invalidation est explicit
 | `fma_date_fin_prod` | **`x_studio_date_de_fin` modifié** | surcharge de `write` sur l'OF |
 | `fma_nb_reperes` | lignes de la commande de vente | `@api.depends` |
 | `fma_date_debut_debit` | `macro_planned_start` des OT de débit | `@api.depends` |
-| `fma_date_liv_initiale`, `fma_statut_livraison`, `fma_date_livraison` | commande de vente et ses BL | `@api.depends` |
+| `fma_sale_order_id` | `sale_line_id` ou `x_studio_mtn_mrp_sale_order` | `@api.depends` |
+| `fma_date_liv_initiale`, `fma_statut_livraison`, `fma_date_livraison`, `fma_nb_reperes` | `fma_sale_order_id` et ses BL | `@api.depends` |
 | tous | filet de sécurité | cron quotidien |
 
 Les invalidations venant de l'achat ne recalculent **pas** tous les OF : la
@@ -159,3 +167,20 @@ Toute version qui modifie la sémantique d'un champ stocké doit donc embarquer
 un `migrations/<version>/post-migrate.py` appelant
 `_cron_fma_recalcul_ordonnancement()`. Le `post_init_hook` ne suffit pas : il
 ne s'exécute qu'à la première installation.
+
+## Couleurs de la liste
+
+Elles reprennent la logique du classeur, mais ne s'appuient que sur des
+colonnes **toujours chargées** : un champ `optional` n'est pas récupéré tant
+que l'utilisateur ne l'a pas activé, et une décoration qui le cite est donc
+instable.
+
+| Couleur | Signification |
+|---|---|
+| Rouge | Approvisionnement incomplet |
+| Orange | Appro complet mais fin de production après la livraison promise |
+| Vert | Appro complet et OF marqué planifié |
+| Grisé | OF terminé ou annulé |
+
+Les scores portent leur propre pastille : vert jusqu'à 1, orange à 2, rouge à
+partir de 3.

@@ -149,6 +149,21 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Commande de vente de l'OF
+    #
+    # Tout ce qui vient du devis en dépend : date d'engagement, bons de
+    # livraison, nombre de repères. Or sale_line_id n'est pas toujours
+    # renseigné chez FMA — d'où le champ x_studio_mtn_mrp_sale_order, déclaré
+    # par le module custom. Un seul point de résolution, stocké, pour que les
+    # autres champs puissent en dépendre proprement.
+    # ------------------------------------------------------------------
+    fma_sale_order_id = fields.Many2one(
+        'sale.order',
+        string="Commande de vente",
+        compute='_compute_fma_sale_order', store=True, index=True,
+    )
+
+    # ------------------------------------------------------------------
     # Colonne E : début du débit
     #
     # Ce n'est pas la date de l'OF mais celle de la PREMIÈRE opération de
@@ -286,9 +301,9 @@ class MrpProduction(models.Model):
             production.fma_heure_totale = sum(totaux.values())
 
     @api.depends(
-        'sale_line_id.order_id.order_line.product_id.type',
-        'sale_line_id.order_id.order_line.product_id.is_storable',
-        'sale_line_id.order_id.order_line.product_id.fma_exclu_reperes',
+        'fma_sale_order_id.order_line.product_id.type',
+        'fma_sale_order_id.order_line.product_id.is_storable',
+        'fma_sale_order_id.order_line.product_id.fma_exclu_reperes',
     )
     def _compute_fma_nb_reperes(self):
         """Colonne T : un repère = une ligne de devis portant une menuiserie.
@@ -300,7 +315,7 @@ class MrpProduction(models.Model):
         comptage des repères » — l'éco-participation en premier lieu.
         """
         for production in self:
-            lignes = production.sale_line_id.order_id.order_line
+            lignes = production.fma_sale_order_id.order_line
             production.fma_nb_reperes = len(lignes.filtered(
                 lambda ligne: ligne.product_id
                 and ligne.product_id.type == 'consu'
@@ -338,6 +353,16 @@ class MrpProduction(models.Model):
                 quantite = 1
             score += poids_par_code.get(code, 0) * max(quantite, 0)
         return score
+
+    @api.depends('sale_line_id.order_id', 'x_studio_mtn_mrp_sale_order')
+    def _compute_fma_sale_order(self):
+        """Résout la commande de vente, sale_line_id puis champ de secours."""
+        for production in self:
+            production.fma_sale_order_id = (
+                production.sale_line_id.order_id
+                or production.x_studio_mtn_mrp_sale_order
+                or False
+            )
 
     @api.depends(
         'workorder_ids.macro_planned_start',
@@ -425,9 +450,9 @@ class MrpProduction(models.Model):
             production.fma_appro_complet = complet
 
     @api.depends(
-        'sale_line_id.order_id.picking_ids.scheduled_date',
-        'sale_line_id.order_id.picking_ids.state',
-        'sale_line_id.order_id.delivery_status',
+        'fma_sale_order_id.picking_ids.scheduled_date',
+        'fma_sale_order_id.picking_ids.state',
+        'fma_sale_order_id.delivery_status',
     )
     def _compute_fma_livraison(self):
         """Colonnes J et K.
@@ -441,7 +466,7 @@ class MrpProduction(models.Model):
         et on retombe sur l'état des bons de livraison sinon.
         """
         for production in self:
-            sale_order = production.sale_line_id.order_id
+            sale_order = production.fma_sale_order_id
             livraisons = sale_order.picking_ids.filtered(
                 lambda picking: picking.picking_type_id.code == 'outgoing'
                 and picking.state != 'cancel'
@@ -473,8 +498,8 @@ class MrpProduction(models.Model):
                     production.fma_statut_livraison = 'pending'
 
     @api.depends(
-        'sale_line_id.order_id.so_date_de_livraison_prevu',
-        'sale_line_id.order_id.commitment_date',
+        'fma_sale_order_id.so_date_de_livraison_prevu',
+        'fma_sale_order_id.commitment_date',
     )
     def _compute_fma_date_liv_initiale(self):
         """Colonne H : l'engagement pris au devis.
@@ -485,7 +510,7 @@ class MrpProduction(models.Model):
         l'ordonnancement et le macro-planning lisent la même date.
         """
         for production in self:
-            sale_order = production.sale_line_id.order_id
+            sale_order = production.fma_sale_order_id
             valeur = False
             if sale_order:
                 valeur = (
@@ -603,7 +628,8 @@ class MrpProduction(models.Model):
         if not productions:
             return True
         champs = (
-            self._fma_champs_heures_et_scores()
+            ['fma_sale_order_id']
+            + self._fma_champs_heures_et_scores()
             + self._fma_champs_appro()
             + ['fma_nb_reperes', 'fma_score_complexite', 'fma_date_livraison',
                'fma_statut_livraison', 'fma_date_liv_initiale',
