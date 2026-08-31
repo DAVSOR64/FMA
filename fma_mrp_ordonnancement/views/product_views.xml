@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Écrans autonomes : aucune dépendance à un xml_id de vue externe. -->
+    <record id="view_product_family_fma_list" model="ir.ui.view">
+        <field name="name">product.family.fma.list</field>
+        <field name="model">product.family</field>
+        <field name="arch" type="xml">
+            <list string="Familles d'approvisionnement" editable="bottom"
+                  create="false" delete="false">
+                <field name="code" readonly="1"/>
+                <field name="name" string="Famille" readonly="1"/>
+                <field name="fma_famille_appro"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_product_family_fma" model="ir.actions.act_window">
+        <field name="name">Familles d'approvisionnement</field>
+        <field name="res_model">product.family</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_product_family_fma_list"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucune famille de produit</p>
+            <p>La famille d'approvisionnement détermine sur quelles colonnes
+               « Arrivée … » et « Réception … » de l'OF les lignes d'achat sont
+               ventilées. Une famille non renseignée n'est comptée nulle part.</p>
+            <p>Quand une famille recouvre plusieurs familles d'approvisionnement
+               — 02_Remplissage porte le vitrage et les panneaux — la laisser
+               vide ici et trancher au niveau des sous-familles.</p>
+        </field>
+    </record>
+
+    <record id="view_product_category_fma_list" model="ir.ui.view">
+        <field name="name">product.category.fma.list</field>
+        <field name="model">product.category</field>
+        <field name="arch" type="xml">
+            <list string="Familles par catégorie" editable="bottom"
+                  create="false" delete="false">
+                <field name="complete_name" string="Catégorie" readonly="1"/>
+                <field name="fma_famille_appro"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_product_category_fma_search" model="ir.ui.view">
+        <field name="name">product.category.fma.search</field>
+        <field name="model">product.category</field>
+        <field name="arch" type="xml">
+            <search string="Catégories">
+                <field name="name"/>
+                <filter name="fma_non_renseigne" string="Sans famille d'appro"
+                        domain="[('fma_famille_appro', '=', False)]"/>
+                <group>
+                    <filter name="group_famille_appro" string="Famille d'appro"
+                            context="{'group_by': 'fma_famille_appro'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_product_category_fma" model="ir.actions.act_window">
+        <field name="name">Familles par catégorie</field>
+        <field name="res_model">product.category</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_product_category_fma_list"/>
+        <field name="search_view_id" ref="view_product_category_fma_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucune catégorie</p>
+            <p>C'est ici que se règle l'essentiel : les articles achetés portent
+               leur catégorie sans avoir nécessairement de famille renseignée.
+               Une catégorie sans valeur hérite de sa catégorie parente.</p>
+        </field>
+    </record>
+
+    <record id="view_product_subfamily_fma_list" model="ir.ui.view">
+        <field name="name">product.subfamily.fma.list</field>
+        <field name="model">product.subfamily</field>
+        <field name="arch" type="xml">
+            <list string="Affinage par sous-famille" editable="bottom"
+                  create="false" delete="false">
+                <field name="family_id" readonly="1"/>
+                <field name="code" readonly="1" optional="show"/>
+                <field name="name" string="Sous-famille" readonly="1"/>
+                <field name="fma_famille_appro"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_product_subfamily_fma_search" model="ir.ui.view">
+        <field name="name">product.subfamily.fma.search</field>
+        <field name="model">product.subfamily</field>
+        <field name="arch" type="xml">
+            <search string="Sous-familles">
+                <field name="name"/>
+                <field name="family_id"/>
+                <filter name="fma_non_renseigne" string="Sans famille d'appro"
+                        domain="[('fma_famille_appro', '=', False)]"/>
+                <group>
+                    <filter name="group_family" string="Famille"
+                            context="{'group_by': 'family_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_product_subfamily_fma" model="ir.actions.act_window">
+        <field name="name">Affinage par sous-famille</field>
+        <field name="res_model">product.subfamily</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_product_subfamily_fma_list"/>
+        <field name="search_view_id" ref="view_product_subfamily_fma_search"/>
+        <field name="context">{'search_default_group_family': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucune sous-famille</p>
+            <p>La valeur renseignée ici l'emporte sur celle de la famille.
+               C'est le niveau où séparer le vitrage des panneaux à l'intérieur
+               de 02_Remplissage.</p>
+        </field>
+    </record>
+
+    <record id="view_product_template_fma_list" model="ir.ui.view">
+        <field name="name">product.template.fma.list</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <list string="Exclusions du comptage des repères" editable="bottom"
+                  create="false" delete="false">
+                <field name="name" readonly="1"/>
+                <field name="default_code" readonly="1" optional="show"/>
+                <field name="fma_exclu_reperes"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_product_template_fma" model="ir.actions.act_window">
+        <field name="name">Exclusions du comptage des repères</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_product_template_fma_list"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucun produit</p>
+            <p>Cocher ici l'éco-participation et toute ligne de devis qui n'est
+               pas une menuiserie : elles seront exclues du nombre de repères
+               de l'ordre de fabrication.</p>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Catégorie propre au module : la fiche utilisateur range les droits par
+         catégorie, et un groupe sans catégorie se retrouve noyé dans le bloc
+         générique. On ne dépend ainsi d'aucun xml_id de catégorie d'Odoo,
+         dont les identifiants varient d'une version à l'autre. -->
+    <record id="module_category_fma_ordonnancement" model="ir.module.category">
+        <field name="name">Ordonnancement FMA</field>
+        <field name="description">Droits sur le tableau d'ordonnancement FMA.</field>
+        <field name="sequence">80</field>
+    </record>
+
+    <record id="group_fma_modif_ordo" model="res.groups">
+        <field name="name">Modif Ordo</field>
+        <field name="category_id" ref="module_category_fma_ordonnancement"/>
+        <field name="comment">Autorise la saisie des commentaires sur le tableau d'ordonnancement FMA. Sans ce droit, l'écran reste consultable mais aucune donnée n'y est modifiable.</field>
+    </record>
+</odoo>

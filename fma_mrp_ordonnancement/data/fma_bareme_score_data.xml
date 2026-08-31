@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Barèmes heures/repère -> score, onglet SEQUENCAGE B35:C61.
+         Borne basse incluse, borne haute exclue, borne haute à 0 pour la
+         dernière tranche. Modifier une valeur ici déclenche le recalcul
+         des scores sur tous les OF ouverts (voir fma.bareme.score). -->
+    <record id="bareme_debit_1" model="fma.bareme.score">
+        <field name="poste_type">debit</field>
+        <field name="borne_min">0</field>
+        <field name="borne_max">0.25</field>
+        <field name="score">0</field>
+    </record>
+    <record id="bareme_debit_2" model="fma.bareme.score">
+        <field name="poste_type">debit</field>
+        <field name="borne_min">0.25</field>
+        <field name="borne_max">0.75</field>
+        <field name="score">1</field>
+    </record>
+    <record id="bareme_debit_3" model="fma.bareme.score">
+        <field name="poste_type">debit</field>
+        <field name="borne_min">0.75</field>
+        <field name="borne_max">1.25</field>
+        <field name="score">2</field>
+    </record>
+    <record id="bareme_debit_4" model="fma.bareme.score">
+        <field name="poste_type">debit</field>
+        <field name="borne_min">1.25</field>
+        <field name="borne_max">1.75</field>
+        <field name="score">3</field>
+    </record>
+    <record id="bareme_debit_5" model="fma.bareme.score">
+        <field name="poste_type">debit</field>
+        <field name="borne_min">1.75</field>
+        <field name="borne_max">0</field>
+        <field name="score">4</field>
+    </record>
+
+    <record id="bareme_banc_1" model="fma.bareme.score">
+        <field name="poste_type">banc</field>
+        <field name="borne_min">0</field>
+        <field name="borne_max">0.5</field>
+        <field name="score">0</field>
+    </record>
+    <record id="bareme_banc_2" model="fma.bareme.score">
+        <field name="poste_type">banc</field>
+        <field name="borne_min">0.5</field>
+        <field name="borne_max">2</field>
+        <field name="score">1</field>
+    </record>
+    <record id="bareme_banc_3" model="fma.bareme.score">
+        <field name="poste_type">banc</field>
+        <field name="borne_min">2</field>
+        <field name="borne_max">4</field>
+        <field name="score">2</field>
+    </record>
+    <record id="bareme_banc_4" model="fma.bareme.score">
+        <field name="poste_type">banc</field>
+        <field name="borne_min">4</field>
+        <field name="borne_max">6</field>
+        <field name="score">3</field>
+    </record>
+    <record id="bareme_banc_5" model="fma.bareme.score">
+        <field name="poste_type">banc</field>
+        <field name="borne_min">6</field>
+        <field name="borne_max">0</field>
+        <field name="score">4</field>
+    </record>
+
+    <record id="bareme_usinage_1" model="fma.bareme.score">
+        <field name="poste_type">usinage</field>
+        <field name="borne_min">0</field>
+        <field name="borne_max">1.5</field>
+        <field name="score">0</field>
+    </record>
+    <record id="bareme_usinage_2" model="fma.bareme.score">
+        <field name="poste_type">usinage</field>
+        <field name="borne_min">1.5</field>
+        <field name="borne_max">3</field>
+        <field name="score">1</field>
+    </record>
+    <record id="bareme_usinage_3" model="fma.bareme.score">
+        <field name="poste_type">usinage</field>
+        <field name="borne_min">3</field>
+        <field name="borne_max">5</field>
+        <field name="score">2</field>
+    </record>
+    <record id="bareme_usinage_4" model="fma.bareme.score">
+        <field name="poste_type">usinage</field>
+        <field name="borne_min">5</field>
+        <field name="borne_max">6</field>
+        <field name="score">3</field>
+    </record>
+    <record id="bareme_usinage_5" model="fma.bareme.score">
+        <field name="poste_type">usinage</field>
+        <field name="borne_min">6</field>
+        <field name="borne_max">0</field>
+        <field name="score">4</field>
+    </record>
+
+    <record id="bareme_montage_1" model="fma.bareme.score">
+        <field name="poste_type">montage</field>
+        <field name="borne_min">0</field>
+        <field name="borne_max">2</field>
+        <field name="score">0</field>
+    </record>
+    <record id="bareme_montage_2" model="fma.bareme.score">
+        <field name="poste_type">montage</field>
+        <field name="borne_min">2</field>
+        <field name="borne_max">4.5</field>
+        <field name="score">1</field>
+    </record>
+    <record id="bareme_montage_3" model="fma.bareme.score">
+        <field name="poste_type">montage</field>
+        <field name="borne_min">4.5</field>
+        <field name="borne_max">6</field>
+        <field name="score">2</field>
+    </record>
+    <record id="bareme_montage_4" model="fma.bareme.score">
+        <field name="poste_type">montage</field>
+        <field name="borne_min">6</field>
+        <field name="borne_max">8</field>
+        <field name="score">3</field>
+    </record>
+    <record id="bareme_montage_5" model="fma.bareme.score">
+        <field name="poste_type">montage</field>
+        <field name="borne_min">8</field>
+        <field name="borne_max">0</field>
+        <field name="score">4</field>
+    </record>
+
+</odoo>
