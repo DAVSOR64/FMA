@@ -23,9 +23,9 @@ onglets d'export n'ont plus de raison d'être.
 | E Début débit | `fma_date_debut_debit` | `macro_planned_start` de l'opération de débit |
 | F planifier | `fma_planifie` | ce module |
 | G Fin prod | `fma_date_fin_prod` | recopie de `x_studio_date_de_fin` |
-| H Date liv. initiale | `fma_date_liv_initiale` | related sur `sale.order.commitment_date` |
-| J Date liv. actuelle | `fma_date_livraison` | date planifiée du BL |
-| K Statut livraison | `fma_statut_livraison` | related sur `sale.order.delivery_status` |
+| H Date liv. initiale | `fma_date_liv_initiale` | `so_date_de_livraison_prevu`, puis `commitment_date` |
+| J Date liv. actuelle | `fma_date_livraison` | date planifiée du BL de la commande de vente |
+| K Statut livraison | `fma_statut_livraison` | `delivery_status`, repli sur les BL |
 | L à Q Appro par famille | `fma_date_arrivee_*`, `fma_statut_reception_*` | ce module |
 | R nom d'affaire nettoyé | *supprimée* | remplacée par la relation réelle |
 | S Commentaires | `fma_commentaire` | ce module |
@@ -39,8 +39,14 @@ Trois colonnes ne se lisent pas là où le classeur les prenait :
 - **E Début débit** : ce n'est pas la date de l'OF mais le `macro_planned_start`
   de la première opération de débit, quel que soit l'atelier (Débit FMA,
   Débit F2M).
-- **H Date liv. initiale** : l'engagement pris au devis, donc le
-  `commitment_date` de la commande de vente, et non la date limite de l'OF.
+- **H Date liv. initiale** : l'engagement pris au devis. FMA ne renseigne pas
+  `commitment_date` : la promesse est portée par `so_date_de_livraison_prevu`
+  (module `custom`). On applique la même chaîne de priorité que
+  `mrp_capacity_planning._get_macro_target_date`, pour que l'ordonnancement et
+  le macro-planning lisent la même date.
+- **J et K Livraison** : les bons de livraison appartiennent à la commande de
+  vente, pas à l'OF. `mrp.production.picking_ids` ne porte que les mouvements
+  de composants et de produit fini — jamais le BL client.
 - **T Nb repères** : le classeur recopiait à la main les multiplicateurs du
   champ de complexité (« A*3 » = 3 repères). On compte directement les lignes
   de la commande de vente portant un bien non stockable, hors lignes cochées
@@ -70,7 +76,7 @@ champ. Là où aucun chemin de dépendance n'existe, l'invalidation est explicit
 | `fma_date_fin_prod` | **`x_studio_date_de_fin` modifié** | surcharge de `write` sur l'OF |
 | `fma_nb_reperes` | lignes de la commande de vente | `@api.depends` |
 | `fma_date_debut_debit` | `macro_planned_start` des OT de débit | `@api.depends` |
-| `fma_date_liv_initiale`, `fma_statut_livraison` | commande de vente | related stocké |
+| `fma_date_liv_initiale`, `fma_statut_livraison`, `fma_date_livraison` | commande de vente et ses BL | `@api.depends` |
 | tous | filet de sécurité | cron quotidien |
 
 Les invalidations venant de l'achat ne recalculent **pas** tous les OF : la
@@ -142,3 +148,14 @@ L'onglet `SEQUENCAGE` contient aussi des **règles de constitution de lot**
 reprises ici : ce n'est pas de la restitution mais de l'ordonnancement, et le
 lotissement FMA est constitué dans LOGIKAL puis récupéré par Odoo. Ce module
 fournit les scores sur lesquels ces règles s'appuient, pas les règles.
+
+## Migrations
+
+Odoo ne recalcule pas un champ stocké dont seule la **formule** change : la
+colonne existe déjà, l'ORM la laisse en l'état et les valeurs héritées de la
+version précédente restent en base, silencieusement fausses.
+
+Toute version qui modifie la sémantique d'un champ stocké doit donc embarquer
+un `migrations/<version>/post-migrate.py` appelant
+`_cron_fma_recalcul_ordonnancement()`. Le `post_init_hook` ne suffit pas : il
+ne s'exécute qu'à la première installation.

@@ -139,12 +139,13 @@ class MrpProduction(models.Model):
         string="Date livraison actuelle",
         compute='_compute_fma_livraison', store=True,
     )
-    # Champ natif de la commande de vente, simplement remonté sur l'OF :
-    # mêmes valeurs, même sémantique, aucun calcul maison.
     fma_statut_livraison = fields.Selection(
-        related='sale_line_id.order_id.delivery_status',
+        [('pending', "Non livré"),
+         ('partial', "Partiellement livré"),
+         ('full', "Entièrement livré"),
+         ('none', "Pas de livraison")],
         string="Statut de livraison",
-        store=True,
+        compute='_compute_fma_livraison', store=True, default='none',
     )
 
     # ------------------------------------------------------------------
@@ -175,10 +176,12 @@ class MrpProduction(models.Model):
     # ------------------------------------------------------------------
     # Colonne H : date de livraison initiale = engagement pris au devis
     # ------------------------------------------------------------------
-    fma_date_liv_initiale = fields.Datetime(
+    fma_date_liv_initiale = fields.Date(
         string="Date liv. initiale",
-        related='sale_line_id.order_id.commitment_date',
-        store=True,
+        compute='_compute_fma_date_liv_initiale', store=True,
+        help="Engagement pris au devis. Même chaîne de priorité que le "
+             "macro-planning : date de livraison saisie, puis champ Studio, "
+             "puis commitment_date natif.",
     )
 
     # ------------------------------------------------------------------
@@ -421,23 +424,78 @@ class MrpProduction(models.Model):
                     complet = False
             production.fma_appro_complet = complet
 
-    @api.depends('picking_ids', 'picking_ids.state', 'picking_ids.scheduled_date')
+    @api.depends(
+        'sale_line_id.order_id.picking_ids.scheduled_date',
+        'sale_line_id.order_id.picking_ids.state',
+        'sale_line_id.order_id.delivery_status',
+    )
     def _compute_fma_livraison(self):
-        """Colonne J : date planifiée du bon de livraison.
+        """Colonnes J et K.
 
-        Le statut de livraison (colonne K) n'est plus calculé ici : c'est un
-        related stocké sur sale.order.delivery_status.
+        Les transferts de livraison appartiennent à la commande de vente, pas
+        à l'OF : mrp.production.picking_ids ne porte que les mouvements de
+        composants et de produit fini, jamais le bon de livraison client.
+        C'est ce qui laissait ces deux colonnes vides.
+
+        Pour le statut, on privilégie delivery_status quand il est renseigné,
+        et on retombe sur l'état des bons de livraison sinon.
         """
         for production in self:
-            livraisons = production.picking_ids.filtered(
+            sale_order = production.sale_line_id.order_id
+            livraisons = sale_order.picking_ids.filtered(
                 lambda picking: picking.picking_type_id.code == 'outgoing'
                 and picking.state != 'cancel'
-            )
+            ) if sale_order else self.env['stock.picking']
+
             dates = [
                 picking.scheduled_date for picking in livraisons
                 if picking.scheduled_date
             ]
             production.fma_date_livraison = max(dates).date() if dates else False
+
+            statut_natif = sale_order.delivery_status if sale_order else False
+            if statut_natif:
+                production.fma_statut_livraison = {
+                    'full': 'full',
+                    'partial': 'partial',
+                    'started': 'partial',
+                    'pending': 'pending',
+                }.get(statut_natif, 'pending')
+            elif not livraisons:
+                production.fma_statut_livraison = 'none'
+            else:
+                etats = set(livraisons.mapped('state'))
+                if etats == {'done'}:
+                    production.fma_statut_livraison = 'full'
+                elif 'done' in etats:
+                    production.fma_statut_livraison = 'partial'
+                else:
+                    production.fma_statut_livraison = 'pending'
+
+    @api.depends(
+        'sale_line_id.order_id.so_date_de_livraison_prevu',
+        'sale_line_id.order_id.commitment_date',
+    )
+    def _compute_fma_date_liv_initiale(self):
+        """Colonne H : l'engagement pris au devis.
+
+        FMA ne renseigne pas commitment_date : la promesse est portée par
+        so_date_de_livraison_prevu (module custom). On applique la même
+        priorité que mrp_capacity_planning._get_macro_target_date, pour que
+        l'ordonnancement et le macro-planning lisent la même date.
+        """
+        for production in self:
+            sale_order = production.sale_line_id.order_id
+            valeur = False
+            if sale_order:
+                valeur = (
+                    getattr(sale_order, 'so_date_de_livraison_prevu', False)
+                    or getattr(sale_order, 'x_studio_date_de_livraison_prevu', False)
+                    or sale_order.commitment_date
+                )
+            production.fma_date_liv_initiale = (
+                fields.Date.to_date(valeur) if valeur else False
+            )
 
     # ==================================================================
     # Résolution des commandes d'achat rattachées à l'OF
@@ -548,6 +606,7 @@ class MrpProduction(models.Model):
             self._fma_champs_heures_et_scores()
             + self._fma_champs_appro()
             + ['fma_nb_reperes', 'fma_score_complexite', 'fma_date_livraison',
+               'fma_statut_livraison', 'fma_date_liv_initiale',
                'fma_date_debut_debit', 'fma_date_fin_prod']
         )
         self._fma_marquer_recalcul(champs, productions=productions, force=True)
