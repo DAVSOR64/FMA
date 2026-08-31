@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_fma_ordonnancement_root"
+              name="Ordonnancement FMA"
+              parent="mrp.menu_mrp_manufacturing"
+              sequence="35"/>
+
+    <menuitem id="menu_fma_ordonnancement_of"
+              name="Tableau d'ordonnancement"
+              parent="menu_fma_ordonnancement_root"
+              action="action_mrp_production_ordonnancement"
+              sequence="10"/>
+
+    <menuitem id="menu_fma_ordonnancement_config"
+              name="Séquencement"
+              parent="mrp.menu_mrp_configuration"
+              sequence="90"/>
+
+    <menuitem id="menu_fma_complexite_niveau"
+              name="Niveaux de complexité"
+              parent="menu_fma_ordonnancement_config"
+              action="action_fma_complexite_niveau"
+              sequence="10"/>
+
+    <menuitem id="menu_fma_complexite_regle"
+              name="Complexité par gammiste"
+              parent="menu_fma_ordonnancement_config"
+              action="action_fma_complexite_regle"
+              sequence="20"/>
+
+    <menuitem id="menu_fma_bareme_score"
+              name="Barèmes de score"
+              parent="menu_fma_ordonnancement_config"
+              action="action_fma_bareme_score"
+              sequence="30"/>
+</odoo>

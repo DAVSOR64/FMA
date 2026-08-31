@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Matrice gammiste x typologie -> complexité, onglet SEQUENCAGE.
+         Le classeur regroupait les typologies sur une seule cellule séparée
+         par des « / » ; ici une ligne = un couple, donc interrogeable.
+         REYNAERS niveau B n'avait aucune typologie renseignée dans le
+         classeur : rien n'est créé pour ce cas. -->
+    <record id="regle_technal_fi" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">FI</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_of" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">OF</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_of2" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">OF2</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_ob" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">OB</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_ob2" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">OB2</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_p" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">P</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_p2" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">P2</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_c" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">C</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_so" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">SO</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_fi" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">FI</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_of" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">OF</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_of2" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">OF2</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_ob" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">OB</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_ob2" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">OB2</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_p" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">P</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_p2" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">P2</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_c" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">C</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_so" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">SO</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_wicona_fifx" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">FIFX</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_reynaers_fi" model="fma.complexite.regle">
+        <field name="gammiste">REYNAERS</field>
+        <field name="typologie">FI</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_schueco_fi" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">FI</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_schueco_fifx" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">FIFX</field>
+        <field name="niveau_id" ref="niveau_a"/>
+    </record>
+    <record id="regle_technal_fif" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">FIF</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_technal_eca" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">ECA</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_technal_vv" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">VV</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_technal_cga" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">CGA</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_technal_ppi" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">PPI</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_wicona_offx" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">OFFX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_wicona_of2fx" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">OF2FX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_wicona_obfx" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">OBFX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_wicona_ob2fx" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">OB2FX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_wicona_pfx" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">PFX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_wicona_p2fx" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">P2FX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_schueco_pfx" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">PFX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_schueco_p2fx" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">P2FX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_schueco_obfx" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">OBFX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_schueco_ob2fx" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">OB2FX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_schueco_offx" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">OFFX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_schueco_of2fx" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">OF2FX</field>
+        <field name="niveau_id" ref="niveau_b"/>
+    </record>
+    <record id="regle_technal_pr" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">PR</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_technal_ba" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">BA</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_technal_it" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">IT</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_technal_cintre" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">CINTRE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_technal_lum" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">LUM</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_wicona_pr" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">PR</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_wicona_ba" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">BA</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_wicona_it" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">IT</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_wicona_cintre" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">CINTRE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_reynaers_cf68" model="fma.complexite.regle">
+        <field name="gammiste">REYNAERS</field>
+        <field name="typologie">CF68</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_reynaers_cf77" model="fma.complexite.regle">
+        <field name="gammiste">REYNAERS</field>
+        <field name="typologie">CF77</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_reynaers_cp130" model="fma.complexite.regle">
+        <field name="gammiste">REYNAERS</field>
+        <field name="typologie">CP130</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_reynaers_mp" model="fma.complexite.regle">
+        <field name="gammiste">REYNAERS</field>
+        <field name="typologie">MP</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_reynaers_sl38" model="fma.complexite.regle">
+        <field name="gammiste">REYNAERS</field>
+        <field name="typologie">SL38</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_reynaers_ts68" model="fma.complexite.regle">
+        <field name="gammiste">REYNAERS</field>
+        <field name="typologie">TS68</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_reynaers_cintre" model="fma.complexite.regle">
+        <field name="gammiste">REYNAERS</field>
+        <field name="typologie">CINTRE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_sapa_blinde" model="fma.complexite.regle">
+        <field name="gammiste">SAPA</field>
+        <field name="typologie">BLINDE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_sapa_pare_balle" model="fma.complexite.regle">
+        <field name="gammiste">SAPA</field>
+        <field name="typologie">PARE- BALLE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_sapa_cintre" model="fma.complexite.regle">
+        <field name="gammiste">SAPA</field>
+        <field name="typologie">CINTRE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_schueco_blinde" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">BLINDE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_schueco_pare_balle" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">PARE- BALLE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_schueco_cintre" model="fma.complexite.regle">
+        <field name="gammiste">SCHUECO</field>
+        <field name="typologie">CINTRE</field>
+        <field name="niveau_id" ref="niveau_c"/>
+    </record>
+    <record id="regle_technal_mur_rideaux" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">MUR RIDEAUX</field>
+        <field name="niveau_id" ref="niveau_m"/>
+    </record>
+    <record id="regle_technal_verriere" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">VERRIERE</field>
+        <field name="niveau_id" ref="niveau_m"/>
+    </record>
+    <record id="regle_technal_veranda" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">VERANDA</field>
+        <field name="niveau_id" ref="niveau_m"/>
+    </record>
+    <record id="regle_technal_toiture" model="fma.complexite.regle">
+        <field name="gammiste">TECHNAL</field>
+        <field name="typologie">TOITURE</field>
+        <field name="niveau_id" ref="niveau_m"/>
+    </record>
+    <record id="regle_wicona_mur_rideaux" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">MUR RIDEAUX</field>
+        <field name="niveau_id" ref="niveau_m"/>
+    </record>
+    <record id="regle_wicona_verriere" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">VERRIERE</field>
+        <field name="niveau_id" ref="niveau_m"/>
+    </record>
+    <record id="regle_wicona_veranda" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">VERANDA</field>
+        <field name="niveau_id" ref="niveau_m"/>
+    </record>
+    <record id="regle_wicona_toiture" model="fma.complexite.regle">
+        <field name="gammiste">WICONA</field>
+        <field name="typologie">TOITURE</field>
+        <field name="niveau_id" ref="niveau_m"/>
+    </record>
+
+</odoo>

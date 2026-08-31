@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mrp_workcenter_form_fma" model="ir.ui.view">
+        <field name="name">mrp.workcenter.form.fma</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.mrp_workcenter_view"/>
+        <field name="arch" type="xml">
+            <field name="resource_calendar_id" position="after">
+                <field name="fma_poste_type"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_mrp_workcenter_list_fma" model="ir.ui.view">
+        <field name="name">mrp.workcenter.list.fma</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.mrp_workcenter_tree_view"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="fma_poste_type" optional="show"/>
+            </field>
+        </field>
+    </record>
+</odoo>
