@@ -4,7 +4,7 @@
         <field name="name">fma.bareme.score.list</field>
         <field name="model">fma.bareme.score</field>
         <field name="arch" type="xml">
-            <list string="Barèmes de score" editable="bottom" default_order="poste_type, borne_min">
+            <list string="Barèmes de score" editable="bottom">
                 <field name="poste_type"/>
                 <field name="borne_min"/>
                 <field name="borne_max"/>
@@ -21,7 +21,7 @@
             <search string="Barèmes de score">
                 <field name="poste_type"/>
                 <filter name="inactifs" string="Archivés" domain="[('active', '=', False)]"/>
-                <group expand="0" string="Regrouper par">
+                <group>
                     <filter name="group_poste" string="Type de poste"
                             context="{'group_by': 'poste_type'}"/>
                 </group>

@@ -15,7 +15,7 @@ class FmaBaremeScore(models.Model):
     _name = 'fma.bareme.score'
     _description = "Barème de score par poste de charge"
     _order = 'poste_type, borne_min'
-    _rec_name = 'display_name'
+    _rec_name = 'libelle'
 
     poste_type = fields.Selection(
         FMA_POSTE_TYPES,
@@ -36,17 +36,17 @@ class FmaBaremeScore(models.Model):
     )
     score = fields.Integer(string="Score", required=True)
     active = fields.Boolean(string="Actif", default=True)
-    display_name = fields.Char(compute='_compute_display_name', store=True)
+    libelle = fields.Char(string="Libellé", compute='_compute_libelle', store=True)
 
     @api.depends('poste_type', 'borne_min', 'borne_max', 'score')
-    def _compute_display_name(self):
+    def _compute_libelle(self):
         labels = dict(FMA_POSTE_TYPES)
         for bareme in self:
             if bareme.borne_max:
                 tranche = "%.2f à %.2f" % (bareme.borne_min, bareme.borne_max)
             else:
                 tranche = "%.2f et plus" % bareme.borne_min
-            bareme.display_name = "%s : %s -> %s" % (
+            bareme.libelle = "%s : %s -> %s" % (
                 labels.get(bareme.poste_type, '-'), tranche, bareme.score,
             )
 

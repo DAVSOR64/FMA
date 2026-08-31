@@ -13,7 +13,7 @@ class FmaComplexiteRegle(models.Model):
     _name = 'fma.complexite.regle'
     _description = "Règle de complexité par gammiste et typologie"
     _order = 'gammiste, typologie'
-    _rec_name = 'display_name'
+    _rec_name = 'libelle'
 
     gammiste = fields.Char(string="Gammiste", required=True, index=True)
     typologie = fields.Char(string="Typologie", required=True, index=True)
@@ -24,7 +24,7 @@ class FmaComplexiteRegle(models.Model):
         ondelete='restrict',
     )
     active = fields.Boolean(string="Actif", default=True)
-    display_name = fields.Char(compute='_compute_display_name', store=True)
+    libelle = fields.Char(string="Libellé", compute='_compute_libelle', store=True)
 
     _gammiste_typologie_unique = models.Constraint(
         'UNIQUE(gammiste, typologie)',
@@ -32,9 +32,9 @@ class FmaComplexiteRegle(models.Model):
     )
 
     @api.depends('gammiste', 'typologie', 'niveau_id.code')
-    def _compute_display_name(self):
+    def _compute_libelle(self):
         for regle in self:
-            regle.display_name = "%s / %s -> %s" % (
+            regle.libelle = "%s / %s -> %s" % (
                 regle.gammiste or '-',
                 regle.typologie or '-',
                 regle.niveau_id.code or '-',

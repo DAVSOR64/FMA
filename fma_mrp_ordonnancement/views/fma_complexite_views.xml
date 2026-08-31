@@ -41,7 +41,7 @@
                 <field name="gammiste"/>
                 <field name="typologie"/>
                 <field name="niveau_id"/>
-                <group expand="0" string="Regrouper par">
+                <group>
                     <filter name="group_gammiste" string="Gammiste"
                             context="{'group_by': 'gammiste'}"/>
                     <filter name="group_niveau" string="Niveau"

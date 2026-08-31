@@ -15,10 +15,10 @@
                   create="false"
                   delete="false"
                   default_order="date_deadline asc, name asc"
-                  decoration-danger="fma_statut_reception_profil == 'pending' or fma_statut_reception_vitrage == 'pending'"
-                  decoration-warning="fma_statut_reception_profil == 'partial' or fma_statut_reception_vitrage == 'partial'"
+                  decoration-warning="not fma_appro_complet"
                   decoration-muted="state in ('done', 'cancel')">
                 <field name="state" column_invisible="1"/>
+                <field name="fma_appro_complet" string="Appro OK" readonly="1" widget="boolean_toggle"/>
                 <field name="name" string="Référence" readonly="1"/>
                 <field name="product_id" string="Produit" readonly="1" optional="show"/>
                 <field name="atelier_id" string="Atelier" readonly="1" optional="show"/>
@@ -53,7 +53,6 @@
                        decoration-warning="fma_statut_reception_complementaire == 'partial'"
                        decoration-success="fma_statut_reception_complementaire == 'full'"
                        optional="hide"/>
-                <field name="fma_appro_complet" string="Appro OK" readonly="1" optional="hide"/>
 
                 <field name="fma_commentaire" string="Commentaires"/>
 
@@ -127,7 +126,7 @@
                 <filter name="fma_non_livre" string="Non livrés"
                         domain="[('fma_statut_livraison', '=', 'pending')]"/>
 
-                <group expand="0" string="Regrouper par">
+                <group>
                     <filter name="group_atelier" string="Atelier"
                             context="{'group_by': 'atelier_id'}"/>
                     <filter name="group_statut" string="Statut OF"
