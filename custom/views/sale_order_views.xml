@@ -59,7 +59,8 @@
                         </group>
                         <group string="Commande et production">
                             <field name="so_date_ARC"/>
-                            <field name="so_date_bpe"/>
+                            <field name="so_date_bpe"
+                                   readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
                             <field name="so_date_bon_pour_fab"/>
                             <field name="so_date_de_fin_de_production_reel"/>
                             <field name="so_statut_avancement_production"/>
