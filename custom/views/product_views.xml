@@ -24,17 +24,27 @@
                  bouton spécifique à cette base (non reproductible ici) ;
                  regroupé avec les autres champs Studio à la place. -->
             <field name="default_code" position="after">
-                <field name="x_studio_entrept"/>
+                <field name="x_studio_entrept" string="Entrepôt"/>
             </field>
+            <!-- Ces champs etaient poses a la suite de company_id sans
+                 conteneur : un champ qui n'est pas dans un <group> est rendu
+                 nu, sans etiquette, quel que soit son attribut string. D'ou
+                 les libelles manquants signales le 2026-09-01. On les reunit
+                 donc dans deux groupes titres, ce qui garantit l'etiquette et
+                 rend le classement lisible. -->
             <field name="company_id" position="after">
-                <field name="x_studio_code_tarifaire" string="Code tarifaire"/>
-                <field name="x_studio_ref_diapason" string="Réf. Diapason"/>
-                <field name="x_studio_ref_int_logikal" string="Référence inter Logikal"/>
-                <field name="x_studio_color_logikal" string="Couleur Logikal"/>
-                <field name="x_studio_unit_logikal" string="Unité Logikal"/>
-                <field name="x_studio_longueur_m" string="Longueur (m)"/>
-                <field name="x_studio_conso_laffaire"/>
-                <field name="x_studio_cration_auto"/>
+                <group name="fma_logikal" string="Logikal">
+                    <field name="x_studio_ref_int_logikal" string="Référence inter Logikal"/>
+                    <field name="x_studio_color_logikal" string="Couleur Logikal"/>
+                    <field name="x_studio_unit_logikal" string="Unité Logikal"/>
+                </group>
+                <group name="fma_references" string="Références et gestion">
+                    <field name="x_studio_code_tarifaire" string="Code tarifaire"/>
+                    <field name="x_studio_ref_diapason" string="Réf. Diapason"/>
+                    <field name="x_studio_longueur_m" string="Longueur (m)"/>
+                    <field name="x_studio_conso_laffaire" string="Consommation à l'affaire"/>
+                    <field name="x_studio_cration_auto" string="Création auto"/>
+                </group>
             </field>
             <notebook position="inside">
                 <page string="Vitrage">

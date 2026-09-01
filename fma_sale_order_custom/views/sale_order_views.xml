@@ -253,7 +253,7 @@ if resultat and resultat is not True:
                              apres coup deplacait silencieusement ces dates sur
                              une commande deja engagee. -->
                         <field name="so_delai_confirme_en_semaine"
-                               readonly="state in ('sale', 'done', 'cancel')"/>
+                               readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
                     </group>
 
                     <group string="Statut de l'affaire" name="fma_statut">
