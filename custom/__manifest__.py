@@ -13,7 +13,12 @@
     # 1.0.54 : integration de main. Le module y gagne le groupe « Suivi
     # commercial » sur la fiche contact ; sans changement de version la mise
     # a jour ne serait pas rejouee, la branche etant deja au-dessus de .34.
-    "version": "19.0.1.0.54",
+    # 1.0.55 : remontees V19 cote vues — intitules des champs variante
+    # (residu Studio en base), onglet Vitrage sur la fiche « edition
+    # rapide » ouverte depuis un achat, repere avant le produit sur la
+    # ligne d'achat. Sans montee de version la mise a jour n'est pas
+    # rejouee et aucune vue ne bouge.
+    "version": "19.0.1.0.55",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [

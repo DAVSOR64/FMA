@@ -27,12 +27,12 @@
                 <field name="x_studio_entrept"/>
             </field>
             <field name="company_id" position="after">
-                <field name="x_studio_code_tarifaire"/>
-                <field name="x_studio_ref_diapason"/>
-                <field name="x_studio_ref_int_logikal"/>
-                <field name="x_studio_color_logikal"/>
-                <field name="x_studio_unit_logikal"/>
-                <field name="x_studio_longueur_m"/>
+                <field name="x_studio_code_tarifaire" string="Code tarifaire"/>
+                <field name="x_studio_ref_diapason" string="Réf. Diapason"/>
+                <field name="x_studio_ref_int_logikal" string="Référence inter Logikal"/>
+                <field name="x_studio_color_logikal" string="Couleur Logikal"/>
+                <field name="x_studio_unit_logikal" string="Unité Logikal"/>
+                <field name="x_studio_longueur_m" string="Longueur (m)"/>
                 <field name="x_studio_conso_laffaire"/>
                 <field name="x_studio_cration_auto"/>
             </field>
@@ -71,15 +71,33 @@
             <xpath expr="//sheet" position="inside">
                 <group>
                     <group name="fma_references" string="Références">
-                        <field name="x_studio_code_tarifaire"/>
-                        <field name="x_studio_ref_diapason"/>
-                        <field name="x_studio_ref_int_logikal"/>
-                        <field name="x_studio_color_logikal"/>
-                        <field name="x_studio_unit_logikal"/>
+                        <field name="x_studio_code_tarifaire" string="Code tarifaire"/>
+                        <field name="x_studio_ref_diapason" string="Réf. Diapason"/>
+                        <field name="x_studio_ref_int_logikal" string="Référence inter Logikal"/>
+                        <field name="x_studio_color_logikal" string="Couleur Logikal"/>
+                        <field name="x_studio_unit_logikal" string="Unité Logikal"/>
                     </group>
                     <group name="fma_gestion" string="Gestion">
                         <field name="x_studio_conso_laffaire"/>
                         <field name="x_studio_cration_auto"/>
+                    </group>
+                    <!-- Vitrage : la page existait sur le formulaire variante
+                         COMPLET, mais un achat ouvre la fiche « edition
+                         rapide » — d'ou des informations vitrage visibles
+                         depuis l'inventaire et absentes depuis l'achat. Memes
+                         champs, meme ordre. -->
+                    <group name="fma_vitrage" string="Vitrage">
+                        <field name="x_studio_position" string="Position"/>
+                        <field name="x_studio_hauteur_mm" string="Hauteur (mm)"/>
+                        <field name="x_studio_largeur_mm" string="Largeur (mm)"/>
+                        <field name="x_studio_spacer" string="Spacer"/>
+                        <field name="x_studio_type" string="Type"/>
+                    </group>
+                    <group name="fma_vitrage_pb" string="Petits bois">
+                        <field name="x_studio_type_pb" string="Type PB"/>
+                        <field name="x_studio_couleur_pb_intext" string="Couleur PB (Int/Ext)"/>
+                        <field name="x_studio_nbr_pb_vertical" string="Nbr PB vertical"/>
+                        <field name="x_studio_nbr_pb_horizontal" string="Nbr PB horizontal"/>
                     </group>
                 </group>
             </xpath>
