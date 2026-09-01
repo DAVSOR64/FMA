@@ -35,3 +35,28 @@ class MrpWorkorder(models.Model):
             if a_retablir:
                 wo.employee_ids = [Command.link(emp.id) for emp in a_retablir]
         return res
+
+    def search_is_assigned_to_connected(self, operator, value):
+        """« Mes ordres de travail » = ceux ou JE POINTE, pas ceux qui me sont
+        assignes.
+
+        Odoo cherche sur `employee_assigned_ids`, l'affectation :
+
+            search_query = self.env['mrp.workorder']._search(
+                [('employee_assigned_ids', '=', main_employee_connected)])
+
+        L'operateur y voyait donc tout ce qu'on lui a attribue, y compris ce
+        qu'il n'a pas commence et ce qu'il a deja mis en pause. On cherche
+        desormais sur `employee_ids`, la liste des operateurs reellement
+        pointes : le filtre ne montre que le travail en cours, celui de la
+        personne selectionnee dans le panneau de gauche.
+
+        Consequence a connaitre : pour DEMARRER un ordre qui lui est assigne
+        mais pas encore commence, l'operateur doit desactiver ce filtre. C'est
+        le prix du « je ne vois que ce sur quoi je travaille ».
+        """
+        employe = self.env['hr.employee'].get_session_owner()
+        if not employe:
+            return []
+        requete = self.env['mrp.workorder']._search([('employee_ids', 'in', employe)])
+        return [('id', operator, requete)]
