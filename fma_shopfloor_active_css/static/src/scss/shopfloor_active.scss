@@ -51,3 +51,24 @@
     margin-bottom: 6px;
     font-size: 12px;
 }
+
+/* =====================================================
+   INITIALES DANS LES PASTILLES
+
+   Remplacent l'avatar genere par Odoo, dont les initiales ne suivaient pas
+   la convention maison. Meme gabarit que l'image d'origine (.o_avatar), pour
+   que l'alignement de la liste ne bouge pas.
+   ===================================================== */
+
+.fma_initiales {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #1e40af;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .5px;
+    flex: 0 0 auto;
+    user-select: none;
+}
