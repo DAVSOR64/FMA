@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': "FMA - Ordonnancement & Scores",
-    'version': '19.0.2.9.1',
+    'version': '19.0.2.9.3',
     'category': 'Manufacturing',
     'summary': "Reprise du fichier « Ordre de production FMA » : complexité, "
                "heures par poste, scores et suivi des approvisionnements sur l'OF",
@@ -39,6 +39,7 @@ Apports :
         'custom',
     ],
     'data': [
+        'security/fma_mrp_ordonnancement_groups.xml',
         'security/ir.model.access.csv',
         'data/fma_complexite_niveau_data.xml',
         'data/fma_complexite_regle_data.xml',

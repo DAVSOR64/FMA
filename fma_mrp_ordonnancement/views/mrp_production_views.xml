@@ -14,26 +14,27 @@
                   editable="bottom"
                   create="false"
                   delete="false"
-                  default_order="fma_date_liv_initiale asc, name asc"
-                  decoration-danger="not fma_appro_complet and state not in ('done', 'cancel')"
-                  decoration-warning="fma_appro_complet and fma_retard_previsionnel and state not in ('done', 'cancel')"
-                  decoration-success="fma_appro_complet and fma_planifie and state not in ('done', 'cancel')"
-                  decoration-muted="state in ('done', 'cancel')">
+                  default_order="fma_date_liv_initiale asc, name asc">
                 <field name="state" column_invisible="1"/>
                 <field name="fma_appro_complet" string="Appro OK" readonly="1" widget="boolean_toggle"/>
-                <field name="fma_retard_previsionnel" column_invisible="1"/>
+                <field name="fma_peut_modifier_ordo" column_invisible="1"/>
                 <field name="name" string="Référence" readonly="1"/>
+                <field name="fma_of_id" string="Ouvrir l'OF" readonly="1" optional="show"/>
                 <field name="product_id" string="Produit" readonly="1" optional="show"/>
-                <field name="fma_sale_order_id" string="Commande" readonly="1" optional="hide"/>
+                <field name="fma_sale_order_id" string="Commande" readonly="1" optional="show"/>
                 <field name="atelier_id" string="Atelier" readonly="1" optional="show"/>
-                <field name="x_studio_niveau_de_complexite" string="Niveaux de complexité"/>
-                <field name="fma_date_debut_debit" string="Début débit" readonly="1" optional="show"/>
-                <field name="fma_planifie" string="Planifié" widget="boolean_toggle"
-                       decoration-success="fma_planifie"/>
+                <field name="x_studio_niveau_de_complexite" string="Niveaux de complexité" readonly="1"/>
+                <field name="date_start" string="Début débit" readonly="1" optional="show"/>
+                <field name="fma_planifie" string="Planifié" readonly="1" widget="boolean_toggle"/>
                 <field name="is_programmed" string="OT datés" readonly="1" optional="hide"/>
                 <field name="fma_date_fin_prod" string="Fin prod" readonly="1"/>
                 <field name="fma_date_liv_initiale" string="Date liv. initiale" readonly="1" widget="date"/>
-                <field name="fma_date_livraison" string="Date liv. actuelle" readonly="1" optional="show" widget="date"/>
+                <field name="fma_livraison_imminente" column_invisible="1"/>
+                <field name="fma_livraison_reportee" column_invisible="1"/>
+                <field name="fma_date_livraison" string="Date liv. actuelle" readonly="1"
+                       optional="show" widget="date"
+                       decoration-danger="fma_livraison_imminente"
+                       decoration-warning="fma_livraison_reportee and not fma_livraison_imminente"/>
                 <field name="fma_statut_livraison" string="Livraison" readonly="1" widget="badge"
                        decoration-danger="fma_statut_livraison == 'pending'"
                        decoration-warning="fma_statut_livraison == 'partial'"
@@ -62,32 +63,21 @@
 
                 <button name="action_fma_voir_achats" type="object"
                         icon="fa-truck" title="Détail des approvisionnements"/>
-                <field name="fma_commentaire" string="Commentaires"/>
+                <field name="fma_commentaire" string="Commentaires"
+                       readonly="not fma_peut_modifier_ordo"/>
 
                 <field name="fma_nb_reperes" string="Nb rep." readonly="1" sum="Total repères" optional="show"/>
                 <field name="fma_score_complexite" string="Score complex." readonly="1" sum="Total" optional="show"/>
-                <field name="fma_score_debit" string="Score débit" readonly="1" widget="badge"
-                       decoration-danger="fma_score_debit &gt;= 3"
-                       decoration-warning="fma_score_debit == 2"
-                       decoration-success="fma_score_debit &lt;= 1"/>
+                <field name="fma_score_debit" string="Score débit" readonly="1"/>
                 <field name="fma_heure_debit" string="H. débit" readonly="1" sum="Total"/>
                 <field name="fma_heure_banc" string="H. banc" readonly="1" sum="Total" optional="show"/>
                 <field name="fma_heure_usinage" string="H. usinage" readonly="1" sum="Total" optional="show"/>
                 <field name="fma_heure_montage" string="H. montage" readonly="1" sum="Total" optional="show"/>
                 <field name="fma_heure_vitrage" string="H. vitrage" readonly="1" sum="Total" optional="show"/>
                 <field name="fma_heure_totale" string="H. total" readonly="1" sum="Total" optional="hide"/>
-                <field name="fma_score_banc" string="Score banc" readonly="1" widget="badge"
-                       decoration-danger="fma_score_banc &gt;= 3"
-                       decoration-warning="fma_score_banc == 2"
-                       decoration-success="fma_score_banc &lt;= 1" optional="hide"/>
-                <field name="fma_score_usinage" string="Score usinage" readonly="1" widget="badge"
-                       decoration-danger="fma_score_usinage &gt;= 3"
-                       decoration-warning="fma_score_usinage == 2"
-                       decoration-success="fma_score_usinage &lt;= 1" optional="hide"/>
-                <field name="fma_score_montage" string="Score montage" readonly="1" widget="badge"
-                       decoration-danger="fma_score_montage &gt;= 3"
-                       decoration-warning="fma_score_montage == 2"
-                       decoration-success="fma_score_montage &lt;= 1" optional="hide"/>
+                <field name="fma_score_banc" string="Score banc" readonly="1" optional="hide"/>
+                <field name="fma_score_usinage" string="Score usinage" readonly="1" optional="hide"/>
+                <field name="fma_score_montage" string="Score montage" readonly="1" optional="hide"/>
             </list>
         </field>
     </record>
@@ -237,9 +227,9 @@
                             <field name="fma_statut_reception_complementaire"/>
                         </group>
                         <group string="Ordonnancement">
-                            <field name="fma_planifie"/>
+                            <field name="fma_planifie" readonly="1"/>
+                            <field name="date_start" string="Début débit" readonly="1"/>
                             <field name="is_programmed"/>
-                            <field name="fma_date_debut_debit"/>
                             <field name="fma_date_fin_prod"/>
                             <field name="fma_date_liv_initiale" widget="date"/>
                         </group>
@@ -249,7 +239,9 @@
                         </group>
                     </group>
                     <group string="Commentaires">
-                        <field name="fma_commentaire" nolabel="1"/>
+                        <field name="fma_peut_modifier_ordo" invisible="1"/>
+                        <field name="fma_commentaire" nolabel="1"
+                               readonly="not fma_peut_modifier_ordo"/>
                     </group>
                 </page>
             </notebook>
