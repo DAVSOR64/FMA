@@ -1,8 +1,8 @@
 {
-    "name": "FMA Shop Floor Active Workorder Highlight",
-    "version": "19.0.1.2.2",
+    "name": "FMA Shop Floor — pointage et reperes visuels",
+    "version": "19.0.1.3.0",
     "category": "Manufacturing",
-    "summary": "Highlight active workorders in Odoo Shop Floor with a visible color indicator.",
+    "summary": "Reperes visuels de l'ecran atelier (OT en cours, initiales) et corrections du pointage.",
     "author": "Paxo Consulting",
     "depends": ["mrp_workorder"],
     "assets": {
