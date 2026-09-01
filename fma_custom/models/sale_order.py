@@ -135,6 +135,22 @@ class SaleOrder(models.Model):
                 raise UserError(
                     _("Impossible de confirmer le devis.\n\nLe client n'a pas validé les CGV + RIB.")
                 )
+            # Delai confirme et BPE sont les deux entrees du calcul des dates de
+            # livraison (prevue et reelle). Confirmer sans elles produisait une
+            # commande sans date de livraison, que plus rien ne venait combler
+            # ensuite — le delai devenant non modifiable apres confirmation.
+            manquants = []
+            if not order.so_delai_confirme_en_semaine:
+                manquants.append(_("le délai confirmé (en semaines)"))
+            if not order.so_date_bpe:
+                manquants.append(_("la date de BPE"))
+            if manquants:
+                raise UserError(_(
+                    "Impossible de confirmer le devis.\n\n"
+                    "Renseignez %s avant de confirmer : ces informations "
+                    "determinent les dates de livraison, et ne seront plus "
+                    "modifiables ensuite."
+                ) % " et ".join(manquants))
         return super().action_confirm()
 
     def _check_studio_client_bloque(self):
