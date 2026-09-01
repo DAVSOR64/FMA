@@ -21,7 +21,10 @@
     # 1.0.56 : la date de debut de l'OF passe en lecture seule sur le
     # formulaire standard — elle est posee par l'ordonnancement, une
     # saisie manuelle desalignait l'OF de son planning.
-    "version": "19.0.1.0.56",
+        # 1.0.57 : la colonne Repere de la ligne d'achat suit la meme regle
+    # que le PDF (x_studio_posit sinon x_studio_position) ; elle restait
+    # vide alors que le PDF portait bien un repere.
+    "version": "19.0.1.0.57",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [

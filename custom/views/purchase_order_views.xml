@@ -24,7 +24,7 @@
             <!-- Le repere se lit AVANT le produit : c'est lui qui identifie la
                  ligne sur le chantier, le produit vient ensuite. -->
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="before">
-                <field name="x_studio_posit" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_fma_repere" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
             </xpath>
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
                 <field name="x_studio_hauteur" column_invisible="not parent.x_is_glazing_order"/>
