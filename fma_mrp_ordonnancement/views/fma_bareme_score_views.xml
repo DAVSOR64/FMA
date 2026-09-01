@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_fma_bareme_score_list" model="ir.ui.view">
+        <field name="name">fma.bareme.score.list</field>
+        <field name="model">fma.bareme.score</field>
+        <field name="arch" type="xml">
+            <list string="Barèmes de score" editable="bottom">
+                <field name="poste_type"/>
+                <field name="borne_min"/>
+                <field name="borne_max"/>
+                <field name="score"/>
+                <field name="active" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fma_bareme_score_search" model="ir.ui.view">
+        <field name="name">fma.bareme.score.search</field>
+        <field name="model">fma.bareme.score</field>
+        <field name="arch" type="xml">
+            <search string="Barèmes de score">
+                <field name="poste_type"/>
+                <filter name="inactifs" string="Archivés" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_poste" string="Type de poste"
+                            context="{'group_by': 'poste_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fma_bareme_score" model="ir.actions.act_window">
+        <field name="name">Barèmes de score</field>
+        <field name="res_model">fma.bareme.score</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_group_poste': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucun barème</p>
+            <p>Un barème traduit un nombre d'heures par repère en score, comme
+               l'onglet SEQUENCAGE du classeur. La borne basse est incluse, la
+               borne haute exclue ; laisser la borne haute vide pour la dernière
+               tranche. Toute modification recalcule les scores des OF ouverts.</p>
+        </field>
+    </record>
+</odoo>

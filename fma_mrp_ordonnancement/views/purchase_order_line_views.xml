@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Détail des approvisionnements d'un OF. Vue autonome : le module ne
+         dépend d'aucun xml_id de vue de purchase. -->
+    <record id="view_purchase_order_line_fma_list" model="ir.ui.view">
+        <field name="name">purchase.order.line.fma.list</field>
+        <field name="model">purchase.order.line</field>
+        <field name="arch" type="xml">
+            <list string="Détail des approvisionnements"
+                  create="false" delete="false" edit="false"
+                  default_order="date_planned desc"
+                  decoration-success="qty_received &gt;= product_qty"
+                  decoration-warning="qty_received &gt; 0 and qty_received &lt; product_qty"
+                  decoration-danger="qty_received &lt;= 0">
+                <field name="order_id" string="Commande"/>
+                <field name="partner_id" string="Fournisseur"/>
+                <field name="fma_famille_appro" string="Famille"/>
+                <field name="product_id" string="Article"/>
+                <field name="date_planned" string="Arrivée prévue" widget="date"/>
+                <field name="product_qty" string="Commandé"/>
+                <field name="qty_received" string="Reçu"/>
+                <field name="state" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_purchase_order_line_fma_search" model="ir.ui.view">
+        <field name="name">purchase.order.line.fma.search</field>
+        <field name="model">purchase.order.line</field>
+        <field name="arch" type="xml">
+            <search string="Lignes d'achat">
+                <field name="order_id"/>
+                <field name="partner_id"/>
+                <field name="product_id"/>
+                <filter name="fma_non_recu" string="Non reçu"
+                        domain="[('qty_received', '&lt;=', 0)]"/>
+                <group>
+                    <filter name="group_famille" string="Famille d'appro"
+                            context="{'group_by': 'fma_famille_appro'}"/>
+                    <filter name="group_fournisseur" string="Fournisseur"
+                            context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_commande" string="Commande"
+                            context="{'group_by': 'order_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>
