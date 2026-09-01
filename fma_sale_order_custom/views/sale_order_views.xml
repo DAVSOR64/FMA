@@ -31,13 +31,19 @@
                 <field name="disable_confirm_button" invisible="1"/>
             </xpath>
 
-            <!-- Ajout du champ "date_bpe" après "tag_ids" -->
+            <!-- Le champ pose ici en tete de devis etait « date_bpe », un
+                 doublon que rien ne lit : les dates de livraison prevue et
+                 reelle se calculent sur « so_date_bpe » (custom, methode
+                 _compute_so_date_de_livraison). L'utilisateur renseignait donc
+                 le champ inerte pendant que le champ utile restait vide au
+                 fond de l'onglet Chronologie, d'ou une validation qui passait
+                 sans BPE. On expose ici le champ utile. -->
             <!-- Gamme/Série : champs déjà déclarés (models/sale_order.py) mais
                  absents de toute vue au portage Studio -> rendus visibles.
                  La Série est filtrée par la Gamme sélectionnée (relation
                  x_serie_mtn.x_studio_gamme_de_la_srie), filtre attendu. -->
             <xpath expr="//field[@name='tag_ids']" position="after">
-                <field name="date_bpe"/>
+                <field name="so_date_bpe"/>
                 <field name="x_studio_gamme"/>
                 <field name="x_studio_srie"
                        domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
