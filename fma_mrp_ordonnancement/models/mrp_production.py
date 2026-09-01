@@ -150,6 +150,25 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Champ conservé pour la transition, à supprimer plus tard
+    #
+    # La vue actuellement installée en production cite fma_date_debut_debit.
+    # Les vues ne sont rechargées qu'à la mise à jour du module, jamais au
+    # simple déploiement du code : retirer le champ tout de suite casserait
+    # l'écran si la mise à jour ne tournait pas — le symptôme exact de la
+    # panne du 31/08, à l'envers. On le garde donc, non stocké, aligné sur la
+    # date de début de l'OF. À retirer une fois toutes les bases à jour.
+    # ------------------------------------------------------------------
+    fma_date_debut_debit = fields.Datetime(
+        string="Début débit (obsolète)",
+        compute='_compute_fma_date_debut_debit',
+    )
+
+    def _compute_fma_date_debut_debit(self):
+        for production in self:
+            production.fma_date_debut_debit = production.date_start
+
+    # ------------------------------------------------------------------
     # Lien cliquable vers l'ordre de fabrication
     #
     # La liste est éditable : cliquer sur une ligne ouvre la cellule en
@@ -265,19 +284,43 @@ class MrpProduction(models.Model):
              "et poser `groups` sur le champ le rendrait invisible.",
     )
 
+    # Nom du groupe autorisant la saisie. Le groupe est cree a la main dans
+    # Odoo, pas par le module : la declaration XML d'un res.groups echouait a
+    # l'installation en v19, ou ce modele a ete remanie. On le retrouve donc
+    # par son nom, ce qui fonctionne quelle que soit son origine.
+    FMA_GROUPE_MODIF = "Modif Ordo"
+
     def _compute_fma_peut_modifier_ordo(self):
-        # Le groupe est créé par les données du module. Si celles-ci n'ont pas
-        # encore été chargées, has_group lèverait sur un xml_id introuvable et
-        # rendrait l'écran inutilisable. On dégrade en lecture seule.
-        groupe = self.env.ref(
-            'fma_mrp_ordonnancement.group_fma_modif_ordo',
-            raise_if_not_found=False,
-        )
-        autorise = bool(groupe) and self.env.user.has_group(
-            'fma_mrp_ordonnancement.group_fma_modif_ordo'
-        )
+        autorise = self._fma_utilisateur_peut_modifier()
         for production in self:
             production.fma_peut_modifier_ordo = autorise
+
+    @api.model
+    def _fma_utilisateur_peut_modifier(self):
+        """Vrai si l'utilisateur appartient au groupe de saisie.
+
+        Le groupe n'est pas livre par le module : il est cree a la main. On le
+        cherche donc par son nom. Tant qu'il n'existe pas, personne ne peut
+        saisir et l'ecran reste en lecture seule — ce qui se voit tout de
+        suite, contrairement a un droit ouvert par defaut.
+        """
+        groupe = self.env['res.groups'].sudo().search(
+            [('name', '=', self.FMA_GROUPE_MODIF)], limit=1,
+        )
+        if not groupe:
+            return False
+        # Le champ qui porte les groupes d'un utilisateur a change de nom
+        # selon les versions d'Odoo. On sonde le modele plutot que de parier
+        # sur l'un d'eux : se tromper rendrait l'ecran inutilisable.
+        utilisateur = self.env.user.sudo()
+        for nom in ('groups_id', 'group_ids', 'all_group_ids'):
+            if nom in utilisateur._fields:
+                return groupe.id in utilisateur[nom].ids
+        _logger.warning(
+            "Ordonnancement FMA : aucun champ de groupes trouvé sur res.users, "
+            "la saisie reste fermée.",
+        )
+        return False
 
     # ==================================================================
     # Helpers d'invalidation
