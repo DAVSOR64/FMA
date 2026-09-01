@@ -18,7 +18,10 @@
     # rapide » ouverte depuis un achat, repere avant le produit sur la
     # ligne d'achat. Sans montee de version la mise a jour n'est pas
     # rejouee et aucune vue ne bouge.
-    "version": "19.0.1.0.55",
+    # 1.0.56 : la date de debut de l'OF passe en lecture seule sur le
+    # formulaire standard — elle est posee par l'ordonnancement, une
+    # saisie manuelle desalignait l'OF de son planning.
+    "version": "19.0.1.0.56",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
