@@ -9,8 +9,10 @@ affiché : ressources humaines, discussion, écran atelier.
 
 Vider `image_1920` sur ces fiches suffit à rendre à chacune son avatar propre.
 """
+import base64
 import hashlib
 import logging
+from xml.sax.saxutils import escape
 
 from odoo import _, models
 
@@ -140,3 +142,48 @@ class HrEmployee(models.Model):
             _("Chacune retrouve l'avatar généré pour elle. Une photo peut être "
               "reposée normalement sur les fiches concernées."),
         )
+
+    # ------------------------------------------------------------------
+    # Avatar par defaut : les initiales, comme a l'atelier
+    # ------------------------------------------------------------------
+    def _fma_initiales(self):
+        """Premiere lettre des deux premiers mots du nom, en majuscules.
+
+        Meme regle que les pastilles de l'ecran atelier : « Petit Jessica »
+        donne « PJ », « Jean-Pierre Martin » donne « JP », le trait d'union
+        comptant comme un separateur.
+        """
+        self.ensure_one()
+        nom = (self.name or "").replace("-", " ")
+        mots = [m for m in nom.split(" ") if m]
+        return "".join(m[0] for m in mots[:2]).upper() or "?"
+
+    def _avatar_get_placeholder(self):
+        """Avatar genere a partir du nom, plutot que la silhouette d'Odoo.
+
+        Une fiche sans photo affichait une silhouette anonyme, identique pour
+        tout le monde. Vider l'image d'une fiche dupliquee reglait donc un
+        probleme pour en poser un autre. On genere ici une pastille aux
+        initiales, avec une teinte stable derivee de l'identifiant : deux
+        employes n'ont pas la meme couleur, et la couleur d'un employe ne
+        change jamais.
+        """
+        try:
+            initiales = self._fma_initiales()
+            teinte = (self.id or 0) * 47 % 360
+            svg = (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180">'
+                '<rect width="180" height="180" fill="hsl(%s,42%%,46%%)"/>'
+                '<text x="90" y="90" fill="#ffffff" text-anchor="middle" '
+                'dominant-baseline="central" font-size="76" font-weight="600" '
+                'font-family="Helvetica,Arial,sans-serif">%s</text></svg>'
+            ) % (teinte, escape(initiales))
+            return base64.b64encode(svg.encode())
+        except Exception:
+            # Un avatar n'est jamais un motif d'echec : on retombe sur celui
+            # d'Odoo plutot que de casser l'affichage d'une fiche.
+            _logger.exception(
+                "FMA : avatar par defaut non genere pour l'employe %s.", self.id
+            )
+            return super()._avatar_get_placeholder()
