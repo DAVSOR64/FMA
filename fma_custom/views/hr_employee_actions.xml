@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Deux actions au menu « Action » de la liste des employés : d'abord
+         constater, ensuite corriger. Le diagnostic ne modifie rien, il permet
+         de vérifier l'ampleur avant d'agir. -->
+    <record id="action_fma_diagnostiquer_avatars" model="ir.actions.server">
+        <field name="name">Vérifier les avatars dupliqués</field>
+        <field name="model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_fma_diagnostiquer_avatars()</field>
+    </record>
+
+    <record id="action_fma_reinitialiser_avatars" model="ir.actions.server">
+        <field name="name">Rendre son avatar à chaque employé</field>
+        <field name="model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_fma_reinitialiser_avatars()</field>
+    </record>
+</odoo>
