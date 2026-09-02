@@ -2,7 +2,7 @@
 """Champs migrés depuis Odoo Studio.
 Noms techniques conservés à l'identique, aucune migration de données.
 """
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class PurchaseOrderLine(models.Model):
@@ -13,6 +13,19 @@ class PurchaseOrderLine(models.Model):
     # côté ir_model_fields, contrairement à Hauteur/Largeur.
     x_studio_forme = fields.Char(string="Forme", related="product_id.x_studio_type", store=True, readonly=True)
     x_studio_posit = fields.Char(string="Position/N°")
+
+    # Repere affiche : MEME regle que le PDF d'achat, qui prend x_studio_posit
+    # quand il est renseigne et retombe sinon sur x_studio_position, le related
+    # vers le produit (custom_purchase_documents/views/custom_invoice_filling.xml).
+    # Le formulaire, lui, n'affichait que le premier : la colonne restait vide
+    # alors que le PDF, sorti des memes lignes, portait bien un repere.
+    x_fma_repere = fields.Char(
+        string="Repère", compute="_compute_x_fma_repere", readonly=True)
+
+    @api.depends("x_studio_posit", "x_studio_position")
+    def _compute_x_fma_repere(self):
+        for ligne in self:
+            ligne.x_fma_repere = ligne.x_studio_posit or ligne.x_studio_position or False
     x_studio_position = fields.Char(
         string="position", related="product_id.x_studio_position", store=True, readonly=True
     )

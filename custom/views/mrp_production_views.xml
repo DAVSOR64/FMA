@@ -8,6 +8,15 @@
             <xpath expr="//div[@name='bom_div']" position="after">
                 <field name="x_studio_niveau_de_complexite" string="Niveau de complexité"/>
             </xpath>
+            <!-- La date de debut de l'OF n'est pas saisissable a la main : elle
+                 est posee par l'ordonnancement, qui la recalcule a partir des
+                 lots de fabrication et des postes de charge. Une saisie
+                 manuelle desalignait l'OF de son planning sans que rien ne le
+                 signale. Les vues d'ordonnancement l'affichent deja en lecture
+                 seule ; le formulaire standard restait ouvert. -->
+            <xpath expr="//field[@name='date_start']" position="attributes">
+                <attribute name="readonly">1</attribute>
+            </xpath>
         </field>
     </record>
 </odoo>
