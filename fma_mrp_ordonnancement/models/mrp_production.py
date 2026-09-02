@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from odoo import api, fields, models
 
 from .constants import (
+    FMA_FOURNISSEUR_STG,
     FMA_CATEGORIES_APPRO_KEYS,
     FMA_ETATS_CLOS,
     FMA_POSTE_KEYS,
@@ -150,6 +151,25 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Champ conservé pour la transition, à supprimer plus tard
+    #
+    # La vue actuellement installée en production cite fma_date_debut_debit.
+    # Les vues ne sont rechargées qu'à la mise à jour du module, jamais au
+    # simple déploiement du code : retirer le champ tout de suite casserait
+    # l'écran si la mise à jour ne tournait pas — le symptôme exact de la
+    # panne du 31/08, à l'envers. On le garde donc, non stocké, aligné sur la
+    # date de début de l'OF. À retirer une fois toutes les bases à jour.
+    # ------------------------------------------------------------------
+    fma_date_debut_debit = fields.Datetime(
+        string="Début débit (obsolète)",
+        compute='_compute_fma_date_debut_debit',
+    )
+
+    def _compute_fma_date_debut_debit(self):
+        for production in self:
+            production.fma_date_debut_debit = production.date_start
+
+    # ------------------------------------------------------------------
     # Lien cliquable vers l'ordre de fabrication
     #
     # La liste est éditable : cliquer sur une ligne ouvre la cellule en
@@ -214,6 +234,24 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Repères de lecture demandés par l'ordonnancement
+    # ------------------------------------------------------------------
+    fma_fournisseur_stg = fields.Boolean(
+        string="STG",
+        compute='_compute_fma_fournisseur_stg', store=True,
+        help="Vrai lorsqu'au moins une commande d'achat rattachée à l'affaire "
+             "est passée chez STG.",
+    )
+    fma_retard = fields.Boolean(
+        string="Retard",
+        compute='_compute_fma_retard', store=True,
+        help="Vrai si la livraison a déjà glissé au-delà de l'engagement, ou "
+             "si elle tient encore l'engagement mais tombe dans les six jours. "
+             "Recalculé chaque nuit par le cron, la seconde règle dépendant de "
+             "la date du jour.",
+    )
+
+    # ------------------------------------------------------------------
     # Colonne F : marqueur manuel « planifier »
     #
     # Le classeur ne calculait rien ici : l'ordonnanceur tapait « P » pour dire
@@ -226,7 +264,8 @@ class MrpProduction(models.Model):
         string="Planifié",
         tracking=True,
         help="Marqueur de l'ordonnanceur, équivalent du « P » de la colonne "
-             "« planifier » du classeur.",
+             "« planifier » du classeur. Modifiable par les membres du groupe "
+             "« Modif Ordo », comme le commentaire.",
     )
 
     # ------------------------------------------------------------------
@@ -265,19 +304,43 @@ class MrpProduction(models.Model):
              "et poser `groups` sur le champ le rendrait invisible.",
     )
 
+    # Nom du groupe autorisant la saisie. Le groupe est cree a la main dans
+    # Odoo, pas par le module : la declaration XML d'un res.groups echouait a
+    # l'installation en v19, ou ce modele a ete remanie. On le retrouve donc
+    # par son nom, ce qui fonctionne quelle que soit son origine.
+    FMA_GROUPE_MODIF = "Modif Ordo"
+
     def _compute_fma_peut_modifier_ordo(self):
-        # Le groupe est créé par les données du module. Si celles-ci n'ont pas
-        # encore été chargées, has_group lèverait sur un xml_id introuvable et
-        # rendrait l'écran inutilisable. On dégrade en lecture seule.
-        groupe = self.env.ref(
-            'fma_mrp_ordonnancement.group_fma_modif_ordo',
-            raise_if_not_found=False,
-        )
-        autorise = bool(groupe) and self.env.user.has_group(
-            'fma_mrp_ordonnancement.group_fma_modif_ordo'
-        )
+        autorise = self._fma_utilisateur_peut_modifier()
         for production in self:
             production.fma_peut_modifier_ordo = autorise
+
+    @api.model
+    def _fma_utilisateur_peut_modifier(self):
+        """Vrai si l'utilisateur appartient au groupe de saisie.
+
+        Le groupe n'est pas livre par le module : il est cree a la main. On le
+        cherche donc par son nom. Tant qu'il n'existe pas, personne ne peut
+        saisir et l'ecran reste en lecture seule — ce qui se voit tout de
+        suite, contrairement a un droit ouvert par defaut.
+        """
+        groupe = self.env['res.groups'].sudo().search(
+            [('name', '=', self.FMA_GROUPE_MODIF)], limit=1,
+        )
+        if not groupe:
+            return False
+        # Le champ qui porte les groupes d'un utilisateur a change de nom
+        # selon les versions d'Odoo. On sonde le modele plutot que de parier
+        # sur l'un d'eux : se tromper rendrait l'ecran inutilisable.
+        utilisateur = self.env.user.sudo()
+        for nom in ('groups_id', 'group_ids', 'all_group_ids'):
+            if nom in utilisateur._fields:
+                return groupe.id in utilisateur[nom].ids
+        _logger.warning(
+            "Ordonnancement FMA : aucun champ de groupes trouvé sur res.users, "
+            "la saisie reste fermée.",
+        )
+        return False
 
     # ==================================================================
     # Helpers d'invalidation
@@ -480,6 +543,49 @@ class MrpProduction(models.Model):
                 production['fma_score_%s' % poste] = moteur._score_pour(
                     baremes.get(poste, []), ratio,
                 )
+
+    @api.depends('state', 'move_raw_ids')
+    def _compute_fma_fournisseur_stg(self):
+        """Vrai si l'affaire compte au moins un achat chez STG.
+
+        Même résolution des commandes que les colonnes d'approvisionnement, et
+        mêmes limites : le lien OF -> achat étant algorithmique, le recalcul
+        est déclenché depuis purchase.order et rattrapé par le cron.
+        """
+        for production in self:
+            try:
+                fournisseurs = production._fma_purchase_orders().mapped(
+                    'partner_id.name'
+                )
+                production.fma_fournisseur_stg = any(
+                    (nom or '').strip().upper().startswith(FMA_FOURNISSEUR_STG)
+                    for nom in fournisseurs
+                )
+            except Exception:
+                _logger.exception(
+                    "Ordonnancement FMA : fournisseur STG non déterminé pour "
+                    "l'OF %s.", production.name or production.id,
+                )
+                production.fma_fournisseur_stg = False
+
+    @api.depends('fma_date_livraison', 'fma_date_liv_initiale')
+    def _compute_fma_retard(self):
+        """Deux situations méritent l'alerte, et une seule couleur les porte.
+
+        La livraison a déjà glissé au-delà de l'engagement ; ou elle le tient
+        encore, mais l'échéance tombe dans les six jours et il n'y a plus de
+        marge pour absorber un aléa.
+        """
+        limite = fields.Date.context_today(self) + timedelta(days=6)
+        for production in self:
+            actuelle = production._fma_en_date_locale(production.fma_date_livraison)
+            initiale = production._fma_en_date_locale(production.fma_date_liv_initiale)
+            if not actuelle or not initiale:
+                production.fma_retard = False
+            elif actuelle > initiale:
+                production.fma_retard = True
+            else:
+                production.fma_retard = actuelle < limite
 
     @api.depends('state', 'move_raw_ids')
     def _compute_fma_appro(self):
@@ -802,7 +908,8 @@ class MrpProduction(models.Model):
             + self._fma_champs_appro()
             + ['fma_nb_reperes', 'fma_score_complexite', 'fma_date_livraison',
                'fma_statut_livraison', 'fma_date_liv_initiale',
-               'fma_retard_previsionnel',
+               'fma_retard_previsionnel', 'fma_fournisseur_stg',
+               'fma_retard',
                'fma_date_fin_prod']
         )
         self._fma_marquer_recalcul(champs, productions=productions, force=True)

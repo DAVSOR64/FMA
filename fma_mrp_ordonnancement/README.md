@@ -205,14 +205,22 @@ Les pastilles de score ont été retirées : le classeur n'en avait pas.
 
 ## Saisie
 
-**Le commentaire est la seule donnée modifiable** de l'écran, et seulement
-pour les membres du groupe **« Modif Ordo »**. Tout le reste est en lecture
-seule, y compris le marqueur « Planifié » et le niveau de complexité.
+**Deux données sont modifiables** sur l'écran, et seulement par les membres du
+groupe **« Modif Ordo »** : le **commentaire** et le marqueur **« Planifié »**.
+Tout le reste est en lecture seule, y compris le niveau de complexité.
 
-Le groupe se trouve sur la fiche utilisateur, onglet des droits d'accès,
-section **« Ordonnancement FMA »**. Il est **vide à l'installation** : tant
-qu'aucun utilisateur n'y est ajouté, l'écran est en lecture seule pour tout le
-monde, commentaire compris.
+Le groupe **n'est pas livré par le module** : il se crée à la main dans Odoo,
+sous le nom exact **« Modif Ordo »**. La déclaration XML d'un `res.groups`
+échouait à l'installation en v19, où ce modèle a été remanié ; plutôt que de
+deviner la bonne forme, le module retrouve le groupe **par son nom**.
+
+Deux conséquences :
+
+- tant que le groupe n'existe pas, l'écran est en lecture seule pour tout le
+  monde, commentaire compris — un défaut qui se voit tout de suite, à
+  l'inverse d'un droit ouvert par défaut ;
+- le nom doit correspondre **exactement**. Le renommer coupe la saisie. Il est
+  porté par la constante `FMA_GROUPE_MODIF` dans `mrp_production.py`.
 
 Le contrôle passe par `fma_peut_modifier_ordo`, booléen calculé non stocké.
 Odoo n'a pas de droit d'écriture par champ : poser `groups` sur le champ le
