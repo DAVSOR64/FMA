@@ -243,7 +243,8 @@ class ExportSFTPScheduler(models.Model):
                         p.x_studio_mode_de_rglement_dsa.x_studio_libelle or "",
                         # bool(getattr(p, 'active', True)),
                         getattr(p, "html2plaintext(comment).strip()", "") or "",
-                        p.siret or "",
+                        # SIRET : company_registry depuis la v19.
+                        p.commercial_partner_id.company_registry or "",
                         getattr(p, "part_siren", "") or "",
                         getattr(p, "part_date_couverture", "") or "",
                         to_float(getattr(p, "part_montant_couverture", "") or ""),
@@ -368,19 +369,8 @@ class ExportSFTPScheduler(models.Model):
                         if getattr(o, "tag_ids", False)
                         else "",
                         # getattr(o, 'confirmation_date', False) and o.confirmation_date.strftime('%Y-%m-%d %H:%M:%S') or '',
-                        # Commercial : le nom HISTORIQUE d'abord, le nouveau
-                        # champ seulement s'il est vide.
-                        #
-                        # L'ordre compte. commercial_id a ete calcule sur tous
-                        # les devis existants a la creation du champ ; le
-                        # prendre en priorite reecrirait le commercial des
-                        # 4 365 devis deja factures dans les rapports Power BI.
-                        # Le champ historique n'etant alimente que sur les
-                        # devis anterieurs a la bascule, ce repli donne
-                        # l'historique pour les anciens et le nouveau
-                        # commercial pour les suivants.
-                        (getattr(o, "x_studio_commercial_1", "") or "")
-                        or _m2o_name(getattr(o, "commercial_id", None)),
+                        _m2o_name(getattr(o, "x_studio_commercial_1", None))
+                        or (getattr(o, "x_studio_commercial_1", "") or ""),
                         _m2o_name(getattr(o, "x_studio_srie", None))
                         or (getattr(o, "x_studio_srie", "") or ""),
                         _m2o_name(getattr(o, "x_studio_gamme", None))
@@ -388,11 +378,7 @@ class ExportSFTPScheduler(models.Model):
                         getattr(o, "x_studio_avancement", "") or "",
                         _m2o_name(getattr(o, "x_studio_bureau_dtude", None))
                         or (getattr(o, "x_studio_bureau_dtude", "") or ""),
-                        # project_id (natif) d'abord, x_studio_projet ensuite.
-                        # Les deux portent la meme valeur depuis la reprise ;
-                        # le repli couvre les devis crees avant celle-ci.
-                        _m2o_name(getattr(o, "project_id", None))
-                        or _m2o_name(getattr(o, "x_studio_projet", None))
+                        _m2o_name(getattr(o, "x_studio_projet", None))
                         or (getattr(o, "x_studio_projet", "") or ""),
                         getattr(o, "so_delai_confirme_en_semaine", "") or "",
                         getattr(o, "so_commande_client", "") or "",
@@ -546,11 +532,8 @@ class ExportSFTPScheduler(models.Model):
                     # Lien commande
                     (str(l.order_id.id) if getattr(l, "order_id", False) else ""),
                     (l.order_id.name if getattr(l, "order_id", False) else ""),
-                    # Cette colonne sortait l'enregistrement lui-meme et non
-                    # son nom, faute de passer par _m2o_name comme les autres.
                     (
-                        _m2o_name(getattr(l.order_id, "project_id", None))
-                        or _m2o_name(getattr(l.order_id, "x_studio_projet", None))
+                        l.order_id.x_studio_projet
                         if getattr(l, "order_id", False)
                         else ""
                     ),

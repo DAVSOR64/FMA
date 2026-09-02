@@ -49,7 +49,9 @@ class ResPartner(models.Model):
                         str(partner.name or "").replace(";", ","),
                         str(partner.phone or "").replace(";", ","),
                         str(partner.email or "").replace(";", ","),
-                        str(partner.siret or "").replace(";", ","),
+                        # SIRET : company_registry depuis la v19, porte par le
+                        # partenaire commercial.
+                        str(partner.commercial_partner_id.company_registry or "").replace(";", ","),
                         str(partner.vat or "").replace(";", ","),
                         str(partner.street or "").replace(";", ","),
                         str(partner.zip or "").replace(";", ","),
