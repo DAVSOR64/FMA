@@ -28,16 +28,16 @@ class IziqoConnector(models.AbstractModel):
 
     @api.model
     def _iziqo_params(self):
+        """Parametres communs a toutes les ressources. L'URL de collection et
+        l'identifiant de ressource sont portes par chaque modele synchronise
+        (voir iziqo.sync.mixin)."""
         get_param = self.env["ir.config_parameter"].sudo().get_param
         return {
-            "url": (get_param("iziqo_sync.api_url") or "").strip(),
             "auth_type": get_param("iziqo_sync.auth_type") or "bearer",
             "api_key": (get_param("iziqo_sync.api_key") or "").strip(),
             "api_key_header": (get_param("iziqo_sync.api_key_header") or "X-API-Key").strip(),
             "login": (get_param("iziqo_sync.login") or "").strip(),
             "password": get_param("iziqo_sync.password") or "",
-            "identifier_field": get_param("iziqo_sync.identifier_field") or "ref",
-            "scope": get_param("iziqo_sync.scope") or "customers_and_prospects",
             "timeout": self._iziqo_int(get_param("iziqo_sync.timeout"), DEFAULT_TIMEOUT),
             "max_attempts": self._iziqo_int(
                 get_param("iziqo_sync.max_attempts"), DEFAULT_MAX_ATTEMPTS
@@ -46,8 +46,16 @@ class IziqoConnector(models.AbstractModel):
         }
 
     @api.model
-    def _iziqo_is_configured(self):
-        return bool(self._iziqo_params()["url"])
+    def _iziqo_resources(self):
+        """Modeles synchronisables et leur URL, pour le test de connexion et
+        les compteurs des reglages."""
+        resources = []
+        for model_name, label in self.env["iziqo.sync.job"]._selection_res_model():
+            model = self.env.get(model_name)
+            if model is None:
+                continue
+            resources.append((model_name, label, model._iziqo_url()))
+        return resources
 
     @api.model
     def _iziqo_int(self, value, default):

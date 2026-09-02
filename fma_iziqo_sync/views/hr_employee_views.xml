@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_employee_form_iziqo_sync" model="ir.ui.view">
+        <field name="name">hr.employee.form.iziqo.sync</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <!-- Bouton de synchronisation manuelle : indispensable pour les
+                 commerciaux déjà en base avant la mise en place de la synchro. -->
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_iziqo_sync_now" type="object"
+                            string="Synchroniser avec Iziqo"
+                            invisible="iziqo_sync_excluded"
+                            help="Envoie la fiche à Iziqo immédiatement, même hors du département commercial."/>
+                </header>
+            </xpath>
+            <xpath expr="//page[@name='hr_settings']/group" position="inside">
+                <group name="iziqo_sync" string="Synchronisation Iziqo">
+                    <field name="iziqo_sync_excluded"/>
+                    <field name="iziqo_last_sync_date"/>
+                    <field name="iziqo_last_sync_status"/>
+                    <field name="iziqo_last_sync_error"
+                           invisible="iziqo_last_sync_status != 'error'"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_iziqo_sync_employees" model="ir.actions.server">
+        <field name="name">Synchroniser vers Iziqo</field>
+        <field name="model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_model_id" ref="hr.model_hr_employee"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_iziqo_sync_now()</field>
+    </record>
+</odoo>

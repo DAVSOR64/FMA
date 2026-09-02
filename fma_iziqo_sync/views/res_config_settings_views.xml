@@ -7,17 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
                 <app data-string="Iziqo" string="Iziqo" name="iziqo_sync">
-                    <block title="Connexion à la base clients Iziqo"
-                           name="iziqo_sync_connection">
-                        <setting string="URL de la collection clients"
-                                 help="POST {url} à la création, PATCH {url}/{identifiant} à la modification. Laisser vide désactive la synchronisation.">
-                            <field name="iziqo_api_url"
-                                   placeholder="https://api.iziqo.fr/v1/customers"/>
-                        </setting>
-                        <setting string="Identifiant de la ressource"
-                                 help="Valeur placée dans l'URL du PATCH.">
-                            <field name="iziqo_identifier_field"/>
-                        </setting>
+                    <block title="Connexion à l'API Iziqo" name="iziqo_sync_connection">
                         <setting string="Authentification">
                             <field name="iziqo_auth_type"/>
                             <div class="content-group mt16"
@@ -44,18 +34,64 @@
                             </div>
                         </setting>
                         <setting string="Tester la connexion"
-                                 help="Appel GET en lecture seule sur la collection : ne crée rien dans Iziqo.">
+                                 help="Appel GET en lecture seule sur chaque collection configurée : ne crée rien dans Iziqo.">
                             <button name="action_iziqo_test_connection" type="object"
                                     string="Tester l'accès à l'API"
                                     class="btn-secondary"/>
                         </setting>
                     </block>
-                    <block title="Comportement de la synchronisation"
-                           name="iziqo_sync_behaviour">
+
+                    <block title="Clients" name="iziqo_sync_customers">
+                        <setting string="URL de la collection clients"
+                                 help="POST {url} à la création, PATCH {url}/{identifiant} à la modification. Laisser vide désactive la synchronisation des clients.">
+                            <field name="iziqo_api_url"
+                                   placeholder="https://api.iziqo.fr/iziqo-api-v2/customers"/>
+                        </setting>
+                        <setting string="Identifiant de la ressource"
+                                 help="Valeur placée dans l'URL du PATCH.">
+                            <field name="iziqo_identifier_field"/>
+                        </setting>
                         <setting string="Périmètre"
                                  help="Dans tous les cas, seules les sociétés ayant un SIRET sont envoyées.">
                             <field name="iziqo_scope"/>
                         </setting>
+                        <setting string="Synchronisation complète"
+                                 help="Met toutes les sociétés du périmètre en file d'attente. Utile au premier chargement des clients historiques.">
+                            <button name="action_iziqo_sync_all" type="object"
+                                    string="Mettre tous les clients en file"
+                                    class="btn-secondary"/>
+                        </setting>
+                    </block>
+
+                    <block title="Commerciaux" name="iziqo_sync_employees">
+                        <setting string="URL de la collection commerciaux"
+                                 help="Même contrat que les clients : POST à la création, PATCH {url}/{identifiant} à la modification. Laisser vide désactive la synchronisation des commerciaux.">
+                            <field name="iziqo_employee_api_url"
+                                   placeholder="https://api.iziqo.fr/iziqo-api-v2/salespeople"/>
+                        </setting>
+                        <setting string="Identifiant du commercial">
+                            <field name="iziqo_employee_identifier_field"/>
+                        </setting>
+                        <setting string="Périmètre">
+                            <field name="iziqo_employee_scope"/>
+                            <div class="content-group mt16"
+                                 invisible="iziqo_employee_scope != 'department'">
+                                <div class="row">
+                                    <label for="iziqo_employee_department" class="col-lg-4 o_light_label"/>
+                                    <field name="iziqo_employee_department"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Synchronisation complète"
+                                 help="À lancer avant celle des clients : le payload client référence le commercial par son ID Odoo.">
+                            <button name="action_iziqo_sync_all_employees" type="object"
+                                    string="Mettre tous les commerciaux en file"
+                                    class="btn-secondary"/>
+                        </setting>
+                    </block>
+
+                    <block title="Comportement de la synchronisation"
+                           name="iziqo_sync_behaviour">
                         <setting string="Envoi immédiat">
                             <field name="iziqo_realtime"/>
                         </setting>
@@ -67,12 +103,6 @@
                         </setting>
                         <setting string="Conservation du journal">
                             <field name="iziqo_keep_days"/>
-                        </setting>
-                        <setting string="Synchronisation complète"
-                                 help="Met toutes les sociétés du périmètre en file d'attente. Utile au premier chargement des clients historiques.">
-                            <button name="action_iziqo_sync_all" type="object"
-                                    string="Mettre tout le périmètre en file"
-                                    class="btn-secondary"/>
                         </setting>
                     </block>
                 </app>

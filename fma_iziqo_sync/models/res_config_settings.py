@@ -6,11 +6,7 @@ from odoo.exceptions import UserError
 class ResConfigSettings(models.TransientModel):
     _inherit = "res.config.settings"
 
-    iziqo_api_url = fields.Char(
-        string="URL de la collection clients Iziqo",
-        config_parameter="iziqo_sync.api_url",
-        help="Laisser vide désactive complètement la synchronisation.",
-    )
+    # --- Connexion (commune aux deux collections) ----------------------------
     iziqo_auth_type = fields.Selection(
         [
             ("none", "Aucune"),
@@ -39,17 +35,24 @@ class ResConfigSettings(models.TransientModel):
         string="Mot de passe Basic Auth",
         config_parameter="iziqo_sync.password",
     )
+
+    # --- Collection clients --------------------------------------------------
+    iziqo_api_url = fields.Char(
+        string="URL de la collection clients",
+        config_parameter="iziqo_sync.api_url",
+        help="Laisser vide désactive la synchronisation des clients.",
+    )
     iziqo_identifier_field = fields.Selection(
         [
+            ("id", "ID Odoo"),
             ("siret", "SIRET"),
             ("ref", "Code client (ref)"),
-            ("id", "ID Odoo"),
         ],
         string="Identifiant de la ressource",
         config_parameter="iziqo_sync.identifier_field",
-        default="siret",
+        default="id",
         help="Valeur utilisée dans l'URL du PATCH : PATCH {url}/{identifiant}. "
-        "Repli sur le SIRET puis sur l'ID Odoo si la valeur est vide.",
+        "Repli sur l'ID Odoo si la valeur est vide.",
     )
     iziqo_scope = fields.Selection(
         [
@@ -57,10 +60,47 @@ class ResConfigSettings(models.TransientModel):
             ("customers", "Sociétés clientes uniquement (vente déjà passée)"),
             ("flagged", "Sociétés cochées « Iziqo » uniquement"),
         ],
-        string="Périmètre",
+        string="Périmètre clients",
         config_parameter="iziqo_sync.scope",
         default="customers_and_prospects",
     )
+
+    # --- Collection commerciaux ---------------------------------------------
+    iziqo_employee_api_url = fields.Char(
+        string="URL de la collection commerciaux",
+        config_parameter="iziqo_sync.employee_api_url",
+        help="Laisser vide désactive la synchronisation des commerciaux.",
+    )
+    iziqo_employee_identifier_field = fields.Selection(
+        [
+            ("id", "ID Odoo"),
+            ("email", "E-mail professionnel"),
+            ("matricule", "Badge / matricule"),
+        ],
+        string="Identifiant du commercial",
+        config_parameter="iziqo_sync.employee_identifier_field",
+        default="id",
+        help="L'ID Odoo est la valeur envoyée dans « id_employe_commercial » "
+        "du payload client : c'est la clé de jointure côté Iziqo.",
+    )
+    iziqo_employee_scope = fields.Selection(
+        [
+            ("department", "Employés du département commercial"),
+            ("all", "Tous les employés"),
+        ],
+        string="Périmètre commerciaux",
+        config_parameter="iziqo_sync.employee_scope",
+        default="department",
+    )
+    iziqo_employee_department = fields.Char(
+        string="Département commercial",
+        config_parameter="iziqo_sync.employee_department",
+        default="Commerce",
+        help="Nom exact du département, et non son identifiant : il diffère "
+        "d'un environnement à l'autre.",
+    )
+
+    # --- Comportement --------------------------------------------------------
     iziqo_realtime = fields.Boolean(
         string="Envoi immédiat après enregistrement",
         config_parameter="iziqo_sync.realtime",
@@ -89,58 +129,77 @@ class ResConfigSettings(models.TransientModel):
     # -------------------------------------------------------------------------
 
     def action_iziqo_test_connection(self):
-        """Vérifie l'accès à la collection par un GET.
+        """Vérifie l'accès à chaque collection configurée, par un GET.
 
-        Volontairement en lecture seule : un POST de test créerait un client
+        Volontairement en lecture seule : un POST de test créerait une fiche
         factice dans la base Iziqo.
         """
         self.ensure_one()
         connector = self.env["iziqo.connector"]
         params = connector._iziqo_params()
-        if not params["url"]:
-            raise UserError(_("Renseignez d'abord l'URL de la collection clients Iziqo."))
-
-        success, status_code, message = connector._iziqo_request(
-            "GET", params["url"].rstrip("/"), None, params
-        )
-        if not success:
+        resources = [
+            (label, url) for _model, label, url in connector._iziqo_resources() if url
+        ]
+        if not resources:
             raise UserError(
-                _(
-                    "GET %(url)s a répondu %(code)s : %(body)s\n\n"
-                    "401 / 403 : authentification à revoir. "
+                _("Renseignez d'abord au moins une URL de collection Iziqo.")
+            )
+
+        successes = []
+        failures = []
+        for label, url in resources:
+            success, status_code, message = connector._iziqo_request(
+                "GET", url.rstrip("/"), None, params
+            )
+            if success:
+                successes.append(_("%(label)s : OK (code %(code)s)") % {
+                    "label": label, "code": status_code,
+                })
+            else:
+                failures.append(_("%(label)s : code %(code)s sur %(url)s — %(body)s") % {
+                    "label": label,
+                    "code": status_code,
+                    "url": url.rstrip("/"),
+                    "body": message[:300],
+                })
+
+        if failures:
+            raise UserError(
+                "\n\n".join(failures)
+                + _(
+                    "\n\n401 / 403 : authentification à revoir. "
                     "404 : URL de collection inexacte. "
                     "0 : Iziqo injoignable depuis ce serveur."
                 )
-                % {
-                    "url": params["url"].rstrip("/"),
-                    "code": status_code,
-                    "body": message[:500],
-                }
             )
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "type": "success",
-                "message": _("Accès à l'API Iziqo OK (GET, code %s).") % status_code,
-                "sticky": False,
-            },
-        }
+        return self._iziqo_notification(" · ".join(successes))
 
     def action_iziqo_sync_all(self):
+        """Met tous les clients du périmètre en file d'attente."""
         self.ensure_one()
         result = self.env["res.partner"].action_iziqo_sync_all()
-        message = _("%s fiche(s) mise(s) en file d'attente.") % result["queued"]
+        message = _("%s client(s) mis en file d'attente.") % result["queued"]
         if result["missing_siret"]:
-            message += _(
-                " %s société(s) écartée(s) faute de SIRET."
-            ) % result["missing_siret"]
+            message += _(" %s société(s) écartée(s) faute de SIRET.") % result[
+                "missing_siret"
+            ]
+        return self._iziqo_notification(message, sticky=bool(result["missing_siret"]))
+
+    def action_iziqo_sync_all_employees(self):
+        """Met tous les commerciaux du périmètre en file d'attente."""
+        self.ensure_one()
+        result = self.env["hr.employee"].action_iziqo_sync_all_employees()
+        return self._iziqo_notification(
+            _("%s commercial/commerciaux mis en file d'attente.") % result["queued"]
+        )
+
+    def _iziqo_notification(self, message, sticky=False):
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "type": "success",
                 "message": message,
-                "sticky": bool(result["missing_siret"]),
+                "sticky": sticky,
             },
         }

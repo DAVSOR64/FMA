@@ -1,124 +1,115 @@
-# Iziqo : synchronisation des clients
+# Iziqo : synchronisation des clients et des commerciaux
 
-Pousse une fiche client Odoo (`res.partner`) vers la base clients de l'application
-Iziqo **dès sa création ou sa modification**, en remplacement / complément de
-l'export manuel « Fichier clients Iziqo » (`fma_custom`) et de l'export
-quotidien TXT/SFTP (`fma_customer_export`).
+Pousse les fiches Odoo vers la base de l'application Iziqo **dès leur création
+ou leur modification**, en remplacement / complément de l'export manuel
+« Fichier clients Iziqo » (`fma_custom`) et de l'export quotidien TXT/SFTP
+(`fma_customer_export`).
 
 Contrat : **API REST**. `POST {url}` à la création, `PATCH {url}/{identifiant}`
-à la modification. Périmètre : **uniquement les sociétés ayant un SIRET**.
+à la modification.
+
+Deux ressources, deux collections, la même mécanique :
+
+| Ressource | Modèle Odoo | Périmètre par défaut |
+|---|---|---|
+| Clients | `res.partner` | Sociétés **ayant un SIRET**, hors fournisseurs purs |
+| Commerciaux | `hr.employee` | Employés du **département « Commerce »** |
+
+Le payload client référence le commercial par `id_employe_commercial`, qui est
+l'`odoo_id` du payload commercial : c'est la clé de jointure côté Iziqo.
+**Chargez donc les commerciaux avant les clients.**
 
 ## Fonctionnement
 
-1. `create()` / `write()` sur `res.partner` : si la fiche est dans le périmètre
-   (société **avec SIRET**) et qu'un champ suivi a changé, un job
-   `iziqo.sync.job` est créé. Une société sans SIRET est ignorée, puis
-   envoyée automatiquement dès que le SIRET est renseigné (champ suivi).
+1. `create()` / `write()` : si la fiche est dans le périmètre et qu'un champ
+   suivi a changé, un job `iziqo.sync.job` est créé.
 2. L'envoi HTTP est déclenché **après le commit** de la transaction, dans un
    curseur dédié : l'utilisateur qui enregistre n'attend jamais Iziqo et une
    erreur d'API ne fait jamais échouer l'enregistrement.
 3. En cas d'échec, le job est relancé par le cron *Iziqo - Envoi des fiches
    clients en attente* (toutes les 10 min) avec un délai croissant
    (5 min, 15 min, 1 h, 4 h, 24 h) puis passe en état *En échec*.
-4. Si le `POST` répond **409** (client déjà présent côté Iziqo, cas courant au
-   chargement initial), le job bascule immédiatement en `PATCH` sans attendre
-   le cron.
+4. Si le `POST` répond **409** (fiche déjà présente côté Iziqo, cas courant au
+   chargement initial), le job bascule immédiatement en `PATCH`.
 
-Modification d'une adresse de livraison ou de facturation enfant : c'est la
-société parente qui est renvoyée, puisque c'est elle qui porte les colonnes
-« … livraison » du payload.
+Une société sans SIRET est ignorée puis envoyée automatiquement dès que le
+SIRET est renseigné. Modification d'une adresse de livraison ou de facturation
+enfant : c'est la société parente qui est renvoyée, puisque c'est elle qui
+porte les colonnes « … livraison » du payload.
 
 ## Configuration
 
-*Paramètres > Iziqo*
+*Paramètres > Iziqo*, en quatre blocs : **Connexion** (authentification
+commune + test), **Clients**, **Commerciaux**, **Comportement**.
 
 | Paramètre | Clé `ir.config_parameter` | Rôle |
 |---|---|---|
-| URL de la collection clients | `iziqo_sync.api_url` | `POST` à la création, `PATCH {url}/{identifiant}` à la modification. **Vide = synchronisation désactivée** (aucun job créé) |
-| Identifiant de la ressource | `iziqo_sync.identifier_field` | `siret` (défaut), `ref` (code client) ou `id` Odoo, placé dans l'URL du `PATCH`. Repli sur le SIRET puis l'ID Odoo si la valeur est vide |
-| Authentification | `iziqo_sync.auth_type` | `none`, `bearer`, `apikey` (en-tête paramétrable), `basic` |
-| Périmètre | `iziqo_sync.scope` | `customers_and_prospects` (défaut), `customers`, `flagged` |
+| Authentification | `iziqo_sync.auth_type` | `none`, `bearer`, `apikey` (en-tête paramétrable), `basic` — commune aux deux collections |
+| URL collection clients | `iziqo_sync.api_url` | **Vide = clients non synchronisés** |
+| Identifiant client | `iziqo_sync.identifier_field` | `id` (défaut), `siret`, `ref` |
+| Périmètre clients | `iziqo_sync.scope` | `customers_and_prospects` (défaut), `customers`, `flagged` |
+| URL collection commerciaux | `iziqo_sync.employee_api_url` | **Vide = commerciaux non synchronisés** |
+| Identifiant commercial | `iziqo_sync.employee_identifier_field` | `id` (défaut), `email`, `matricule` |
+| Périmètre commerciaux | `iziqo_sync.employee_scope` | `department` (défaut), `all` |
+| Département commercial | `iziqo_sync.employee_department` | Nom exact du département, `Commerce` par défaut |
 | Envoi immédiat | `iziqo_sync.realtime` | Décoché : tout passe par le cron |
-| Timeout / tentatives | `iziqo_sync.timeout`, `iziqo_sync.max_attempts` | 15 s et 5 tentatives par défaut |
-| Conservation du journal | `iziqo_sync.keep_days` | Purge des envois réussis au-delà de 30 jours (cron quotidien) |
+| Timeout / tentatives | `iziqo_sync.timeout`, `iziqo_sync.max_attempts` | 15 s et 5 tentatives |
+| Conservation du journal | `iziqo_sync.keep_days` | Purge des envois réussis au-delà de 30 jours |
 
-Le bouton **Tester l'accès à l'API** fait un `GET` sur la collection : en
-lecture seule, il ne crée rien dans Iziqo.
+Le bouton **Tester l'accès à l'API** fait un `GET` sur chaque collection
+configurée : en lecture seule, il ne crée rien dans Iziqo.
 
-### Périmètres
+Le filtre des commerciaux porte sur le **nom** du département et non sur son
+identifiant, qui diffère d'un environnement à l'autre — même raison que le
+domaine de `res.partner.x_studio_commercial_1`.
 
-Condition commune à tous les périmètres : **être une société et avoir un
-SIRET** (`company_registry` en v19, avec repli sur les anciens champs `siret`
-et `x_studio_siret`). C'est la clé de rapprochement côté Iziqo.
+## Payloads
 
-- `customers_and_prospects` (défaut) : sociétés qui ne sont pas des
-  fournisseurs purs. C'est le seul périmètre qui envoie une fiche **dès sa
-  création**, `customer_rank` ne passant à 1 qu'à la première vente.
-- `customers` : `customer_rank > 0`, périmètre identique à l'export CSV
-  historique.
-- `flagged` : uniquement les sociétés dont la case **Iziqo**
-  (`x_studio_iziqo_1`) est cochée.
+Toutes les clés sont toujours présentes ; une valeur inconnue est une chaîne
+vide, jamais `null`. `actif: false` correspond à une fiche archivée : c'est la
+seule forme de suppression propagée.
 
-Exclusion au cas par cas : case **Exclure de la synchro Iziqo** sur la fiche
-(onglet *Ventes & Achats*).
+**Client** — les clés reprennent les colonnes du fichier CSV Iziqo historique :
+`operation`, `odoo_id`, `code_client`, `nom`, `telephone`, `email`, `siret`,
+`tva`, `adresse`, `cp`, `ville`, `pays`, `code_pays`, `commercial`,
+`id_employe_commercial`, `adresse_livraison`, `cp_livraison`,
+`ville_livraison`, `pays_livraison`, `actif`, `date_modification`.
 
-## Payload
+**Commercial** : `operation`, `odoo_id`, `nom`, `email`, `telephone`, `mobile`,
+`fonction`, `departement`, `matricule`, `actif`, `date_modification`.
 
-Les clés reprennent les colonnes du fichier CSV Iziqo historique pour que le
-mapping côté Iziqo reste inchangé :
+Pour ajouter un champ : surcharger `_iziqo_payload()` sur le modèle concerné.
 
-```json
-{
-  "operation": "create",
-  "odoo_id": 4213,
-  "code_client": "C0042",
-  "nom": "MENUISERIE DUPONT",
-  "telephone": "+33 2 40 00 00 00",
-  "email": "contact@dupont.fr",
-  "siret": "12345678900012",
-  "tva": "FR12345678900",
-  "adresse": "12 rue des Ateliers",
-  "cp": "44000",
-  "ville": "NANTES",
-  "pays": "France",
-  "code_pays": "FR",
-  "commercial": "Pierre ROYER",
-  "id_employe_commercial": "37",
-  "adresse_livraison": "ZA du Chêne",
-  "cp_livraison": "44300",
-  "ville_livraison": "NANTES",
-  "pays_livraison": "France",
-  "actif": true,
-  "date_modification": "2026-08-27 09:12:44"
-}
-```
+## Fiches historiques
 
-Pour ajouter un champ : surcharger `res.partner._iziqo_payload()`. Pour changer
-le périmètre : surcharger `res.partner._iziqo_is_eligible()`.
-
-Une fiche archivée est envoyée comme une modification avec `"actif": false` ;
-les suppressions ne sont pas propagées.
-
-## Clients historiques
-
-Deux façons de rattraper les fiches jamais synchronisées :
-
-- **Bouton « Synchroniser avec Iziqo »** dans l'en-tête de la fiche client, ou
-  action **Synchroniser vers Iziqo** du menu ⚙️ sur une sélection de la liste.
-  Envoi immédiat, et **hors périmètre automatique** : une fiche qui ne remplit
-  pas le `scope` configuré est quand même envoyée. Seules conditions : société,
-  SIRET renseigné, fiche non exclue. Sans SIRET, le bouton refuse en nommant
-  les fiches concernées.
-- **Mettre tout le périmètre en file** dans les réglages : met en file toutes
-  les sociétés du périmètre et laisse le cron envoyer. La notification indique
+- **Bouton « Synchroniser avec Iziqo »** dans l'en-tête de la fiche client et
+  de la fiche employé, ou action du menu ⚙️ sur une sélection de la liste.
+  Envoi immédiat et **hors périmètre automatique** : une fiche qui ne remplit
+  pas le `scope` est quand même envoyée (un commercial rattaché à un autre
+  département, par exemple). Restent bloquants : l'exclusion manuelle et,
+  pour un client, l'absence de SIRET.
+- **Mettre tous les commerciaux / tous les clients en file** dans les réglages.
+  Dans cet ordre, à cause de la clé de jointure. La notification indique
   combien de sociétés ont été écartées faute de SIRET.
+
+## Ajouter une troisième ressource
+
+1. Hériter du mixin : `_inherit = ["mon.modele", "iziqo.sync.mixin"]`.
+2. Déclarer `_iziqo_url_param`, `_iziqo_identifier_param` et
+   `_iziqo_tracked_fields`.
+3. Implémenter `_iziqo_is_eligible()`, `_iziqo_payload()`,
+   `_iziqo_identifier_candidates()` et `_iziqo_manual_targets()`.
+4. Ajouter le modèle à `iziqo.sync.job._selection_res_model()`.
+
+La file, le cron, les relances, le journal, l'envoi post-commit et le bouton
+manuel sont fournis par le mixin.
 
 ## Supervision
 
-*Paramètres > Synchronisation Iziqo > File d'attente et journal* : état,
-nombre de tentatives, code HTTP, réponse d'Iziqo et payload envoyé, avec
-boutons **Relancer** / **Annuler**. La fiche client affiche la date, le statut
-et l'erreur du dernier envoi.
+*Paramètres > Synchronisation Iziqo > File d'attente et journal* : ressource,
+fiche visée, état, tentatives, code HTTP, réponse d'Iziqo et payload envoyé,
+avec boutons **Relancer**, **Annuler** et **Ouvrir la fiche**. Chaque fiche
+affiche par ailleurs la date, le statut et l'erreur de son dernier envoi.
 
 ## Garde-fous
 
@@ -127,3 +118,4 @@ et l'erreur du dernier envoi.
 - Les jobs sont verrouillés (`FOR UPDATE SKIP LOCKED`) : pas de double envoi
   entre l'envoi post-commit et le cron.
 - 5 échecs réseau consécutifs interrompent le lot en cours.
+- URL vide = ressource totalement inerte, aucun job créé.
