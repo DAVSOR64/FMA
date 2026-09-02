@@ -9,6 +9,24 @@ _logger = logging.getLogger(__name__)
 class MrpWorkorder(models.Model):
     _inherit = "mrp.workorder"
 
+    def _fma_employe_de_session(self):
+        """L'employe qui a pris la session, en recordset.
+
+        get_session_owner ne renvoie PAS un recordset mais un identifiant
+        entier. On normalise ici plutot qu'a chaque appel : supposer un
+        recordset a fait echouer le demarrage d'un ordre de travail, et le
+        garde-fou lui-meme, qui lisait un attribut sur cet entier.
+
+        On accepte les deux formes : selon les versions, la methode peut
+        renvoyer l'un ou l'autre.
+        """
+        proprietaire = self.env['hr.employee'].get_session_owner()
+        if not proprietaire:
+            return self.env['hr.employee']
+        if hasattr(proprietaire, '_name'):
+            return proprietaire
+        return self.env['hr.employee'].browse(proprietaire)
+
     def button_start(self, *args, **kwargs):
         """Demarrer rattache TOUJOURS l'operateur courant, meme si un collegue
         est deja dessus.
@@ -29,25 +47,33 @@ class MrpWorkorder(models.Model):
         chacun comme le sien.
         """
         res = super().button_start(*args, **kwargs)
-        employe = self.env['hr.employee'].get_session_owner()
+        employe = self._fma_employe_de_session()
         if not employe:
             return res
         for wo in self:
-            ouvert = wo.time_ids.filtered(
-                lambda t: not t.date_end and t.employee_id == employe
-            )
-            if not ouvert:
-                try:
+            # Deux gestes independants, deux gardes : l'echec de l'ouverture du
+            # pointage ne doit pas empecher le rattachement, qui est ce qui
+            # fait passer la carte au vert et la fait entrer dans « Mes ordres
+            # de travail ». Et ni l'un ni l'autre ne doit empecher de demarrer.
+            try:
+                ouvert = wo.time_ids.filtered(
+                    lambda t: not t.date_end and t.employee_id == employe
+                )
+                if not ouvert:
                     wo.start_employee(employe.id)
-                except Exception:
-                    # Selon les versions, la signature attend un id ou une
-                    # liste. Ne jamais faire echouer un demarrage pour cela.
-                    _logger.exception(
-                        "Atelier FMA : pointage non ouvert pour %s sur %s.",
-                        employe.name, wo.display_name,
-                    )
-            if employe not in wo.employee_ids:
-                wo.employee_ids = [Command.link(employe.id)]
+            except Exception:
+                _logger.exception(
+                    "Atelier FMA : pointage non ouvert pour l'employe %s sur "
+                    "l'ordre %s.", employe.id, wo.id,
+                )
+            try:
+                if employe not in wo.employee_ids:
+                    wo.employee_ids = [Command.link(employe.id)]
+            except Exception:
+                _logger.exception(
+                    "Atelier FMA : employe %s non rattache a l'ordre %s.",
+                    employe.id, wo.id,
+                )
         return res
 
     def button_pending(self):
@@ -100,8 +126,10 @@ class MrpWorkorder(models.Model):
         mais pas encore commence, l'operateur doit desactiver ce filtre. C'est
         le prix du « je ne vois que ce sur quoi je travaille ».
         """
-        employe = self.env['hr.employee'].get_session_owner()
+        employe = self._fma_employe_de_session()
         if not employe:
             return []
-        requete = self.env['mrp.workorder']._search([('employee_ids', 'in', employe)])
+        requete = self.env['mrp.workorder']._search(
+            [('employee_ids', 'in', employe.ids)]
+        )
         return [('id', operator, requete)]
