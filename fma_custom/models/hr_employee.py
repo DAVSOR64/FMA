@@ -152,38 +152,62 @@ class HrEmployee(models.Model):
         Meme regle que les pastilles de l'ecran atelier : « Petit Jessica »
         donne « PJ », « Jean-Pierre Martin » donne « JP », le trait d'union
         comptant comme un separateur.
+
+        Pas d'ensure_one : la methode est appelee depuis la generation
+        d'avatar, qui peut porter sur un enregistrement vide. Lever la ferait
+        retomber sur l'avatar d'Odoo — c'est ce qui laissait une seule lettre.
         """
-        self.ensure_one()
-        nom = (self.name or "").replace("-", " ")
-        mots = [m for m in nom.split(" ") if m]
+        nom = (self[:1].name or "") if self else ""
+        mots = [m for m in nom.replace("-", " ").split(" ") if m]
         return "".join(m[0] for m in mots[:2]).upper() or "?"
 
-    def _avatar_get_placeholder(self):
-        """Avatar genere a partir du nom, plutot que la silhouette d'Odoo.
+    def _fma_svg_initiales(self):
+        """Pastille SVG aux initiales, en octets bruts.
 
-        Une fiche sans photo affichait une silhouette anonyme, identique pour
-        tout le monde. Vider l'image d'une fiche dupliquee reglait donc un
-        probleme pour en poser un autre. On genere ici une pastille aux
-        initiales, avec une teinte stable derivee de l'identifiant : deux
-        employes n'ont pas la meme couleur, et la couleur d'un employe ne
-        change jamais.
+        La teinte derive de l'identifiant : deux employes n'ont pas la meme
+        couleur, et la couleur d'un employe ne change jamais.
+        """
+        initiales = self._fma_initiales()
+        teinte = ((self[:1].id or 0) if self else 0) * 47 % 360
+        svg = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180">'
+            '<rect width="180" height="180" fill="hsl(%s,42%%,46%%)"/>'
+            '<text x="90" y="90" fill="#ffffff" text-anchor="middle" '
+            'dominant-baseline="central" font-size="72" font-weight="600" '
+            'font-family="Helvetica,Arial,sans-serif">%s</text></svg>'
+        ) % (teinte, escape(initiales))
+        return svg.encode()
+
+    def _avatar_get_placeholder(self):
+        """Avatar par defaut : les initiales, plutot qu'une seule lettre.
+
+        ATTENTION A L'ENCODAGE. Cette methode doit rendre des octets BRUTS :
+        l'appelant les encode lui-meme en base64. La premiere version rendait
+        du base64, donc une image doublement encodee, invalide — Odoo
+        retombait sur la sienne et n'affichait qu'une lettre.
         """
         try:
-            initiales = self._fma_initiales()
-            teinte = (self.id or 0) * 47 % 360
-            svg = (
-                '<?xml version="1.0" encoding="UTF-8"?>'
-                '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180">'
-                '<rect width="180" height="180" fill="hsl(%s,42%%,46%%)"/>'
-                '<text x="90" y="90" fill="#ffffff" text-anchor="middle" '
-                'dominant-baseline="central" font-size="76" font-weight="600" '
-                'font-family="Helvetica,Arial,sans-serif">%s</text></svg>'
-            ) % (teinte, escape(initiales))
-            return base64.b64encode(svg.encode())
+            return self._fma_svg_initiales()
         except Exception:
-            # Un avatar n'est jamais un motif d'echec : on retombe sur celui
-            # d'Odoo plutot que de casser l'affichage d'une fiche.
             _logger.exception(
-                "FMA : avatar par defaut non genere pour l'employe %s.", self.id
+                "FMA : avatar par defaut non genere pour l'employe %s.",
+                self[:1].id if self else None,
             )
             return super()._avatar_get_placeholder()
+
+    def _avatar_generate_svg(self):
+        """Second point d'entree : selon la version, c'est celui-ci qui sert.
+
+        Il rend, lui, du base64 — d'ou la difference de traitement avec
+        _avatar_get_placeholder juste au-dessus. Surcharger les deux evite de
+        dependre du chemin qu'emprunte la version installee.
+        """
+        try:
+            return base64.b64encode(self._fma_svg_initiales())
+        except Exception:
+            _logger.exception(
+                "FMA : SVG d'avatar non genere pour l'employe %s.",
+                self[:1].id if self else None,
+            )
+            return super()._avatar_generate_svg()
