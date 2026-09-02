@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!--
+        Nom de l'affaire sur la carte de l'ecran atelier.
+
+        La carte annonce l'ordre de fabrication et le produit fini, jamais
+        l'affaire dont il releve. L'operateur qui prend un OT ne sait donc pas
+        pour quel chantier il travaille.
+
+        On lit « fma_sale_order_id » (fma_mrp_ordonnancement), qui resout la
+        commande de vente par sale_line_id puis par le champ Studio de secours
+        — sale_line_id n'etant pas toujours renseigne chez FMA.
+
+        La carte sert deux modeles : mrp.production, qui porte le champ, et
+        mrp.workorder, qui ne le porte pas et pour lequel on passe par
+        props.production. Le tout est garde : si l'ecran ne charge pas le
+        champ dans sa specification, la ligne ne s'affiche simplement pas,
+        sans casser le rendu.
+    -->
+    <t t-name="fma_shopfloor_active_css.MrpDisplayRecordAffaire"
+       t-inherit="mrp_workorder.MrpDisplayRecord"
+       t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('o_mrp_display_record_title')]" position="after">
+            <t t-set="fmaSource"
+               t-value="props.record.resModel === 'mrp.workorder' ? (props.production and props.production.data) : props.record.data"/>
+            <t t-set="fmaAffaire" t-value="fmaSource and fmaSource.fma_sale_order_id"/>
+            <h5 t-if="fmaAffaire" class="mb-0 text-truncate fw-normal fma_affaire">
+                <span class="opacity-75">Affaire</span>
+                <t t-esc="fmaAffaire.display_name || fmaAffaire[1]"/>
+            </h5>
+        </xpath>
+    </t>
+
+</templates>

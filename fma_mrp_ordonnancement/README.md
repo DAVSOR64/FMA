@@ -205,9 +205,9 @@ Les pastilles de score ont été retirées : le classeur n'en avait pas.
 
 ## Saisie
 
-**Le commentaire est la seule donnée modifiable** de l'écran, et seulement
-pour les membres du groupe **« Modif Ordo »**. Tout le reste est en lecture
-seule, y compris le marqueur « Planifié » et le niveau de complexité.
+**Deux données sont modifiables** sur l'écran, et seulement par les membres du
+groupe **« Modif Ordo »** : le **commentaire** et le marqueur **« Planifié »**.
+Tout le reste est en lecture seule, y compris le niveau de complexité.
 
 Le groupe **n'est pas livré par le module** : il se crée à la main dans Odoo,
 sous le nom exact **« Modif Ordo »**. La déclaration XML d'un `res.groups`

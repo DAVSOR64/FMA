@@ -29,11 +29,34 @@
    ce soit. Le patch JS ajoute « o_fma_mine » quand c'est l'operateur de
    session.
 
-   Un OT pointe par quelqu'un d'autre reste une carte ordinaire : signaler
-   « occupe » remplissait l'ecran d'un etat que l'operateur ne peut ni
-   prendre ni changer, et diluait le seul repere utile — le sien.
+   TOUT OT pointe porte desormais « EN COURS ». La regle precedente exigeait
+   les deux classes : sur une tablette partagee, seul le DERNIER connecte
+   voyait le bandeau, et une affaire sur laquelle trois personnes
+   travaillaient n'apparaissait en cours que pour l'une d'elles.
+
+   La distinction reste lisible : vert franc et bandeau vert quand c'est MON
+   pointage, gris sobre quand c'est celui d'un collegue.
    ===================================================== */
 
+/* Tout OT pointe : bandeau EN COURS, teinte sobre. */
+.o_mrp_display_record.o_active {
+    border-left: 10px solid #94a3b8 !important;
+}
+
+.o_mrp_display_record.o_active::before {
+    content: "▶ EN COURS";
+    display: block;
+    background: #94a3b8;
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    padding: 4px;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+/* Mon propre pointage : meme bandeau, mais vert, pour rester reperable
+   d'un coup d'oeil parmi les OT occupes par d'autres. */
 .o_mrp_display_record.o_active.o_fma_mine {
     background: #e8fff0 !important;
     border-left: 10px solid #00a651 !important;
@@ -41,13 +64,26 @@
 }
 
 .o_mrp_display_record.o_active.o_fma_mine::before {
-    content: "▶ EN COURS";
-    display: block;
     background: #00a651;
-    color: white;
-    font-weight: bold;
-    text-align: center;
-    padding: 4px;
-    margin-bottom: 6px;
-    font-size: 12px;
+}
+
+/* =====================================================
+   INITIALES DANS LES PASTILLES
+
+   Remplacent l'avatar genere par Odoo, dont les initiales ne suivaient pas
+   la convention maison. Meme gabarit que l'image d'origine (.o_avatar), pour
+   que l'alignement de la liste ne bouge pas.
+   ===================================================== */
+
+.fma_initiales {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #1e40af;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .5px;
+    flex: 0 0 auto;
+    user-select: none;
 }

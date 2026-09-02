@@ -245,7 +245,8 @@ class MrpProduction(models.Model):
         string="Planifié",
         tracking=True,
         help="Marqueur de l'ordonnanceur, équivalent du « P » de la colonne "
-             "« planifier » du classeur.",
+             "« planifier » du classeur. Modifiable par les membres du groupe "
+             "« Modif Ordo », comme le commentaire.",
     )
 
     # ------------------------------------------------------------------

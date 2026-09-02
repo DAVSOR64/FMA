@@ -25,7 +25,8 @@
                 <field name="atelier_id" string="Atelier" readonly="1" optional="show"/>
                 <field name="x_studio_niveau_de_complexite" string="Niveaux de complexité" readonly="1"/>
                 <field name="date_start" string="Début débit" readonly="1" optional="show"/>
-                <field name="fma_planifie" string="Planifié" readonly="1" widget="boolean_toggle"/>
+                <field name="fma_planifie" string="Planifié" widget="boolean_toggle"
+                       readonly="not fma_peut_modifier_ordo"/>
                 <field name="is_programmed" string="OT datés" readonly="1" optional="hide"/>
                 <field name="fma_date_fin_prod" string="Fin prod" readonly="1"/>
                 <field name="fma_date_liv_initiale" string="Date liv. initiale" readonly="1" widget="date"/>
@@ -227,7 +228,7 @@
                             <field name="fma_statut_reception_complementaire"/>
                         </group>
                         <group string="Ordonnancement">
-                            <field name="fma_planifie" readonly="1"/>
+                            <field name="fma_planifie" readonly="not fma_peut_modifier_ordo"/>
                             <field name="date_start" string="Début débit" readonly="1"/>
                             <field name="is_programmed"/>
                             <field name="fma_date_fin_prod"/>

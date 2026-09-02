@@ -103,7 +103,15 @@
                                 <span t-field="o.invoice_date" />
                             </td>
                             <td>
-                                <span t-field="o.x_studio_compte_1" />
+                                <!-- Instantane Studio des factures anterieures a la
+                                     bascule s'il est renseigne, code tiers du client
+                                     sinon : les reimpressions restent fideles. -->
+                                <t t-if="o.x_studio_compte_1">
+                                    <span t-field="o.x_studio_compte_1"/>
+                                </t>
+                                <t t-else="">
+                                    <span t-field="o.inv_code_tiers"/>
+                                </t>
                             </td>
                             <td>
                                 <span t-field="o.invoice_date_due" />
@@ -113,6 +121,7 @@
                                     <span t-field="o.x_studio_libelle_1"/>
                                 </t>
                                 <t t-else="">
+                                    <!-- Selection liee au client, cf. custom -->
                                     <span t-field="o.inv_mode_de_reglement"/>
                                 </t>
                             </td>
