@@ -135,6 +135,7 @@ class SaleOrder(models.Model):
                 raise UserError(
                     _("Impossible de confirmer le devis.\n\nLe client n'a pas validé les CGV + RIB.")
                 )
+        self._fma_verifier_delai_bpe("confirmer")
         return super().action_confirm()
 
     def _check_studio_client_bloque(self):

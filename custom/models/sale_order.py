@@ -1,5 +1,6 @@
 import logging
 from odoo import models, fields, api
+from odoo.exceptions import UserError
 from odoo.tools import float_round
 from datetime import timedelta
 
@@ -49,6 +50,30 @@ class SaleOrder(models.Model):
     )
 
     @api.depends('delay_category_id', 'delay_reason_id')
+    def _fma_verifier_delai_bpe(self, geste):
+        """Exige le delai confirme et la date de BPE avant d'engager l'affaire.
+
+        Appelee depuis les deux gestes du circuit FMA : « Validé »
+        (fma_sale_order_custom.action_validation) et « Confirmer »
+        (fma_custom.action_confirm). Ces deux informations alimentent le calcul
+        des dates de livraison prevue et reelle ; franchir l'etape sans elles
+        produisait une affaire sans date, que plus rien ne venait combler
+        ensuite puisque le delai se fige des la validation.
+        """
+        for order in self:
+            manquants = []
+            if not order.so_delai_confirme_en_semaine:
+                manquants.append("le délai confirmé (en semaines)")
+            if not order.so_date_bpe:
+                manquants.append("la date de BPE")
+            if manquants:
+                raise UserError(
+                    "Impossible de %s le devis %s.\n\n"
+                    "Renseignez %s : ces informations déterminent les dates de "
+                    "livraison, et ne seront plus modifiables ensuite."
+                    % (geste, order.name or "", " et ".join(manquants))
+                )
+
     def _compute_so_retard_motif(self):
         for order in self:
             parts = []
