@@ -50,3 +50,7 @@ FMA_STATUT_RECEPTION = [
 
 # États d'un OF pour lequel plus aucun recalcul d'ordonnancement n'a de sens.
 FMA_ETATS_CLOS = ('done', 'cancel')
+
+# Fournisseur suivi a part par l'ordonnancement. Compare sur le debut du nom,
+# les fiches portant des suffixes variables selon les etablissements.
+FMA_FOURNISSEUR_STG = "STG"

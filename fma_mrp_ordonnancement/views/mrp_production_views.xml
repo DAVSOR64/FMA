@@ -25,7 +25,8 @@
                 <field name="atelier_id" string="Atelier" readonly="1" optional="show"/>
                 <field name="x_studio_niveau_de_complexite" string="Niveaux de complexité" readonly="1"/>
                 <field name="date_start" string="Début débit" readonly="1" optional="show"/>
-                <field name="fma_planifie" string="Planifié" readonly="1" widget="boolean_toggle"/>
+                <field name="fma_planifie" string="Planifié" widget="boolean_toggle"
+                       readonly="not fma_peut_modifier_ordo"/>
                 <field name="is_programmed" string="OT datés" readonly="1" optional="hide"/>
                 <field name="fma_date_fin_prod" string="Fin prod" readonly="1"/>
                 <field name="fma_date_liv_initiale" string="Date liv. initiale" readonly="1" widget="date"/>
@@ -35,6 +36,8 @@
                        optional="show" widget="date"
                        decoration-danger="fma_livraison_imminente"
                        decoration-warning="fma_livraison_reportee and not fma_livraison_imminente"/>
+                <field name="fma_retard" string="Retard" readonly="1" widget="boolean_toggle"/>
+                <field name="fma_fournisseur_stg" string="STG" readonly="1" widget="boolean_toggle"/>
                 <field name="fma_statut_livraison" string="Livraison" readonly="1" widget="badge"
                        decoration-danger="fma_statut_livraison == 'pending'"
                        decoration-warning="fma_statut_livraison == 'partial'"
@@ -135,6 +138,10 @@
                                  ('state', 'not in', ['done', 'cancel'])]"/>
                 <filter name="fma_retard_previsionnel" string="Retard prévisionnel"
                         domain="[('fma_retard_previsionnel', '=', True)]"/>
+                <filter name="fma_en_retard_col" string="En retard"
+                        domain="[('fma_retard', '=', True)]"/>
+                <filter name="fma_stg" string="Fournisseur STG"
+                        domain="[('fma_fournisseur_stg', '=', True)]"/>
                 <filter name="fma_non_livre" string="Non livrés"
                         domain="[('fma_statut_livraison', '=', 'pending')]"/>
 
@@ -227,7 +234,7 @@
                             <field name="fma_statut_reception_complementaire"/>
                         </group>
                         <group string="Ordonnancement">
-                            <field name="fma_planifie" readonly="1"/>
+                            <field name="fma_planifie" readonly="not fma_peut_modifier_ordo"/>
                             <field name="date_start" string="Début débit" readonly="1"/>
                             <field name="is_programmed"/>
                             <field name="fma_date_fin_prod"/>

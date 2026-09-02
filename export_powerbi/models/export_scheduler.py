@@ -243,7 +243,8 @@ class ExportSFTPScheduler(models.Model):
                         p.x_studio_mode_de_rglement_dsa.x_studio_libelle or "",
                         # bool(getattr(p, 'active', True)),
                         getattr(p, "html2plaintext(comment).strip()", "") or "",
-                        p.siret or "",
+                        # SIRET : company_registry depuis la v19.
+                        p.commercial_partner_id.company_registry or "",
                         getattr(p, "part_siren", "") or "",
                         getattr(p, "part_date_couverture", "") or "",
                         to_float(getattr(p, "part_montant_couverture", "") or ""),

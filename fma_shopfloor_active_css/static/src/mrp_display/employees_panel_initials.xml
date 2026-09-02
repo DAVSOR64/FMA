@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!--
+        Initiales dans les pastilles du panneau operateurs.
+
+        Odoo y affiche l'avatar de l'employe. Sans photo, il sert une image
+        generee dont les initiales ne suivent pas la convention maison :
+        « Petit Jessica » devrait donner « PJ ».
+
+        On remplace donc l'image par une pastille calculee sur le NOM : premiere
+        lettre de chacun des deux premiers mots, majuscules. Les traits d'union
+        comptent comme des separateurs, « Jean-Pierre Martin » donne « JP ».
+
+        Attention : le compilateur de templates OWL ne sait lire ni les
+        expressions regulieres (il prend « / » pour une division) ni les
+        fonctions flechees. D'ou ce decoupage en operations elementaires.
+    -->
+    <t t-name="fma_shopfloor_active_css.EmployeesPanelInitials"
+       t-inherit="mrp_workorder.MrpDisplayEmployeesPanel_content"
+       t-inherit-mode="extension">
+        <xpath expr="//img[hasclass('o_avatar')]" position="replace">
+            <t t-set="fmaNom" t-value="(employee.name || '').split('-').join(' ').split('  ').join(' ').trim()"/>
+            <t t-set="fmaMots" t-value="fmaNom.split(' ')"/>
+            <div class="o_avatar rounded-circle fma_initiales"
+                 t-att-class="{'opacity-50': !employee.workcenters.length and employee.id !== props.employees.admin.id}"
+                 t-att-title="employee.name"
+                 t-esc="((fmaMots[0] || ' ')[0] + (fmaMots[1] || ' ')[0]).trim().toUpperCase()"/>
+        </xpath>
+    </t>
+
+</templates>

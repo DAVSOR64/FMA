@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from odoo import api, fields, models
 
 from .constants import (
+    FMA_FOURNISSEUR_STG,
     FMA_CATEGORIES_APPRO_KEYS,
     FMA_ETATS_CLOS,
     FMA_POSTE_KEYS,
@@ -233,6 +234,24 @@ class MrpProduction(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Repères de lecture demandés par l'ordonnancement
+    # ------------------------------------------------------------------
+    fma_fournisseur_stg = fields.Boolean(
+        string="STG",
+        compute='_compute_fma_fournisseur_stg', store=True,
+        help="Vrai lorsqu'au moins une commande d'achat rattachée à l'affaire "
+             "est passée chez STG.",
+    )
+    fma_retard = fields.Boolean(
+        string="Retard",
+        compute='_compute_fma_retard', store=True,
+        help="Vrai si la livraison a déjà glissé au-delà de l'engagement, ou "
+             "si elle tient encore l'engagement mais tombe dans les six jours. "
+             "Recalculé chaque nuit par le cron, la seconde règle dépendant de "
+             "la date du jour.",
+    )
+
+    # ------------------------------------------------------------------
     # Colonne F : marqueur manuel « planifier »
     #
     # Le classeur ne calculait rien ici : l'ordonnanceur tapait « P » pour dire
@@ -245,7 +264,8 @@ class MrpProduction(models.Model):
         string="Planifié",
         tracking=True,
         help="Marqueur de l'ordonnanceur, équivalent du « P » de la colonne "
-             "« planifier » du classeur.",
+             "« planifier » du classeur. Modifiable par les membres du groupe "
+             "« Modif Ordo », comme le commentaire.",
     )
 
     # ------------------------------------------------------------------
@@ -523,6 +543,49 @@ class MrpProduction(models.Model):
                 production['fma_score_%s' % poste] = moteur._score_pour(
                     baremes.get(poste, []), ratio,
                 )
+
+    @api.depends('state', 'move_raw_ids')
+    def _compute_fma_fournisseur_stg(self):
+        """Vrai si l'affaire compte au moins un achat chez STG.
+
+        Même résolution des commandes que les colonnes d'approvisionnement, et
+        mêmes limites : le lien OF -> achat étant algorithmique, le recalcul
+        est déclenché depuis purchase.order et rattrapé par le cron.
+        """
+        for production in self:
+            try:
+                fournisseurs = production._fma_purchase_orders().mapped(
+                    'partner_id.name'
+                )
+                production.fma_fournisseur_stg = any(
+                    (nom or '').strip().upper().startswith(FMA_FOURNISSEUR_STG)
+                    for nom in fournisseurs
+                )
+            except Exception:
+                _logger.exception(
+                    "Ordonnancement FMA : fournisseur STG non déterminé pour "
+                    "l'OF %s.", production.name or production.id,
+                )
+                production.fma_fournisseur_stg = False
+
+    @api.depends('fma_date_livraison', 'fma_date_liv_initiale')
+    def _compute_fma_retard(self):
+        """Deux situations méritent l'alerte, et une seule couleur les porte.
+
+        La livraison a déjà glissé au-delà de l'engagement ; ou elle le tient
+        encore, mais l'échéance tombe dans les six jours et il n'y a plus de
+        marge pour absorber un aléa.
+        """
+        limite = fields.Date.context_today(self) + timedelta(days=6)
+        for production in self:
+            actuelle = production._fma_en_date_locale(production.fma_date_livraison)
+            initiale = production._fma_en_date_locale(production.fma_date_liv_initiale)
+            if not actuelle or not initiale:
+                production.fma_retard = False
+            elif actuelle > initiale:
+                production.fma_retard = True
+            else:
+                production.fma_retard = actuelle < limite
 
     @api.depends('state', 'move_raw_ids')
     def _compute_fma_appro(self):
@@ -845,7 +908,8 @@ class MrpProduction(models.Model):
             + self._fma_champs_appro()
             + ['fma_nb_reperes', 'fma_score_complexite', 'fma_date_livraison',
                'fma_statut_livraison', 'fma_date_liv_initiale',
-               'fma_retard_previsionnel',
+               'fma_retard_previsionnel', 'fma_fournisseur_stg',
+               'fma_retard',
                'fma_date_fin_prod']
         )
         self._fma_marquer_recalcul(champs, productions=productions, force=True)
