@@ -1,9 +1,54 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import Command, models
+
+_logger = logging.getLogger(__name__)
 
 
 class MrpWorkorder(models.Model):
     _inherit = "mrp.workorder"
+
+    def button_start(self, *args, **kwargs):
+        """Demarrer rattache TOUJOURS l'operateur courant, meme si un collegue
+        est deja dessus.
+
+        Sur une tablette partagee, Odoo considere l'ordre comme deja demarre
+        des qu'un operateur y pointe : le second qui appuie sur « Démarrer »
+        obtient bien l'ecran de travail, mais n'est pas ajoute a
+        `employee_ids`. Consequences, toutes deux constatees en pre-production :
+        la carte ne passe pas au vert pour lui — le vert vient de
+        `o_fma_mine`, qui teste sa presence dans cette liste — et l'ordre
+        n'apparait pas dans « Mes ordres de travail », qui cherche sur la meme
+        liste.
+
+        On ne change pas ce que fait Odoo : on complete apres coup. Si
+        l'operateur de session n'a pas de pointage ouvert, on lui en ouvre un ;
+        s'il en a un sans figurer dans `employee_ids`, on l'y rattache. Deux
+        operateurs peuvent ainsi travailler sur le meme ordre en le voyant
+        chacun comme le sien.
+        """
+        res = super().button_start(*args, **kwargs)
+        employe = self.env['hr.employee'].get_session_owner()
+        if not employe:
+            return res
+        for wo in self:
+            ouvert = wo.time_ids.filtered(
+                lambda t: not t.date_end and t.employee_id == employe
+            )
+            if not ouvert:
+                try:
+                    wo.start_employee(employe.id)
+                except Exception:
+                    # Selon les versions, la signature attend un id ou une
+                    # liste. Ne jamais faire echouer un demarrage pour cela.
+                    _logger.exception(
+                        "Atelier FMA : pointage non ouvert pour %s sur %s.",
+                        employe.name, wo.display_name,
+                    )
+            if employe not in wo.employee_ids:
+                wo.employee_ids = [Command.link(employe.id)]
+        return res
 
     def button_pending(self):
         """La mise en pause n'arrete QUE le pointage de l'operateur courant.
