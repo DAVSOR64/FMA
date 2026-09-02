@@ -1,26 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!--
+        Reorganisation de la fiche contact.
+
+        Les champs metier etaient poses par des vues Studio, invisibles au code
+        et perdues a la moindre regeneration, ou empiles dans l'onglet Ventes &
+        Achats sans regroupement. Ils sont decrits ici, en trois endroits :
+        l'identite legale sous le numero de TVA, un onglet Assurance-credit, un
+        onglet Technique.
+
+        CHAMPS VOLONTAIREMENT NON AFFICHES. Ils restent en base et dans les
+        exports ; seule la saisie est allegee.
+
+            part_siren, x_studio_char_field_G6qIE  la valeur se deduit de
+                                                   company_registry
+            part_mode_de_reglement                 remplace par le referentiel
+                                                   x_reglements
+            x_studio_compte                        compte comptable, technique
+            x_studio_bic, x_studio_iban            doublons de part_bic/part_iban
+            x_studio_affacturage,
+            x_studio_allianz_*                     doublons des champs part_*
+            x_studio_civilit                       remplace par part_civilite
+            x_studio_mode_de_rglement              Char mort, jamais alimente
+
+        ANCRAGES. Seuls des points verifies sont utilises : le champ vat, le
+        notebook, et le groupe de l'onglet Ventes & Achats. Les noms de page
+        natifs varient d'une version a l'autre ; s'y accrocher ferait echouer
+        l'installation.
+
+        AUTRES MODULES. purchase_order_export, fma_customer_outstanding et
+        fma_iziqo_sync dependent de custom : ils peuvent accrocher leurs propres
+        champs a l'onglet Technique, qui porte le nom fma_technique_page.
+    -->
     <record id="view_partner_form_custom" model="ir.ui.view">
         <field name="name">res.partner.form.custom</field>
         <field name="model">res.partner</field>
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
+
+            <!-- Identite legale, sous le numero de TVA -->
+            <xpath expr="//field[@name='vat']" position="after">
+                <field name="company_registry" string="Siren / Siret"/>
+                <field name="part_civilite" string="Forme juridique"/>
+                <field name="x_studio_code_naf" string="Code NAF"/>
+                <field name="x_studio_etablissement" string="Établissement"/>
+                <field name="x_studio_commercial_1" string="Commercial"/>
+                <field name="x_studio_client_bloque" string="Client bloqué"/>
+                <field name="x_studio_cgv_rib" string="CGV + RIB"/>
+            </xpath>
+
+            <!-- Comptabilite et reglement, la ou l'onglet Ventes & Achats les
+                 attend deja -->
             <xpath expr="//page[@name='sales_purchases']/group" position="inside">
-                <group>
-                    <field name="part_siren" string="SIREN"/>
+                <group string="Comptabilité et règlement">
+                    <!-- Le referentiel x_reglements est la source vivante :
+                         c'est lui qu'alimente mode_reglement_id sur le devis et
+                         la facture. -->
+                    <field name="x_studio_mode_de_rglement_dsa" string="Mode de règlement"/>
+                    <field name="part_code_tiers" string="Code tiers"/>
+                    <field name="x_studio_gneration_n_compte_1"
+                           string="Génération automatique du n° de compte"/>
                     <field name="part_bic" string="BIC"/>
                     <field name="part_iban" string="IBAN"/>
-                    <field name="part_affacturage" string="Affacturage"/>
-                    <field name="part_couverture" string="ALLIANZ ND COVER"/>
-                    <field name="part_date_couverture" string="Date ALLIANZ ND COVER"/>
-                    <field name="part_montant_couverture" string="ALLIANZ COUVERTURE EULEUR"/>
-                    <field name="part_decision" string="ASSURANCE-CREDIT"/>
-                </group>
-                <group string="Suivi commercial">
-                    <field name="x_studio_commercial_1" string="Commercial"/>
-                    <field name="x_studio_cgv_rib" string="CGV + RIB"/>
-                    <field name="x_studio_client_bloque" string="Client bloqué"/>
+                    <field name="x_studio_adresse_dmat_facturation"
+                           string="Adresse de facturation dématérialisée"/>
                 </group>
             </xpath>
+
+            <xpath expr="//notebook" position="inside">
+
+                <page name="fma_assurance_credit_page" string="Assurance-crédit">
+                    <group>
+                        <group string="Encours et conditions">
+                            <field name="credit_limit"/>
+                            <field name="x_studio_encours_autoris" string="Encours autorisé"/>
+                            <field name="x_studio_mtt_echu" string="Montant échu"/>
+                            <field name="x_studio_mtt_non_echu" string="Montant non échu"/>
+                            <field name="x_studio_remise" string="Remise (%)"/>
+                        </group>
+                        <group string="Couverture">
+                            <field name="part_affacturage" string="Affacturage"/>
+                            <field name="part_couverture" string="ALLIANZ ND COVER"/>
+                            <!-- La date n'a de sens que si la couverture existe. -->
+                            <field name="part_date_couverture" string="Date de couverture"
+                                   invisible="not part_couverture"/>
+                            <field name="part_montant_couverture"
+                                   string="Montant couvert"
+                                   invisible="not part_couverture"/>
+                            <field name="part_decision" string="Assurance-crédit"/>
+                        </group>
+                    </group>
+                </page>
+
+                <page name="fma_technique_page" string="Technique">
+                    <group>
+                        <group string="Identification externe" name="fma_identification_externe">
+                            <field name="x_studio_code" string="Code" readonly="1"/>
+                            <field name="x_studio_code_diap" string="Code Diapason"/>
+                            <field name="x_studio_ref_logikal" string="Réf. LOGIKAL"/>
+                            <field name="x_studio_compte_proginov" string="Compte PROGINOV"/>
+                            <field name="x_studio_iziqo_1" string="Présent dans IziQo"/>
+                        </group>
+                        <!-- Groupe laisse vide a dessein : les modules
+                             d'interface y accrochent leurs champs. -->
+                        <group string="Flux documentaires" name="fma_flux_documentaires"/>
+                    </group>
+                </page>
+
+            </xpath>
+
         </field>
     </record>
 </odoo>
