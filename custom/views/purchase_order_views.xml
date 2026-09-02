@@ -43,10 +43,23 @@
                 <field name="x_studio_posit" column_invisible="1"/>
             </xpath>
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
-                <field name="x_studio_hauteur" column_invisible="not parent.x_is_glazing_order"/>
-                <field name="x_studio_largeur" column_invisible="not parent.x_is_glazing_order"/>
-                <field name="x_studio_spacer_2" string="Spacer" column_invisible="not parent.x_is_glazing_order"/>
-                <field name="x_studio_forme" string="Forme" column_invisible="not parent.x_is_glazing_order"/>
+                <!--
+                    optional="show" est explicite a dessein. Ces quatre champs
+                    existent deja dans la liste, poses par une vue Studio. Odoo
+                    fusionne les declarations d'un meme champ : les miennes
+                    heritaient donc de l'etat de la sienne, colonne optionnelle
+                    masquee — d'ou un Repere visible, qui lui est nouveau, et
+                    quatre colonnes absentes. En posant l'attribut, c'est la
+                    derniere vue chargee qui tranche.
+                -->
+                <field name="x_studio_hauteur" string="Hauteur"
+                       optional="show" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_largeur" string="Largeur"
+                       optional="show" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_spacer_2" string="Spacer"
+                       optional="show" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_forme" string="Forme"
+                       optional="show" column_invisible="not parent.x_is_glazing_order"/>
             </xpath>
         </field>
     </record>
