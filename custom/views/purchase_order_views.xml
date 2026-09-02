@@ -21,45 +21,38 @@
                 <attribute name="widget">fma_product_and_description_o2m</attribute>
             </xpath>
 
-            <!-- Le repere se lit AVANT le produit : c'est lui qui identifie la
-                 ligne sur le chantier, le produit vient ensuite. -->
+            <!--
+                TOUTES les colonnes vitrage sont posees AVANT le produit, dans
+                un seul xpath.
+
+                Elles etaient auparavant reparties sur deux xpath visant la meme
+                ancre, l'un « before » l'autre « after ». Seul le premier
+                prenait effet : le Repere s'affichait, hauteur, largeur, spacer
+                et forme jamais — absentes de la liste comme du selecteur de
+                colonnes, donc absentes de l'arbre lui-meme. Une vue Studio
+                remanie vraisemblablement la liste apres product_id.
+
+                Plutot que de chercher laquelle, on pose tout du cote qui
+                fonctionne. Le repere en tete reste la lecture voulue : c'est lui
+                qui identifie la ligne sur le chantier, le produit vient ensuite.
+            -->
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="before">
-                <field name="x_fma_repere" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_fma_repere" string="Repère"
+                       column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_hauteur" string="Hauteur"
+                       column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_largeur" string="Largeur"
+                       column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_spacer_2" string="Spacer"
+                       column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_forme" string="Forme"
+                       column_invisible="not parent.x_is_glazing_order"/>
                 <!--
-                    x_studio_posit est CONSERVE dans la liste, masque.
-
-                    Une vue Studio s'y accroche :
-                        //field[@name='order_line']/list//field[@name='x_studio_posit']
-
-                    Le retirer a rendu toute commande d'achat impossible a
-                    ouvrir — « L'element ne peut etre localise dans la vue
-                    parente ». Un champ pose par Studio n'est pas seulement une
-                    donnee affichee : c'est aussi un point d'ancrage pour
-                    d'autres personnalisations, invisibles depuis le code.
-
-                    Il reste donc dans l'arbre, sans occuper de colonne. Il
-                    pourra disparaitre une fois la vue Studio reprise.
+                    x_studio_posit est conserve, masque : une vue Studio s'y
+                    accroche, et son retrait a rendu toute commande d'achat
+                    impossible a ouvrir.
                 -->
                 <field name="x_studio_posit" column_invisible="1"/>
-            </xpath>
-            <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
-                <!--
-                    optional="show" est explicite a dessein. Ces quatre champs
-                    existent deja dans la liste, poses par une vue Studio. Odoo
-                    fusionne les declarations d'un meme champ : les miennes
-                    heritaient donc de l'etat de la sienne, colonne optionnelle
-                    masquee — d'ou un Repere visible, qui lui est nouveau, et
-                    quatre colonnes absentes. En posant l'attribut, c'est la
-                    derniere vue chargee qui tranche.
-                -->
-                <field name="x_studio_hauteur" string="Hauteur"
-                       optional="show" column_invisible="not parent.x_is_glazing_order"/>
-                <field name="x_studio_largeur" string="Largeur"
-                       optional="show" column_invisible="not parent.x_is_glazing_order"/>
-                <field name="x_studio_spacer_2" string="Spacer"
-                       optional="show" column_invisible="not parent.x_is_glazing_order"/>
-                <field name="x_studio_forme" string="Forme"
-                       optional="show" column_invisible="not parent.x_is_glazing_order"/>
             </xpath>
         </field>
     </record>
