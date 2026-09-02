@@ -13,7 +13,6 @@ import hashlib
 import logging
 
 from odoo import _, models
-from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -41,30 +40,47 @@ class HrEmployee(models.Model):
             par_empreinte[empreinte] |= employe
         return {e: f for e, f in par_empreinte.items() if len(f) > 1}
 
+    def _fma_notifier(self, titre, message, danger=False):
+        """Affiche un resultat SANS annuler la transaction.
+
+        Lever une UserError afficherait bien le message, mais provoquerait un
+        rollback : l'ecriture qui precede serait defaite. C'est ce qui rendait
+        la reinitialisation sans effet — le message s'affichait, rien ne
+        changeait.
+        """
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": titre,
+                "message": message,
+                "type": "danger" if danger else "success",
+                "sticky": True,
+            },
+        }
+
     def action_fma_diagnostiquer_avatars(self):
-        """Compte, sans rien modifier, les fiches concernées."""
+        """Compte, sans rien modifier, les fiches concernees."""
         partages = self._fma_avatars_partages()
         if not partages:
-            raise UserError(_(
-                "Aucune image partagée parmi les %s fiches sélectionnées.\n\n"
-                "Les avatars identiques ne viennent donc pas d'une "
-                "duplication.", len(self)
-            ))
+            return self._fma_notifier(
+                _("Aucune image partagée"),
+                _("Les %s fiches sélectionnées portent chacune une image qui "
+                  "leur est propre, ou aucune image.", len(self)),
+            )
         lignes = []
         for fiches in partages.values():
-            lignes.append("• %s fiches : %s" % (
-                len(fiches), ", ".join(fiches.mapped("name")[:6])
-                + (" …" if len(fiches) > 6 else "")
+            noms = fiches.mapped("name")
+            lignes.append("• %s fiches : %s%s" % (
+                len(fiches), ", ".join(noms[:6]), " …" if len(noms) > 6 else ""
             ))
-        raise UserError(_(
-            "%s image(s) partagée(s) par plusieurs fiches, soit %s employés "
-            "au total :\n\n%s\n\nUtilisez « Rendre son avatar à chaque "
-            "employé » pour les vider. Les photos individuelles ne sont pas "
-            "touchées.",
-            len(partages),
-            sum(len(f) for f in partages.values()),
-            "\n".join(lignes),
-        ))
+        return self._fma_notifier(
+            _("%s image(s) partagée(s)", len(partages)),
+            _("%s employés concernés :\n%s\n\nUtilisez « Rendre son avatar à "
+              "chaque employé » pour les vider. Les photos individuelles ne "
+              "sont pas touchées.",
+              sum(len(f) for f in partages.values()), "\n".join(lignes)),
+        )
 
     def action_fma_reinitialiser_avatars(self):
         """Vide l'image des fiches qui la partagent avec d'autres."""
@@ -73,16 +89,16 @@ class HrEmployee(models.Model):
         for fiches in partages.values():
             concernes |= fiches
         if not concernes:
-            raise UserError(_(
-                "Aucune image partagée : rien à réinitialiser."
-            ))
+            return self._fma_notifier(
+                _("Rien à réinitialiser"),
+                _("Aucune image n'est partagée par plusieurs fiches."),
+            )
         concernes.write({"image_1920": False})
         _logger.info(
             "FMA : avatar réinitialisé sur %s fiche(s) employé.", len(concernes)
         )
-        raise UserError(_(
-            "Avatar réinitialisé sur %s fiche(s).\n\n"
-            "Chacune retrouve l'avatar que Odoo génère pour elle. Une photo "
-            "peut être reposée normalement sur les fiches concernées.",
-            len(concernes),
-        ))
+        return self._fma_notifier(
+            _("Avatar réinitialisé sur %s fiche(s)", len(concernes)),
+            _("Chacune retrouve l'avatar généré pour elle. Une photo peut être "
+              "reposée normalement sur les fiches concernées."),
+        )
