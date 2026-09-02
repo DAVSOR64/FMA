@@ -368,6 +368,34 @@ class SaleOrder(models.Model):
     so_mcv_reel = fields.Monetary(string="M.C.V. en € (Réel)", compute='_compute_so_mcv_reel', store=True)
     so_prc_mcv_reel = fields.Float(string="M.C.V. en % (Réel)", compute='_compute_so_prc_mcv_reel', store=True)
 
+    # Mode de reglement du devis, sur le referentiel x_reglements.
+    #
+    # La notion etait eclatee sur plusieurs champs : un Char sur le devis, des
+    # Selection sur le client, un Many2one vers x_reglements jamais affiche.
+    # Le Char du devis n'etait alimente que par _prepare_order, methode du
+    # portail jamais appelee ici : il restait donc toujours vide.
+    #
+    # On repart du referentiel, seul endroit ou la liste des modes se maintient
+    # sans toucher au code. Pre-rempli depuis le client, modifiable, puis fige :
+    # changer le mode de reglement d'un client ne doit pas reecrire ses
+    # affaires en cours. D'ou « compute + store + readonly=False », et non un
+    # related.
+    mode_reglement_id = fields.Many2one(
+        "x_reglements",
+        string="Mode de règlement",
+        compute="_compute_mode_reglement_id",
+        store=True,
+        readonly=False,
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_mode_reglement_id(self):
+        # Affectation inconditionnelle, et sans jamais lire le champ calcule :
+        # le lire declencherait son propre calcul.
+        for order in self:
+            order.mode_reglement_id = order.partner_id.x_studio_mode_de_rglement_dsa
+
     so_prc_marge_brute_reel_display = fields.Char(
         compute='_compute_so_prc_marge_brute_reel_display',
         string="Marge Brute % Réel (affiché)"
@@ -393,6 +421,7 @@ class SaleOrder(models.Model):
 
     def _prepare_invoice(self):
         invoice_vals = super(SaleOrder, self)._prepare_invoice()
+        invoice_vals['mode_reglement_id'] = self.mode_reglement_id.id
         invoice_vals['x_studio_rfrence_affaire'] = self.x_studio_ref_affaire
         invoice_vals['x_studio_imputation_2'] = self.x_studio_imputation
         invoice_vals['x_studio_delegation_fac'] = self.x_studio_delegation

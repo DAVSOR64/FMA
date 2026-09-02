@@ -57,6 +57,7 @@
             <xpath expr="//group[@name='sale_header']" position="inside">
                 <group string="Informations principales">
                     <field name="so_commande_client"/>
+                        <field name="mode_reglement_id"/>
                     <!-- Le delai et la date de BPE determinent les dates de livraison.
                              Ils se figent des que l'affaire est engagee : les modifier
                              ensuite desalignerait le planning sans rien signaler. -->
