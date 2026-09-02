@@ -60,26 +60,64 @@ class HrEmployee(models.Model):
         }
 
     def action_fma_diagnostiquer_avatars(self):
-        """Compte, sans rien modifier, les fiches concernees."""
+        """Etat brut des images des fiches selectionnees.
+
+        La premiere version ne signalait que les images strictement identiques.
+        Elle ne voyait donc rien la ou le probleme existe pourtant : une
+        duplication peut produire des octets differents — re-encodage,
+        redimensionnement — tout en gardant la meme lettre a l'ecran. Elle ne
+        distingue pas davantage une fiche sans image, dont l'avatar est genere,
+        d'une fiche qui en porte une.
+
+        On rend donc les faits, sans interpretation : qui porte une image, de
+        quelle taille, et lesquelles sont partagees.
+        """
+        avec = self.filtered("image_1920")
+        sans = self - avec
         partages = self._fma_avatars_partages()
-        if not partages:
+        details = []
+        for employe in avec[:12]:
+            image = employe.image_1920
+            taille = len(image if isinstance(image, bytes) else image.encode())
+            details.append("• %s — %s ko" % (employe.name, taille // 1024))
+        if len(avec) > 12:
+            details.append("• … et %s autres" % (len(avec) - 12))
+        message = _(
+            "%(avec)s fiche(s) portent une image, %(sans)s n'en portent aucune."
+            "\n\nUne fiche SANS image affiche un avatar genere par Odoo. Une "
+            "fiche AVEC image affiche cette image, meme si elle ressemble a un "
+            "avatar : c'est le cas apres une duplication.\n\n%(details)s"
+            "\n\n%(partages)s",
+            avec=len(avec), sans=len(sans),
+            details="\n".join(details) or "—",
+            partages=(
+                _("%s groupe(s) d'images strictement identiques.", len(partages))
+                if partages else
+                _("Aucune image strictement identique entre deux fiches.")
+            ),
+        )
+        return self._fma_notifier(_("État des images"), message)
+
+    def action_fma_vider_photos(self):
+        """Vide l'image des fiches selectionnees, sans condition.
+
+        A utiliser quand le diagnostic montre que les fiches portent bien une
+        image mais que celle-ci n'est pas une vraie photo. La selection est le
+        garde-fou : c'est l'utilisateur qui designe les fiches, pas une
+        heuristique.
+        """
+        avec = self.filtered("image_1920")
+        if not avec:
             return self._fma_notifier(
-                _("Aucune image partagée"),
-                _("Les %s fiches sélectionnées portent chacune une image qui "
-                  "leur est propre, ou aucune image.", len(self)),
+                _("Rien à vider"),
+                _("Aucune des %s fiches sélectionnées ne porte d'image.", len(self)),
             )
-        lignes = []
-        for fiches in partages.values():
-            noms = fiches.mapped("name")
-            lignes.append("• %s fiches : %s%s" % (
-                len(fiches), ", ".join(noms[:6]), " …" if len(noms) > 6 else ""
-            ))
+        avec.write({"image_1920": False})
+        _logger.info("FMA : image videe sur %s fiche(s) employe.", len(avec))
         return self._fma_notifier(
-            _("%s image(s) partagée(s)", len(partages)),
-            _("%s employés concernés :\n%s\n\nUtilisez « Rendre son avatar à "
-              "chaque employé » pour les vider. Les photos individuelles ne "
-              "sont pas touchées.",
-              sum(len(f) for f in partages.values()), "\n".join(lignes)),
+            _("Image vidée sur %s fiche(s)", len(avec)),
+            _("Chacune retrouve l'avatar généré par Odoo à partir de son nom. "
+              "Une vraie photo peut être reposée ensuite."),
         )
 
     def action_fma_reinitialiser_avatars(self):

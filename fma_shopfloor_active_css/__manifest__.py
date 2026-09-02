@@ -1,6 +1,6 @@
 {
     "name": "FMA Shop Floor — pointage et reperes visuels",
-    "version": "19.0.1.4.3",
+    "version": "19.0.1.4.4",
     "category": "Manufacturing",
     "summary": "Reperes visuels de l'ecran atelier (OT en cours, initiales) et corrections du pointage.",
     "author": "Paxo Consulting",

@@ -27,6 +27,35 @@ class MrpWorkorder(models.Model):
             return proprietaire
         return self.env['hr.employee'].browse(proprietaire)
 
+    def start_employee(self, employee_id, *args, **kwargs):
+        """Pointer un operateur le rattache TOUJOURS a l'ordre.
+
+        `button_start` n'est pas le seul chemin : selon le geste, l'ecran
+        atelier passe directement par `start_employee`. Surcharger le seul
+        bouton laissait donc le cas non couvert — c'est la raison pour
+        laquelle un second operateur restait absent de `employee_ids`, et sa
+        carte grise.
+
+        On se greffe donc sur le geste elementaire, celui que tous les chemins
+        empruntent : quiconque pointe est rattache.
+        """
+        res = super().start_employee(employee_id, *args, **kwargs)
+        ids = employee_id if isinstance(employee_id, (list, tuple)) else [employee_id]
+        for wo in self:
+            try:
+                manquants = [
+                    i for i in ids
+                    if i and i not in wo.employee_ids.ids
+                ]
+                if manquants:
+                    wo.employee_ids = [Command.link(i) for i in manquants]
+            except Exception:
+                _logger.exception(
+                    "Atelier FMA : employe(s) %s non rattache(s) a l'ordre %s.",
+                    ids, wo.id,
+                )
+        return res
+
     def button_start(self, *args, **kwargs):
         """Demarrer rattache TOUJOURS l'operateur courant, meme si un collegue
         est deja dessus.
