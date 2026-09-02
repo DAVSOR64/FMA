@@ -64,6 +64,24 @@
                 -->
                 <field name="x_studio_client_bloque" string="Client bloqué"/>
                 <field name="x_studio_cgv_rib" string="CGV + RIB"/>
+                <!--
+                    Ces deux champs sont CONSERVES, masques.
+
+                    L'ancienne version de cette vue les posait. Une vue Studio
+                    peut donc s'y accrocher, et leur retrait rendrait la fiche
+                    impossible a ouvrir — c'est ce qui est arrive aux commandes
+                    d'achat avec x_studio_posit : « L'element ne peut etre
+                    localise dans la vue parente ».
+
+                    Un champ pose par une vue n'est pas seulement une donnee
+                    affichee : c'est aussi un point d'ancrage pour d'autres
+                    personnalisations, invisibles depuis le code. On ne le
+                    retire donc pas de l'arbre, on cesse seulement de
+                    l'afficher. Ils pourront disparaitre une fois les vues
+                    Studio de res.partner reprises.
+                -->
+                <field name="part_siren" invisible="1"/>
+                <field name="x_studio_commercial_1" invisible="1"/>
             </xpath>
 
             <!-- Comptabilite et reglement, la ou l'onglet Ventes & Achats les

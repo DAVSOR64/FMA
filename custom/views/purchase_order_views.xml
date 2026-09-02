@@ -25,6 +25,22 @@
                  ligne sur le chantier, le produit vient ensuite. -->
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="before">
                 <field name="x_fma_repere" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
+                <!--
+                    x_studio_posit est CONSERVE dans la liste, masque.
+
+                    Une vue Studio s'y accroche :
+                        //field[@name='order_line']/list//field[@name='x_studio_posit']
+
+                    Le retirer a rendu toute commande d'achat impossible a
+                    ouvrir — « L'element ne peut etre localise dans la vue
+                    parente ». Un champ pose par Studio n'est pas seulement une
+                    donnee affichee : c'est aussi un point d'ancrage pour
+                    d'autres personnalisations, invisibles depuis le code.
+
+                    Il reste donc dans l'arbre, sans occuper de colonne. Il
+                    pourra disparaitre une fois la vue Studio reprise.
+                -->
+                <field name="x_studio_posit" column_invisible="1"/>
             </xpath>
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
                 <field name="x_studio_hauteur" column_invisible="not parent.x_is_glazing_order"/>
