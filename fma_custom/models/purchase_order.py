@@ -29,13 +29,23 @@ class PurchaseOrder(models.Model):
     def write(self, vals):
         res = super().write(vals)
         if not self.env.context.get("skip_studio_sync"):
-            self.with_context(skip_studio_sync=True)._apply_studio_automations()
+            self.with_context(skip_studio_sync=True)._apply_studio_automations(vals)
         return res
 
-    def _apply_studio_automations(self):
+    def _apply_studio_automations(self, vals=None):
         self._propagate_analytic_from_sale_order()
         self._compute_studio_reference()
-        self._sync_responsible_from_project()
+        # L'acheteur ne se resynchronise QU'A la creation et lorsque le projet
+        # change. Le rejouer a chaque ecriture rendait le champ impossible a
+        # corriger : l'utilisateur choisissait un acheteur, enregistrait, et
+        # write() remettait aussitot celui du projet. Le symptome etait le plus
+        # visible sur les commandes generees a la confirmation d'un devis,
+        # celles qui portent toujours un projet.
+        #
+        # Meme regle que la propagation analytique juste au-dessus : ne jamais
+        # ecraser silencieusement une saisie manuelle.
+        if vals is None or "x_studio_projet_du_so" in vals:
+            self._sync_responsible_from_project()
 
     def _propagate_analytic_from_sale_order(self):
         # Ne touche jamais une ligne qui a déjà une répartition analytique
@@ -86,6 +96,9 @@ class PurchaseOrder(models.Model):
                 po.x_studio_rfrence = f"{function} - {po.name}"
 
     def _sync_responsible_from_project(self):
+        """Reprend l'acheteur du projet. Appele a la creation, et au seul
+        changement de projet ensuite : voir _apply_studio_automations.
+        """
         for po in self:
             responsible = po.x_studio_projet_du_so.user_id
             if responsible and po.user_id != responsible:
