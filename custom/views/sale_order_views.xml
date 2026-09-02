@@ -64,9 +64,11 @@
                         <field name="so_date_de_modification_devis" nolabel="1"/>
                         <label for="so_date_devis_valide" string="Devis validé le :" class="label-blue"/>
                         <field name="so_date_devis_valide" nolabel="1"/>
-                        <field name="x_studio_date_de_relance_1"/>
-                        <field name="x_studio_date_de_relance_2"/>
-                        <field name="x_studio_commentaire_supplmentaire"/>
+                        <!-- Les relances et le commentaire complementaire sont
+                             declares par fma_sale_order_custom, pas ici. custom
+                             ne peut pas les citer : la dependance va dans
+                             l'autre sens. C'est ce module qui les pose, dans ce
+                             meme onglet. -->
                     </group>
                         <group string="Commande et production">
                         <label for="so_date_ARC" string="ARC du :" class="label-green"/>

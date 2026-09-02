@@ -56,4 +56,27 @@
             </xpath>
         </field>
     </record>
+
+    <!--
+        Relances et commentaire complementaire, poses dans l'onglet Chronologie
+        cree par custom.
+
+        Ces champs sont declares ICI. custom ne peut pas les citer : il ne
+        depend pas de ce module, c'est l'inverse. Les mettre dans sa vue a fait
+        echouer l'installation en production — « Field
+        x_studio_date_de_relance_1 does not exist in model sale.order », le
+        module qui les declare n'etant pas encore charge.
+    -->
+    <record id="view_order_form_chronologie_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.chronologie.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="custom.view_order_form_custom"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='fma_chronologie_page']/group/group[1]" position="inside">
+                <field name="x_studio_date_de_relance_1"/>
+                <field name="x_studio_date_de_relance_2"/>
+                <field name="x_studio_commentaire_supplmentaire"/>
+            </xpath>
+        </field>
+    </record>
 </odoo>
