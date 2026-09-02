@@ -28,9 +28,14 @@
         natifs varient d'une version a l'autre ; s'y accrocher ferait echouer
         l'installation.
 
-        AUTRES MODULES. purchase_order_export, fma_customer_outstanding et
-        fma_iziqo_sync dependent de custom : ils peuvent accrocher leurs propres
-        champs a l'onglet Technique, qui porte le nom fma_technique_page.
+        AUTRES MODULES. Ces champs ne sont pas cites ici : les citer les
+        rendrait obligatoires, alors que custom ne peut pas dependre de modules
+        qui dependent deja de lui. Chacun s'accroche depuis son cote :
+
+            purchase_order_export     -> groupe fma_flux_documentaires
+            fma_customer_outstanding  -> apres part_decision, deja en place
+            fma_iziqo_sync            -> onglet fma_technique_page, a faire
+                                         par son auteur
     -->
     <record id="view_partner_form_custom" model="ir.ui.view">
         <field name="name">res.partner.form.custom</field>
@@ -101,8 +106,10 @@
                             <field name="x_studio_compte_proginov" string="Compte PROGINOV"/>
                             <field name="x_studio_iziqo_1" string="Présent dans IziQo"/>
                         </group>
-                        <!-- Groupe laisse vide a dessein : les modules
-                             d'interface y accrochent leurs champs. -->
+                        <!-- Rempli par purchase_order_export, qui depend de
+                             custom et se charge donc apres. Laisser le groupe
+                             ici garde la mise en page stable meme si ce module
+                             venait a etre desinstalle. -->
                         <group string="Flux documentaires" name="fma_flux_documentaires"/>
                     </group>
                 </page>
