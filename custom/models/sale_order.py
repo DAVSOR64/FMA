@@ -368,6 +368,27 @@ class SaleOrder(models.Model):
     so_mcv_reel = fields.Monetary(string="M.C.V. en € (Réel)", compute='_compute_so_mcv_reel', store=True)
     so_prc_mcv_reel = fields.Float(string="M.C.V. en % (Réel)", compute='_compute_so_prc_mcv_reel', store=True)
 
+    # Commercial de l'affaire : recopie depuis le client a la selection de
+    # celui-ci, puis **fige**. « compute + store + readonly=False » et non un
+    # related : changer le commercial d'un client ne doit rien changer aux
+    # devis et factures deja etablis, sans quoi la remuneration serait
+    # reecrite retroactivement. Le deviseur peut le modifier — conges, vente
+    # faite par un autre commercial.
+    commercial_id = fields.Many2one(
+        "hr.employee",
+        string="Commercial",
+        compute="_compute_commercial_id",
+        store=True,
+        readonly=False,
+        domain="[('department_id.name', '=', 'Commerce')]",
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_commercial_id(self):
+        for order in self:
+            order.commercial_id = order.partner_id.x_studio_commercial_1
+
     # Mode de reglement du devis, sur le referentiel x_reglements.
     #
     # La notion etait eclatee sur plusieurs champs : un Char sur le devis, des
@@ -422,6 +443,7 @@ class SaleOrder(models.Model):
     def _prepare_invoice(self):
         invoice_vals = super(SaleOrder, self)._prepare_invoice()
         invoice_vals['mode_reglement_id'] = self.mode_reglement_id.id
+        invoice_vals['commercial_id'] = self.commercial_id.id
         invoice_vals['x_studio_rfrence_affaire'] = self.x_studio_ref_affaire
         invoice_vals['x_studio_imputation_2'] = self.x_studio_imputation
         invoice_vals['x_studio_delegation_fac'] = self.x_studio_delegation

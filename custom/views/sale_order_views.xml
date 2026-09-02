@@ -15,41 +15,6 @@
                  "order_details" : elle continue donc immédiatement à la suite
                  du contenu de cette colonne, sans dépendre de la hauteur de
                  "partner_details". -->
-            <xpath expr="//group[@name='order_details']" position="inside">
-                <group string="Chronologie">
-
-                    <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
-                    <field name="so_date_de_reception_devis" nolabel="1"/>
-
-                    <label for="so_date_du_devis" string="Devis fait le :" class="label-blue"/>
-                    <field name="so_date_du_devis" nolabel="1"/>
-
-                    <label for="so_date_de_modification_devis" string="Devis modifié le :" class="label-blue"/>
-                    <field name="so_date_de_modification_devis" nolabel="1"/>
-
-                    <label for="so_date_devis_valide" string="Devis validé le :" class="label-blue"/>
-                    <field name="so_date_devis_valide" nolabel="1"/>
-
-                    <label for="so_date_ARC" string="ARC du :" class="label-green"/>
-                    <field name="so_date_ARC" nolabel="1"/>
-
-                    <label for="so_date_bpe" string="BPE du :" class="label-green"/>
-                    <field name="so_date_bpe" nolabel="1" readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
-
-                    <label for="so_date_bon_pour_fab" string="Bon pour Fab. le :" class="label-orange"/>
-                    <field name="so_date_bon_pour_fab" nolabel="1"/>
-
-                    <label for="so_date_de_fin_de_production_reel" string="Fin de production du :" class="label-orange"/>
-                    <field name="so_date_de_fin_de_production_reel" nolabel="1"/>
-
-                    <label for="so_date_de_livraison" string="Date de livraison prévue :" class="label-orange"/>
-                    <field name="so_date_de_livraison" nolabel="1"/>
-
-                    <label for="so_date_de_livraison_prevu" string="Date de livraison :" class="label-orange"/>
-                    <field name="so_date_de_livraison_prevu" nolabel="1"/>
-
-                </group>
-            </xpath>
 
             <!-- Informations principales/supplémentaires restent une nouvelle
                  ligne pleine largeur de la grille de sale_header (confirmé bien
@@ -57,6 +22,7 @@
             <xpath expr="//group[@name='sale_header']" position="inside">
                 <group string="Informations principales">
                     <field name="so_commande_client"/>
+                        <field name="commercial_id"/>
                         <field name="mode_reglement_id"/>
                     <!-- Le delai et la date de BPE determinent les dates de livraison.
                              Ils se figent des que l'affaire est engagee : les modifier
@@ -79,6 +45,47 @@
             </xpath>
 
             <!-- Onglets en bas de la vue -->
+            <!-- La chronologie occupait une place dans l'en-tete du devis, ou
+                 elle poussait les informations principales vers le bas pour dix
+                 dates rarement consultees toutes ensemble. Elle passe en onglet
+                 dedie, scinde selon les deux moments du circuit : ce qui releve
+                 du devis, et ce qui releve de la commande et de la production.
+                 Le nom fma_chronologie_page permet aux autres modules d'y
+                 accrocher leurs propres champs. -->
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="Chronologie" name="fma_chronologie_page">
+                    <group>
+                    <group string="Devis">
+                        <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
+                        <field name="so_date_de_reception_devis" nolabel="1"/>
+                        <label for="so_date_du_devis" string="Devis fait le :" class="label-blue"/>
+                        <field name="so_date_du_devis" nolabel="1"/>
+                        <label for="so_date_de_modification_devis" string="Devis modifié le :" class="label-blue"/>
+                        <field name="so_date_de_modification_devis" nolabel="1"/>
+                        <label for="so_date_devis_valide" string="Devis validé le :" class="label-blue"/>
+                        <field name="so_date_devis_valide" nolabel="1"/>
+                        <field name="x_studio_date_de_relance_1"/>
+                        <field name="x_studio_date_de_relance_2"/>
+                        <field name="x_studio_commentaire_supplmentaire"/>
+                    </group>
+                        <group string="Commande et production">
+                        <label for="so_date_ARC" string="ARC du :" class="label-green"/>
+                        <field name="so_date_ARC" nolabel="1"/>
+                        <label for="so_date_bpe" string="BPE du :" class="label-green"/>
+                        <field name="so_date_bpe" nolabel="1" readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
+                        <label for="so_date_bon_pour_fab" string="Bon pour Fab. le :" class="label-orange"/>
+                        <field name="so_date_bon_pour_fab" nolabel="1"/>
+                        <label for="so_date_de_fin_de_production_reel" string="Fin de production du :" class="label-orange"/>
+                        <field name="so_date_de_fin_de_production_reel" nolabel="1"/>
+                        <label for="so_date_de_livraison" string="Date de livraison prévue :" class="label-orange"/>
+                        <field name="so_date_de_livraison" nolabel="1"/>
+                        <label for="so_date_de_livraison_prevu" string="Date de livraison :" class="label-orange"/>
+                        <field name="so_date_de_livraison_prevu" nolabel="1"/>
+                    </group>
+                    </group>
+                </page>
+            </xpath>
+
             <xpath expr="//sheet/notebook" position="inside">
 
                 <!-- Onglet Analyse Financière (déjà existant) -->

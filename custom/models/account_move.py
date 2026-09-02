@@ -32,6 +32,26 @@ class AccountMove(models.Model):
     x_studio_related_field_m8sZb = fields.Char(string="test")
     x_studio_mode_de_rglement_1 = fields.Char(string="Mode de réglement")
 
+    # Commercial de la facture. Recu de la commande via _prepare_invoice, ou
+    # a defaut recopie du client. Fige comme sur le devis : une facture emise
+    # ne suit plus les changements du client.
+    commercial_id = fields.Many2one(
+        "hr.employee",
+        string="Commercial",
+        compute="_compute_commercial_id",
+        store=True,
+        readonly=False,
+        domain="[('department_id.name', '=', 'Commerce')]",
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_commercial_id(self):
+        # Les factures issues d'une commande recoivent leur commercial par
+        # _prepare_invoice, ce qui court-circuite ce calcul.
+        for move in self:
+            move.commercial_id = move.partner_id.x_studio_commercial_1
+
     # Mode de reglement, sur le referentiel x_reglements. Recopie depuis la
     # commande (_prepare_invoice) ou, a defaut, depuis le client. Fige : une
     # facture emise ne suit plus les changements du client.
