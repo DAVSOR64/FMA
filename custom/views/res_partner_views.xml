@@ -56,10 +56,12 @@
                     choisir lequel renseigner, sans qu'aucun ne fasse autorite.
                     Le champ reste en base et dans les exports.
 
-                    Le vendeur est DEPLACE ici plutot que redeclare : le
-                    redeclarer le poserait deux fois dans la meme vue.
+                    Le vendeur natif n'est PAS deplace ici. Un premier essai
+                    utilisait position="move" sur user_id : sans precedent dans
+                    ce depot, il a fait echouer l'installation. Le vendeur reste
+                    donc a sa place native, dans l'onglet Ventes & Achats, ou il
+                    est de toute facon attendu.
                 -->
-                <xpath expr="//field[@name='user_id']" position="move"/>
                 <field name="x_studio_client_bloque" string="Client bloqué"/>
                 <field name="x_studio_cgv_rib" string="CGV + RIB"/>
             </xpath>
