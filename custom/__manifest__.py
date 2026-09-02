@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    "version": "19.0.1.0.38",
+    "version": "19.0.1.0.39",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
@@ -12,6 +12,7 @@
     "data": [
         "security/ir.model.access.csv",
         "views/res_partner_views.xml",
+        "views/res_partner_studio_views.xml",
         "views/sale_order_views.xml",
         "views/account_move_views.xml",
         "views/affair_chat_template_views.xml",
