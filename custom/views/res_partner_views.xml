@@ -82,7 +82,17 @@
                 </group>
             </xpath>
 
-            <xpath expr="//notebook" position="inside">
+            <!--
+                Les onglets ajoutes se placent juste APRES le premier onglet
+                natif, Contacts & adresses, et non en fin de carnet : ils
+                encadrent ainsi la lecture au lieu d'etre relegues derriere les
+                onglets techniques d'Odoo.
+
+                L'ancrage est l'INDICE de page, pas son nom. Les noms de page
+                natifs varient d'une version a l'autre et d'un module installe a
+                l'autre ; page[1] est stable et deja utilise dans ce depot.
+            -->
+            <xpath expr="//notebook/page[1]" position="after">
 
                 <page name="fma_assurance_credit_page" string="Assurance-crédit">
                     <group>
