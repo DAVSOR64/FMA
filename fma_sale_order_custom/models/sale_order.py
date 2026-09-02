@@ -141,6 +141,7 @@ class SaleOrder(models.Model):
 
     # Init date validation devis
     def action_validation(self):
+        self._fma_verifier_delai_bpe("valider")
         for order in self:
             order.state = "validated"
             order.x_studio_date_de_la_commande = fields.Datetime.today()
