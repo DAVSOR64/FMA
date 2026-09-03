@@ -5,9 +5,14 @@ import io
 import logging
 import paramiko
 from odoo import _, fields, models
+from odoo.exceptions import UserError
 from markupsafe import Markup
 
 _logger = logging.getLogger(__name__)
+
+# Point de depart par defaut de la reprise, surchargeable par le parametre
+# systeme « fma_customer_export.reprise_depuis ».
+DEFAUT_REPRISE_DEPUIS = "2026-08-01"
 
 
 class ResPartner(models.Model):
@@ -170,6 +175,39 @@ class ResPartner(models.Model):
                 "is_included_in_customers_export_file": True
             })
 
+    def _creer_fichier_clients(self, partners, suffixe=""):
+        """Ecrit le fichier des clients donnes et le journalise sur chacun.
+
+        Isole de la selection : le quotidien et les reprises produisent ainsi
+        exactement le meme fichier. Une divergence entre eux passerait
+        autrement inapercue, et c'est la compta qui la decouvrirait.
+
+        Le fichier est cree sans indicateur de synchronisation : le cron
+        d'envoi SFTP le prendra a son prochain passage, comme les autres.
+        """
+        if not partners:
+            _logger.info("Export clients%s : aucun client a exporter.", suffixe and " " + suffixe)
+            return self.env["ir.attachment"]
+
+        file_content = self._get_file_content(partners)
+        file_name = "Customer_Details_%s%s.txt" % (
+            fields.Datetime.now().strftime("%Y-%m-%d"),
+            suffixe,
+        )
+        file = self.env["ir.attachment"].sudo().create(
+            {
+                "name": file_name,
+                "type": "binary",
+                "datas": base64.b64encode(file_content.encode("utf-8")),
+                "res_model": "res.partner",
+                "mimetype": "text/plain",
+                "is_customer_txt": True,
+            }
+        )
+        self._log_file_for_each_partner(partners, file)
+        _logger.info("Export clients : %s, %s client(s).", file_name, len(partners))
+        return file
+
     def cron_generate_generate_customer_files(self):
         partners = self.search(
             [
@@ -179,28 +217,72 @@ class ResPartner(models.Model):
         )
 
         try:
-            file_content = self._get_file_content(partners)
-
-            file_name = (
-                f"Customer_Details_{fields.Datetime.now().strftime('%Y-%m-%d')}.txt"
-            )
-
-            # ✅ FIX sudo
-            file = self.env["ir.attachment"].sudo().create(
-                {
-                    "name": file_name,
-                    "type": "binary",
-                    "datas": base64.b64encode(file_content.encode("utf-8")),
-                    "res_model": "res.partner",
-                    "mimetype": "text/plain",
-                    "is_customer_txt": True,
-                }
-            )
-
-            self._log_file_for_each_partner(partners, file)
-
+            self._creer_fichier_clients(partners)
         except Exception as e:
             _logger.exception("Erreur export clients: %s", e)
+
+    def action_generer_fichier_clients_depuis(self):
+        """Reprise : les clients crees ou modifies depuis une date donnee.
+
+        A lancer une fois. Le quotidien ne peut pas produire ce fichier : il
+        ne selectionne que les clients jamais exportes
+        (is_included_in_customers_export_file), et un client deja parti chez
+        la compta ne repartira donc jamais, meme modifie depuis. C'est
+        precisement ce qu'une reprise doit rattraper, d'ou l'abandon de ce
+        critere ici au profit des seules dates.
+
+        Le drapeau n'est pas remis a zero pour autant : le journal de chaque
+        fiche garde trace des deux envois, et le quotidien continue de ne
+        prendre que les nouveaux.
+        """
+        depuis = self._date_de_reprise_clients()
+        partners = self.search(
+            [
+                ("is_company", "=", True),
+                "|",
+                ("create_date", ">=", depuis),
+                ("write_date", ">=", depuis),
+            ]
+        )
+        # Pas de try/except ici, a la difference du cron : une reprise est
+        # lancee a la main, celui qui la declenche doit voir l'erreur plutot
+        # que la retrouver dans les journaux du serveur.
+        fichier = self._creer_fichier_clients(partners, suffixe="_reprise")
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "type": "success",
+                "sticky": False,
+                "message": _(
+                    "%(nb)s client(s) exporte(s) depuis le %(date)s. "
+                    "Fichier : %(fichier)s",
+                    nb=len(partners),
+                    date=fields.Date.to_string(fields.Date.to_date(depuis)),
+                    fichier=fichier.name if fichier else "-",
+                ),
+            },
+        }
+
+    def _date_de_reprise_clients(self):
+        """Point de depart de la reprise.
+
+        Parametre systeme plutot que constante : rejouer une autre periode ne
+        doit pas demander un deploiement.
+        """
+        valeur = self.env["ir.config_parameter"].sudo().get_param(
+            "fma_customer_export.reprise_depuis", DEFAUT_REPRISE_DEPUIS
+        )
+        depuis = fields.Date.to_date(valeur)
+        if not depuis:
+            raise UserError(
+                _(
+                    "Le parametre « fma_customer_export.reprise_depuis » vaut "
+                    "« %s », qui n'est pas une date. Attendu : AAAA-MM-JJ.",
+                    valeur,
+                )
+            )
+        return fields.Datetime.to_datetime(depuis)
 
     def cron_send_customers_file_to_sftp_server(self):
         # ✅ FIX sudo
