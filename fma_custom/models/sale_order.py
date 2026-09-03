@@ -135,7 +135,9 @@ class SaleOrder(models.Model):
                 raise UserError(
                     _("Impossible de confirmer le devis.\n\nLe client n'a pas validé les CGV + RIB.")
                 )
-        self._fma_verifier_delai_bpe("confirmer")
+        # Le controle du delai confirme et de la date de BPE est passe en
+        # alerte sur la saisie de l'ARC (custom, _onchange_so_date_arc_alerte) :
+        # il bloquait ici un geste legitime, l'ARC n'etant pas encore revenu.
         return super().action_confirm()
 
     def _check_studio_client_bloque(self):
