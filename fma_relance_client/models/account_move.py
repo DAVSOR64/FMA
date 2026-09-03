@@ -275,14 +275,14 @@ class AccountMove(models.Model):
             if modele.model_id.model == "account.move":
                 cible = min(lot, key=lambda f: f.invoice_date_due or f.invoice_date or fields.Date.today())
                 cible_id = cible.id
-                # Le corps ne parle alors que de cette facture-la : on lui
-                # ajoute le detail des autres, sans quoi le client recevrait
-                # une relance qui en passe une partie sous silence.
-                recapitulatif = self._fma_recapitulatif(lot) if len(lot) > 1 else ""
             else:
                 cible_id = partenaire.id
-                # Un modele ecrit sur le client enumere deja ses factures dues.
-                recapitulatif = ""
+            # Le detail des factures selectionnees est ajoute des qu'il y en a
+            # plusieurs, y compris derriere un modele ecrit sur le client : ce
+            # dernier enumere les factures selon SES criteres de relance, pas
+            # selon la selection. Un client relance sur deux factures dont une
+            # seule remonte au modele recevrait un rappel ampute.
+            recapitulatif = self._fma_recapitulatif(lot) if len(lot) > 1 else ""
 
             valeurs = {}
             if recapitulatif:
@@ -296,6 +296,7 @@ class AccountMove(models.Model):
 
             modele.send_mail(cible_id, force_send=True, email_values=valeurs or None)
             lot._fma_enregistrer_relance(niveau, modele, partenaire)
+            self._fma_avancer_suivi_natif(partenaire, niveau)
             envois += 1
 
         ignorees = len(factures) - len(non_reglees)
@@ -343,8 +344,19 @@ class AccountMove(models.Model):
     # -------------------------------------------------------------------------
 
     @api.model
-    def _fma_responsable_relance(self):
-        """L'utilisateur charge du recouvrement."""
+    def _fma_responsable_relance(self, partenaire=None):
+        """L'utilisateur charge du recouvrement pour ce client.
+
+        Le champ « Responsable » du bloc Suivi des factures d'abord : c'est la
+        qu'Odoo le range, c'est la que le metier le saisit, et il peut differer
+        d'un client a l'autre. Le parametre systeme ne sert que de defaut
+        commun, pour les clients ou rien n'est renseigne.
+        """
+        if partenaire is not None and "followup_responsible_id" in partenaire._fields:
+            responsable = partenaire.followup_responsible_id
+            if responsable:
+                return responsable
+
         valeur = self.env["ir.config_parameter"].sudo().get_param(PARAM_RESPONSABLE)
         if not valeur:
             return self.env["res.users"].browse()
@@ -352,6 +364,36 @@ class AccountMove(models.Model):
         if str(valeur).isdigit():
             return Utilisateur.browse(int(valeur)).exists()
         return Utilisateur.search([("login", "=", valeur)], limit=1)
+
+    def _fma_avancer_suivi_natif(self, partenaire, niveau):
+        """Fait avancer le suivi des factures d'Odoo apres l'envoi.
+
+        Sans cela, la frise « Premier email de rappel / Deuxieme rappel » de la
+        fiche client reste au premier cran quel que soit le nombre de relances
+        envoyees : nos colonnes avancent, l'ecran natif non, et les deux se
+        contredisent sous les yeux du comptable.
+
+        Chaque nom de champ est verifie avant d'etre ecrit : ce sont ceux d'un
+        module Enterprise, qu'on ne peut pas relire ici.
+        """
+        champs = partenaire._fields
+        if "followup_line_id" not in champs:
+            return
+        niveaux = self._fma_niveaux_natifs()
+        if not niveaux:
+            return
+
+        rang = min(niveau, len(niveaux)) - 1
+        valeurs = {"followup_line_id": niveaux[rang].id}
+
+        # Prochaine echeance : l'ecart de delai entre le niveau atteint et le
+        # suivant. Au dernier niveau il n'y a plus d'apres, on n'y touche pas.
+        if "followup_next_action_date" in champs and rang + 1 < len(niveaux):
+            ecart = (niveaux[rang + 1].delay or 0) - (niveaux[rang].delay or 0)
+            valeurs["followup_next_action_date"] = fields.Date.add(
+                fields.Date.context_today(self), days=max(ecart, 1)
+            )
+        partenaire.sudo().write(valeurs)
 
     @api.model
     def cron_fma_activites_relance(self):
@@ -366,14 +408,6 @@ class AccountMove(models.Model):
         laisses de cote : le cron passe tous les jours, il n'a pas a empiler
         des rappels sur un travail en cours.
         """
-        responsable = self._fma_responsable_relance()
-        if not responsable:
-            _logger.warning(
-                "Relance : aucun responsable configure (parametre systeme "
-                "« %s »), aucune activite creee.", PARAM_RESPONSABLE,
-            )
-            return True
-
         factures = self.sudo().search(self._fma_domaine_a_relancer())
         if not factures:
             _logger.info("Relance : aucune facture echue a relancer.")
@@ -385,6 +419,14 @@ class AccountMove(models.Model):
         creees = 0
 
         for partenaire, lot in factures.grouped("commercial_partner_id").items():
+            responsable = self._fma_responsable_relance(partenaire)
+            if not responsable:
+                _logger.warning(
+                    "Relance : pas de responsable pour %s, ni sur la fiche ni "
+                    "dans le parametre « %s » — client passe.",
+                    partenaire.display_name, PARAM_RESPONSABLE,
+                )
+                continue
             deja = Activite.search_count([
                 ("res_model", "=", "res.partner"),
                 ("res_id", "=", partenaire.id),
@@ -413,5 +455,5 @@ class AccountMove(models.Model):
             Activite.create(valeurs)
             creees += 1
 
-        _logger.info("Relance : %s activite(s) creee(s) pour %s.", creees, responsable.display_name)
+        _logger.info("Relance : %s activite(s) creee(s).", creees)
         return True
