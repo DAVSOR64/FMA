@@ -22,35 +22,33 @@
             </xpath>
 
             <!--
-                Colonnes vitrage, sans condition d'affichage.
+                Colonnes vitrage : structure reprise a l'identique de PreProd,
+                ou elles s'affichent. Le modele Python est le meme sur les deux
+                environnements ; seule cette vue differait. Les tentatives de
+                correction en prod (les cinq champs regroupes avant product_id,
+                sans condition) ne donnaient rien alors que la disposition de
+                PreProd fonctionne : repere avant product_id, les quatre
+                colonnes vitrage apres, chacune conditionnee a la commande.
 
-                Elles portaient column_invisible="not parent.x_is_glazing_order".
-                Resultat : invisibles sur une commande pourtant marquee vitrage,
-                et absentes jusqu'au selecteur de colonnes — ce qui est le
-                symptome d'une condition evaluee a vrai. Dans le contexte d'une
-                liste imbriquee, parent.x_is_glazing_order n'etait pas resolu :
-                « not undefined » vaut vrai, donc colonne masquee.
-
-                Trois tours ont ete perdus a chercher ailleurs — les noms de
-                champs, le stockage, le widget, la position de l'xpath — alors
-                que la condition suffisait a tout expliquer.
-
-                Elles s'affichent donc toujours. Sur une commande sans vitrage
-                elles restent vides, ce qui est un moindre mal compare a des
-                colonnes qui ne s'affichent jamais.
+                Ne pas regrouper ces champs dans un seul xpath : le widget
+                fma_product_and_description_o2m traite la colonne produit a
+                part, et c'est la seule difference restante entre les deux
+                environnements.
             -->
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="before">
-                <field name="x_fma_repere" string="Repère"/>
-                <field name="x_studio_hauteur" string="Hauteur"/>
-                <field name="x_studio_largeur" string="Largeur"/>
-                <field name="x_studio_spacer_2" string="Spacer"/>
-                <field name="x_studio_forme" string="Forme"/>
+                <field name="x_fma_repere" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
                 <!--
                     x_studio_posit est conserve, masque : une vue Studio s'y
                     accroche, et son retrait a rendu toute commande d'achat
                     impossible a ouvrir.
                 -->
                 <field name="x_studio_posit" column_invisible="1"/>
+            </xpath>
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
+                <field name="x_studio_hauteur" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_largeur" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_spacer_2" string="Spacer" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_forme" string="Forme" column_invisible="not parent.x_is_glazing_order"/>
             </xpath>
         </field>
     </record>
