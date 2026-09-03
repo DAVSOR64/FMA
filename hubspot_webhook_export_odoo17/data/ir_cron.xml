@@ -8,4 +8,23 @@
         <field name="interval_type">days</field>
         <field name="active">False</field>
     </record>
+
+    <!--
+        Envoi quotidien des clients crees ou modifies dans la journee.
+
+        Programme a 20 h : apres la journee de travail, de sorte que les fiches
+        saisies l'aient toutes ete avant le passage. Un envoi de nuit prendrait
+        la journee ecoulee, mais le domaine part de minuit — mieux vaut donc
+        rester dans la meme journee que celle qu'on exporte.
+    -->
+    <record id="ir_cron_hubspot_export_clients_du_jour" model="ir.cron">
+        <field name="name">HubSpot - Clients crees ou modifies dans la journee</field>
+        <field name="model_id" ref="model_hubspot_webhook_export"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_export_clients_du_jour()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 20:00:00')"/>
+    </record>
 </odoo>

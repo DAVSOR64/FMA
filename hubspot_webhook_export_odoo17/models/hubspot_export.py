@@ -50,6 +50,92 @@ class HubspotWebhookExport(models.AbstractModel):
         return self._post_payload("quotes", payload)
 
     @api.model
+    def _taille_de_lot(self):
+        """Nombre d'enregistrements par envoi. 500 par defaut, parametrable."""
+        valeur = self.env["ir.config_parameter"].sudo().get_param(
+            "hubspot_export.batch_size", "500"
+        )
+        try:
+            taille = int(valeur)
+        except (TypeError, ValueError):
+            taille = 500
+        return taille if taille > 0 else 500
+
+    @api.model
+    def _envoyer_par_lots(self, export_type, cle, enregistrements):
+        """Decoupe la charge et l'envoie lot par lot.
+
+        Un envoi unique de plusieurs milliers de fiches expose a trois
+        ennuis : le delai d'attente du webhook, la limite de taille du corps
+        de requete, et surtout le tout ou rien — une erreur en fin de
+        traitement perdait l'integralite de l'envoi. Par lots, ce qui est
+        passe reste passe, et le journal indique precisement ou l'envoi s'est
+        arrete.
+
+        Chaque lot porte son rang et le total, pour que le destinataire sache
+        qu'il recoit une serie et puisse detecter un trou.
+        """
+        taille = self._taille_de_lot()
+        total = len(enregistrements)
+        if not total:
+            self._post_payload(export_type, {cle: []})
+            return 0
+        nb_lots = (total + taille - 1) // taille
+        for rang in range(nb_lots):
+            lot = enregistrements[rang * taille:(rang + 1) * taille]
+            self._post_payload(export_type, {
+                cle: lot,
+                "lot": rang + 1,
+                "nb_lots": nb_lots,
+                "total_enregistrements": total,
+            })
+            _logger.info(
+                "HubSpot : %s, lot %s/%s envoye (%s enregistrements).",
+                export_type, rang + 1, nb_lots, len(lot),
+            )
+        return nb_lots
+
+    @api.model
+    def action_export_entreprises_complet_par_lots(self):
+        """Premier envoi : TOUTES les entreprises, par lots de 500.
+
+        A lancer une fois, pour la reprise de l'existant. Le quotidien passe
+        ensuite par cron_export_clients_du_jour.
+        """
+        charge = self._prepare_entreprises_payload(force_full=True)
+        nb = self._envoyer_par_lots("entreprises", "entreprise", charge["entreprise"])
+        _logger.info("HubSpot : envoi complet des entreprises termine, %s lot(s).", nb)
+        return True
+
+    @api.model
+    def cron_export_clients_du_jour(self):
+        """Clients crees ou modifies DANS LA JOURNEE.
+
+        Le domaine part de minuit, et non des vingt-quatre dernieres heures :
+        une fenetre glissante decale a chaque execution et finit par manquer
+        des fiches quand le cron prend du retard, ou par les envoyer deux fois
+        quand il repasse tot.
+
+        create_date couvre les creations, write_date les modifications ; Odoo
+        renseigne les deux a la creation, mais on interroge explicitement les
+        deux pour rester lisible.
+        """
+        debut = fields.Datetime.to_datetime(fields.Date.context_today(self))
+        partenaires = self.env["res.partner"].sudo().search(
+            self._domaine_entreprises() + [
+                "|",
+                ("create_date", ">=", debut),
+                ("write_date", ">=", debut),
+            ]
+        )
+        if not partenaires:
+            _logger.info("HubSpot : aucun client cree ou modifie aujourd'hui.")
+            return True
+        charge = self._entreprises_depuis(partenaires)
+        self._envoyer_par_lots("entreprises", "entreprise", charge)
+        return True
+
+    @api.model
     def action_export_all_full(self):
         """Premier envoi complet : entreprises + devis/commandes."""
         self.action_export_entreprises(force_full=True)
@@ -77,10 +163,14 @@ class HubspotWebhookExport(models.AbstractModel):
     # -------------------------------------------------------------------------
 
     @api.model
-    def _prepare_entreprises_payload(self, force_full=False):
-        partners = self._get_partners_to_export(force_full=force_full)
-        entreprises = []
+    def _entreprises_depuis(self, partners):
+        """Traduit des fiches en enregistrements pour le webhook.
 
+        Isole de la selection : l'envoi complet, l'envoi quotidien et l'envoi
+        des seules modifications partagent ainsi exactement la meme mise en
+        forme. Une divergence entre eux passerait autrement inapercue.
+        """
+        entreprises = []
         for partner in partners:
             entreprises.append({
                 "odoo_id": partner.id,
@@ -95,16 +185,30 @@ class HubspotWebhookExport(models.AbstractModel):
                 "date_modification": fields.Date.to_string(partner.write_date.date()) if partner.write_date else "",
             })
 
-        return {"entreprise": entreprises}
+        return entreprises
 
     @api.model
-    def _get_partners_to_export(self, force_full=False):
-        # Sociétés et prospects/clients. On évite les contacts enfants purs pour limiter les doublons.
-        domain = [
+    def _prepare_entreprises_payload(self, force_full=False):
+        partners = self._get_partners_to_export(force_full=force_full)
+        return {"entreprise": self._entreprises_depuis(partners)}
+
+    @api.model
+    def _domaine_entreprises(self):
+        """Perimetre des fiches envoyees a HubSpot.
+
+        Societes et prospects/clients. Les contacts enfants purs sont ecartes :
+        ils feraient doublon avec leur societe cote HubSpot.
+        """
+        return [
             ("active", "=", True),
             "|", ("is_company", "=", True), ("parent_id", "=", False),
             "|", ("customer_rank", ">", 0), ("supplier_rank", "=", 0),
         ]
+
+    @api.model
+    def _get_partners_to_export(self, force_full=False):
+        # Sociétés et prospects/clients. On évite les contacts enfants purs pour limiter les doublons.
+        domain = self._domaine_entreprises()
         if self._export_only_updated() and not force_full:
             since = fields.Datetime.now() - timedelta(days=1)
             domain.append(("write_date", ">=", since))
