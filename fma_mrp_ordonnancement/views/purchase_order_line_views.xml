@@ -12,6 +12,13 @@
                   decoration-success="qty_received &gt;= product_qty"
                   decoration-warning="qty_received &gt; 0 and qty_received &lt; product_qty"
                   decoration-danger="qty_received &lt;= 0">
+                <!-- Acces direct a la commande : la question qui suit la
+                     lecture d'une ligne est presque toujours « et cette
+                     commande, ou en est-elle ? ». En premiere colonne, a
+                     cote du numero auquel elle se rapporte. -->
+                <button name="action_fma_ouvrir_commande" type="object"
+                        icon="fa-external-link"
+                        title="Ouvrir la commande d'achat"/>
                 <field name="order_id" string="Commande"/>
                 <field name="partner_id" string="Fournisseur"/>
                 <field name="fma_famille_appro" string="Famille"/>

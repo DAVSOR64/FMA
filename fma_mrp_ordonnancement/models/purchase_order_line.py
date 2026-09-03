@@ -75,3 +75,30 @@ class PurchaseOrderLine(models.Model):
         if {'date_planned', 'product_qty', 'product_id'} & set(vals):
             self.order_id._fma_invalider_appro()
         return result
+
+    def action_fma_ouvrir_commande(self):
+        """Ouvre la commande d'achat portant cette ligne.
+
+        L'ecran de detail liste des LIGNES, pas des commandes : c'est au
+        niveau de la ligne que se lisent la famille et la date qui remonte sur
+        l'OF. Mais la question qui suit la lecture est presque toujours « et
+        cette commande, ou en est-elle ? », et il fallait jusqu'ici la
+        rechercher a la main dans les achats.
+
+        Une action et non un simple clic sur la ligne : la liste porte des
+        lignes d'achat, un clic y ouvrirait la fiche de la ligne, pas celle de
+        la commande.
+        """
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.order_id.name or "Commande d'achat",
+            'res_model': 'purchase.order',
+            'res_id': self.order_id.id,
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+            # En fenetre et non en pleine page : on revient au detail des
+            # approvisionnements en fermant, sans perdre le filtre ni le
+            # regroupement en cours.
+            'target': 'new',
+        }
