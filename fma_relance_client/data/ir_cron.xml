@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data noupdate="1">
+        <!--
+            Pose chaque matin au recouvrement les clients a relancer. Actif des
+            l'installation : c'est le coeur de la demande, une activite qu'il
+            faut penser a activer ne serait jamais activee.
+
+            7 h : la liste est prete a la prise de poste, et le calcul se fait
+            hors des heures de saisie.
+        -->
+        <record id="ir_cron_activites_relance" model="ir.cron">
+            <field name="name">Relance client - activites du jour</field>
+            <field name="model_id" ref="account.model_account_move"/>
+            <field name="state">code</field>
+            <field name="code">model.cron_fma_activites_relance()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+            <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 07:00:00')"/>
+        </record>
+    </data>
+</odoo>

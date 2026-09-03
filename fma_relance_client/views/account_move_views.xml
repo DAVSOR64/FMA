@@ -25,6 +25,17 @@
             <xpath expr="//field[@name='invoice_user_id']" position="after">
                 <field name="commercial_id" string="Commercial" optional="show"/>
                 <field name="fma_project_id" string="Projet" optional="show"/>
+                <!--
+                    Les trois dates de relance et le niveau qui en decoule.
+                    Masquees par defaut : elles interessent le recouvrement, pas
+                    celui qui vient chercher une facture. Le niveau, lui, est
+                    affiche — c'est sur lui qu'on trie pour savoir par qui
+                    commencer.
+                -->
+                <field name="fma_niveau_relance" string="Niveau" optional="show"/>
+                <field name="fma_date_relance_1" optional="hide"/>
+                <field name="fma_date_relance_2" optional="hide"/>
+                <field name="fma_date_relance_3" optional="hide"/>
             </xpath>
 
         </field>

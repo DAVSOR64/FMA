@@ -7,14 +7,21 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
-# Modele de relance a utiliser quand account_followup n'est pas installe, ou
-# que ses niveaux ne portent pas de modele. Attend l'identifiant XML d'un
-# mail.template, par exemple « account_followup.email_template_followup_1 ».
-PARAM_MODELE = "fma_relance_client.mail_template"
+# Trois relances : au-dela, le dossier n'est plus une affaire de rappel.
+NB_NIVEAUX = 3
 
-# Le modele de relance en place chez FMA. Resolu par son nom : voir
+# Modele impose, par niveau : « fma_relance_client.mail_template_1 », etc.
+# Accepte un nom de modele ou un identifiant XML. Ne sert que si les niveaux
+# de relance natifs ne portent pas de modele.
+PARAM_MODELE = "fma_relance_client.mail_template_%s"
+
+# Modele de dernier recours, tous niveaux confondus. Resolu par son nom : voir
 # _fma_modele_relance.
 NOM_MODELE = "Rappel de paiement"
+
+# Utilisateur charge du recouvrement, a qui les activites sont affectees.
+# Accepte un identifiant numerique ou un login.
+PARAM_RESPONSABLE = "fma_relance_client.responsable"
 
 
 class AccountMove(models.Model):
@@ -32,6 +39,23 @@ class AccountMove(models.Model):
         index="btree_not_null",
     )
 
+    # Les trois dates sont la memoire des relances. Elles ne sont pas saisies :
+    # chaque envoi remplit la premiere encore vide. copy=False, sinon dupliquer
+    # une facture ferait croire qu'elle a deja ete relancee.
+    fma_date_relance_1 = fields.Date(string="Date relance 1", readonly=True, copy=False)
+    fma_date_relance_2 = fields.Date(string="Date relance 2", readonly=True, copy=False)
+    fma_date_relance_3 = fields.Date(string="Date relance 3", readonly=True, copy=False)
+
+    # Le niveau de la PROCHAINE relance, c'est-a-dire le modele de mail qui
+    # partira. Stocke : c'est sur lui qu'on filtre pour savoir qui relancer.
+    fma_niveau_relance = fields.Integer(
+        string="Niveau de relance",
+        compute="_compute_fma_niveau_relance",
+        store=True,
+        help="Niveau du prochain rappel, deduit des dates deja renseignees. "
+             "Vaut %s au maximum." % NB_NIVEAUX,
+    )
+
     @api.depends("line_ids.sale_line_ids.order_id.project_id")
     def _compute_fma_project_id(self):
         for facture in self:
@@ -41,30 +65,69 @@ class AccountMove(models.Model):
             # croire a un rattachement qui n'existe pas.
             facture.fma_project_id = projets if len(projets) == 1 else False
 
+    @api.depends("fma_date_relance_1", "fma_date_relance_2", "fma_date_relance_3")
+    def _compute_fma_niveau_relance(self):
+        for facture in self:
+            envoyees = len(facture._fma_dates_relance(remplies=True))
+            # Plafonne au dernier niveau : passe trois rappels, on continue de
+            # relancer avec le dernier modele plutot que de s'arreter, mais il
+            # n'y a plus de colonne pour en garder la date.
+            facture.fma_niveau_relance = min(envoyees + 1, NB_NIVEAUX)
+
+    def _fma_dates_relance(self, remplies=False):
+        """Les champs de date de relance, dans l'ordre des niveaux."""
+        noms = ["fma_date_relance_%s" % n for n in range(1, NB_NIVEAUX + 1)]
+        if remplies:
+            return [n for n in noms if self[n]]
+        return noms
+
     # -------------------------------------------------------------------------
-    # Relance sur une selection de factures
+    # Choix du modele de mail
     # -------------------------------------------------------------------------
 
-    def _fma_modele_relance(self, partenaire):
-        """Le modele de mail des relances de paiement : « Rappel de paiement ».
+    @api.model
+    def _fma_niveaux_natifs(self):
+        """Les niveaux de relance d'Odoo, du premier rappel au dernier.
 
-        Cherche par son NOM et non par un identifiant XML : celui-ci depend du
-        module qui livre le modele, et un modele retouche ou recree depuis
-        l'interface n'en a pas. Le nom, lui, est ce que le metier connait.
+        account_followup est une application Enterprise : elle peut ne pas etre
+        installee. On l'interroge par le registre plutot que par un import, qui
+        empecherait le module de se charger sans elle.
+        """
+        if "account_followup.followup.line" not in self.env:
+            return self.env["mail.template"].browse()
+        return self.env["account_followup.followup.line"].sudo().search(
+            [("company_id", "in", (False, self.env.company.id))], order="delay asc"
+        )
 
-        Ordre : le parametre systeme d'abord, pour qu'on puisse en imposer un
-        autre sans toucher au code ; le modele nomme ensuite ; le niveau de
-        relance en dernier recours, si le nom venait a changer.
+    def _fma_modele_relance(self, niveau):
+        """Le modele de mail du niveau demande.
+
+        Le niveau vient des colonnes de dates, le modele vient d'Odoo : c'est
+        la configuration des niveaux de relance qui decide de ce qui est ecrit
+        au client, pas ce module. Un troisieme rappel n'a pas le ton du
+        premier, et ce ton se regle dans l'interface, sans deploiement.
+
+        Ordre : le parametre systeme du niveau d'abord, pour pouvoir en imposer
+        un ; le niveau natif correspondant ensuite ; le modele NOM_MODELE en
+        dernier recours, si les niveaux ne sont pas configures.
         """
         Modele = self.env["mail.template"].sudo()
 
-        reference = self.env["ir.config_parameter"].sudo().get_param(PARAM_MODELE)
+        reference = self.env["ir.config_parameter"].sudo().get_param(PARAM_MODELE % niveau)
         if reference:
             modele = self.env.ref(reference, raise_if_not_found=False)
             if not modele:
                 modele = Modele.search([("name", "=", reference)], limit=1)
             if modele:
                 return modele
+
+        niveaux = self._fma_niveaux_natifs()
+        if niveaux:
+            # Moins de niveaux configures que de colonnes : on reste sur le
+            # dernier plutot que de sortir de la liste.
+            ligne = niveaux[min(niveau, len(niveaux)) - 1]
+            if ligne.mail_template_id:
+                return ligne.mail_template_id
 
         modele = Modele.search([("name", "=", NOM_MODELE)], limit=1)
         if modele:
@@ -75,50 +138,42 @@ class AccountMove(models.Model):
         if modele:
             return modele
 
-        # account_followup est une application Enterprise : elle peut ne pas
-        # etre installee. On l'interroge par le registre plutot que par un
-        # import, qui empecherait le module de se charger sans elle.
-        if "account_followup.followup.line" in self.env:
-            niveau = partenaire.followup_line_id if "followup_line_id" in partenaire._fields else False
-            if not niveau:
-                # Client pas encore engage dans un cycle de relance : on prend
-                # le premier niveau, celui du premier rappel.
-                niveau = self.env["account_followup.followup.line"].sudo().search(
-                    [("company_id", "in", (False, self.env.company.id))],
-                    order="delay asc", limit=1,
-                )
-            if niveau and niveau.mail_template_id:
-                return niveau.mail_template_id
-
         raise UserError(_(
-            "Le modele d'e-mail « %(nom)s » est introuvable.\n\n"
-            "Verifiez son nom dans Parametres > Technique > Modeles d'e-mail, "
-            "ou designez-en un autre dans le parametre systeme « %(param)s », "
-            "qui accepte un nom de modele ou un identifiant XML.",
-            nom=NOM_MODELE, param=PARAM_MODELE,
+            "Aucun modele de relance pour le niveau %(niveau)s.\n\n"
+            "Renseignez un modele d'e-mail sur les niveaux de relance "
+            "(Comptabilite > Configuration > Niveaux de relance), ou a defaut "
+            "le parametre systeme « %(param)s », qui accepte un nom de modele "
+            "ou un identifiant XML.",
+            niveau=niveau, param=PARAM_MODELE % niveau,
         ))
 
-    def _fma_pieces_jointes(self, factures):
-        """Les factures selectionnees, en piece jointe de la relance."""
-        pdf, _type = self.env["ir.actions.report"].sudo()._render_qweb_pdf(
-            "account.account_invoices", factures.ids,
-        )
-        piece = self.env["ir.attachment"].create({
-            "name": _("Factures a regler.pdf"),
-            "type": "binary",
-            "raw": pdf,
-            "mimetype": "application/pdf",
-            "res_model": "res.partner",
-            "res_id": factures[0].commercial_partner_id.id,
-        })
-        return piece.ids
+    # -------------------------------------------------------------------------
+    # Corps du mail
+    # -------------------------------------------------------------------------
+
+    def _fma_corps_rendu(self, modele, res_id):
+        """Le corps du modele, rendu, pour pouvoir y ajouter le detail.
+
+        generate_email a disparu de mail.template en Odoo 19 : le rendu passe
+        par _render_field, du mixin de rendu. On renvoie None plutot que de
+        laisser remonter une erreur — mieux vaut une relance sans le detail des
+        autres factures qu'une relance qui ne part pas.
+        """
+        try:
+            return modele._render_field("body_html", [res_id])[res_id]
+        except Exception:
+            _logger.warning(
+                "Relance : corps du modele « %s » non rendu, envoi sans le "
+                "recapitulatif des factures.", modele.name, exc_info=True,
+            )
+            return None
 
     def _fma_recapitulatif(self, factures):
         """Le detail des factures relancees, ajoute au corps du mail.
 
-        Sert quand le modele est ecrit sur la facture : son corps ne peut
-        alors parler que d'une seule d'entre elles, alors que la relance en
-        couvre plusieurs.
+        Sert quand le modele est ecrit sur la facture : son corps ne peut alors
+        parler que d'une seule d'entre elles, alors que la relance en couvre
+        plusieurs.
         """
         lignes = []
         total = 0.0
@@ -153,6 +208,35 @@ class AccountMove(models.Model):
             )
         )
 
+    def _fma_pieces_jointes(self, factures):
+        """Les factures selectionnees, en piece jointe de la relance."""
+        pdf, _type = self.env["ir.actions.report"].sudo()._render_qweb_pdf(
+            "account.account_invoices", factures.ids,
+        )
+        piece = self.env["ir.attachment"].create({
+            "name": _("Factures a regler.pdf"),
+            "type": "binary",
+            "raw": pdf,
+            "mimetype": "application/pdf",
+            "res_model": "res.partner",
+            "res_id": factures[0].commercial_partner_id.id,
+        })
+        return piece.ids
+
+    # -------------------------------------------------------------------------
+    # Envoi
+    # -------------------------------------------------------------------------
+
+    @api.model
+    def _fma_domaine_a_relancer(self):
+        """Les factures client qui appellent une relance."""
+        return [
+            ("move_type", "in", ("out_invoice", "out_refund")),
+            ("state", "=", "posted"),
+            ("payment_state", "not in", ("paid", "reversed", "invoicing_legacy")),
+            ("invoice_date_due", "<", fields.Date.context_today(self)),
+        ]
+
     def action_fma_relancer_client(self):
         """Relance chaque client des factures selectionnees.
 
@@ -166,7 +250,8 @@ class AccountMove(models.Model):
             raise UserError(_("Selectionnez des factures client."))
 
         non_reglees = factures.filtered(
-            lambda f: f.state == "posted" and f.payment_state not in ("paid", "reversed")
+            lambda f: f.state == "posted"
+            and f.payment_state not in ("paid", "reversed", "invoicing_legacy")
         )
         if not non_reglees:
             raise UserError(_(
@@ -176,7 +261,11 @@ class AccountMove(models.Model):
 
         envois = 0
         for partenaire, lot in non_reglees.grouped("commercial_partner_id").items():
-            modele = self._fma_modele_relance(partenaire)
+            # Le niveau du client est celui de sa facture la plus relancee :
+            # c'est l'anciennete du retard qui donne son ton au message, pas la
+            # derniere facture emise.
+            niveau = max(lot.mapped("fma_niveau_relance") or [1])
+            modele = self._fma_modele_relance(niveau)
 
             # Un modele se rend sur le modele de donnees pour lequel il a ete
             # ecrit : ses expressions parlent d'« object ». Ecrit sur le
@@ -188,7 +277,7 @@ class AccountMove(models.Model):
                 cible_id = cible.id
                 # Le corps ne parle alors que de cette facture-la : on lui
                 # ajoute le detail des autres, sans quoi le client recevrait
-                # une relance qui en passe sous silence une partie.
+                # une relance qui en passe une partie sous silence.
                 recapitulatif = self._fma_recapitulatif(lot) if len(lot) > 1 else ""
             else:
                 cible_id = partenaire.id
@@ -196,27 +285,17 @@ class AccountMove(models.Model):
                 recapitulatif = ""
 
             valeurs = {}
-            rendu = modele.generate_email(cible_id, ["body_html"])
-            corps_mail = (rendu.get("body_html") or "") + recapitulatif
-            if corps_mail:
-                valeurs["body_html"] = corps_mail
+            if recapitulatif:
+                corps_rendu = self._fma_corps_rendu(modele, cible_id)
+                if corps_rendu is not None:
+                    valeurs["body_html"] = corps_rendu + recapitulatif
 
             pieces = self._fma_pieces_jointes(lot)
             if pieces:
                 valeurs["attachment_ids"] = [(6, 0, pieces)]
 
             modele.send_mail(cible_id, force_send=True, email_values=valeurs or None)
-
-            # Trace dans le suivi de chaque facture : c'est la qu'on cherchera
-            # si le client conteste avoir ete relance. message_post travaille
-            # sur un enregistrement a la fois, d'ou la boucle.
-            corps = _(
-                "Relance envoyee a %(client)s (modele « %(modele)s »), "
-                "portant sur %(nb)s facture(s).",
-                client=partenaire.display_name, modele=modele.name, nb=len(lot),
-            )
-            for facture in lot:
-                facture.message_post(body=corps)
+            lot._fma_enregistrer_relance(niveau, modele, partenaire)
             envois += 1
 
         ignorees = len(factures) - len(non_reglees)
@@ -228,3 +307,111 @@ class AccountMove(models.Model):
             "tag": "display_notification",
             "params": {"type": "success", "message": message, "sticky": False},
         }
+
+    def _fma_enregistrer_relance(self, niveau, modele, partenaire):
+        """Date la relance sur chaque facture et la trace dans son suivi.
+
+        Chaque facture avance d'un cran, meme si le mail est parti au niveau du
+        lot : c'est bien elle qui vient d'etre reclamee.
+        """
+        aujourdhui = fields.Date.context_today(self)
+        for facture in self:
+            vides = [n for n in facture._fma_dates_relance() if not facture[n]]
+            if vides:
+                facture.sudo().write({vides[0]: aujourdhui})
+                rang = facture._fma_dates_relance().index(vides[0]) + 1
+                trace = _(
+                    "Relance %(rang)s envoyee a %(client)s (modele « %(modele)s »), "
+                    "portant sur %(nb)s facture(s).",
+                    rang=rang, client=partenaire.display_name,
+                    modele=modele.name, nb=len(self),
+                )
+            else:
+                # Les trois colonnes sont prises : on relance quand meme, mais
+                # il n'y a plus de case pour en garder la date.
+                trace = _(
+                    "Relance supplementaire envoyee a %(client)s (modele "
+                    "« %(modele)s ») — les %(nb)s dates de relance sont deja "
+                    "renseignees.",
+                    client=partenaire.display_name, modele=modele.name, nb=NB_NIVEAUX,
+                )
+            # message_post travaille sur un enregistrement a la fois.
+            facture.message_post(body=trace)
+
+    # -------------------------------------------------------------------------
+    # Activite quotidienne du recouvrement
+    # -------------------------------------------------------------------------
+
+    @api.model
+    def _fma_responsable_relance(self):
+        """L'utilisateur charge du recouvrement."""
+        valeur = self.env["ir.config_parameter"].sudo().get_param(PARAM_RESPONSABLE)
+        if not valeur:
+            return self.env["res.users"].browse()
+        Utilisateur = self.env["res.users"].sudo()
+        if str(valeur).isdigit():
+            return Utilisateur.browse(int(valeur)).exists()
+        return Utilisateur.search([("login", "=", valeur)], limit=1)
+
+    @api.model
+    def cron_fma_activites_relance(self):
+        """Pose chaque jour au recouvrement les clients a relancer.
+
+        Une activite par client, et non une seule qui les listerait tous : une
+        activite se marque faite d'un bloc. Celui qui a relance trois clients
+        sur quarante ne pourrait pas le noter, et le lendemain la meme liste
+        reviendrait sans distinguer ce qui a ete traite.
+
+        Les clients qui portent deja une activite de relance ouverte sont
+        laisses de cote : le cron passe tous les jours, il n'a pas a empiler
+        des rappels sur un travail en cours.
+        """
+        responsable = self._fma_responsable_relance()
+        if not responsable:
+            _logger.warning(
+                "Relance : aucun responsable configure (parametre systeme "
+                "« %s »), aucune activite creee.", PARAM_RESPONSABLE,
+            )
+            return True
+
+        factures = self.sudo().search(self._fma_domaine_a_relancer())
+        if not factures:
+            _logger.info("Relance : aucune facture echue a relancer.")
+            return True
+
+        type_activite = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        Activite = self.env["mail.activity"].sudo()
+        modele_partenaire = self.env["ir.model"]._get("res.partner").id
+        creees = 0
+
+        for partenaire, lot in factures.grouped("commercial_partner_id").items():
+            deja = Activite.search_count([
+                ("res_model", "=", "res.partner"),
+                ("res_id", "=", partenaire.id),
+                ("user_id", "=", responsable.id),
+                ("summary", "=like", "Relance client%"),
+            ])
+            if deja:
+                continue
+
+            niveau = max(lot.mapped("fma_niveau_relance") or [1])
+            du = sum(lot.mapped("amount_residual"))
+            valeurs = {
+                "res_model_id": modele_partenaire,
+                "res_id": partenaire.id,
+                "user_id": responsable.id,
+                "date_deadline": fields.Date.context_today(self),
+                "summary": _("Relance client niveau %s", niveau),
+                "note": _(
+                    "%(nb)s facture(s) echue(s), %(montant)s restant du.",
+                    nb=len(lot),
+                    montant=formatLang(self.env, du, currency_obj=lot[0].currency_id),
+                ),
+            }
+            if type_activite:
+                valeurs["activity_type_id"] = type_activite.id
+            Activite.create(valeurs)
+            creees += 1
+
+        _logger.info("Relance : %s activite(s) creee(s) pour %s.", creees, responsable.display_name)
+        return True
