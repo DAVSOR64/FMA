@@ -48,6 +48,77 @@ class SaleOrder(models.Model):
     x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis)", currency_field="currency_id")
     x_studio_avancement_crm = fields.Many2one("crm.stage", string="Avancement CRM")
     x_studio_bureau_dtude = fields.Many2one("res.users", string="Bureau d'étude")
+
+    # --- Champs Studio portes en production ------------------------------
+    # Definitions relevees directement en base (ir_model_fields et
+    # ir_model_fields_selection), reprises a l'identique — y compris quand
+    # la valeur stockee et son libelle divergent : toute retouche rendrait
+    # invisibles les devis portant l'ancienne valeur.
+    #
+    # Ce portage est le prealable a la refonte de la vue : un champ
+    # « manual » cree par Studio n'existe pas encore dans le registre au
+    # moment ou les vues des modules sont chargees, et une vue de module ne
+    # peut donc pas le placer.
+    x_studio_motif_annul = fields.Selection(
+        selection=[
+            # Valeurs telles quelles en base. Deux d'entre elles ont un
+            # libelle qui ne correspond pas a la valeur stockee ; c'est le
+            # cas en production, on ne le corrige pas ici.
+            ("KKJN?", "Dossier transmis - Pas de retour"),
+            ("Retard Travaux", "Retard Travaux"),
+            ("Projet ajourné", "En bonne voie"),
+            ("Changement Typologie", "Changement Typologie"),
+            ("Perdu par le client", "Perdu par le client"),
+            ("Perdu face à un concurrent", "Perdu face à un concurrent"),
+        ],
+        string="Statut Affaire",
+    )
+
+    x_studio_avancement = fields.Selection(
+        selection=[("1", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5", "5")],
+        string="Avancement",
+    )
+
+    x_studio_commercial_si_prospect = fields.Selection(
+        selection=[
+            ("Adrien LAISNE", "Adrien LAISNE"),
+            ("Alexandre BLOT", "Alexandre BLOT"),
+            ("Alexandre POILANE", "Alexandre POILANE"),
+            ("Arnaud Kherfouche", "Arnaud Kherfouche"),
+            ("Baptiste BOUJU", "Baptiste BOUJU"),
+            ("Carlos DA TORRE", "Carlos DA TORRE"),
+            ("Cedric KERGOSIEN", "Cédric KERGOSIEN"),
+            ("Cédric SEGUIN", "Cédric SEGUIN"),
+            ("Christian GUIHARD", "Christian GUIHARD"),
+            ("Christophe CARPENTIER", "Christophe CARPENTIER"),
+            ("Cyril JACQUEMET", "Cyril JACQUEMET"),
+            ("David CHARPENTIER", "David CHARPENTIER"),
+            ("David MAILLOT", "David MAILLOT"),
+            ("David PROVOST", "David PROVOST"),
+            ("Frédéric RAVIER", "Frédéric RAVIER"),
+            ("Hubert BOURDARIAS", "Hubert BOURDARIAS"),
+            ("Jean-Jacques LOPES", "Jean-Jacques LOPES"),
+            ("Jérôme DECAIX", "Jérôme DECAIX"),
+            ("Karine HERVOUET", "Karine HERVOUET"),
+            ("Laurent MILANO", "Laurent MILANO"),
+            ("Lucas DESBRINI", "Lucas DESBRINI"),
+            ("Mathieu LACAM", "Mathieu LACAM"),
+            ("Mathieu LOISEAUX", "Mathieu LOISEAUX"),
+            ("Mickael DUH", "Mickael DUH"),
+            ("Nicolas HUTIN", "Nicolas HUTIN"),
+            ("Paul DOS SANTOS", "Paul DOS SANTOS"),
+            ("Pierre MONTIN", "Pierre MONTIN"),
+            ("Pierre PINEAU", "Pierre PINEAU"),
+            ("Richard ROTH", "Richard ROTH"),
+            ("Rosa ALVES", "Rosa ALVES"),
+            ("Sami ABID", "Sami ABID"),
+            ("Sébastien LAVENU", "Sébastien LAVENU"),
+            ("Stephane MOUSSEL", "Stephane MOUSSEL"),
+            ("Vincent PERROT", "Vincent PERROT"),
+            ("NON DEFINI", "NON DEFINI"),
+        ],
+        string="Commercial SI PROSPECT",
+    )
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")

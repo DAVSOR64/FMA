@@ -31,13 +31,26 @@
                 <field name="disable_confirm_button" invisible="1"/>
             </xpath>
 
-            <!-- Ajout du champ "date_bpe" après "tag_ids" -->
+            <!-- Le champ pose ici en tete de devis etait « date_bpe », un
+                 doublon que rien ne lit : les dates de livraison prevue et
+                 reelle se calculent sur « so_date_bpe » (custom, methode
+                 _compute_so_date_de_livraison). L'utilisateur renseignait donc
+                 le champ inerte pendant que le champ utile restait vide au
+                 fond de l'onglet Chronologie, d'ou une validation qui passait
+                 sans BPE. On expose ici le champ utile. -->
             <!-- Gamme/Série : champs déjà déclarés (models/sale_order.py) mais
                  absents de toute vue au portage Studio -> rendus visibles.
                  La Série est filtrée par la Gamme sélectionnée (relation
                  x_serie_mtn.x_studio_gamme_de_la_srie), filtre attendu. -->
             <xpath expr="//field[@name='tag_ids']" position="after">
-                <field name="date_bpe"/>
+                <!-- date_bpe reste dans l'arch, masque. Il n'a plus lieu
+                     d'etre affiche, mais une vue Studio de production peut
+                     s'y accrocher : le retirer rendrait alors tout devis
+                     impossible a ouvrir, comme cela s'est produit sur les
+                     commandes d'achat avec x_studio_posit. -->
+                <field name="date_bpe" invisible="1"/>
+                <field name="so_date_bpe"
+                       readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
                 <field name="x_studio_gamme"/>
                 <field name="x_studio_srie"
                        domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
@@ -58,25 +71,207 @@
     </record>
 
     <!--
-        Relances et commentaire complementaire, poses dans l'onglet Chronologie
-        cree par custom.
-
-        Ces champs sont declares ICI. custom ne peut pas les citer : il ne
-        depend pas de ce module, c'est l'inverse. Les mettre dans sa vue a fait
-        echouer l'installation en production — « Field
-        x_studio_date_de_relance_1 does not exist in model sale.order », le
-        module qui les declare n'etant pas encore charge.
+        Complements a l'onglet Chronologie cree par le module « custom ».
+        Ces champs sont declares ici, et « custom » ne peut pas dependre de ce
+        module (il en est la dependance) : c'est donc a cette vue-ci, chargee
+        apres, de les poser.
     -->
     <record id="view_order_form_chronologie_fma" model="ir.ui.view">
         <field name="name">sale.order.form.chronologie.fma</field>
         <field name="model">sale.order</field>
-        <field name="inherit_id" ref="custom.view_order_form_custom"/>
+        <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
+
             <xpath expr="//page[@name='fma_chronologie_page']/group/group[1]" position="inside">
                 <field name="x_studio_date_de_relance_1"/>
                 <field name="x_studio_date_de_relance_2"/>
+            </xpath>
+
+            <xpath expr="//page[@name='fma_chronologie_page']/group/group[2]" position="inside">
                 <field name="x_studio_commentaire_supplmentaire"/>
             </xpath>
+
         </field>
     </record>
+
+
+    <!--
+        §1/§2 du handoff : la barre d'etat ne garde que les actions du
+        quotidien. Pro forma et Annuler passent dans le menu Action via des
+        actions serveur liees au modele (binding), comme le veut le standard
+        Odoo. Import Pricer fait de meme, mais depuis son propre module.
+    -->
+    <record id="view_order_form_actions_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.actions.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//header/button[@id='send_proforma_primary']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@id='send_proforma']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='action_cancel']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="action_server_proforma" model="ir.actions.server">
+        <field name="name">Envoyer la facture pro forma</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.with_context(proforma=True, validate_analytic=True).action_quotation_send()</field>
+    </record>
+
+    <record id="action_server_cancel" model="ir.actions.server">
+        <field name="name">Annuler le devis</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">resultat = records.action_cancel()
+# action_cancel renvoie soit un dictionnaire d'action — l'assistant qui
+# demande quoi faire des documents lies —, soit True quand il n'y a rien a
+# demander. Assigner True a « action » fait planter le client, qui attend un
+# dictionnaire : « 'bool' object has no attribute 'setdefault' ».
+if resultat and resultat is not True:
+    action = resultat</field>
+    </record>
+
+
+    <!--
+        Note : on ne peut PAS remplacer x_studio_commercial_1 par heritage.
+        Studio le pose via sa propre vue, et cette vue est ecartee pendant la
+        mise a jour des modules parce qu'elle reference des champs « manual »
+        absents du registre a ce moment-la. Aucune priorite ne contourne ca :
+        l'element n'existe tout simplement pas quand nos vues sont validees.
+        Le retrait de l'ancien champ se fait donc dans Studio.
+    -->
+
+
+    <!--
+        §4 du handoff : les quatre paves de la maquette.
+
+        Ces groupes ne contiennent que des champs declares en code — c'est la
+        condition pour qu'une vue de module puisse les poser. Les memes champs
+        etant aujourd'hui places par Studio dans la colonne client, il faut
+        les y retirer cote Studio, sinon ils apparaitront deux fois.
+
+        payment_term_id fait exception : il est pose par la vue standard, et
+        c'est ce champ-la qu'on deplace (position="move") dans le pave
+        Conditions, en fin de vue. Si Studio le deplacait deja de son cote, sa
+        propre specification ne le trouvera plus a l'emplacement standard : il
+        faut retirer ce deplacement cote Studio.
+    -->
+    <record id="view_order_form_paves_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.paves.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Le bloc natif n'a pas de titre : sans lui, « Client » serait le
+                 seul pave des quatre a ne pas etre annonce. -->
+            <xpath expr="//group[@name='partner_details']" position="attributes">
+                <attribute name="string">Client</attribute>
+            </xpath>
+
+            <!-- Client : on complete le bloc natif plutot que de le refaire. -->
+            <xpath expr="//group[@name='partner_details']" position="inside">
+                <field name="main_contact_id"
+                       string="Contact principal"
+                       domain="[('parent_id', '=', partner_id)]"
+                       context="{'default_parent_id': partner_id}"/>
+                <field name="so_commande_client"/>
+            </xpath>
+
+            <!-- « Affaire & equipe » prend la colonne de droite, en face du
+                 bloc Client : c'est la disposition en deux colonnes de la
+                 maquette. On l'insere comme frere de partner_details, dont
+                 l'existence est deja prouvee par l'xpath ci-dessus, plutot
+                 que dans le groupe de droite natif dont le nom varie d'une
+                 version a l'autre. -->
+            <xpath expr="//group[@name='partner_details']" position="after">
+                <group string="Affaire &amp; équipe" name="fma_affaire">
+                    <!-- Ni projet, ni chantier, ni tranche : ces notions ne
+                         sont pas passees en production, elles restent sur
+                         Staging_19. Le pave se limite ici a l'identite de
+                         l'affaire et a l'equipe qui la porte. -->
+                    <field name="x_studio_numro_iziqo"/>
+                    <field name="user_id" widget="many2one_avatar_user"/>
+                    <field name="commercial_id"/>
+                    <field name="x_studio_commercial_si_prospect"/>
+                    <field name="x_studio_bureau_dtude"/>
+                    <!-- Gamme et serie : la serie est filtree par la gamme
+                         choisie (x_serie_mtn.x_studio_gamme_de_la_srie), et
+                         les deux modeles ont « x_name » pour libelle, d'ou
+                         create_name_field — sans quoi la creation a la volee
+                         depuis le devis echouerait. C'est ce que faisait la
+                         vue Studio ; on le reprend. -->
+                    <field name="x_studio_gamme"
+                           options="{'create_name_field': 'x_name'}"/>
+                    <field name="x_studio_srie"
+                           options="{'create_name_field': 'x_name'}"
+                           domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
+                </group>
+            </xpath>
+
+            <!-- Deuxieme rangee de la maquette : Conditions a gauche, Statut
+                 de l'affaire a droite. -->
+            <xpath expr="//group[@name='sale_header']" position="after">
+                <group name="fma_paves">
+
+                    <group string="Conditions" name="fma_conditions">
+                        <!-- mode_reglement_id et non x_studio_mode_de_rglement :
+                             ce dernier est un Char alimente uniquement par
+                             _prepare_order, methode du portail jamais appelee
+                             ici. Il etait donc toujours vide a l'ecran. -->
+                        <field name="mode_reglement_id"/>
+                        <!-- Le delai confirme reste ici, la date qu'il
+                             produit se lit sur la frise et dans l'onglet
+                             « Livraison & accès » : trois affichages du meme
+                             champ sur une seule fiche, c'en etait deux de
+                             trop. -->
+                        <!-- Fige des la confirmation : le delai confirme est un
+                             engagement pris envers le client, et il alimente les
+                             dates de livraison prevue et reelle. Le modifier
+                             apres coup deplacait silencieusement ces dates sur
+                             une commande deja engagee. -->
+                        <field name="so_delai_confirme_en_semaine"
+                               readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
+                    </group>
+
+                    <group string="Statut de l'affaire" name="fma_statut">
+                        <field name="x_studio_motif_annul"/>
+                        <field name="x_studio_avancement"/>
+                        <field name="x_studio_date_de_relance_1"/>
+                        <field name="x_studio_date_de_relance_2"/>
+                        <field name="x_studio_commentaire_supplmentaire"/>
+                    </group>
+
+                </group>
+            </xpath>
+
+            <!-- Les conditions de paiement rejoignent le pave Conditions,
+                 aupres du mode de reglement : c'est la meme question posee au
+                 client, elle se lisait a deux endroits differents de la fiche.
+                 On *deplace* le champ standard au lieu d'en poser un second :
+                 payment_term_id existe deja dans la vue heritee, un deuxieme
+                 l'afficherait deux fois.
+                 Le deplacement est une specification a part entiere : Odoo ne
+                 traite position="move" que sur les enfants directs du noeud
+                 positionne (cf. template_inheritance.apply_inheritance_specs),
+                 il ne le verrait pas imbrique dans le groupe ci-dessus. -->
+            <xpath expr="//group[@name='fma_conditions']/field[@name='so_delai_confirme_en_semaine']" position="before">
+                <xpath expr="//field[@name='payment_term_id']" position="move"/>
+            </xpath>
+
+        </field>
+    </record>
+
 </odoo>

@@ -5,104 +5,68 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- Frise de suivi, sous le titre et avant l'entete.
+            <!-- §3B du handoff : frise graphique, sous le titre et avant les
+                 groupes. C'est un composant OWL, pas un groupe de champs :
+                 il ne declare rien dans l'arch, ses dependances sont portees
+                 par le widget lui-meme.
 
-                 C'est un composant OWL, pas un groupe de champs : il ne
-                 declare rien dans l'arch, il lit les neuf dates de l'onglet
-                 Chronologie, qui en reste la source de verite. Ses
-                 dependances de champs sont portees par le widget lui-meme
-                 (fieldDependencies), sans quoi la vue ne les chargerait pas.
-
-                 Reprise telle quelle de Staging_19, sans les notions de
-                 projet, de tranche ni de pricer : la frise n'en depend pas. -->
+                 Les dates restent dans l'onglet Chronologie, qui en est la
+                 source de verite. C'est important au-dela de l'ergonomie :
+                 les vues Studio s'accrochent a so_date_devis_valide, elles
+                 l'y retrouvent. Retirer ce champ de l'arch les casserait. -->
             <xpath expr="//group[@name='sale_header']" position="before">
                 <widget name="fma_timeline"/>
             </xpath>
 
-            <!-- Vue résolue inspectée en direct : "partner_details"
-                 contient en réalité TOUS les champs personnalisés (Gamme, Série,
-                 Commercial...) et devient très haut, alors que "order_details"
-                 est court. Insérer Chronologie comme une NOUVELLE LIGNE de la
-                 grille de sale_header la faisait attendre la fin de la colonne
-                 la plus haute (grand espace vide) avant d'apparaître. Corrigé :
-                 Chronologie est désormais ajoutée À L'INTÉRIEUR de
-                 "order_details" : elle continue donc immédiatement à la suite
-                 du contenu de cette colonne, sans dépendre de la hauteur de
-                 "partner_details". -->
-
-            <!-- Informations principales/supplémentaires restent une nouvelle
-                 ligne pleine largeur de la grille de sale_header (confirmé bien
-                 placées par le métier le 20/07). -->
-            <xpath expr="//group[@name='sale_header']" position="inside">
-                <group string="Informations principales">
-                    <field name="so_commande_client"/>
-                        <field name="commercial_id"/>
-                        <field name="mode_reglement_id"/>
-                    <!-- Le delai et la date de BPE determinent les dates de livraison.
-                             Ils se figent des que l'affaire est engagee : les modifier
-                             ensuite desalignerait le planning sans rien signaler. -->
-                        <field name="so_delai_confirme_en_semaine" readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
-                    <field name="main_contact_id"
-                           string="Contact principal"
-                           domain="[('parent_id', '=', partner_id)]"
-                           context="{'default_parent_id': partner_id}"/>
-                </group>
-
-                <group string="Informations supplémentaires">
-                    <field name="so_acces_bl"/>
-                    <field name="so_type_camion_bl"/>
-                    <field name="so_horaire_ouverture_bl"/>
-                    <field name="so_horaire_fermeture_bl"/>
-                </group>
-
-                <!-- ⚠️ on ne met PLUS Communication affaire ici -->
-            </xpath>
+            <!-- Les blocs « Informations principales » et « Informations
+                 supplementaires » ont disparu de l'entete : leurs champs sont
+                 repartis dans les quatre paves (poses par
+                 fma_sale_order_custom) et dans l'onglet Livraison & acces. -->
 
             <!-- Onglets en bas de la vue -->
-            <!-- La chronologie occupait une place dans l'en-tete du devis, ou
-                 elle poussait les informations principales vers le bas pour dix
-                 dates rarement consultees toutes ensemble. Elle passe en onglet
-                 dedie, scinde selon les deux moments du circuit : ce qui releve
-                 du devis, et ce qui releve de la commande et de la production.
-                 Le nom fma_chronologie_page permet aux autres modules d'y
-                 accrocher leurs propres champs. -->
             <xpath expr="//sheet/notebook" position="inside">
-                <page string="Chronologie" name="fma_chronologie_page">
+
+                <!-- §5 : acces chantier et expedition, sortis de l'entete.
+                     float_time sur les horaires pour afficher 8:00 et non
+                     0,00 (§6). -->
+                <page string="Livraison &amp; accès" name="fma_livraison">
                     <group>
-                    <group string="Devis">
-                        <label for="so_date_de_reception_devis" string="Demande reçue le :" class="label-blue"/>
-                        <field name="so_date_de_reception_devis" nolabel="1"/>
-                        <label for="so_date_du_devis" string="Devis fait le :" class="label-blue"/>
-                        <field name="so_date_du_devis" nolabel="1"/>
-                        <label for="so_date_de_modification_devis" string="Devis modifié le :" class="label-blue"/>
-                        <field name="so_date_de_modification_devis" nolabel="1"/>
-                        <label for="so_date_devis_valide" string="Devis validé le :" class="label-blue"/>
-                        <field name="so_date_devis_valide" nolabel="1"/>
-                        <!-- Les relances et le commentaire complementaire sont
-                             declares par fma_sale_order_custom, pas ici. custom
-                             ne peut pas les citer : la dependance va dans
-                             l'autre sens. C'est ce module qui les pose, dans ce
-                             meme onglet. -->
-                    </group>
-                        <group string="Commande et production">
-                        <label for="so_date_ARC" string="ARC du :" class="label-green"/>
-                        <field name="so_date_ARC" nolabel="1"/>
-                        <label for="so_date_bpe" string="BPE du :" class="label-green"/>
-                        <field name="so_date_bpe" nolabel="1" readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
-                        <label for="so_date_bon_pour_fab" string="Bon pour Fab. le :" class="label-orange"/>
-                        <field name="so_date_bon_pour_fab" nolabel="1"/>
-                        <label for="so_date_de_fin_de_production_reel" string="Fin de production du :" class="label-orange"/>
-                        <field name="so_date_de_fin_de_production_reel" nolabel="1"/>
-                        <label for="so_date_de_livraison" string="Date de livraison prévue :" class="label-orange"/>
-                        <field name="so_date_de_livraison" nolabel="1"/>
-                        <label for="so_date_de_livraison_prevu" string="Date de livraison :" class="label-orange"/>
-                        <field name="so_date_de_livraison_prevu" nolabel="1"/>
-                    </group>
+                        <group string="Accès chantier">
+                            <field name="so_acces_bl"/>
+                            <field name="so_type_camion_bl"/>
+                            <field name="so_horaire_ouverture_bl" widget="float_time"/>
+                            <field name="so_horaire_fermeture_bl" widget="float_time"/>
+                        </group>
+                        <!-- commitment_date n'est pas affiche : il vaut
+                             toujours so_date_de_livraison, qui l'alimente, et
+                             en Datetime il s'affichait « 7 oct. 02:00 ». -->
+                        <group string="Expédition">
+                            <field name="so_date_de_livraison" readonly="1"/>
+                            <field name="so_date_de_livraison_prevu"/>
+                        </group>
                     </group>
                 </page>
-            </xpath>
 
-            <xpath expr="//sheet/notebook" position="inside">
+                <!-- §5 : source de verite des dates. La frise du haut n'en est
+                     que le reflet, en lecture seule. -->
+                <page string="Chronologie" name="fma_chronologie_page">
+                    <group>
+                        <group string="Devis">
+                            <field name="so_date_de_reception_devis"/>
+                            <field name="so_date_du_devis"/>
+                            <field name="so_date_de_modification_devis"/>
+                            <field name="so_date_devis_valide"/>
+                        </group>
+                        <group string="Commande et production">
+                            <field name="so_date_ARC"/>
+                            <field name="so_date_bpe"
+                                   readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
+                            <field name="so_date_bon_pour_fab"/>
+                            <field name="so_date_de_fin_de_production_reel"/>
+                            <field name="so_statut_avancement_production"/>
+                        </group>
+                    </group>
+                </page>
 
                 <!-- Onglet Analyse Financière (déjà existant) -->
                 <page string="Analyse Financière">
@@ -144,4 +108,5 @@
 
         </field>
     </record>
+
 </odoo>
