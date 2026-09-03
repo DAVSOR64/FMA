@@ -49,8 +49,9 @@
                      impossible a ouvrir, comme cela s'est produit sur les
                      commandes d'achat avec x_studio_posit. -->
                 <field name="date_bpe" invisible="1"/>
-                <field name="so_date_bpe"
-                       readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
+                <!-- Saisissable jusqu'au Bon pour fabrication, cf. le pave
+                     Conditions plus bas. -->
+                <field name="so_date_bpe" readonly="so_date_bon_pour_fab"/>
                 <field name="x_studio_gamme"/>
                 <field name="x_studio_srie"
                        domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
@@ -237,13 +238,19 @@ if resultat and resultat is not True:
                              « Livraison & accès » : trois affichages du meme
                              champ sur une seule fiche, c'en etait deux de
                              trop. -->
-                        <!-- Fige des la confirmation : le delai confirme est un
-                             engagement pris envers le client, et il alimente les
-                             dates de livraison prevue et reelle. Le modifier
-                             apres coup deplacait silencieusement ces dates sur
-                             une commande deja engagee. -->
+                        <!-- Fige non plus a la validation du devis mais des que le
+                             Bon pour fabrication est pose. Entre les deux, il
+                             reste du temps : c'est justement la que l'ARC
+                             revient et que le delai et le BPE se precisent.
+                             Les figer plus tot obligeait a deviner, ou a
+                             defiger la commande pour corriger une date.
+
+                             Le Bon pour fabrication, lui, lance l'atelier :
+                             passe ce point, deplacer ces deux valeurs
+                             deplacerait des dates de livraison sur lesquelles
+                             la production s'est deja engagee. -->
                         <field name="so_delai_confirme_en_semaine"
-                               readonly="state in ('validated', 'sale', 'done', 'cancel')"/>
+                               readonly="so_date_bon_pour_fab"/>
                     </group>
 
                     <group string="Statut de l'affaire" name="fma_statut">
