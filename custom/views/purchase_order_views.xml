@@ -33,6 +33,13 @@
                 <field name="x_studio_posit" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
                 <field name="x_studio_hauteur" column_invisible="not parent.x_is_glazing_order"/>
                 <field name="x_studio_largeur" column_invisible="not parent.x_is_glazing_order"/>
+                <!-- Spacer et forme manquaient ici, alors que les deux champs
+                     sont declares sur la ligne d'achat depuis la bascule v19 :
+                     la commande de vitrage se lisait sans deux de ses quatre
+                     caracteristiques. Le repere reste x_studio_posit sur cette
+                     branche, x_fma_repere n'y ayant pas ete pose. -->
+                <field name="x_studio_spacer_2" string="Spacer" column_invisible="not parent.x_is_glazing_order"/>
+                <field name="x_studio_forme" string="Forme" column_invisible="not parent.x_is_glazing_order"/>
             </xpath>
         </field>
     </record>
