@@ -3,7 +3,7 @@
     "name": "FMA - Relance client depuis les factures",
     "summary": "Vendeur, commercial et projet sur la liste des factures, "
                "et relance du client sur une selection",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "depends": [
         # commercial_id, le commercial FMA recopie depuis la commande.
         "custom",
@@ -12,6 +12,7 @@
         "sale_project",
     ],
     "data": [
+        "data/ir_cron.xml",
         "views/account_move_views.xml",
     ],
     "installable": True,
