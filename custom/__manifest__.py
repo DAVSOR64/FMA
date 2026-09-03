@@ -24,7 +24,7 @@
         # 1.0.57 : la colonne Repere de la ligne d'achat suit la meme regle
     # que le PDF (x_studio_posit sinon x_studio_position) ; elle restait
     # vide alors que le PDF portait bien un repere.
-    "version": "19.0.1.0.63",
+    "version": "19.0.1.0.64",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
