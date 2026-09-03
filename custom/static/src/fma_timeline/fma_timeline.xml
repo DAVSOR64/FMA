@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="custom.FmaTimeline">
+        <div class="fma_timeline" role="list">
+            <t t-foreach="etapes" t-as="etape" t-key="etape_index">
+                <div class="fma_timeline_etape"
+                     t-att-class="etape.classe"
+                     t-att-title="etape.titre"
+                     role="listitem">
+                    <span class="fma_timeline_libelle" t-esc="etape.libelle"/>
+                    <span class="fma_timeline_date" t-esc="etape.date"/>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>

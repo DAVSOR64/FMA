@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    "version": "19.0.1.0.49",
+    "version": "19.0.1.0.50",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
@@ -25,6 +25,9 @@
     "assets": {
         "web.assets_backend": [
             "custom/static/src/css/custom_styles.css",  # Chemin vers votre fichier CSS
+            "custom/static/src/fma_timeline/fma_timeline.js",
+            "custom/static/src/fma_timeline/fma_timeline.xml",
+            "custom/static/src/fma_timeline/fma_timeline.scss",
         ],
     },
     "installable": True,

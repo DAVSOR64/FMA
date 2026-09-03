@@ -5,6 +5,20 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
+            <!-- Frise de suivi, sous le titre et avant l'entete.
+
+                 C'est un composant OWL, pas un groupe de champs : il ne
+                 declare rien dans l'arch, il lit les neuf dates de l'onglet
+                 Chronologie, qui en reste la source de verite. Ses
+                 dependances de champs sont portees par le widget lui-meme
+                 (fieldDependencies), sans quoi la vue ne les chargerait pas.
+
+                 Reprise telle quelle de Staging_19, sans les notions de
+                 projet, de tranche ni de pricer : la frise n'en depend pas. -->
+            <xpath expr="//group[@name='sale_header']" position="before">
+                <widget name="fma_timeline"/>
+            </xpath>
+
             <!-- Vue résolue inspectée en direct : "partner_details"
                  contient en réalité TOUS les champs personnalisés (Gamme, Série,
                  Commercial...) et devient très haut, alors que "order_details"
