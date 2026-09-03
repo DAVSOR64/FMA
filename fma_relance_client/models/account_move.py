@@ -40,6 +40,23 @@ class AccountMove(models.Model):
         index="btree_not_null",
     )
 
+    # Les trois dates sont la memoire des relances. Elles ne sont pas saisies :
+    # chaque envoi remplit la premiere encore vide. copy=False, sinon dupliquer
+    # une facture ferait croire qu'elle a deja ete relancee.
+    fma_date_relance_1 = fields.Date(string="Date relance 1", readonly=True, copy=False)
+    fma_date_relance_2 = fields.Date(string="Date relance 2", readonly=True, copy=False)
+    fma_date_relance_3 = fields.Date(string="Date relance 3", readonly=True, copy=False)
+
+    # Le niveau de la PROCHAINE relance, c'est-a-dire le modele de mail qui
+    # partira. Stocke : c'est sur lui qu'on filtre pour savoir qui relancer.
+    fma_niveau_relance = fields.Integer(
+        string="Niveau de relance",
+        compute="_compute_fma_niveau_relance",
+        store=True,
+        help="Niveau du prochain rappel, deduit des dates deja renseignees. "
+             "Vaut %s au maximum." % NB_NIVEAUX,
+    )
+
     def _fma_projet_de_la_vente(self):
         """Le projet porte par la facture, puis a defaut par sa commande.
 
