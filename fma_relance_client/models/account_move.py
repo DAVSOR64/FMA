@@ -11,6 +11,10 @@ _logger = logging.getLogger(__name__)
 # mail.template, par exemple « account_followup.email_template_followup_1 ».
 PARAM_MODELE = "fma_relance_client.mail_template"
 
+# Le modele de relance en place chez FMA. Resolu par son nom : voir
+# _fma_modele_relance.
+NOM_MODELE = "Rappel de paiement"
+
 
 class AccountMove(models.Model):
     _inherit = "account.move"
@@ -41,13 +45,35 @@ class AccountMove(models.Model):
     # -------------------------------------------------------------------------
 
     def _fma_modele_relance(self, partenaire):
-        """Le modele de mail des relances de paiement.
+        """Le modele de mail des relances de paiement : « Rappel de paiement ».
 
-        On ne redefinit pas de modele : la demande est de relancer « avec le
-        meme modele que les relances de paiement ». Il est donc pris la ou il
-        est deja configure, dans les niveaux de relance, et le parametre
-        systeme ne sert que de recours.
+        Cherche par son NOM et non par un identifiant XML : celui-ci depend du
+        module qui livre le modele, et un modele retouche ou recree depuis
+        l'interface n'en a pas. Le nom, lui, est ce que le metier connait.
+
+        Ordre : le parametre systeme d'abord, pour qu'on puisse en imposer un
+        autre sans toucher au code ; le modele nomme ensuite ; le niveau de
+        relance en dernier recours, si le nom venait a changer.
         """
+        Modele = self.env["mail.template"].sudo()
+
+        reference = self.env["ir.config_parameter"].sudo().get_param(PARAM_MODELE)
+        if reference:
+            modele = self.env.ref(reference, raise_if_not_found=False)
+            if not modele:
+                modele = Modele.search([("name", "=", reference)], limit=1)
+            if modele:
+                return modele
+
+        modele = Modele.search([("name", "=", NOM_MODELE)], limit=1)
+        if modele:
+            return modele
+        # Le nom peut porter un suffixe (niveau, societe) : on elargit avant
+        # d'abandonner, plutot que d'echouer sur un libelle presque juste.
+        modele = Modele.search([("name", "ilike", NOM_MODELE)], limit=1)
+        if modele:
+            return modele
+
         # account_followup est une application Enterprise : elle peut ne pas
         # etre installee. On l'interroge par le registre plutot que par un
         # import, qui empecherait le module de se charger sans elle.
@@ -63,18 +89,12 @@ class AccountMove(models.Model):
             if niveau and niveau.mail_template_id:
                 return niveau.mail_template_id
 
-        reference = self.env["ir.config_parameter"].sudo().get_param(PARAM_MODELE)
-        if reference:
-            modele = self.env.ref(reference, raise_if_not_found=False)
-            if modele:
-                return modele
-
         raise UserError(_(
-            "Aucun modele de relance n'est configure.\n\n"
-            "Renseignez-le sur un niveau de relance (Comptabilite > "
-            "Configuration > Niveaux de relance), ou a defaut dans le "
-            "parametre systeme « %s », qui attend l'identifiant XML d'un "
-            "modele d'e-mail.", PARAM_MODELE,
+            "Le modele d'e-mail « %(nom)s » est introuvable.\n\n"
+            "Verifiez son nom dans Parametres > Technique > Modeles d'e-mail, "
+            "ou designez-en un autre dans le parametre systeme « %(param)s », "
+            "qui accepte un nom de modele ou un identifiant XML.",
+            nom=NOM_MODELE, param=PARAM_MODELE,
         ))
 
     def _fma_pieces_jointes(self, factures):
@@ -116,6 +136,23 @@ class AccountMove(models.Model):
         envois = 0
         for partenaire, lot in non_reglees.grouped("commercial_partner_id").items():
             modele = self._fma_modele_relance(partenaire)
+            # Un modele se rend sur le modele de donnees pour lequel il a ete
+            # ecrit : ses expressions parlent d'« object ». Un modele de
+            # relance ecrit sur le client produit un mail par client ; ecrit
+            # sur la facture, il en produit un par facture, et le regrouper
+            # donnerait un corps qui ne parle que d'une seule d'entre elles.
+            sur_facture = modele.model_id.model == "account.move"
+
+            if sur_facture:
+                for facture in lot:
+                    modele.send_mail(facture.id, force_send=True)
+                    facture.message_post(body=_(
+                        "Relance envoyee a %(client)s (modele « %(modele)s »).",
+                        client=partenaire.display_name, modele=modele.name,
+                    ))
+                    envois += 1
+                continue
+
             valeurs = {}
             pieces = self._fma_pieces_jointes(lot)
             if pieces:
@@ -129,8 +166,9 @@ class AccountMove(models.Model):
             # si le client conteste avoir ete relance. message_post travaille
             # sur un enregistrement a la fois, d'ou la boucle.
             corps = _(
-                "Relance envoyee a %(client)s (modele « %(modele)s »).",
-                client=partenaire.display_name, modele=modele.name,
+                "Relance envoyee a %(client)s (modele « %(modele)s »), "
+                "avec %(nb)s facture(s) en piece jointe.",
+                client=partenaire.display_name, modele=modele.name, nb=len(lot),
             )
             for facture in lot:
                 facture.message_post(body=corps)
