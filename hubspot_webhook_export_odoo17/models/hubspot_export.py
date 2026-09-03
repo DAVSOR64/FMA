@@ -201,7 +201,14 @@ class HubspotWebhookExport(models.AbstractModel):
         """
         return [
             ("active", "=", True),
-            "|", ("is_company", "=", True), ("parent_id", "=", False),
+            # SOCIETES uniquement. La version precedente disait « societe OU
+            # contact sans parent », un OU qui embarquait les personnes
+            # physiques independantes — un particulier, un contact cree sans
+            # societe. Le commentaire annoncait pourtant l'inverse.
+            ("is_company", "=", True),
+            # Clients et prospects, jamais les fournisseurs purs. Le statut
+            # envoye distingue ensuite les deux : customer_rank > 0 donne
+            # « client », sinon « prospect ».
             "|", ("customer_rank", ">", 0), ("supplier_rank", "=", 0),
         ]
 
