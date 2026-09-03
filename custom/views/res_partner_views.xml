@@ -62,8 +62,17 @@
                     donc a sa place native, dans l'onglet Ventes & Achats, ou il
                     est de toute facon attendu.
                 -->
-                <field name="x_studio_client_bloque" string="Client bloqué"/>
-                <field name="x_studio_cgv_rib" string="CGV + RIB"/>
+                <!--
+                    Libelle pose explicitement. Ces deux cases arrivaient sans,
+                    a la difference des champs texte voisins : une case a cocher
+                    seule dans un formulaire ne dit pas ce qu'elle coche, et
+                    « Client bloque » est precisement l'information qu'on ne
+                    peut pas se permettre de deviner.
+                -->
+                <label for="x_studio_client_bloque" string="Client bloqué"/>
+                <div><field name="x_studio_client_bloque" nolabel="1"/></div>
+                <label for="x_studio_cgv_rib" string="CGV + RIB"/>
+                <div><field name="x_studio_cgv_rib" nolabel="1"/></div>
                 <!--
                     Ces deux champs sont CONSERVES, masques.
 

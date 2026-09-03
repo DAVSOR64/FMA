@@ -49,31 +49,56 @@ class SaleOrder(models.Model):
         store=True
     )
 
-    @api.depends('delay_category_id', 'delay_reason_id')
-    def _fma_verifier_delai_bpe(self, geste):
-        """Exige le delai confirme et la date de BPE avant d'engager l'affaire.
+    def _fma_manque_delai_bpe(self):
+        """Ce qui manque au calcul des dates de livraison, en clair."""
+        self.ensure_one()
+        manquants = []
+        if not self.so_delai_confirme_en_semaine:
+            manquants.append("le délai confirmé (en semaines)")
+        if not self.so_date_bpe:
+            manquants.append("la date de BPE")
+        return manquants
 
-        Appelee depuis les deux gestes du circuit FMA : « Validé »
-        (fma_sale_order_custom.action_validation) et « Confirmer »
-        (fma_custom.action_confirm). Ces deux informations alimentent le calcul
-        des dates de livraison prevue et reelle ; franchir l'etape sans elles
-        produisait une affaire sans date, que plus rien ne venait combler
-        ensuite puisque le delai se fige des la validation.
+    @api.onchange("so_date_ARC")
+    def _onchange_so_date_arc_alerte(self):
+        """Prévient, sans bloquer, quand l'ARC arrive sans délai ni BPE.
+
+        Ce controle barrait auparavant « Validé » et « Confirmer ». Il y était
+        mal place : au moment de valider, l'ARC n'est pas encore revenu et ces
+        deux informations n'ont souvent pas de raison d'etre connues — le
+        blocage arretait donc un geste legitime.
+
+        L'accuse de reception est le bon moment : c'est la que l'affaire
+        s'engage sur des dates, et que le delai et le BPE prennent leur sens.
+
+        Une alerte et non un refus : l'utilisateur qui saisit l'ARC n'est pas
+        toujours celui qui detient le delai. On l'avertit, il enregistre, et
+        quelqu'un complete — plutot que de bloquer la saisie de l'ARC pour une
+        information qui viendra d'ailleurs.
         """
-        for order in self:
-            manquants = []
-            if not order.so_delai_confirme_en_semaine:
-                manquants.append("le délai confirmé (en semaines)")
-            if not order.so_date_bpe:
-                manquants.append("la date de BPE")
-            if manquants:
-                raise UserError(
-                    "Impossible de %s le devis %s.\n\n"
-                    "Renseignez %s : ces informations déterminent les dates de "
-                    "livraison, et ne seront plus modifiables ensuite."
-                    % (geste, order.name or "", " et ".join(manquants))
-                )
+        if not self.so_date_ARC:
+            return
+        manquants = self._fma_manque_delai_bpe()
+        if not manquants:
+            return
+        return {
+            "warning": {
+                "title": "Dates de livraison incomplètes",
+                "message": (
+                    "L'ARC est renseigné mais il manque %s.\n\n"
+                    "Ces informations déterminent les dates de livraison "
+                    "prévue et réelle : sans elles, l'affaire restera sans "
+                    "date. Vous pouvez enregistrer et les compléter ensuite."
+                    % " et ".join(manquants)
+                ),
+            }
+        }
 
+    # Le decorateur etait pose sur la methode precedente, qui n'est pas un
+    # calcul : so_retard_motif est stocke sans dependance, il n'etait donc
+    # jamais recalcule apres la creation. Le motif de retard restait fige a sa
+    # valeur du premier enregistrement.
+    @api.depends('delay_category_id', 'delay_reason_id')
     def _compute_so_retard_motif(self):
         for order in self:
             parts = []

@@ -18,7 +18,7 @@
     # 1.0.12 : les quatre paves de la maquette. Sans les notions de projet,
     # de chantier ni de tranche, qui restent sur Staging_19 — d'ou l'absence
     # de la dependance sale_project et de views/project_project_views.xml.
-    "version": "19.0.1.0.12",
+    "version": "19.0.1.0.13",
     "depends": [
         "sale_management",
         "custom",
