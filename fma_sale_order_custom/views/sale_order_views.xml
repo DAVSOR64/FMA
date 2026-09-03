@@ -247,7 +247,19 @@ if resultat and resultat is not True:
                              « Livraison & accès » : trois affichages du meme
                              champ sur une seule fiche, c'en etait deux de
                              trop. -->
-                        <field name="so_delai_confirme_en_semaine"/>
+                        <!-- Fige non plus a la validation du devis mais des que le
+                             Bon pour fabrication est pose. Entre les deux, il
+                             reste du temps : c'est justement la que l'ARC
+                             revient et que le delai et le BPE se precisent.
+                             Les figer plus tot obligeait a deviner, ou a
+                             defiger la commande pour corriger une date.
+
+                             Le Bon pour fabrication, lui, lance l'atelier :
+                             passe ce point, deplacer ces deux valeurs
+                             deplacerait des dates de livraison sur lesquelles
+                             la production s'est deja engagee. -->
+                        <field name="so_delai_confirme_en_semaine"
+                               readonly="so_date_bon_pour_fab"/>
                     </group>
 
                     <group string="Statut de l'affaire" name="fma_statut">
