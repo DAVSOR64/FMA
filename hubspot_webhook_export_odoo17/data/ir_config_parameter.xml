@@ -1,0 +1,13 @@
+<odoo>
+    <!--
+        Date de depart des reprises partielles. noupdate : une mise a jour du
+        module ne doit pas ramener la valeur d'origine alors qu'on a rejoue une
+        autre periode entre-temps.
+    -->
+    <data noupdate="1">
+        <record id="param_hubspot_reprise_depuis" model="ir.config_parameter">
+            <field name="key">hubspot_export.reprise_depuis</field>
+            <field name="value">2026-08-01</field>
+        </record>
+    </data>
+</odoo>

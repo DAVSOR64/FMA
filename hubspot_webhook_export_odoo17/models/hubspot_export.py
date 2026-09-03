@@ -9,6 +9,11 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
+# Point de depart par defaut d'une reprise partielle : la periode que HubSpot
+# doit rattraper. Surchargeable par le parametre systeme
+# « hubspot_export.reprise_depuis ».
+DEFAUT_REPRISE_DEPUIS = "2026-08-01"
+
 
 class HubspotExportLog(models.Model):
     _name = "hubspot.export.log"
@@ -166,6 +171,78 @@ class HubspotWebhookExport(models.AbstractModel):
             _logger.info("HubSpot : aucun devis cree ou modifie aujourd'hui.")
             return True
         self._envoyer_par_lots("quotes", "data", self._devis_depuis(orders))
+        return True
+
+    @api.model
+    def _date_de_reprise(self):
+        """Point de depart d'une reprise partielle.
+
+        Passe par un parametre systeme et non par une constante : une reprise
+        se relance rarement une seule fois, et rejouer une autre periode ne
+        doit pas demander un deploiement.
+        """
+        valeur = self.env["ir.config_parameter"].sudo().get_param(
+            "hubspot_export.reprise_depuis", DEFAUT_REPRISE_DEPUIS
+        )
+        depuis = fields.Date.to_date(valeur)
+        if not depuis:
+            raise UserError(_(
+                "Le parametre « hubspot_export.reprise_depuis » vaut « %s », "
+                "qui n'est pas une date. Attendu : AAAA-MM-JJ.", valeur,
+            ))
+        return fields.Datetime.to_datetime(depuis)
+
+    @api.model
+    def action_export_entreprises_depuis(self):
+        """Reprise partielle : les clients touches depuis une date donnee.
+
+        Entre l'envoi complet, trop lourd pour etre rejoue souvent, et le
+        quotidien, qui ne rattrape rien : c'est ce qu'il faut quand le
+        quotidien n'a pas tourne pendant un moment, ou pour amorcer HubSpot
+        sur une periode plutot que sur tout l'historique.
+
+        Meme domaine et meme mise en forme que le quotidien : seule la borne
+        de depart change. Une reprise qui selectionnerait autrement que le
+        quotidien produirait des ecarts invisibles entre les deux.
+        """
+        depuis = self._date_de_reprise()
+        partenaires = self.env["res.partner"].sudo().search(
+            self._domaine_entreprises() + [
+                "|",
+                ("create_date", ">=", depuis),
+                ("write_date", ">=", depuis),
+            ]
+        )
+        if not partenaires:
+            _logger.info("HubSpot : aucun client cree ou modifie depuis %s.", depuis)
+            return True
+        nb = self._envoyer_par_lots(
+            "entreprises", "entreprise", self._entreprises_depuis(partenaires)
+        )
+        _logger.info(
+            "HubSpot : reprise depuis %s terminee, %s client(s) en %s lot(s).",
+            depuis, len(partenaires), nb,
+        )
+        return True
+
+    @api.model
+    def action_export_devis_depuis(self):
+        """Pendant de action_export_entreprises_depuis, pour les devis."""
+        depuis = self._date_de_reprise()
+        orders = self.env["sale.order"].sudo().search([
+            ("state", "in", ["draft", "sent", "sale", "done", "cancel"]),
+            "|",
+            ("create_date", ">=", depuis),
+            ("write_date", ">=", depuis),
+        ])
+        if not orders:
+            _logger.info("HubSpot : aucun devis cree ou modifie depuis %s.", depuis)
+            return True
+        nb = self._envoyer_par_lots("quotes", "data", self._devis_depuis(orders))
+        _logger.info(
+            "HubSpot : reprise des devis depuis %s terminee, %s devis en %s lot(s).",
+            depuis, len(orders), nb,
+        )
         return True
 
     @api.model

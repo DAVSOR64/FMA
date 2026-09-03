@@ -63,6 +63,26 @@
         <field name="active">False</field>
     </record>
 
+    <record id="ir_cron_hubspot_reprise_entreprises_depuis" model="ir.cron">
+        <field name="name">HubSpot - REPRISE : entreprises creees ou modifiees depuis une date</field>
+        <field name="model_id" ref="model_hubspot_webhook_export"/>
+        <field name="state">code</field>
+        <field name="code">model.action_export_entreprises_depuis()</field>
+        <field name="interval_number">1000</field>
+        <field name="interval_type">days</field>
+        <field name="active">False</field>
+    </record>
+
+    <record id="ir_cron_hubspot_reprise_devis_depuis" model="ir.cron">
+        <field name="name">HubSpot - REPRISE : devis crees ou modifies depuis une date</field>
+        <field name="model_id" ref="model_hubspot_webhook_export"/>
+        <field name="state">code</field>
+        <field name="code">model.action_export_devis_depuis()</field>
+        <field name="interval_number">1000</field>
+        <field name="interval_type">days</field>
+        <field name="active">False</field>
+    </record>
+
     <record id="ir_cron_hubspot_reprise_devis" model="ir.cron">
         <field name="name">HubSpot - REPRISE : envoi complet des devis/commandes (par lots)</field>
         <field name="model_id" ref="model_hubspot_webhook_export"/>
