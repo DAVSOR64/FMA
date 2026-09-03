@@ -403,7 +403,9 @@ class SaleOrder(models.Model):
 
     # Init date validation devis
     def action_validation(self):
-        self._fma_verifier_delai_bpe("valider")
+        # Plus de controle bloquant ici : le delai confirme et la date de BPE
+        # font l'objet d'une alerte a la saisie de l'ARC (custom,
+        # _onchange_so_date_arc_alerte).
         for order in self:
             order.state = "validated"
             order.x_studio_date_de_la_commande = fields.Datetime.today()

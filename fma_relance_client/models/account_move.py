@@ -4,6 +4,7 @@ import logging
 from odoo import _, api, fields, models
 from odoo.tools import format_date, formatLang
 from odoo.exceptions import UserError
+from markupsafe import Markup
 
 _logger = logging.getLogger(__name__)
 
@@ -171,42 +172,42 @@ class AccountMove(models.Model):
     def _fma_recapitulatif(self, factures):
         """Le detail des factures relancees, ajoute au corps du mail.
 
-        Sert quand le modele est ecrit sur la facture : son corps ne peut alors
-        parler que d'une seule d'entre elles, alors que la relance en couvre
-        plusieurs.
+        Renvoie du Markup et non une chaine : _render_field rend du Markup, et
+        « Markup + str » echappe la chaine au lieu de la concatener. Le tableau
+        arrivait donc en fin de message sous forme de balises en clair.
+
+        Les valeurs, elles, sont echappees une a une : un numero de facture ou
+        un libelle de devise ne doit pas pouvoir injecter de balise.
         """
-        lignes = []
+        lignes = Markup("")
         total = 0.0
+        ligne = Markup(
+            "<tr>"
+            "<td style='padding:4px 12px 4px 0'>%s</td>"
+            "<td style='padding:4px 12px 4px 0'>%s</td>"
+            "<td style='padding:4px 0;text-align:right'>%s</td>"
+            "</tr>"
+        )
         for facture in factures.sorted(lambda f: f.invoice_date_due or f.invoice_date or fields.Date.today()):
             total += facture.amount_residual
-            lignes.append(
-                "<tr>"
-                "<td style='padding:4px 12px 4px 0'>%s</td>"
-                "<td style='padding:4px 12px 4px 0'>%s</td>"
-                "<td style='padding:4px 0;text-align:right'>%s</td>"
-                "</tr>" % (
-                    facture.name or "",
-                    format_date(self.env, facture.invoice_date_due) if facture.invoice_date_due else "",
-                    formatLang(self.env, facture.amount_residual, currency_obj=facture.currency_id),
-                )
+            lignes += ligne % (
+                facture.name or "",
+                format_date(self.env, facture.invoice_date_due) if facture.invoice_date_due else "",
+                formatLang(self.env, facture.amount_residual, currency_obj=facture.currency_id),
             )
-        return (
+        entete = Markup(
             "<p style='margin-top:16px'><strong>%s</strong></p>"
             "<table style='border-collapse:collapse'>"
             "<tr><th style='text-align:left;padding-right:12px'>%s</th>"
             "<th style='text-align:left;padding-right:12px'>%s</th>"
             "<th style='text-align:right'>%s</th></tr>"
-            "%s"
+        ) % (_("Factures concernees"), _("Facture"), _("Echeance"), _("Reste du"))
+        pied = Markup(
             "<tr><td colspan='2' style='padding-top:8px'><strong>%s</strong></td>"
             "<td style='padding-top:8px;text-align:right'><strong>%s</strong></td></tr>"
-            "</table>" % (
-                _("Factures concernees"),
-                _("Facture"), _("Echeance"), _("Reste du"),
-                "".join(lignes),
-                _("Total"),
-                formatLang(self.env, total, currency_obj=factures[0].currency_id),
-            )
-        )
+            "</table>"
+        ) % (_("Total"), formatLang(self.env, total, currency_obj=factures[0].currency_id))
+        return entete + lignes + pied
 
     def _fma_pieces_jointes(self, factures):
         """Les factures selectionnees, en piece jointe de la relance."""
