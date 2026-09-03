@@ -2,6 +2,7 @@
 import logging
 
 from odoo import _, api, fields, models
+from odoo.tools import format_date, formatLang
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -112,6 +113,46 @@ class AccountMove(models.Model):
         })
         return piece.ids
 
+    def _fma_recapitulatif(self, factures):
+        """Le detail des factures relancees, ajoute au corps du mail.
+
+        Sert quand le modele est ecrit sur la facture : son corps ne peut
+        alors parler que d'une seule d'entre elles, alors que la relance en
+        couvre plusieurs.
+        """
+        lignes = []
+        total = 0.0
+        for facture in factures.sorted(lambda f: f.invoice_date_due or f.invoice_date or fields.Date.today()):
+            total += facture.amount_residual
+            lignes.append(
+                "<tr>"
+                "<td style='padding:4px 12px 4px 0'>%s</td>"
+                "<td style='padding:4px 12px 4px 0'>%s</td>"
+                "<td style='padding:4px 0;text-align:right'>%s</td>"
+                "</tr>" % (
+                    facture.name or "",
+                    format_date(self.env, facture.invoice_date_due) if facture.invoice_date_due else "",
+                    formatLang(self.env, facture.amount_residual, currency_obj=facture.currency_id),
+                )
+            )
+        return (
+            "<p style='margin-top:16px'><strong>%s</strong></p>"
+            "<table style='border-collapse:collapse'>"
+            "<tr><th style='text-align:left;padding-right:12px'>%s</th>"
+            "<th style='text-align:left;padding-right:12px'>%s</th>"
+            "<th style='text-align:right'>%s</th></tr>"
+            "%s"
+            "<tr><td colspan='2' style='padding-top:8px'><strong>%s</strong></td>"
+            "<td style='padding-top:8px;text-align:right'><strong>%s</strong></td></tr>"
+            "</table>" % (
+                _("Factures concernees"),
+                _("Facture"), _("Echeance"), _("Reste du"),
+                "".join(lignes),
+                _("Total"),
+                formatLang(self.env, total, currency_obj=factures[0].currency_id),
+            )
+        )
+
     def action_fma_relancer_client(self):
         """Relance chaque client des factures selectionnees.
 
@@ -136,38 +177,42 @@ class AccountMove(models.Model):
         envois = 0
         for partenaire, lot in non_reglees.grouped("commercial_partner_id").items():
             modele = self._fma_modele_relance(partenaire)
-            # Un modele se rend sur le modele de donnees pour lequel il a ete
-            # ecrit : ses expressions parlent d'« object ». Un modele de
-            # relance ecrit sur le client produit un mail par client ; ecrit
-            # sur la facture, il en produit un par facture, et le regrouper
-            # donnerait un corps qui ne parle que d'une seule d'entre elles.
-            sur_facture = modele.model_id.model == "account.move"
 
-            if sur_facture:
-                for facture in lot:
-                    modele.send_mail(facture.id, force_send=True)
-                    facture.message_post(body=_(
-                        "Relance envoyee a %(client)s (modele « %(modele)s »).",
-                        client=partenaire.display_name, modele=modele.name,
-                    ))
-                    envois += 1
-                continue
+            # Un modele se rend sur le modele de donnees pour lequel il a ete
+            # ecrit : ses expressions parlent d'« object ». Ecrit sur le
+            # client, il le prend pour cible ; ecrit sur la facture, il faut
+            # lui en donner une — la plus ancienne echeance, celle qui motive
+            # la relance.
+            if modele.model_id.model == "account.move":
+                cible = min(lot, key=lambda f: f.invoice_date_due or f.invoice_date or fields.Date.today())
+                cible_id = cible.id
+                # Le corps ne parle alors que de cette facture-la : on lui
+                # ajoute le detail des autres, sans quoi le client recevrait
+                # une relance qui en passe sous silence une partie.
+                recapitulatif = self._fma_recapitulatif(lot) if len(lot) > 1 else ""
+            else:
+                cible_id = partenaire.id
+                # Un modele ecrit sur le client enumere deja ses factures dues.
+                recapitulatif = ""
 
             valeurs = {}
+            rendu = modele.generate_email(cible_id, ["body_html"])
+            corps_mail = (rendu.get("body_html") or "") + recapitulatif
+            if corps_mail:
+                valeurs["body_html"] = corps_mail
+
             pieces = self._fma_pieces_jointes(lot)
             if pieces:
                 valeurs["attachment_ids"] = [(6, 0, pieces)]
-            modele.send_mail(
-                partenaire.id,
-                force_send=True,
-                email_values=valeurs or None,
-            )
+
+            modele.send_mail(cible_id, force_send=True, email_values=valeurs or None)
+
             # Trace dans le suivi de chaque facture : c'est la qu'on cherchera
             # si le client conteste avoir ete relance. message_post travaille
             # sur un enregistrement a la fois, d'ou la boucle.
             corps = _(
                 "Relance envoyee a %(client)s (modele « %(modele)s »), "
-                "avec %(nb)s facture(s) en piece jointe.",
+                "portant sur %(nb)s facture(s).",
                 client=partenaire.display_name, modele=modele.name, nb=len(lot),
             )
             for facture in lot:
