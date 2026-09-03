@@ -136,6 +136,53 @@ class HubspotWebhookExport(models.AbstractModel):
         return True
 
     @api.model
+    def action_export_devis_complet_par_lots(self):
+        """Premier envoi : TOUS les devis/commandes, par lots.
+
+        Pendant du complet entreprises. A lancer une fois pour la reprise de
+        l'historique ; le quotidien passe ensuite par cron_export_devis_du_jour.
+        """
+        orders = self._get_sale_orders_to_export(force_full=True)
+        nb = self._envoyer_par_lots("quotes", "data", self._devis_depuis(orders))
+        _logger.info("HubSpot : envoi complet des devis termine, %s lot(s).", nb)
+        return True
+
+    @api.model
+    def cron_export_devis_du_jour(self):
+        """Devis/commandes crees ou modifies DANS LA JOURNEE.
+
+        Meme fenetre que pour les clients : depuis minuit, et non les vingt-
+        quatre dernieres heures. Un changement d'etat, de montant ou de ligne
+        touche write_date, donc un devis confirme dans la journee repart.
+        """
+        debut = fields.Datetime.to_datetime(fields.Date.context_today(self))
+        orders = self.env["sale.order"].sudo().search([
+            ("state", "in", ["draft", "sent", "sale", "done", "cancel"]),
+            "|",
+            ("create_date", ">=", debut),
+            ("write_date", ">=", debut),
+        ])
+        if not orders:
+            _logger.info("HubSpot : aucun devis cree ou modifie aujourd'hui.")
+            return True
+        self._envoyer_par_lots("quotes", "data", self._devis_depuis(orders))
+        return True
+
+    @api.model
+    def action_export_complet_par_lots(self):
+        """Reprise complete : entreprises puis devis/commandes."""
+        self.action_export_entreprises_complet_par_lots()
+        self.action_export_devis_complet_par_lots()
+        return True
+
+    @api.model
+    def cron_export_du_jour(self):
+        """Quotidien complet : clients puis devis/commandes de la journee."""
+        self.cron_export_clients_du_jour()
+        self.cron_export_devis_du_jour()
+        return True
+
+    @api.model
     def action_export_all_full(self):
         """Premier envoi complet : entreprises + devis/commandes."""
         self.action_export_entreprises(force_full=True)
@@ -239,6 +286,16 @@ class HubspotWebhookExport(models.AbstractModel):
     @api.model
     def _prepare_quotes_payload(self, force_full=False):
         orders = self._get_sale_orders_to_export(force_full=force_full)
+        return {"data": self._devis_depuis(orders)}
+
+    @api.model
+    def _devis_depuis(self, orders):
+        """Traduit des devis/commandes en enregistrements pour le webhook.
+
+        Isole de la selection, pour la meme raison que _entreprises_depuis :
+        l'envoi complet, le quotidien et l'envoi des modifications doivent
+        produire exactement la meme structure.
+        """
         data = []
 
         for order in orders:
@@ -265,7 +322,7 @@ class HubspotWebhookExport(models.AbstractModel):
                 "Message": "",
             })
 
-        return {"data": data}
+        return data
 
     @api.model
     def _get_sale_orders_to_export(self, force_full=False):

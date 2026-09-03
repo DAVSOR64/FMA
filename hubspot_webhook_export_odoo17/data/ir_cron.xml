@@ -1,4 +1,5 @@
 <odoo>
+    <!-- Ancien cron unique, remplace par les deux quotidiens ci-dessous. -->
     <record id="ir_cron_hubspot_export_clients_quotes" model="ir.cron">
         <field name="name">Export HubSpot - Entreprises et chiffrages</field>
         <field name="model_id" ref="model_hubspot_webhook_export"/>
@@ -10,12 +11,13 @@
     </record>
 
     <!--
-        Envoi quotidien des clients crees ou modifies dans la journee.
+        Envois quotidiens, programmes a 20 h : apres la journee de travail, de
+        sorte que les fiches saisies l'aient toutes ete avant le passage. Un
+        envoi de nuit prendrait la journee ecoulee, mais le domaine part de
+        minuit — mieux vaut donc rester dans la journee qu'on exporte.
 
-        Programme a 20 h : apres la journee de travail, de sorte que les fiches
-        saisies l'aient toutes ete avant le passage. Un envoi de nuit prendrait
-        la journee ecoulee, mais le domaine part de minuit — mieux vaut donc
-        rester dans la meme journee que celle qu'on exporte.
+        Clients a 20 h, devis a 20 h 15 : les deux envois sont separes pour que
+        l'echec de l'un ne prive pas l'autre de son passage.
     -->
     <record id="ir_cron_hubspot_export_clients_du_jour" model="ir.cron">
         <field name="name">HubSpot - Clients crees ou modifies dans la journee</field>
@@ -26,5 +28,48 @@
         <field name="interval_type">days</field>
         <field name="active">True</field>
         <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 20:00:00')"/>
+    </record>
+
+    <record id="ir_cron_hubspot_export_devis_du_jour" model="ir.cron">
+        <field name="name">HubSpot - Devis crees ou modifies dans la journee</field>
+        <field name="model_id" ref="model_hubspot_webhook_export"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_export_devis_du_jour()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+        <field name="nextcall" eval="(datetime.now()).strftime('%Y-%m-%d 20:15:00')"/>
+    </record>
+
+    <!--
+        Reprises completes, declarees en actions planifiees INACTIVES.
+
+        Ce sont des envois a lancer une seule fois, pas des taches recurrentes.
+        Elles passent malgre tout par ir.cron parce que son formulaire porte un
+        bouton « Executer manuellement », alors que le formulaire d'une action
+        serveur n'en offre pas : c'est le seul endroit de l'interface d'ou on
+        peut declencher du code a la demande sans developper d'ecran.
+
+        Laissees inactives : la date de prochaine execution est sans effet, et
+        une reactivation par megarde ne peut pas relancer un envoi massif.
+    -->
+    <record id="ir_cron_hubspot_reprise_entreprises" model="ir.cron">
+        <field name="name">HubSpot - REPRISE : envoi complet des entreprises (par lots)</field>
+        <field name="model_id" ref="model_hubspot_webhook_export"/>
+        <field name="state">code</field>
+        <field name="code">model.action_export_entreprises_complet_par_lots()</field>
+        <field name="interval_number">1000</field>
+        <field name="interval_type">days</field>
+        <field name="active">False</field>
+    </record>
+
+    <record id="ir_cron_hubspot_reprise_devis" model="ir.cron">
+        <field name="name">HubSpot - REPRISE : envoi complet des devis/commandes (par lots)</field>
+        <field name="model_id" ref="model_hubspot_webhook_export"/>
+        <field name="state">code</field>
+        <field name="code">model.action_export_devis_complet_par_lots()</field>
+        <field name="interval_number">1000</field>
+        <field name="interval_type">days</field>
+        <field name="active">False</field>
     </record>
 </odoo>

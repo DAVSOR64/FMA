@@ -1,6 +1,6 @@
 {
     "name": "Export HubSpot Webhook FMA-F2M",
-    "version": "19.0.1.1.3",
+    "version": "19.0.1.1.4",
     "category": "Sales/CRM",
     "summary": "Export quotidien des entreprises, devis et commandes Odoo vers un webhook n8n/HubSpot",
     "author": "JBS / David Soria",
