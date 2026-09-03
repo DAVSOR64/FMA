@@ -28,10 +28,10 @@ PARAM_RESPONSABLE = "fma_relance_client.responsable"
 class AccountMove(models.Model):
     _inherit = "account.move"
 
-    # Le projet ne vit pas sur la facture : il se lit sur la commande a
-    # l'origine des lignes. Stocke, sans quoi la colonne ne serait ni
-    # filtrable, ni groupable, ni triable — c'est tout l'interet de
-    # l'afficher dans une liste de relance.
+    # Le projet ne vit pas sur la facture en code : il y est pose par Studio,
+    # sous « Projet de la vente » (x_studio_projet_vente), non stocke. Non
+    # stocke veut dire ni triable, ni filtrable, ni groupable — inutilisable
+    # comme colonne de travail. On le recopie donc dans un champ stocke.
     fma_project_id = fields.Many2one(
         "project.project",
         string="Projet",
@@ -40,31 +40,50 @@ class AccountMove(models.Model):
         index="btree_not_null",
     )
 
-    # Les trois dates sont la memoire des relances. Elles ne sont pas saisies :
-    # chaque envoi remplit la premiere encore vide. copy=False, sinon dupliquer
-    # une facture ferait croire qu'elle a deja ete relancee.
-    fma_date_relance_1 = fields.Date(string="Date relance 1", readonly=True, copy=False)
-    fma_date_relance_2 = fields.Date(string="Date relance 2", readonly=True, copy=False)
-    fma_date_relance_3 = fields.Date(string="Date relance 3", readonly=True, copy=False)
+    def _fma_projet_de_la_vente(self):
+        """Le projet porte par la facture, puis a defaut par sa commande.
 
-    # Le niveau de la PROCHAINE relance, c'est-a-dire le modele de mail qui
-    # partira. Stocke : c'est sur lui qu'on filtre pour savoir qui relancer.
-    fma_niveau_relance = fields.Integer(
-        string="Niveau de relance",
-        compute="_compute_fma_niveau_relance",
-        store=True,
-        help="Niveau du prochain rappel, deduit des dates deja renseignees. "
-             "Vaut %s au maximum." % NB_NIVEAUX,
-    )
+        Trois sources essayees dans l'ordre, parce qu'elles ne sont pas
+        installees partout : « Projet de la vente » sur la facture, le projet
+        Studio de la commande, puis le projet natif. Chaque nom est verifie
+        dans le registre avant lecture — ce sont des champs Studio, ils
+        existent en production et pas forcement ailleurs.
+        """
+        self.ensure_one()
+        Projet = self.env["project.project"]
 
-    @api.depends("line_ids.sale_line_ids.order_id.project_id")
+        if "x_studio_projet_vente" in self._fields:
+            valeur = self.x_studio_projet_vente
+            if isinstance(valeur, models.BaseModel) and valeur._name == "project.project":
+                return valeur[:1]
+            if valeur:
+                # Studio peut aussi poser ce champ en texte. On ne devine pas
+                # un projet a partir d'un libelle : on passe aux commandes,
+                # qui portent la vraie relation.
+                _logger.debug(
+                    "Relance : x_studio_projet_vente n'est pas une relation "
+                    "vers project.project, lecture depuis la commande."
+                )
+
+        commandes = self.line_ids.sale_line_ids.order_id
+        if not commandes:
+            return Projet
+        for champ in ("x_studio_projet", "project_id"):
+            if champ not in commandes._fields:
+                continue
+            projets = commandes.mapped(champ)
+            if projets:
+                # Une facture peut regrouper plusieurs commandes. On ne retient
+                # un projet que s'il est unique : afficher le premier venu
+                # ferait croire a un rattachement qui n'existe pas.
+                return projets if len(projets) == 1 else Projet
+        return Projet
+
+    @api.depends("line_ids.sale_line_ids.order_id",
+                 "line_ids.sale_line_ids.order_id.project_id")
     def _compute_fma_project_id(self):
         for facture in self:
-            projets = facture.line_ids.sale_line_ids.order_id.project_id
-            # Une facture peut regrouper plusieurs commandes. On ne retient un
-            # projet que s'il est unique : afficher le premier venu ferait
-            # croire a un rattachement qui n'existe pas.
-            facture.fma_project_id = projets if len(projets) == 1 else False
+            facture.fma_project_id = facture._fma_projet_de_la_vente()
 
     @api.depends("fma_date_relance_1", "fma_date_relance_2", "fma_date_relance_3")
     def _compute_fma_niveau_relance(self):
