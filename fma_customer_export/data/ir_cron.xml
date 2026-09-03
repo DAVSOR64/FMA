@@ -20,5 +20,35 @@
             <field name="interval_number">1</field>
             <field name="interval_type">days</field>
         </record>
+
+        <!--
+            Reprise, a lancer une seule fois. Declaree en action planifiee
+            inactive : le formulaire d'une action planifiee est le seul de
+            l'interface a porter un bouton « Executer manuellement », celui
+            d'une action serveur n'en offre pas.
+
+            Inactive, elle ne peut pas relancer seule un envoi complet a la
+            compta.
+        -->
+        <record id="ir_cron_reprise_customer_files_depuis" model="ir.cron">
+            <field name="name">REPRISE : fichier clients crees ou modifies depuis une date</field>
+            <field name="model_id" ref="model_res_partner"/>
+            <field name="type">ir.actions.server</field>
+            <field name="state">code</field>
+            <field name="code">model.action_generer_fichier_clients_depuis()</field>
+            <field name="interval_number">1000</field>
+            <field name="interval_type">days</field>
+            <field name="active">False</field>
+        </record>
+
+        <!--
+            Date de depart de la reprise. Dans le meme bloc noupdate : une
+            mise a jour du module ne doit pas ramener le 1er aout alors qu'on
+            a rejoue une autre periode entre-temps.
+        -->
+        <record id="param_reprise_depuis" model="ir.config_parameter">
+            <field name="key">fma_customer_export.reprise_depuis</field>
+            <field name="value">2026-08-01</field>
+        </record>
     </data>
 </odoo>
