@@ -26,7 +26,7 @@
     # OrderLine) et un adaptateur lit l'export de commande TechDesign. Ce
     # fichier ne porte ni menuiserie, ni position, ni coupe : il ne cree pas
     # de devis, il complete un lot avec le besoin d'achat reel.
-    "version": "19.0.1.14.0",
+    "version": "19.0.1.14.1",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

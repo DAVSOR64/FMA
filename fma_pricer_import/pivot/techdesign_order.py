@@ -31,6 +31,35 @@ LISTES = (
 )
 
 
+#: Teintes TechDesign qui signifient « pas de finition ». LOGIKAL rend une
+#: chaine vide dans ce cas (cf. ``logikal.color_of``) : on s'aligne sur lui,
+#: sinon le meme article brut serait cherche sous deux teintes selon le pricer.
+SANS_TEINTE = {"SANS", "ZNCO", ""}
+
+
+def reference(code, art_num=""):
+    """Reference de l'article, telle qu'Odoo la porte.
+
+    ``m_ArticleId`` est prefixe par la base TechDesign (« T/720028 ») : le
+    prefixe est retire, il ne designe pas l'article mais le catalogue.
+
+    On ne prend PAS ``m_sArtNum``, qui est le numero de commande du
+    fournisseur et non la reference : sur le fichier de controle, 9 lignes
+    sur 62 en divergent, completees de zeros (« CZ61040 » devient
+    « CZ6104000 »). Chercher la-dessus ne trouverait pas l'article.
+    """
+    code = (code or "").strip()
+    if "/" in code:
+        code = code.split("/", 1)[1]
+    return code or (art_num or "").strip()
+
+
+def teinte(code):
+    """Teinte normalisee, dans le vocabulaire de ``x_studio_color_logikal``."""
+    code = (code or "").strip()
+    return "" if code.upper() in SANS_TEINTE else code
+
+
 def est_commande(root):
     """Vrai si le document est un export de commande, pas un chiffrage."""
     return root.find("object/m_OrderBlob") is not None
@@ -70,12 +99,17 @@ def _ligne(item, genre, fournisseur_commande, devise):
     """Traduit un article de la commande en ligne d'achat du pivot."""
     return OrderLine(
         kind=genre,
-        code=_texte(item, "m_ArticleId/code"),
+        # Reference nue, comparable a x_studio_ref_int_logikal.
+        code=reference(_texte(item, "m_ArticleId/code"), _texte(item, "m_sArtNum")),
+        # Numero de commande du fournisseur, conserve pour la tracabilite : il
+        # figure sur l'accuse de reception, pas dans Odoo.
         art_num=_texte(item, "m_sArtNum"),
         description=_texte(item, "m_sDescription"),
         # La teinte est le code de commande de la finition, pas son libelle :
-        # c'est lui qui distingue deux articles Odoo de meme reference.
-        color=_texte(item, "m_SfOrderInfo/m_sSfOrderCode"),
+        # c'est lui qui distingue deux articles Odoo de meme reference. Il est
+        # normalise sur le vocabulaire LOGIKAL, sans quoi le meme article brut
+        # serait cherche sous « SANS » d'un cote et sans teinte de l'autre.
+        color=teinte(_texte(item, "m_SfOrderInfo/m_sSfOrderCode")),
         # Le fournisseur de la ligne prime sur celui de la commande : une
         # commande TECHNAL porte des articles dont certains viennent d'ailleurs.
         supplier=_texte(item, "m_SupplierId/code") or fournisseur_commande,
