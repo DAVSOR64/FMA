@@ -29,7 +29,7 @@
     # 1.15.0 : adaptateur du chiffrage TechDesign (JobExport) et aiguillage
     # du wizard sur le format reel du fichier. Les deux pricers passent
     # desormais par le meme wizard : LOGIKAL en SQLite, TechDesign en XML.
-    "version": "19.0.1.15.0",
+    "version": "19.0.1.15.1",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

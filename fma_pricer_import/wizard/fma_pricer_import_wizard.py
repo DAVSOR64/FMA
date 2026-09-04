@@ -31,7 +31,13 @@ class FmaPricerImportWizard(models.TransientModel):
         related="order_id.partner_id",
         string="Client",
     )
-    file = fields.Binary(string="Fichier de chiffrage", required=True)
+    file = fields.Binary(
+        string="Fichier de chiffrage",
+        required=True,
+        help="Export LOGIKAL (base SQLite) ou TechDesign (XML de chiffrage "
+             "ou de commande fournisseur). Le format est reconnu au contenu "
+             "du fichier, pas a son extension.",
+    )
     filename = fields.Char(string="Nom du fichier")
     description = fields.Char(
         string="Description",
