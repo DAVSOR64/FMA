@@ -118,7 +118,7 @@ class FmaPricerImportWizard(models.TransientModel):
     def _import_lots(self, order):
         """Applique la mise en lot du fichier au devis.
 
-        L'adaptateur lit un fichier sqlite : on materialise donc le binaire du
+        Les adaptateurs lisent un chemin : on materialise donc le binaire du
         wizard dans un fichier temporaire, supprime aussitot apres.
         """
         self.ensure_one()
@@ -126,7 +126,9 @@ class FmaPricerImportWizard(models.TransientModel):
         if not content:
             return
 
-        handle, path = tempfile.mkstemp(suffix=".sqlite3", prefix="fma_pricer_")
+        # Suffixe neutre : le fichier peut etre une base SQLite (LOGIKAL) ou
+        # un XML (TechDesign). Le moteur reconnait le format a son contenu.
+        handle, path = tempfile.mkstemp(suffix=".pricer", prefix="fma_pricer_")
         try:
             with os.fdopen(handle, "wb") as tmp:
                 tmp.write(content)

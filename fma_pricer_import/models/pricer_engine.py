@@ -18,11 +18,12 @@ toucher aux autres.
 import hashlib
 import logging
 import unicodedata
+import xml.etree.ElementTree as ET
 
-from odoo import _, models
+from odoo import _, api, models
 from odoo.exceptions import UserError
 
-from ..pivot import logikal
+from ..pivot import logikal, techdesign, techdesign_order
 
 _logger = logging.getLogger(__name__)
 
@@ -51,9 +52,56 @@ class FmaPricerEngine(models.AbstractModel):
     # Entree
     # ------------------------------------------------------------------
     def import_file(self, order, path, source=None):
-        """Lit un export pricer et l'applique au devis ``order``."""
-        quotation = logikal.parse(path, source=source)
+        """Lit un export pricer et l'applique au devis ``order``.
+
+        Le format est reconnu au contenu et non a l'extension : le wizard
+        recoit un televersement, dont le nom ne garantit rien.
+        """
+        quotation = self.read_file(path, source=source)
         return self.apply(order, quotation)
+
+    @api.model
+    def read_file(self, path, source=None):
+        """Choisit l'adaptateur selon le format du fichier.
+
+        Un export LOGIKAL est une base SQLite, un export TechDesign un
+        document XML. Les deux se reconnaissent a leurs premiers octets, ce
+        qui evite de faire confiance a l'extension.
+        """
+        with open(path, "rb") as fichier:
+            entete = fichier.read(16)
+
+        if entete.startswith(b"SQLite format 3"):
+            return logikal.parse(path, source=source)
+
+        racine = self._xml_root(path)
+        if racine == "JobExport":
+            return techdesign.parse(path, source=source)
+        if racine == "root":
+            # Commande fournisseur : elle complete un lot, elle n'en cree pas.
+            return techdesign_order.parse(path, source=source)
+
+        raise UserError(_(
+            "Format de fichier non reconnu.\n\n"
+            "Attendu : un export LOGIKAL (base SQLite) ou un export "
+            "TechDesign (XML de chiffrage <JobExport>, ou de commande "
+            "fournisseur).%(vu)s",
+            vu=_("\nLu : document XML <%s>.", racine) if racine else "",
+        ))
+
+    @api.model
+    def _xml_root(self, path):
+        """Nom de la balise racine, sans charger le document entier.
+
+        Un chiffrage TechDesign pese plusieurs mega-octets : on s'arrete au
+        premier evenement plutot que de tout analyser pour un aiguillage.
+        """
+        try:
+            for _evt, element in ET.iterparse(path, events=("start",)):
+                return element.tag
+        except ET.ParseError:
+            return ""
+        return ""
 
     def apply(self, order, quotation):
         """Applique un chiffrage pivot a un devis.
