@@ -124,7 +124,11 @@ class FmaPricerEngine(models.AbstractModel):
         # position « A » dans toutes les affaires.
         self = self.with_context(
             fma_site=quotation.site,
-            fma_affaire=quotation.project.get("offer_no") or "",
+            # A defaut d'offre dans le fichier — le chiffrage TechDesign n'en
+            # porte pas —, le numero du devis fait l'affaire : c'est le prefixe
+            # des references d'articles, celui-la meme sur lequel la resolution
+            # du vitrage restreint ses candidats.
+            fma_affaire=quotation.project.get("offer_no") or (order.name or ""),
         )
         self._check_offer_matches(order, quotation)
         self._check_bars_usable(order, quotation)
@@ -451,6 +455,25 @@ class FmaPricerEngine(models.AbstractModel):
             if not found:
                 if problem not in issues:
                     issues.append(problem)
+                continue
+            # Un composant ne peut pas etre l'article qu'il compose : Odoo
+            # refuse la nomenclature pour cycle, et l'import entier echoue.
+            #
+            # Le cas se produit sur la resolution du vitrage, qui cherche par
+            # x_studio_position — champ que porte AUSSI l'article de la
+            # menuiserie, cree avec le repere. Sur LOGIKAL l'affaire departage
+            # les candidats ; un chiffrage TechDesign n'en portant aucune, la
+            # recherche retombait sur la menuiserie elle-meme.
+            if found.id == product.id:
+                probleme = _(
+                    "%(genre)s %(code)s de la position %(pos)s : la recherche "
+                    "retombe sur la menuiserie elle-meme, composant ignore",
+                    genre=_("vitrage") if comp.kind == "glass" else _("article"),
+                    code=comp.code,
+                    pos=men.position or men.ref,
+                )
+                if probleme not in issues:
+                    issues.append(probleme)
                 continue
             components.append((found, comp.qty))
 
