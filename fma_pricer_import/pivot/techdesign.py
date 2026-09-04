@@ -91,42 +91,107 @@ def parse(path, source=None):
     return _parse(root, source or os.path.basename(path))
 
 
-def _fournisseurs(root):
-    """Fournisseur par (reference, teinte), depuis les catalogues du chiffrage.
+def _catalogue(root):
+    """Ce que les catalogues du chiffrage apprennent sur chaque article.
 
-    Les lignes de nomenclature ne portent pas le fournisseur : il n'existe que
-    dans ``Profiles``, ``PieceProfiles`` et ``Fittings``, qui recapitulent
-    l'affaire entiere.
+    Les lignes de nomenclature ne portent ni le fournisseur ni la reference
+    interne : tout cela n'existe que dans ``Profiles``, ``PieceProfiles`` et
+    ``Fittings``, qui recapitulent l'affaire entiere.
+
+    La cle est ``SAPManufacturerNumber``, de la forme
+    ``0|T226521|20SELCT2||6500||``. Ses deux premiers champs utiles sont
+    exactement ``x_studio_ref_int_logikal`` et ``x_studio_color_logikal``,
+    tels que ``sqlite_connector`` les pose sur les articles Odoo : le
+    chiffrage TechDesign porte donc lui-meme la reference LOGIKAL, et les deux
+    pricers designent le meme article de la meme facon.
+
+    Indexe deux fois : par (code, teinte) et par code seul. ``PieceProfiles``
+    ne porte pas le numero SAP mais partage le code de ``Profiles``, dont il
+    herite ainsi la reference.
     """
-    table = {}
+    par_couple = {}
+    par_code = {}
+    # Quatre catalogues, pas trois : LengthArticles porte les joints et
+    # profiles vendus au metre. Les oublier laissait 17 codes de nomenclature
+    # sur 62 sans reference LOGIKAL, donc introuvables dans Odoo.
     for chemin in ("./Job/Profiles/Profile",
                    "./Job/PieceProfiles/PieceProfile",
+                   "./Job/LengthArticles/LengthArticle",
                    "./Job/Fittings/Fitting"):
         for article in root.findall(chemin):
+            code = (article.get("Code") or "").strip()
+            couleur = teinte(article.get("SurfaceOrderCode"))
             fournisseur = article.find("Supplier")
-            if fournisseur is None:
-                continue
-            nom = (fournisseur.get("SupplierDescription")
-                   or fournisseur.get("SupplierCode") or "").strip()
-            if nom:
-                table[(article.get("Code") or "",
-                       teinte(article.get("SurfaceOrderCode")))] = nom
-    return table
+            infos = {
+                "supplier": (
+                    (fournisseur.get("SupplierDescription")
+                     or fournisseur.get("SupplierCode") or "").strip()
+                    if fournisseur is not None else ""
+                ),
+                "ref_logikal": "",
+                "color_logikal": couleur,
+                "length_mm": 0.0,
+            }
+            champs = (article.get("SAPManufacturerNumber") or "").split("|")
+            if len(champs) > 2:
+                infos["ref_logikal"] = champs[1].strip()
+                infos["color_logikal"] = champs[2].strip()
+            if len(champs) > 4 and champs[4].strip():
+                try:
+                    infos["length_mm"] = float(champs[4])
+                except ValueError:
+                    pass
+            # Le premier catalogue renseigne prime : Profiles porte le numero
+            # SAP, PieceProfiles ne l'a pas et ne doit pas l'effacer.
+            if infos["ref_logikal"] or (code, couleur) not in par_couple:
+                par_couple[(code, couleur)] = infos
+            if infos["ref_logikal"] or code not in par_code:
+                par_code[code] = infos
+            # Troisieme cle : la reference SAP privee de sa lettre fournisseur.
+            # Les catalogues indexent parfois un article sous un code complete
+            # de zeros — « CZ6104000 » — quand la nomenclature, elle, le nomme
+            # « CZ61040 ». Le numero SAP porte « TCZ61040 » : sa partie utile
+            # rattache les deux. Enregistree en dernier, elle ne prend jamais
+            # le pas sur une correspondance directe.
+            nue = infos["ref_logikal"][1:] if len(infos["ref_logikal"]) > 1 else ""
+            if nue and nue != code:
+                par_code.setdefault(nue, infos)
+                par_couple.setdefault((nue, infos["color_logikal"]), infos)
+    return par_couple, par_code
 
 
-def _composants(item, fournisseurs):
+def _infos(catalogue, code, couleur):
+    """Ce que le catalogue sait de cet article, teinte comprise si possible."""
+    par_couple, par_code = catalogue
+    return par_couple.get((code, couleur)) or par_code.get(code) or {}
+
+
+def _reference_odoo(catalogue, code, couleur):
+    """Reference et teinte telles qu'Odoo les porte.
+
+    A defaut de numero SAP — un article absent des catalogues —, on retombe
+    sur la reference nue du fichier. Elle ne trouvera probablement rien, et le
+    manque sera inscrit sur le lot plutot que devine.
+    """
+    infos = _infos(catalogue, code, couleur)
+    return (infos.get("ref_logikal") or code,
+            infos.get("color_logikal", couleur))
+
+
+def _composants(item, catalogue):
     """Quincaillerie et vitrage d'une menuiserie, pour un exemplaire."""
     composants = []
     for part in item.findall("PartsList/PartArticle/PartPieceArticle"):
-        code = reference(part.get("Id"))
+        brut = reference(part.get("Id"))
         couleur = teinte(part.get("SurfaceFinish"))
+        code, teinte_odoo = _reference_odoo(catalogue, brut, couleur)
         composants.append(Component(
             kind="article",
             code=code,
             description=(part.get("Description") or "").strip(),
             qty=_attr_nombre(part, "Quantity"),
-            color=couleur,
-            supplier=fournisseurs.get((code, couleur), ""),
+            color=teinte_odoo,
+            supplier=_infos(catalogue, brut, couleur).get("supplier", ""),
         ))
     for pane in item.findall("PartsList/PartArticle/PartPane"):
         composants.append(Component(
@@ -142,17 +207,18 @@ def _composants(item, fournisseurs):
     return composants
 
 
-def _debit(item, fournisseurs):
+def _debit(item, catalogue):
     """Coupes de profile d'une menuiserie, pour un exemplaire."""
     coupes = []
     for part in item.findall("PartsList/PartArticle/PartLengthArticle"):
-        code = reference(part.get("Id"))
+        brut = reference(part.get("Id"))
         couleur = teinte(part.get("SurfaceFinish"))
+        code, teinte_odoo = _reference_odoo(catalogue, brut, couleur)
         coupes.append(Cut(
             code=code,
             description=(part.get("Description") or "").strip(),
-            color=couleur,
-            supplier=fournisseurs.get((code, couleur), ""),
+            color=teinte_odoo,
+            supplier=_infos(catalogue, brut, couleur).get("supplier", ""),
             length_mm=_nombre(part, "Length"),
             qty=_attr_nombre(part, "Quantity"),
         ))
@@ -185,7 +251,7 @@ def _operations(item):
     return operations
 
 
-def _barres(root, fournisseurs):
+def _barres(root, catalogue):
     """Barres achetees, telles que le chiffrage les a optimisees."""
     barres = []
     for chemin in ("./Job/Profiles/Profile", "./Job/PieceProfiles/PieceProfile"):
@@ -194,15 +260,16 @@ def _barres(root, fournisseurs):
             quantite = _attr_nombre(article, "Quantity")
             if not longueur or not quantite:
                 continue
-            code = article.get("Code") or ""
-            couleur = teinte(article.get("SurfaceOrderCode"))
+            brut = (article.get("Code") or "").strip()
+            couleur_brute = teinte(article.get("SurfaceOrderCode"))
+            code, couleur = _reference_odoo(catalogue, brut, couleur_brute)
             # RestLength est la chute TOTALE du poste, tous exemplaires
             # confondus : le consomme s'en deduit, il n'est pas donne.
             chute = _nombre(article, "RestLength")
             barres.append(Bar(
                 code=code,
                 description=(article.get("Description") or "").strip(),
-                supplier=fournisseurs.get((code, couleur), ""),
+                supplier=_infos(catalogue, brut, couleur_brute).get("supplier", ""),
                 color=couleur,
                 length_mm=longueur,
                 qty=quantite,
@@ -213,7 +280,7 @@ def _barres(root, fournisseurs):
 
 def _parse(root, source):
     quo = Quotation(pricer="techdesign", source=source)
-    fournisseurs = _fournisseurs(root)
+    catalogue = _catalogue(root)
 
     job = root.find("Job")
     general = job.find("General") if job is not None else None
@@ -241,8 +308,8 @@ def _parse(root, source):
                 width_mm=_nombre(item, "Width"),
                 height_mm=_nombre(item, "Height"),
                 price=_nombre(item, "SpreadingEnforcement/TotalUnitFinalPrice", "Price"),
-                components=_composants(item, fournisseurs),
-                debit=_debit(item, fournisseurs),
+                components=_composants(item, catalogue),
+                debit=_debit(item, catalogue),
                 operations=_operations(item),
             ))
         quo.lots.append(lot)
@@ -257,7 +324,7 @@ def _parse(root, source):
     # nomenclature de chaque menuiserie sont bien portes par leur lot, seul le
     # besoin d'ACHAT manque. Bloquer l'import pour cela priverait du devis, des
     # lots et des nomenclatures a cause d'une mesure accessoire.
-    barres = _barres(root, fournisseurs)
+    barres = _barres(root, catalogue)
     if len(phases) <= 1 and quo.lots:
         quo.lots[0].bars = barres
     elif barres:

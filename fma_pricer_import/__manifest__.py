@@ -34,7 +34,10 @@
     # 1.17.0 : le moteur cree lui-meme articles et lignes de devis pour les
     # pricers sans redacteur. TechDesign n'a pas d'equivalent de
     # sqlite_connector : sans cela le devis restait vide et les lots orphelins.
-    "version": "19.0.1.17.1",
+    # 1.18.0 : la reference LOGIKAL des articles est lue dans le numero SAP du
+    # chiffrage TechDesign. Les deux pricers designent enfin le meme article de
+    # la meme facon, condition pour rapprocher sans creer de doublon.
+    "version": "19.0.1.18.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
