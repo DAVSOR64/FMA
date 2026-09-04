@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 {
     "name": "FMA - Relance client depuis les factures",
+    "author": "FMA",
     "summary": "Vendeur, commercial et projet sur la liste des factures, "
                "et relance du client sur une selection",
-    "version": "19.0.1.2.3",
+    "version": "19.0.1.2.4",
     "depends": [
         # commercial_id, le commercial FMA recopie depuis la commande.
         "custom",
