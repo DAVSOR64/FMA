@@ -20,7 +20,7 @@ import logging
 import unicodedata
 import xml.etree.ElementTree as ET
 
-from odoo import _, api, models
+from odoo import Command, _, api, models
 from odoo.exceptions import UserError
 
 from ..pivot import logikal, techdesign, techdesign_order
@@ -31,6 +31,23 @@ _logger = logging.getLogger(__name__)
 #: les lignes de devis — sqlite_connector pour LOGIKAL. Pour les autres, le
 #: moteur doit les creer lui-meme avant de pouvoir les retrouver.
 PRICERS_AVEC_REDACTEUR = {"logikal"}
+
+#: Prefixe de reference par fournisseur, tel que sqlite_connector le compose :
+#: « TEC 720028 ». Sans lui, un article cree ici ne serait pas reconnu comme
+#: celui que LOGIKAL creerait, et les deux pricers feraient deux articles.
+PREFIXES_FOURNISSEUR = {
+    "TECHNAL": "TEC",
+    "SAPA": "SAP",
+    "WICONA": "WIC",
+    "JANSEN": "JAN",
+}
+
+#: Routes posees par sqlite_connector sur tout article qu'il cree : fabrication
+#: a la commande, et la route d'achat propre a FMA.
+ROUTES_ARTICLE = ("stock.route_warehouse0_mto", "__export__.stock_route_54_b165c5dc")
+
+#: Categorie des vitrages, celle qu'utilise sqlite_connector.
+CATEGORIE_VITRAGE = "__export__.product_category_23_31345211"
 
 
 def sans_accent(texte):
@@ -129,6 +146,9 @@ class FmaPricerEngine(models.AbstractModel):
             # des references d'articles, celui-la meme sur lequel la resolution
             # du vitrage restreint ses candidats.
             fma_affaire=quotation.project.get("offer_no") or (order.name or ""),
+            # Meme regle que pour les lignes de devis : le pricer qui n'a pas
+            # de redacteur doit creer lui-meme les articles qui lui manquent.
+            fma_creer_articles=quotation.pricer not in PRICERS_AVEC_REDACTEUR,
         )
         self._check_offer_matches(order, quotation)
         self._check_bars_usable(order, quotation)
@@ -433,6 +453,134 @@ class FmaPricerEngine(models.AbstractModel):
             }
         )
 
+    def _routes(self):
+        """Routes de l'article cree : MTO et achat, comme le connecteur."""
+        ids = []
+        for xmlid in ROUTES_ARTICLE:
+            route = self.env.ref(xmlid, raise_if_not_found=False)
+            if route:
+                ids.append(Command.link(route.id))
+            else:
+                _logger.warning(
+                    "Import pricer : route %s introuvable, article cree sans "
+                    "elle.", xmlid,
+                )
+        return ids
+
+    def _reference_article(self, comp):
+        """Reference Odoo d'un composant, a la convention du connecteur.
+
+        « TEC 720028.XBLACK » : prefixe du fournisseur, numero de base, puis la
+        teinte. Le numero de base est la reference LOGIKAL privee de sa lettre
+        fournisseur — « T720028 » donne « 720028 ».
+
+        Reproduire cette convention est la condition pour qu'un article cree
+        ici et le meme article cree par LOGIKAL n'en fassent qu'un.
+        """
+        prefixe = PREFIXES_FOURNISSEUR.get((comp.supplier or "").upper(), "")
+        base = comp.code[1:] if prefixe and len(comp.code) > 1 else comp.code
+        reference = ("%s %s" % (prefixe, base)).strip() if prefixe else comp.code
+        return "%s.%s" % (reference, comp.color) if comp.color else reference
+
+    def _creer_article(self, comp):
+        """Cree l'article matiere absent de la base.
+
+        Meme forme que ceux du connecteur : stockable, achetable, routes MTO et
+        achat, et surtout x_studio_ref_int_logikal / x_studio_color_logikal
+        renseignes — c'est sur eux que le prochain import le retrouvera au lieu
+        d'en creer un second.
+        """
+        Product = self.env["product.product"].sudo()
+        code = self._reference_article(comp)
+        existant = Product.search([("default_code", "=", code)], limit=1)
+        if existant:
+            return existant
+
+        champs = Product._fields
+        vals = {
+            "default_code": code,
+            "name": (comp.description or comp.code).strip(),
+            "uom_id": self.env.ref("uom.product_uom_unit").id,
+            "purchase_ok": True,
+            "sale_ok": True,
+            "type": "consu",
+            "is_storable": True,
+            "route_ids": self._routes(),
+        }
+        for nom, valeur in (
+            ("x_studio_ref_int_logikal", comp.code),
+            ("x_studio_color_logikal", comp.color),
+            ("x_studio_cration_auto", True),
+        ):
+            if nom in champs:
+                vals[nom] = valeur
+        produit = Product.create(vals)
+        _logger.info("Import pricer : article %s cree (%s).", code, produit.name)
+        return produit
+
+    def _creer_vitrage(self, comp, position, rang):
+        """Cree le vitrage absent de la base.
+
+        Reference « <affaire>_<position>_<rang> », celle du connecteur : le
+        vitrage n'a pas de reference fournisseur, il est identifie par la
+        menuiserie qu'il garnit et son rang dans celle-ci. Le rang vient d'un
+        tri stable, pour qu'un meme vitrage porte la meme reference d'un export
+        a l'autre.
+        """
+        Product = self.env["product.product"].sudo()
+        affaire = (self.env.context.get("fma_affaire") or "").strip()
+        code = "%s_%s_%s" % (affaire, position, rang)
+        existant = Product.search([("default_code", "=", code)], limit=1)
+        if existant:
+            return existant
+
+        champs = Product._fields
+        categorie = self.env.ref(CATEGORIE_VITRAGE, raise_if_not_found=False)
+        vals = {
+            "default_code": code,
+            "name": (comp.code or comp.description or _("Vitrage")).strip(),
+            "uom_id": self.env.ref("uom.product_uom_unit").id,
+            "purchase_ok": True,
+            "sale_ok": True,
+            "type": "consu",
+            "is_storable": True,
+            "route_ids": self._routes(),
+        }
+        if categorie:
+            vals["categ_id"] = categorie.id
+        for nom, valeur in (
+            ("x_studio_position", position),
+            ("x_studio_hauteur_mm", int(comp.height_mm or 0)),
+            ("x_studio_largeur_mm", int(comp.width_mm or 0)),
+            ("x_studio_cration_auto", True),
+        ):
+            if nom in champs:
+                vals[nom] = valeur
+        produit = Product.create(vals)
+        _logger.info("Import pricer : vitrage %s cree (%s).", code, produit.name)
+        return produit
+
+    def _rangs_vitrage(self, men):
+        """Rang de chaque vitrage dans sa menuiserie, sur un tri stable.
+
+        Trie sur la designation et les dimensions, jamais sur l'ordre de
+        lecture : deux exports de la meme affaire doivent donner les memes
+        references, sans quoi chaque import creerait un doublon.
+        """
+        vitrages = [c for c in men.components if c.kind == "glass"]
+        ordre = sorted(
+            range(len(vitrages)),
+            key=lambda i: (
+                vitrages[i].code or "",
+                round(vitrages[i].width_mm),
+                round(vitrages[i].height_mm),
+            ),
+        )
+        rangs = {}
+        for rang, index in enumerate(ordre, start=1):
+            rangs[id(vitrages[index])] = rang
+        return rangs
+
     def _sync_bom(self, product, pivot_line, unchanged=False):
         """(Re)construit la nomenclature d'une menuiserie.
 
@@ -447,11 +595,24 @@ class FmaPricerEngine(models.AbstractModel):
         debit = self._debit_product(product)
         components.append((debit, 1.0))
 
+        # Creation autorisee pour les pricers sans redacteur : LOGIKAL a son
+        # connecteur, qui cree deja articles et vitrages avant l'import. Pour
+        # les autres, un composant introuvable doit etre cree ici, sans quoi la
+        # nomenclature sort amputee.
+        creer = self.env.context.get("fma_creer_articles")
+        rangs = self._rangs_vitrage(men) if creer else {}
+
         for comp in men.components:
             if comp.kind == "glass":
                 found, problem = self._find_glass(comp, men.position or men.ref)
+                if not found and creer:
+                    found, problem = self._creer_vitrage(
+                        comp, men.position or men.ref, rangs.get(id(comp), 1)
+                    ), None
             else:
                 found, problem = self._find_product(comp.code, comp.color)
+                if not found and creer and comp.code:
+                    found, problem = self._creer_article(comp), None
             if not found:
                 if problem not in issues:
                     issues.append(problem)

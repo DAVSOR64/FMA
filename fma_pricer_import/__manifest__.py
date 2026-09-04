@@ -37,7 +37,10 @@
     # 1.18.0 : la reference LOGIKAL des articles est lue dans le numero SAP du
     # chiffrage TechDesign. Les deux pricers designent enfin le meme article de
     # la meme facon, condition pour rapprocher sans creer de doublon.
-    "version": "19.0.1.18.0",
+    # 1.19.0 : creation des articles et vitrages manquants pour les pricers
+    # sans redacteur, a la convention et aux routes de sqlite_connector, et
+    # normalisation des libelles d'operations de TechDesign.
+    "version": "19.0.1.19.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

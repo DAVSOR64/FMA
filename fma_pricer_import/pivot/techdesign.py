@@ -42,6 +42,18 @@ TEINTE_PREFIXES = re.compile(r"^(?:\*|Prix\s+)+")
 #: sous deux teintes selon le pricer.
 SANS_TEINTE = {"SANS", "ZNCO", ""}
 
+#: Temps de chantier, exclus de la gamme : ils ne se passent pas a l'atelier et
+#: n'ont donc aucun poste de charge. Les importer chargerait les postes d'un
+#: travail qui ne s'y fait pas.
+TEMPS_HORS_ATELIER = ("pose",)
+
+#: Traduction des libelles TechDesign vers le vocabulaire des postes de charge,
+#: quand le sens ne fait aucun doute. Le reste garde son nom et se rattache a la
+#: main, champ « Operation pricer » du poste.
+OPERATIONS = {
+    "pose vitrage": "Vitrage",
+}
+
 
 def teinte(brut):
     """Code d'achat de la finition, tel que le catalogue le porte."""
@@ -243,12 +255,40 @@ def _operations(item):
         heures = _attr_nombre(ligne, "Value")
         if not heures:
             continue
+        nom = _nom_operation(ligne.get("Description"))
+        if not nom:
+            continue
         operations.append(Operation(
-            name=(ligne.get("Description") or "").strip(),
+            name=nom,
             minutes=heures * 60.0,
             sequence=(rang + 1) * 10,
         ))
     return operations
+
+
+def _nom_operation(libelle):
+    """Nom de l'operation, dans le vocabulaire des postes de charge.
+
+    TechDesign prefixe ses temps par « Heures » : « Heures Fabrication »,
+    « Heures - Pose Vitrage ». Le prefixe est retire, car le poste se cherche
+    par le debut de son nom et « Heures ... » ne ressemble a aucun poste.
+
+    « Heures Pose » est ecarte : c'est du temps de chantier, il ne se passe pas
+    a l'atelier et n'a aucun poste de charge. L'importer chargerait un poste
+    d'un travail qui ne s'y fait pas.
+
+    Renvoie une chaine vide quand le temps n'a pas sa place dans la gamme.
+    """
+    nom = (libelle or "").strip()
+    nom = re.sub(r"^heures\s*-?\s*", "", nom, flags=re.I).strip()
+    if not nom:
+        return ""
+    reduit = nom.lower()
+    if reduit in OPERATIONS:
+        return OPERATIONS[reduit]
+    if reduit in TEMPS_HORS_ATELIER:
+        return ""
+    return nom
 
 
 def _barres(root, catalogue):
