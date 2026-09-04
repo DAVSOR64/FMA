@@ -161,7 +161,87 @@ def audit_chiffrage(root, nom):
             "menuiseries": len(items)}
 
 
-AUDITS = {"JOB": audit_fom, "PMC": audit_cnc, "JobExport": audit_chiffrage}
+def audit_commande(root, nom):
+    """Export de commande fournisseur : ce qui est ACHETE, pas ce qui est chiffre.
+
+    Quatrieme format TechDesign, distinct des trois autres par sa nature meme :
+    les exports chiffrage, FOM et CNC decrivent des menuiseries a fabriquer ;
+    celui-ci decrit une commande passee a un fournisseur. Il ne porte donc ni
+    position, ni coupe, ni menuiserie — et ne peut pas creer de devis.
+
+    Ce qu'il apporte en revanche est ce qui manque au chiffrage : le besoin
+    d'achat reel, conditionnement compris, avec le prix et la teinte.
+    """
+    blob = root.find("object/m_OrderBlob")
+    if blob is None:
+        print("  format      : racine <root> sans m_OrderBlob, non reconnu")
+        return None
+
+    def valeur(chemin):
+        noeud = blob.find(chemin)
+        return noeud.get("v") if noeud is not None else None
+
+    pieces = blob.findall("m_OrderPieceArticleList/item")
+    barres = blob.findall("m_OrderLengthArticleList/item")
+    vitrages = blob.findall("m_OrderFixedGlazingList/item")
+    origine = blob.find("m_OriginEntityList/item")
+
+    print("  format      : commande fournisseur TechDesign")
+    print("  commande    : %s — %s"
+          % (blob.findtext("m_sCustomNum") or "?",
+             blob.findtext("m_sDescription") or ""))
+    print("  fournisseur : %s" % (blob.findtext("m_SupplierId/code") or "?"))
+    print("  lignes      : %d piece, %d longueur, %d vitrage"
+          % (len(pieces), len(barres), len(vitrages)))
+
+    affaire = lots = None
+    if origine is not None:
+        affaire = origine.findtext("m_EntityDbId/code")
+        lots = [i.text for i in origine.findall("m_EntitySubNrList/item")]
+        print("  affaire     : %s" % (affaire or "?"))
+        print("  lots        : %s" % (", ".join(lots) if lots else "aucun"))
+    else:
+        print("  ! aucune affaire d'origine : la commande n'est rattachable a rien")
+
+    # Le conditionnement est la vraie information de cette famille de fichiers :
+    # le chiffrage donne le besoin, la commande donne ce qu'il faut acheter.
+    arrondis = 0
+    for item in pieces + barres:
+        besoin = float(valeur_de(item, "m_dQuantCalc") or 0)
+        commande = float(valeur_de(item, "m_dQuantPackaged") or 0)
+        if commande > besoin:
+            arrondis += 1
+    total = len(pieces) + len(barres)
+    print("  " + _fmt(arrondis, total, "lignes arrondies au conditionnement"))
+
+    sans_position = all(item.findtext("orderRefNumber") in (None, "")
+                        for item in pieces)
+    if sans_position:
+        print("  ! aucune ligne ne porte de repere : la commande ne se ventile")
+        print("    pas par menuiserie, seulement par affaire et par lot")
+
+    return {
+        "affaire": affaire,
+        "lots": lots or [],
+        "pieces": len(pieces),
+        "barres": len(barres),
+        "sans_position": sans_position,
+    }
+
+
+def valeur_de(noeud, chemin):
+    """Valeur d'un attribut ``v``, absent des fichiers anciens."""
+    trouve = noeud.find(chemin)
+    return trouve.get("v") if trouve is not None else None
+
+
+AUDITS = {
+    "JOB": audit_fom,
+    "PMC": audit_cnc,
+    "JobExport": audit_chiffrage,
+    # Commande fournisseur : racine generique <root>, reconnue au m_OrderBlob.
+    "root": audit_commande,
+}
 
 
 def main(chemins):
@@ -209,6 +289,18 @@ def main(chemins):
         if not cnc["phase_groupe"]:
             print("  ? La phase ne groupe qu'une menuiserie : refaire le test")
             print("    avec plusieurs menuiseries par phase pour trancher.")
+
+    commande = resultats.get("root")
+    if commande is not None:
+        print("  ! La commande fournisseur ne cree pas de devis : elle ne porte")
+        print("    ni menuiserie, ni position, ni coupe. Elle complete un lot")
+        print("    deja importe avec le besoin d'ACHAT reel (conditionnement,")
+        print("    prix, teinte), la ou le chiffrage ne donne que le besoin.")
+        if commande["sans_position"]:
+            print("    Rattachement possible a l'affaire %s et aux lots %s,"
+                  % (commande["affaire"] or "?",
+                     ", ".join(commande["lots"]) or "?"))
+            print("    pas plus fin : aucune ligne ne porte de repere.")
 
     if fom is not None and cnc is not None and fom["barres"] != cnc["barres"]:
         print("  ! FOM %d barres contre CNC %d : le CNC ne couvre que les"

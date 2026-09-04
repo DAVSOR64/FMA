@@ -162,6 +162,65 @@ class Lot:
 
 
 @dataclass
+class OrderLine:
+    """Ligne d'une commande fournisseur, telle que le pricer l'a optimisee.
+
+    Distincte de :class:`Component` et de :class:`Bar`, qui decrivent un
+    BESOIN par menuiserie ou par lot. Celle-ci decrit un ACHAT : elle porte le
+    conditionnement, et c'est tout son interet — on n'achete pas 40 pieces
+    mais un sachet de 50.
+    """
+
+    kind: str  # "piece" | "bar" | "glass"
+    code: str
+    art_num: str = ""
+    description: str = ""
+    color: str = ""
+    supplier: str = ""
+    #: Besoin calcule par le pricer, avant arrondi au conditionnement.
+    qty_needed: float = 0.0
+    #: Quantite reellement commandee, conditionnement compris.
+    qty_ordered: float = 0.0
+    #: Taille d'un conditionnement, et nombre de conditionnements. Pour une
+    #: barre, ``pack_qty`` est la longueur de la barre en millimetres.
+    pack_qty: float = 0.0
+    pack_count: float = 0.0
+    unit_price: float = 0.0
+    total_price: float = 0.0
+    currency: str = ""
+
+    @property
+    def surplus(self):
+        """Ce qui est achete au-dela du besoin, du fait du conditionnement."""
+        return max(self.qty_ordered - self.qty_needed, 0.0)
+
+
+@dataclass
+class Purchase:
+    """Commande passee a un fournisseur pour une affaire.
+
+    Un pricer peut livrer cette information sans livrer de menuiserie : c'est
+    le cas de l'export de commande TechDesign, qui ne porte ni position ni
+    coupe. Une commande se rattache donc a une affaire et a des lots, jamais a
+    une menuiserie.
+    """
+
+    supplier: str = ""
+    ref: str = ""
+    description: str = ""
+    #: Affaire d'origine, telle que le pricer la nomme.
+    affaire: str = ""
+    #: Lots couverts par la commande. Vide = toute l'affaire.
+    lots: list = field(default_factory=list)
+    lines: list = field(default_factory=list)  # [OrderLine]
+    currency: str = ""
+
+    @property
+    def total(self):
+        return sum(l.total_price for l in self.lines)
+
+
+@dataclass
 class Quotation:
     """Resultat d'un import : un chiffrage, un ou plusieurs lots."""
 
@@ -169,6 +228,9 @@ class Quotation:
     source: str = ""
     project: dict = field(default_factory=dict)
     lots: list = field(default_factory=list)  # [Lot]
+    #: Commandes fournisseur livrees par le pricer, quand il en livre. Vide
+    #: pour un export de chiffrage : le besoin d'achat s'y deduit des barres.
+    purchases: list = field(default_factory=list)  # [Purchase]
     warnings: list = field(default_factory=list)
     #: Site qui a chiffre — « FMA » ou « F2M ». Il departage les postes de
     #: charge homonymes des deux ateliers (« Debit FMA » / « Debit F2M »).
@@ -200,6 +262,17 @@ class Quotation:
             else:
                 by_ref[lot.ref] = len(self.lots)
                 self.lots.append(lot)
+        # Une commande deja presente est remplacee, comme un lot : on redepose
+        # une commande corrigee sans perdre les autres. La reference du
+        # fournisseur fait foi, deux fournisseurs pouvant numeroter pareil.
+        by_cmd = {(p.supplier, p.ref): i for i, p in enumerate(self.purchases)}
+        for achat in other.purchases:
+            cle = (achat.supplier, achat.ref)
+            if cle in by_cmd:
+                self.purchases[by_cmd[cle]] = achat
+            else:
+                by_cmd[cle] = len(self.purchases)
+                self.purchases.append(achat)
         self.warnings.extend(other.warnings)
         self.bars_per_lot = self.bars_per_lot and other.bars_per_lot
         return self

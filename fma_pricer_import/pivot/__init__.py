@@ -8,3 +8,4 @@ le devis, les articles et les nomenclatures.
 """
 from . import schema
 from . import logikal
+from . import techdesign_order
