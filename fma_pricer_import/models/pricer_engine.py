@@ -27,6 +27,11 @@ from ..pivot import logikal, techdesign, techdesign_order
 
 _logger = logging.getLogger(__name__)
 
+#: Pricers pour lesquels un module tiers cree deja les articles fabriques et
+#: les lignes de devis — sqlite_connector pour LOGIKAL. Pour les autres, le
+#: moteur doit les creer lui-meme avant de pouvoir les retrouver.
+PRICERS_AVEC_REDACTEUR = {"logikal"}
+
 
 def sans_accent(texte):
     """Minuscules et sans accent, pour rapprocher des noms saisis a la main.
@@ -124,6 +129,7 @@ class FmaPricerEngine(models.AbstractModel):
         self._check_offer_matches(order, quotation)
         self._check_bars_usable(order, quotation)
 
+        self._ensure_sale_lines(order, quotation)
         sale_lines, missing_lines = self._sync_sale_lines(order, quotation)
 
         # Lots fictifs regroupant les positions non fabriquees
@@ -250,6 +256,77 @@ class FmaPricerEngine(models.AbstractModel):
     # ------------------------------------------------------------------
     # Lignes de devis
     # ------------------------------------------------------------------
+    def _ensure_sale_lines(self, order, quotation):
+        """Cree article et ligne de devis pour un pricer sans redacteur.
+
+        LOGIKAL passe par ``sqlite_connector``, qui cree les articles fabriques
+        et les lignes du devis ; le moteur se contente ensuite de les
+        retrouver. TechDesign n'a pas cet equivalent : sans cela le devis
+        restait vide, les lots naissaient orphelins, et le bouton « Lots » —
+        dont le compteur se calcule depuis les lignes — restait masque.
+
+        La reference reprend la convention du connecteur,
+        « <projet>/<tranche>_<position> », sans quoi chaque reimport creerait
+        un doublon au lieu de retrouver l'article. Le projet est ici le numero
+        du devis : le chiffrage TechDesign n'en porte aucun.
+
+        L'empreinte est posee des la creation, pour que la passe suivante
+        retrouve la ligne par ce qu'elle est et non par sa designation.
+        """
+        if quotation.pricer in PRICERS_AVEC_REDACTEUR:
+            return
+
+        Product = self.env["product.product"].sudo()
+        champs = Product._fields
+        projet = (order.name or "").strip()
+        tranche = order.x_tranche if "x_tranche" in order._fields else 0
+
+        for pivot_line in quotation.sale_lines():
+            men = pivot_line.menuiserie
+            if not men or not men.is_manufactured:
+                continue
+            key = signature_hash(men)
+            if self._find_sale_line(order, pivot_line, key,
+                                    quotation.project.get("name", "")):
+                continue
+
+            position = men.position or pivot_line.ref
+            code = "%s/%s_%s" % (projet, tranche or 0, position)
+            produit = Product.search([("default_code", "=", code)], limit=1)
+            if not produit:
+                vals = {
+                    "name": (men.description or position).strip(),
+                    "default_code": code,
+                    "list_price": men.price,
+                    "uom_id": self.env.ref("uom.product_uom_unit").id,
+                    "type": "consu",
+                    "purchase_ok": False,
+                    "sale_ok": True,
+                    "invoice_policy": "delivery",
+                }
+                # Champs Studio du connecteur : presents en production, pas
+                # forcement ailleurs. Ils portent le repere et les dimensions,
+                # que le rapprochement du vitrage lit ensuite.
+                if "x_studio_position" in champs:
+                    vals["x_studio_position"] = position
+                if "x_studio_hauteur_mm" in champs:
+                    vals["x_studio_hauteur_mm"] = int(men.height_mm or 0)
+                if "x_studio_largeur_mm" in champs:
+                    vals["x_studio_largeur_mm"] = int(men.width_mm or 0)
+                produit = Product.create(vals)
+                _logger.info(
+                    "Import pricer : article %s cree pour la menuiserie %s.",
+                    code, position,
+                )
+            produit.product_tmpl_id.sudo().pricer_signature = key
+
+            order.order_line = [(0, 0, {
+                "product_id": produit.id,
+                "name": (men.description or position).strip(),
+                "product_uom_qty": pivot_line.qty,
+                "price_unit": men.price,
+            })]
+
     def _sync_sale_lines(self, order, quotation):
         """Associe chaque position fabriquee du fichier a une ligne de devis.
 

@@ -31,7 +31,10 @@
     # desormais par le meme wizard : LOGIKAL en SQLite, TechDesign en XML.
     # 1.16.0 : le wizard n'appelle le connecteur SQLite que pour un export
     # LOGIKAL. Sur un XML TechDesign, le pivot est l'import a lui seul.
-    "version": "19.0.1.16.1",
+    # 1.17.0 : le moteur cree lui-meme articles et lignes de devis pour les
+    # pricers sans redacteur. TechDesign n'a pas d'equivalent de
+    # sqlite_connector : sans cela le devis restait vide et les lots orphelins.
+    "version": "19.0.1.17.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
