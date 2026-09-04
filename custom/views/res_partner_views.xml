@@ -42,6 +42,24 @@
                     <field name="part_montant_couverture" string="ALLIANZ COUVERTURE EULEUR"/>
                     <field name="part_decision" string="ASSURANCE-CREDIT"/>
                 </group>
+                <!--
+                    Groupe d'accueil pour purchase_order_export, qui depend de
+                    custom et se charge donc apres. Il y insere le numero
+                    d'expedition et le chemin SFTP des commandes.
+
+                    Sans ce groupe, la vue de ce module — telle qu'elle est
+                    enregistree dans cette base — ne trouve plus son ancre et
+                    fait echouer le chargement de tout module touchant a la
+                    fiche contact. C'est ce qui bloquait le build ici :
+                    « Element <xpath expr="//group[@name='fma_flux_documentaires']">
+                    cannot be located in parent view ».
+
+                    Le groupe est declare vide : son contenu vient du module qui
+                    s'y accroche, et le laisser ici garde la mise en page stable
+                    meme si ce module venait a etre desinstalle. Meme
+                    declaration que sur main et Staging_19.
+                -->
+                <group string="Flux documentaires" name="fma_flux_documentaires"/>
             </xpath>
         </field>
     </record>
