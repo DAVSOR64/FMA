@@ -26,7 +26,11 @@
                     <br></br>
                     <br>TVA : <span t-field="o.partner_id.vat" />
                     </br>
-                    <br>SIRET : <span t-field="o.partner_id.siret" /></br>
+                    <!-- company_registry et non siret : ce dernier a disparu de
+                         res.partner en v19. Le numero est porte par la societe,
+                         donc par le partenaire commercial et non par le contact.
+                         Meme lecture que les exports client et fournisseur. -->
+                    <br>SIRET : <span t-field="o.partner_id.commercial_partner_id.company_registry" /></br>
                 </div>
                 <div style="text-align: right;">
                     <br>
@@ -299,7 +303,12 @@
         <!-- <xpath expr="//p[@name='incoterm']" position="replace" /> -->
         <xpath expr="//div[@id='qrcode']" position="replace" />
 
-        <xpath expr="//div[@class='clearfix']" position="before">
+        <!-- hasclass et non @class : ce dernier exige que l'attribut vaille
+             exactement « clearfix », alors que le gabarit d'Odoo 19 lui adjoint
+             d'autres classes. L'xpath ne trouvait plus rien et faisait echouer
+             la mise a niveau du module. Les deux xpath suivants, deja en
+             hasclass, visaient donc le meme bloc et continuaient de passer. -->
+        <xpath expr="//div[hasclass('clearfix')]" position="before">
             <t t-if="o.inv_show_affacturage">
                 <div class="text-block" style="font-size: 11px;">
                     <!-- Place your custom text block here -->
