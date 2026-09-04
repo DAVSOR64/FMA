@@ -44,7 +44,10 @@
                 </div>
             </div>
         </xpath>
+        <!-- Neutralise plutot que supprime : voir plus bas, une vue Studio
+             s'ancre sur les noeuds du gabarit standard. -->
         <xpath expr="//div[@class='row'][1]" position="replace">
+            <div class="row" t-if="False"/>
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->
 
@@ -295,13 +298,37 @@
                 </t>
             </tbody>
         </xpath>
-        <!-- Suppression du bloc de code standard -->
-        <xpath expr="//p[@name='payment_communication']" position="replace" />
+        <!--
+            Blocs standards NEUTRALISES et non supprimes.
+
+            Les retirer de l'arbre a fait echouer la mise a niveau : une vue
+            Studio de la base s'accroche a
+            « //p[@name='payment_communication']/parent::* », et un xpath qui ne
+            resout plus casse le chargement du module, donc le build entier.
+            C'est exactement ce qui s'etait produit sur les commandes d'achat
+            avec x_studio_posit.
+
+            Un noeud pose par le gabarit standard n'est pas seulement du
+            contenu affiche : c'est aussi un point d'ancrage pour d'autres
+            personnalisations, invisibles depuis le code. On garde donc le
+            noeud, son nom et sa place, et on l'empeche seulement de rendre
+            quoi que ce soit. Ils pourront disparaitre une fois les vues Studio
+            du rapport de facture reprises.
+        -->
+        <xpath expr="//p[@name='payment_communication']" position="replace">
+            <p name="payment_communication" t-if="False"/>
+        </xpath>
         <!-- <xpath expr="//p[@name='payment_term']" position="replace" /> -->
-        <xpath expr="//div[@name='comment']" position="replace" />
-        <xpath expr="//p[@name='note']" position="replace" />
+        <xpath expr="//div[@name='comment']" position="replace">
+            <div name="comment" t-if="False"/>
+        </xpath>
+        <xpath expr="//p[@name='note']" position="replace">
+            <p name="note" t-if="False"/>
+        </xpath>
         <!-- <xpath expr="//p[@name='incoterm']" position="replace" /> -->
-        <xpath expr="//div[@id='qrcode']" position="replace" />
+        <xpath expr="//div[@id='qrcode']" position="replace">
+            <div id="qrcode" t-if="False"/>
+        </xpath>
 
         <!-- hasclass et non @class : ce dernier exige que l'attribut vaille
              exactement « clearfix », alors que le gabarit d'Odoo 19 lui adjoint
@@ -492,6 +519,7 @@
         </xpath>
 
         <xpath expr="//div[@id='payment_term']" position="replace">
+            <div id="payment_term" t-if="False"/>
         </xpath>
 
     </template>
