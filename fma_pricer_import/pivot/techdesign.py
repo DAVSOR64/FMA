@@ -250,16 +250,23 @@ def _parse(root, source):
     # Les catalogues d'articles recapitulent l'affaire entiere, sans distinguer
     # les phases : une barre ne peut donc etre rattachee a un lot que s'il n'y
     # en a qu'un. Sinon on ne rattache rien plutot que d'imputer au hasard.
+    #
+    # bars_per_lot reste VRAI pour autant. Ce drapeau dit « une meme barre
+    # alimente plusieurs lots, donc aucun lot n'est fabricable seul », et le
+    # moteur refuse alors l'import. Ce n'est pas notre cas : le debit et la
+    # nomenclature de chaque menuiserie sont bien portes par leur lot, seul le
+    # besoin d'ACHAT manque. Bloquer l'import pour cela priverait du devis, des
+    # lots et des nomenclatures a cause d'une mesure accessoire.
     barres = _barres(root, fournisseurs)
-    quo.bars_per_lot = len(phases) <= 1
-    if quo.bars_per_lot and quo.lots:
+    if len(phases) <= 1 and quo.lots:
         quo.lots[0].bars = barres
     elif barres:
         quo.warnings.append(
             "Le chiffrage porte %d lot(s) mais ses barres sont recapitulees "
-            "pour l'affaire entiere : elles ne sont attribuables a aucun lot. "
-            "Exporter lot par lot pour disposer du besoin d'achat."
-            % len(phases)
+            "pour l'affaire entiere : le besoin d'achat n'est pas ventilable "
+            "par lot et n'a donc pas ete repris. La fabrication, elle, n'est "
+            "pas affectee. Exporter lot par lot pour disposer aussi des "
+            "barres." % len(phases)
         )
 
     if not phases:
