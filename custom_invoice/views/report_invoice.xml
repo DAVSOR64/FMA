@@ -46,8 +46,8 @@
         </xpath>
         <!-- Neutralise plutot que supprime : voir plus bas, une vue Studio
              s'ancre sur les noeuds du gabarit standard. -->
-        <xpath expr="//div[@class='row'][1]" position="replace">
-            <div class="row" t-if="False"/>
+        <xpath expr="//div[@class='row'][1]" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->
 
@@ -299,7 +299,7 @@
             </tbody>
         </xpath>
         <!--
-            Blocs standards NEUTRALISES et non supprimes.
+            Blocs standards NEUTRALISES par ATTRIBUT, sans y toucher.
 
             Les retirer de l'arbre a fait echouer la mise a niveau : une vue
             Studio de la base s'accroche a
@@ -311,23 +311,27 @@
             Un noeud pose par le gabarit standard n'est pas seulement du
             contenu affiche : c'est aussi un point d'ancrage pour d'autres
             personnalisations, invisibles depuis le code. On garde donc le
-            noeud, son nom et sa place, et on l'empeche seulement de rendre
-            quoi que ce soit. Ils pourront disparaitre une fois les vues Studio
+            noeud tel quel — tous ses attributs d'origine compris — et on lui
+            ajoute seulement t-if="False".
+
+            Le remplacer par une copie ne suffisait pas : position="replace"
+            reconstruit l'element a partir de ce qu'on ecrit, et la vue Studio
+            ne s'y retrouvait plus. Le build echouait encore. Ils pourront disparaitre une fois les vues Studio
             du rapport de facture reprises.
         -->
-        <xpath expr="//p[@name='payment_communication']" position="replace">
-            <p name="payment_communication" t-if="False"/>
+        <xpath expr="//p[@name='payment_communication']" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
         <!-- <xpath expr="//p[@name='payment_term']" position="replace" /> -->
-        <xpath expr="//div[@name='comment']" position="replace">
-            <div name="comment" t-if="False"/>
+        <xpath expr="//div[@name='comment']" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
-        <xpath expr="//p[@name='note']" position="replace">
-            <p name="note" t-if="False"/>
+        <xpath expr="//p[@name='note']" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
         <!-- <xpath expr="//p[@name='incoterm']" position="replace" /> -->
-        <xpath expr="//div[@id='qrcode']" position="replace">
-            <div id="qrcode" t-if="False"/>
+        <xpath expr="//div[@id='qrcode']" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
 
         <!-- hasclass et non @class : ce dernier exige que l'attribut vaille
@@ -518,8 +522,8 @@
             <attribute name="class" add="avoid-page-break" />
         </xpath>
 
-        <xpath expr="//div[@id='payment_term']" position="replace">
-            <div id="payment_term" t-if="False"/>
+        <xpath expr="//div[@id='payment_term']" position="attributes">
+            <attribute name="t-if">False</attribute>
         </xpath>
 
     </template>
