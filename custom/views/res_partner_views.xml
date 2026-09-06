@@ -74,10 +74,10 @@
                 <label for="x_studio_cgv_rib" string="CGV + RIB"/>
                 <div><field name="x_studio_cgv_rib" nolabel="1"/></div>
                 <!--
-                    Ces deux champs sont CONSERVES, masques.
+                    part_siren est CONSERVE, masque.
 
-                    L'ancienne version de cette vue les posait. Une vue Studio
-                    peut donc s'y accrocher, et leur retrait rendrait la fiche
+                    L'ancienne version de cette vue le posait. Une vue Studio
+                    peut donc s'y accrocher, et son retrait rendrait la fiche
                     impossible a ouvrir — c'est ce qui est arrive aux commandes
                     d'achat avec x_studio_posit : « L'element ne peut etre
                     localise dans la vue parente ».
@@ -86,11 +86,34 @@
                     affichee : c'est aussi un point d'ancrage pour d'autres
                     personnalisations, invisibles depuis le code. On ne le
                     retire donc pas de l'arbre, on cesse seulement de
-                    l'afficher. Ils pourront disparaitre une fois les vues
+                    l'afficher. Il pourra disparaitre une fois les vues
                     Studio de res.partner reprises.
+
+                    x_studio_commercial_1 n'est plus ici : il est redevenu
+                    visible, aupres du vendeur — voir plus bas.
                 -->
                 <field name="part_siren" invisible="1"/>
-                <field name="x_studio_commercial_1" invisible="1"/>
+            </xpath>
+
+            <!--
+                Le commercial FMA, aupres du vendeur natif.
+
+                Il en avait ete retire : le vendeur natif sert deja aux
+                filtres, aux rapports et aux droits, et en garder deux
+                obligeait a choisir lequel renseigner. Le metier le veut
+                cependant a l'ecran, et il n'est pas redondant : le vendeur
+                est un utilisateur Odoo, le commercial un EMPLOYE du
+                departement Commerce, sans licence. C'est lui que
+                sale.order.commercial_id recopie a la selection du client,
+                puis _prepare_invoice sur la facture, et c'est lui que
+                fma_iziqo_sync transmet a Iziqo.
+
+                Pose apres le vendeur plutot qu'a sa place : le champ natif
+                reste utilise par Odoo pour ses propres mecanismes.
+            -->
+            <xpath expr="//page[@name='sales_purchases']//field[@name='user_id']"
+                   position="after">
+                <field name="x_studio_commercial_1" string="Commercial"/>
             </xpath>
 
             <!-- Comptabilite et reglement, la ou l'onglet Ventes & Achats les
