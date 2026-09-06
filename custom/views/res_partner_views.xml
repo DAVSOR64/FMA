@@ -50,16 +50,22 @@
                 <field name="x_studio_code_naf" string="Code NAF"/>
                 <field name="x_studio_etablissement" string="Établissement"/>
                 <!--
-                    « Commercial » (x_studio_commercial_1) sort de la vue : le
-                    vendeur natif fait le meme travail et sert deja aux filtres,
-                    aux rapports et aux droits. En garder deux obligeait a
-                    choisir lequel renseigner, sans qu'aucun ne fasse autorite.
-                    Le champ reste en base et dans les exports.
-
                     Le vendeur est DEPLACE ici plutot que redeclare : le
                     redeclarer le poserait deux fois dans la meme vue.
                 -->
                 <xpath expr="//field[@name='user_id']" position="move"/>
+                <!--
+                    Le commercial FMA, aupres du vendeur.
+
+                    Il en avait ete retire au profit du seul vendeur natif ; le
+                    metier le veut a l'ecran, et il n'est pas redondant : le
+                    vendeur est un utilisateur Odoo, le commercial un EMPLOYE du
+                    departement Commerce, sans licence. C'est lui que
+                    sale.order.commercial_id recopie a la selection du client,
+                    puis _prepare_invoice sur la facture, et c'est lui que
+                    fma_iziqo_sync transmet a Iziqo.
+                -->
+                <field name="x_studio_commercial_1" string="Commercial"/>
                 <!--
                     Libelle pose explicitement. Ces deux cases arrivaient sans,
                     a la difference des champs texte voisins : une case a cocher
