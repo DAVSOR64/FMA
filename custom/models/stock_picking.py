@@ -76,30 +76,61 @@ class StockPicking(models.Model):
         # to inject new fields to the client action").
         return super()._get_fields_stock_barcode() + ["x_studio_n_bl"]
 
+    def _fma_ordres_de_fabrication(self):
+        """Ordres de fabrication auxquels ce transfert se rattache.
+
+        Trois chemins, du plus direct au plus permissif, parce qu'un OF n'est
+        pas relie de la meme facon a tous ses transferts.
+
+        Les mouvements du transfert portent parfois l'OF directement :
+        production_id pour l'entree du produit fini,
+        raw_material_production_id pour la consommation des composants.
+
+        Mais pas toujours, et c'est ce qui laissait le champ vide. Avec une
+        fabrication en deux ou trois etapes, le transfert « Collecter les
+        composants » deplace la matiere du stock vers la pre-fabrication : ses
+        mouvements ne sont PAS ceux de l'OF, ils les alimentent. Le lien passe
+        alors par le chainage — move_dest_ids vers l'aval, move_orig_ids vers
+        l'amont pour le transfert des produits finis.
+
+        En dernier recours, le document d'origine : Odoo y inscrit le nom de
+        l'OF, comme le montre « LRE/LRE/04506 » sur ces transferts. Moins sur
+        qu'une relation, mais c'est mieux qu'un champ vide.
+        """
+        self.ensure_one()
+        Move = self.env["stock.move"]
+        Production = self.env["mrp.production"]
+        champs = [c for c in ("production_id", "raw_material_production_id")
+                  if c in Move._fields]
+        if not champs:
+            return Production
+
+        mouvements = self.move_ids
+        for lien in ("move_dest_ids", "move_orig_ids"):
+            if lien in Move._fields:
+                mouvements |= self.move_ids.mapped(lien)
+
+        productions = Production
+        for champ in champs:
+            productions |= mouvements.mapped(champ)
+        if productions:
+            return productions
+
+        origine = (self.origin or "").strip()
+        if origine:
+            productions = Production.sudo().search([("name", "=", origine)], limit=1)
+        return productions
+
     def _fma_commande_de_la_vente(self):
         """Commande a l'origine du transfert, directe ou via l'ordre de fabrication.
 
-        Une livraison porte sa commande dans sale_id. Les transferts d'un OF —
-        sortie de composants, entree de produits finis — n'en ont aucune : ils
-        sont rattaches a l'OF, qui lui connait sa commande. C'est pour cela que
-        le champ restait vide sur ces transferts-la.
-
-        On remonte donc par les mouvements, qui portent l'OF : production_id
-        pour l'entree du produit fini, raw_material_production_id pour la
-        sortie des composants.
+        Une livraison porte sa commande dans sale_id. Les transferts d'un OF
+        n'en ont aucune : ils sont rattaches a l'OF, qui lui la connait.
         """
         self.ensure_one()
         if self.sale_id:
             return self.sale_id[:1]
-
-        Move = self.env["stock.move"]
-        productions = self.env["mrp.production"]
-        for champ in ("production_id", "raw_material_production_id"):
-            # Verifie dans le registre : ces champs viennent de mrp, dont
-            # custom depend, mais on ne prend plus aucun nom pour acquis.
-            if champ in Move._fields:
-                productions |= self.move_ids.mapped(champ)
-        for production in productions:
+        for production in self._fma_ordres_de_fabrication():
             commande = production._fma_commande_de_la_vente()
             if commande:
                 return commande
