@@ -95,6 +95,8 @@ class StockPicking(models.Model):
         Move = self.env["stock.move"]
         productions = self.env["mrp.production"]
         for champ in ("production_id", "raw_material_production_id"):
+            # Verifie dans le registre : ces champs viennent de mrp, dont
+            # custom depend, mais on ne prend plus aucun nom pour acquis.
             if champ in Move._fields:
                 productions |= self.move_ids.mapped(champ)
         for production in productions:
@@ -103,22 +105,26 @@ class StockPicking(models.Model):
                 return commande
         return self.env["sale.order"]
 
-    @api.depends("sale_id",
-                 "move_ids.production_id.x_studio_projet_de_la_vente",
-                 "move_ids.raw_material_production_id.x_studio_projet_de_la_vente")
+    @api.depends("sale_id", "move_ids")
     def _compute_x_studio_projet_de_la_vente(self):
         """Projet de la vente, sur la livraison comme sur les transferts d'OF.
 
-        La dependance ne descend pas jusqu'a sale_id.x_studio_projet : ce champ
-        est declare par fma_sale_order_custom, qui depend de custom. Le nommer
-        ici ferait echouer le chargement partout ou ce module n'est pas
-        installe — meme piege que x_studio_date_de_relance_1 sur le devis. Elle
-        passe donc par le champ homonyme de l'OF, lui declare dans custom, ce
-        qui propage aussi le recalcul quand l'OF retrouve sa commande.
+        La dependance se limite a sale_id et move_ids, deux champs apportes
+        par des modules dont custom depend et donc charges avant lui. Ni les
+        champs de l'OF, ni x_studio_projet n'y figurent : Odoo resout les
+        dependances au chargement de CHAQUE module, et custom vient en 257e
+        position sur 356. Un champ pas encore declare y fait echouer le
+        demarrage de la base entiere — c'est ce qui s'est produit avec
+        sale_line_id sur l'ordre de fabrication.
 
-        Consequence assumee : changer le projet d'une commande deja livree ne
-        recalcule pas ses transferts. Le projet est renseigne avant la
-        livraison ; rouvrir la commande suffit a le rattraper.
+        Tout le reste est donc lu au moment du calcul, si le registre le
+        connait alors.
+
+        Consequence assumee : le transfert ne se recalcule pas si l'OF
+        retrouve sa commande apres coup, ni si le projet change sur une
+        commande deja livree. Les deux se rattrapent en rouvrant
+        l'enregistrement, et l'ordre normal des choses — commande, puis OF,
+        puis transferts — les rend marginaux.
         """
         for picking in self:
             commande = picking._fma_commande_de_la_vente()
