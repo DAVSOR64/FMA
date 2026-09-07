@@ -44,9 +44,15 @@ def _recalculer(env, modele, journal):
 def migrate(cr, version):
     env = api.Environment(cr, SUPERUSER_ID, {})
     journal = []
-    # UNIQUEMENT les transferts. L'ordre de fabrication n'a plus de champ
-    # calcule : son « Projet de la vente » est une donnee Studio, et c'est
-    # precisement le recalcul de ce modele qui l'a effacee en production.
+    # L'OF d'abord : le transfert lit le projet de son OF.
+    #
+    # Ce meme recalcul avait vide le champ sur toute la production. Il est
+    # desormais sans danger, et c'est lui qui repare : le calcul retrouve la
+    # commande par reference_ids.sale_ids — le chemin qui manquait, celui du
+    # bouton « Ventes » — y lit « Projet mtn » (x_studio_projet), et surtout
+    # il ne remplace jamais une valeur par du vide. Il ne peut donc que
+    # remplir.
+    _recalculer(env, "mrp.production", journal)
     _recalculer(env, "stock.picking", journal)
 
     cr.execute(
