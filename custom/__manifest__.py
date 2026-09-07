@@ -24,7 +24,7 @@
         # 1.0.57 : la colonne Repere de la ligne d'achat suit la meme regle
     # que le PDF (x_studio_posit sinon x_studio_position) ; elle restait
     # vide alors que le PDF portait bien un repere.
-    "version": "19.0.1.0.76",
+    "version": "19.0.1.0.77",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
@@ -43,6 +43,7 @@
         "views/mrp_production_views.xml",
         "views/purchase_order_views.xml",
         "views/product_views.xml",
+        "views/stock_orderpoint_views.xml",
         "data/message_templates.xml",
     ],
     # Une seule cle "assets" : il y en avait deux, et la seconde ecrasait
