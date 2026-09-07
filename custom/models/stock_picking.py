@@ -121,20 +121,35 @@ class StockPicking(models.Model):
             productions = Production.sudo().search([("name", "=", origine)], limit=1)
         return productions
 
-    def _fma_commande_de_la_vente(self):
-        """Commande a l'origine du transfert, directe ou via l'ordre de fabrication.
+    def _fma_projet_source(self):
+        """Projet de la vente a reporter sur ce transfert.
 
-        Une livraison porte sa commande dans sale_id. Les transferts d'un OF
-        n'en ont aucune : ils sont rattaches a l'OF, qui lui la connait.
+        Deux sources, et pas trois maillons : une livraison porte sa commande
+        dans sale_id, on y lit le projet. Un transfert d'ordre de fabrication
+        n'a pas de commande, on prend le projet DE L'OF, tel qu'il y figure.
+
+        C'est le point ou je m'etais complique la vie : je demandais a l'OF sa
+        commande, puis a la commande son projet. Or l'OF connait son projet
+        sans forcement connaitre sa commande — il le tient parfois d'une
+        automatisation ou d'une saisie, et le diagnostic sur LRE/PC/10083 l'a
+        montre : la chaine atteignait bien l'OF 5436, mais celui-ci n'avait pas
+        de commande a donner. Le transfert doit recopier le projet de son OF,
+        pas le recalculer par un autre chemin.
         """
         self.ensure_one()
-        if self.sale_id:
-            return self.sale_id[:1]
+        Projet = self.env["project.project"]
+
+        commande = self.sale_id[:1]
+        if commande and "x_studio_projet" in commande._fields:
+            projet = commande.x_studio_projet
+            if projet:
+                return projet
+
         for production in self._fma_ordres_de_fabrication():
-            commande = production._fma_commande_de_la_vente()
-            if commande:
-                return commande
-        return self.env["sale.order"]
+            projet = production.x_studio_projet_de_la_vente
+            if projet:
+                return projet
+        return Projet
 
     @api.depends("sale_id", "move_ids")
     def _compute_x_studio_projet_de_la_vente(self):
@@ -158,14 +173,8 @@ class StockPicking(models.Model):
         puis transferts — les rend marginaux.
         """
         for picking in self:
-            commande = picking._fma_commande_de_la_vente()
-            projet = (
-                commande.x_studio_projet
-                if commande and "x_studio_projet" in commande._fields
-                else False
-            )
-            # Meme regle que sur l'ordre de fabrication : un calcul qui ne
-            # trouve rien se tait plutot que d'effacer.
+            # Un calcul qui ne trouve rien se tait plutot que d'effacer.
             picking.x_studio_projet_de_la_vente = (
-                projet or picking.x_studio_projet_de_la_vente
+                picking._fma_projet_source()
+                or picking.x_studio_projet_de_la_vente
             )
