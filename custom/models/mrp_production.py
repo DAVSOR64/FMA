@@ -85,6 +85,18 @@ class MrpProduction(models.Model):
         ne declenche pas de recalcul spontane ; l'automatisation Studio pose
         x_studio_mtn_mrp_sale_order et c'est elle qui l'amorce.
         """
+        # Les valeurs deja en base, lues d'un coup en SQL. Relire le champ
+        # depuis l'enregistrement, au sein de son propre calcul, est le genre
+        # de detour dont Odoo ne garantit rien pendant un recalcul de masse —
+        # et c'est cette garde-la qui protege la donnee. Elle doit etre sure.
+        anciennes = {}
+        existants = [i for i in self.ids if isinstance(i, int)]
+        if existants:
+            self.env.cr.execute(
+                "SELECT id, x_studio_projet_de_la_vente FROM mrp_production"
+                " WHERE id IN %s", (tuple(existants),))
+            anciennes = dict(self.env.cr.fetchall())
+
         for production in self:
             commande = production._fma_commande_de_la_vente()
             projet = (
@@ -99,5 +111,5 @@ class MrpProduction(models.Model):
             # exactement ce qui s'est produit. Un calcul qui ne trouve rien se
             # tait.
             production.x_studio_projet_de_la_vente = (
-                projet or production.x_studio_projet_de_la_vente
+                projet or anciennes.get(production.id) or False
             )
