@@ -17,6 +17,16 @@
             <xpath expr="//field[@name='date_start']" position="attributes">
                 <attribute name="readonly">1</attribute>
             </xpath>
+
+            <!-- Le projet de la vente, dans l'onglet Divers, aupres de la
+                 Source dont il est la traduction en affaire : « d'ou vient cet
+                 OF » et « pour quelle affaire » sont la meme question.
+
+                 Ancre sur origin plutot que sur la page : le champ existe a
+                 coup sur sur mrp.production, le nom de la page moins. -->
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="x_studio_projet_de_la_vente"/>
+            </xpath>
         </field>
     </record>
 </odoo>
