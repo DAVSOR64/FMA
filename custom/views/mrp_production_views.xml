@@ -22,7 +22,7 @@
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='origin']" position="after">
+            <xpath expr="//field[@name='origin'][not(ancestor::field)]" position="after">
                 <field name="x_studio_projet_de_la_vente"/>
             </xpath>
         </field>
