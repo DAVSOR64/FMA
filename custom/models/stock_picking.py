@@ -29,6 +29,22 @@ class StockPicking(models.Model):
     x_studio_many2one_field_uBzGv = fields.Many2one("x_affaire", string="Affaire")
     x_studio_many2one_field_Vc214 = fields.Many2one("x_affaire", string="Affaire")
     x_studio_n_bl = fields.Char(string="N° BL")
+    # Projet de la vente, le meme que sur l'ordre de fabrication
+    # (mrp.production.x_studio_projet_de_la_vente) : c'est le projet porte par
+    # la commande a l'origine du transfert. Meme nom technique d'un modele a
+    # l'autre, pour que le metier et les rapports parlent du meme champ.
+    #
+    # Stocke, sans quoi la colonne ne serait ni filtrable, ni groupable, ni
+    # triable — or c'est pour trier les livraisons par affaire qu'on l'affiche.
+    x_studio_projet_de_la_vente = fields.Many2one(
+        "project.project",
+        string="Projet de la vente",
+        compute="_compute_x_studio_projet_de_la_vente",
+        store=True,
+        readonly=True,
+        index="btree_not_null",
+    )
+
     x_studio_projet_du_mo = fields.Many2one("project.project", string="Projet du MO", readonly=True)
     x_studio_projet_du_so = fields.Many2one("project.project", string="projet du SO")
     x_studio_projet_du_so_1 = fields.Many2one("project.project", string="Projet du SO", readonly=True)
@@ -59,3 +75,26 @@ class StockPicking(models.Model):
         # (docstring de la méthode d'origine : "to be overridden in order
         # to inject new fields to the client action").
         return super()._get_fields_stock_barcode() + ["x_studio_n_bl"]
+
+    @api.depends("sale_id")
+    def _compute_x_studio_projet_de_la_vente(self):
+        """Projet de la commande a l'origine du transfert.
+
+        La dependance ne porte que sur sale_id, et non sur
+        sale_id.x_studio_projet : ce dernier est declare par
+        fma_sale_order_custom, qui depend de custom. Le nommer ici ferait
+        echouer le chargement partout ou ce module n'est pas installe — c'est
+        le meme piege que x_studio_date_de_relance_1 sur le devis.
+
+        Consequence assumee : changer le projet d'une commande deja livree ne
+        recalcule pas ses transferts. Le projet est renseigne avant la
+        livraison, le cas est marginal, et une simple reouverture de la
+        commande suffit a le rattraper.
+        """
+        for picking in self:
+            commande = picking.sale_id
+            picking.x_studio_projet_de_la_vente = (
+                commande.x_studio_projet
+                if commande and "x_studio_projet" in commande._fields
+                else False
+            )
