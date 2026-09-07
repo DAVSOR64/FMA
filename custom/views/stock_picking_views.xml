@@ -14,6 +14,10 @@
              destination. -->
         <field name="location_dest_id" position="after">
           <field name="x_studio_n_bl" string="N° BL"/>
+          <!-- Le projet de la vente, le meme champ que sur l'ordre de
+               fabrication. Il repond a la question qu'on se pose devant un
+               transfert : de quelle affaire s'agit-il ? -->
+          <field name="x_studio_projet_de_la_vente"/>
         </field>
 
         <!-- Ajoute un onglet dédié -->
@@ -49,4 +53,24 @@
     </record>
 
   </data>
+
+    <!--
+        Le projet de la vente sur la LISTE des transferts, en colonne
+        optionnelle : c'est la qu'on regroupe les livraisons par affaire.
+        Optionnelle parce que cette liste sert aussi aux receptions et aux
+        mouvements internes, ou l'affaire n'a pas de sens.
+    -->
+    <record id="view_picking_tree_projet_vente" model="ir.ui.view">
+      <field name="name">stock.picking.list.projet.vente</field>
+      <field name="model">stock.picking</field>
+      <field name="inherit_id" ref="stock.vpicktree"/>
+      <field name="arch" type="xml">
+        <!-- Ajoute en fin de liste plutot qu'apres un champ precis : le
+             depot n'a aucun precedent d'heritage de cette vue, et une ancre
+             de plus serait une hypothese de plus a verifier au deploiement. -->
+        <list position="inside">
+          <field name="x_studio_projet_de_la_vente" optional="show"/>
+        </list>
+      </field>
+    </record>
 </odoo>
