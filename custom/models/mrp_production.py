@@ -64,14 +64,27 @@ class MrpProduction(models.Model):
             commande = self.x_studio_mtn_mrp_sale_order
         return commande[:1] if commande else self.env["sale.order"]
 
-    @api.depends("sale_line_id.order_id", "x_studio_mtn_mrp_sale_order")
+    @api.depends("x_studio_mtn_mrp_sale_order")
     def _compute_x_studio_projet_de_la_vente(self):
         """Projet de la commande, recopie sur l'OF.
 
-        La dependance ne descend pas jusqu'a x_studio_projet : ce champ est
-        declare par fma_sale_order_custom, qui depend de custom. Le nommer ici
-        ferait echouer le chargement partout ou ce module n'est pas installe.
-        Il est donc lu au moment du calcul, si le registre le connait.
+        La dependance ne cite QUE x_studio_mtn_mrp_sale_order, seul champ
+        declare par custom lui-meme. Ni sale_line_id, ni x_studio_projet n'y
+        figurent, et pour la meme raison de fond : custom est charge en 257e
+        position sur 356, avant les modules qui les apportent — sale_line_id
+        vient d'un module de liaison vente/fabrication, x_studio_projet de
+        fma_sale_order_custom, qui depend de custom.
+
+        Odoo resout les dependances au chargement de CHAQUE module, pas a la
+        fin : nommer un champ pas encore declare fait echouer le demarrage.
+        « Dependency field 'sale_line_id' not found in model mrp.production »,
+        et la base entiere refuse de se lever. fma_mrp_ordonnancement peut se
+        le permettre, lui, car il charge en 301e position.
+
+        Les deux champs sont donc lus au moment du calcul, si le registre les
+        connait alors. Consequence : l'OF rattache a une ligne de commande
+        sans passer par x_studio_mtn_mrp_sale_order ne declenche pas de
+        recalcul — mais fma_custom renseigne justement ce champ dans ce cas.
         """
         for production in self:
             commande = production._fma_commande_de_la_vente()
