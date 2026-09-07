@@ -88,8 +88,16 @@ class MrpProduction(models.Model):
         """
         for production in self:
             commande = production._fma_commande_de_la_vente()
-            production.x_studio_projet_de_la_vente = (
+            projet = (
                 commande.x_studio_projet
                 if commande and "x_studio_projet" in commande._fields
                 else False
+            )
+            # Ne JAMAIS effacer une valeur existante. Ce champ etait un champ
+            # Studio saisi ou alimente par une automatisation avant d'etre
+            # calcule : ecrire False quand la commande reste introuvable
+            # detruirait cet historique, et le recalcul de masse le ferait sur
+            # toute la base d'un coup. Un calcul qui ne trouve rien se tait.
+            production.x_studio_projet_de_la_vente = (
+                projet or production.x_studio_projet_de_la_vente
             )

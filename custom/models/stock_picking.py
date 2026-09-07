@@ -159,8 +159,13 @@ class StockPicking(models.Model):
         """
         for picking in self:
             commande = picking._fma_commande_de_la_vente()
-            picking.x_studio_projet_de_la_vente = (
+            projet = (
                 commande.x_studio_projet
                 if commande and "x_studio_projet" in commande._fields
                 else False
+            )
+            # Meme regle que sur l'ordre de fabrication : un calcul qui ne
+            # trouve rien se tait plutot que d'effacer.
+            picking.x_studio_projet_de_la_vente = (
+                projet or picking.x_studio_projet_de_la_vente
             )
