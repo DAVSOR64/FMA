@@ -172,9 +172,22 @@ class StockPicking(models.Model):
         l'enregistrement, et l'ordre normal des choses — commande, puis OF,
         puis transferts — les rend marginaux.
         """
+        # Les valeurs deja en base, lues d'un coup en SQL. Relire le champ
+        # depuis l'enregistrement, au sein de son propre calcul, est le genre
+        # de detour dont Odoo ne garantit rien pendant un recalcul de masse —
+        # et c'est cette garde-la qui protege la donnee. Elle doit etre sure.
+        anciennes = {}
+        existants = [i for i in self.ids if isinstance(i, int)]
+        if existants:
+            self.env.cr.execute(
+                "SELECT id, x_studio_projet_de_la_vente FROM stock_picking"
+                " WHERE id IN %s", (tuple(existants),))
+            anciennes = dict(self.env.cr.fetchall())
+
         for picking in self:
             # Un calcul qui ne trouve rien se tait plutot que d'effacer.
             picking.x_studio_projet_de_la_vente = (
                 picking._fma_projet_source()
-                or picking.x_studio_projet_de_la_vente
+                or anciennes.get(picking.id)
+                or False
             )
