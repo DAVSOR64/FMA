@@ -44,8 +44,9 @@ def _recalculer(env, modele, journal):
 def migrate(cr, version):
     env = api.Environment(cr, SUPERUSER_ID, {})
     journal = []
-    # L'OF d'abord : le transfert lit le projet de l'OF.
-    _recalculer(env, "mrp.production", journal)
+    # UNIQUEMENT les transferts. L'ordre de fabrication n'a plus de champ
+    # calcule : son « Projet de la vente » est une donnee Studio, et c'est
+    # precisement le recalcul de ce modele qui l'a effacee en production.
     _recalculer(env, "stock.picking", journal)
 
     cr.execute(
