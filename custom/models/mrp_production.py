@@ -14,19 +14,20 @@ class MrpProduction(models.Model):
     x_studio_date_field_wIHQY = fields.Date(string="New Date")
     x_studio_mtn_mrp_sale_order = fields.Many2one("sale.order", string="mtn mrp sale order")
     x_studio_niveau_de_complexite = fields.Text(string="NIVEAUX DE COMPLEXITE")
-    # Projet de la vente. Champ Studio, alimente par une saisie ou une
-    # automatisation — surtout PAS calcule.
+    # Projet de la vente : le « Projet mtn » de la commande a l'origine de
+    # l'OF, c'est-a-dire sale.order.x_studio_projet — et non project_id, qui
+    # porte le projet analytique « Analytic Project (...) », un autre
+    # enregistrement.
     #
-    # Je l'avais converti en champ calcule stocke. Le calcul cherchait la
-    # commande de l'OF pour en tirer le projet, mais la plupart des OF n'ont
-    # ni sale_line_id ni x_studio_mtn_mrp_sale_order : il ecrivait du vide, et
-    # le recalcul de masse a efface la donnee en production.
-    #
-    # L'OF connait son projet sans connaitre sa commande. Il n'y a donc rien a
-    # calculer : le champ reste ce qu'il etait, et le transfert le recopie.
+    # Calcule et stocke, mais avec une regle absolue : ne jamais effacer. Une
+    # premiere version ecrivait False quand la commande restait introuvable,
+    # et le recalcul de masse a vide le champ sur toute la production.
     x_studio_projet_de_la_vente = fields.Many2one(
         "project.project",
         string="Projet de la vente",
+        compute="_compute_x_studio_projet_de_la_vente",
+        store=True,
+        readonly=False,
         index="btree_not_null",
     )
     x_studio_projet_so = fields.Many2one("project.project", string="Projet SO")
@@ -47,3 +48,56 @@ class MrpProduction(models.Model):
                 sale_order.write({"so_date_de_fin_de_production_reel": datetime.now()})
 
         return res
+
+    def _fma_commande_de_la_vente(self):
+        """Commande a l'origine de l'OF, par trois chemins successifs.
+
+        Le troisieme est celui qui manquait, et c'est le seul qui reponde sur
+        la majorite du parc : reference_ids.sale_ids. C'est le mecanisme v19
+        qui alimente le bouton « Ventes » de l'OF, et c'est celui que la regle
+        d'automatisation Studio utilise pour poser
+        x_studio_mtn_mrp_sale_order. Sans lui, un OF comme LRE/LRE/04506
+        affiche sa commande a l'ecran alors que le code ne la trouve pas.
+        """
+        self.ensure_one()
+        commande = self.sale_line_id.order_id if "sale_line_id" in self._fields else False
+        if not commande and "x_studio_mtn_mrp_sale_order" in self._fields:
+            commande = self.x_studio_mtn_mrp_sale_order
+        if not commande and "reference_ids" in self._fields:
+            references = self.reference_ids
+            if "sale_ids" in references._fields:
+                commande = references.sale_ids
+        return commande[:1] if commande else self.env["sale.order"]
+
+    @api.depends("x_studio_mtn_mrp_sale_order")
+    def _compute_x_studio_projet_de_la_vente(self):
+        """Recopie le « Projet mtn » de la commande sur l'OF.
+
+        La dependance ne cite QUE x_studio_mtn_mrp_sale_order, seul champ
+        declare par custom lui-meme. Ni sale_line_id, ni reference_ids, ni
+        x_studio_projet n'y figurent : custom charge en 257e position sur 356,
+        avant les modules qui les apportent, et Odoo resout les dependances au
+        chargement de CHAQUE module. Nommer un champ pas encore declare fait
+        echouer le demarrage de la base entiere — c'est deja arrive ici.
+
+        Ces champs sont donc lus au moment du calcul, quand le registre les
+        connait. Le prix a payer est qu'un OF rattache par reference_ids seul
+        ne declenche pas de recalcul spontane ; l'automatisation Studio pose
+        x_studio_mtn_mrp_sale_order et c'est elle qui l'amorce.
+        """
+        for production in self:
+            commande = production._fma_commande_de_la_vente()
+            projet = (
+                commande.x_studio_projet
+                if commande and "x_studio_projet" in commande._fields
+                else False
+            )
+            # Ne JAMAIS effacer. Ce champ portait des valeurs Studio saisies
+            # ou posees par une automatisation avant d'etre calcule : ecrire
+            # False quand la commande reste introuvable les detruirait, et un
+            # recalcul de masse le ferait sur toute la base d'un coup. C'est
+            # exactement ce qui s'est produit. Un calcul qui ne trouve rien se
+            # tait.
+            production.x_studio_projet_de_la_vente = (
+                projet or production.x_studio_projet_de_la_vente
+            )
