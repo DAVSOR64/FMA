@@ -76,23 +76,52 @@ class StockPicking(models.Model):
         # to inject new fields to the client action").
         return super()._get_fields_stock_barcode() + ["x_studio_n_bl"]
 
-    @api.depends("sale_id")
-    def _compute_x_studio_projet_de_la_vente(self):
-        """Projet de la commande a l'origine du transfert.
+    def _fma_commande_de_la_vente(self):
+        """Commande a l'origine du transfert, directe ou via l'ordre de fabrication.
 
-        La dependance ne porte que sur sale_id, et non sur
-        sale_id.x_studio_projet : ce dernier est declare par
-        fma_sale_order_custom, qui depend de custom. Le nommer ici ferait
-        echouer le chargement partout ou ce module n'est pas installe — c'est
-        le meme piege que x_studio_date_de_relance_1 sur le devis.
+        Une livraison porte sa commande dans sale_id. Les transferts d'un OF —
+        sortie de composants, entree de produits finis — n'en ont aucune : ils
+        sont rattaches a l'OF, qui lui connait sa commande. C'est pour cela que
+        le champ restait vide sur ces transferts-la.
+
+        On remonte donc par les mouvements, qui portent l'OF : production_id
+        pour l'entree du produit fini, raw_material_production_id pour la
+        sortie des composants.
+        """
+        self.ensure_one()
+        if self.sale_id:
+            return self.sale_id[:1]
+
+        Move = self.env["stock.move"]
+        productions = self.env["mrp.production"]
+        for champ in ("production_id", "raw_material_production_id"):
+            if champ in Move._fields:
+                productions |= self.move_ids.mapped(champ)
+        for production in productions:
+            commande = production._fma_commande_de_la_vente()
+            if commande:
+                return commande
+        return self.env["sale.order"]
+
+    @api.depends("sale_id",
+                 "move_ids.production_id.x_studio_projet_de_la_vente",
+                 "move_ids.raw_material_production_id.x_studio_projet_de_la_vente")
+    def _compute_x_studio_projet_de_la_vente(self):
+        """Projet de la vente, sur la livraison comme sur les transferts d'OF.
+
+        La dependance ne descend pas jusqu'a sale_id.x_studio_projet : ce champ
+        est declare par fma_sale_order_custom, qui depend de custom. Le nommer
+        ici ferait echouer le chargement partout ou ce module n'est pas
+        installe — meme piege que x_studio_date_de_relance_1 sur le devis. Elle
+        passe donc par le champ homonyme de l'OF, lui declare dans custom, ce
+        qui propage aussi le recalcul quand l'OF retrouve sa commande.
 
         Consequence assumee : changer le projet d'une commande deja livree ne
         recalcule pas ses transferts. Le projet est renseigne avant la
-        livraison, le cas est marginal, et une simple reouverture de la
-        commande suffit a le rattraper.
+        livraison ; rouvrir la commande suffit a le rattraper.
         """
         for picking in self:
-            commande = picking.sale_id
+            commande = picking._fma_commande_de_la_vente()
             picking.x_studio_projet_de_la_vente = (
                 commande.x_studio_projet
                 if commande and "x_studio_projet" in commande._fields
