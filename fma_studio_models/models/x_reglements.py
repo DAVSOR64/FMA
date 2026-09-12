@@ -5,11 +5,17 @@ STUDIO_AUDIT.md at the repo root -- this model only has a
 name/libelle/sequence skeleton in Studio, no amount, date or
 payment-related field was ever added to it.
 """
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class XReglements(models.Model):
     _name = "x_reglements"
+    # Le modele Studio d'origine portait un chatter, et la vue en base en
+    # affiche toujours un. Sans ces mixins, ouvrir une fiche fait lever
+    # « 'x_reglements' object has no attribute '_get_thread_with_access' » et
+    # le formulaire devient inutilisable. x_affaire, repris de la meme facon
+    # dans ce module, herite deja des deux.
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Règlements"
     _rec_name = "x_name"
     _order = "x_studio_sequence, id"
@@ -18,3 +24,20 @@ class XReglements(models.Model):
     x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_libelle = fields.Char(string="Libelle")
     x_studio_sequence = fields.Integer(string="Séquence")
+
+    @api.depends("x_name", "x_studio_libelle")
+    def _compute_display_name(self):
+        """Affiche le code ET le libelle partout ou le mode est choisi.
+
+        Sur la fiche client comme sur le devis, « 11 » seul ne dit rien a
+        personne. Les deux colonnes du referentiel etant faites pour ca, on
+        les montre ensemble des que la seconde est renseignee.
+        """
+        for reglement in self:
+            if reglement.x_studio_libelle:
+                reglement.display_name = "%s - %s" % (
+                    reglement.x_name or "",
+                    reglement.x_studio_libelle,
+                )
+            else:
+                reglement.display_name = reglement.x_name or ""
