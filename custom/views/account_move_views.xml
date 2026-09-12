@@ -6,7 +6,11 @@
         <field name="arch" type="xml">
             <xpath expr="//sheet//group" position="inside">
                 <group>
-                    <field name="inv_mode_de_reglement"/>
+                    <!-- Masque, pas retire : le noeud reste dans l'arch pour les
+                         vues Studio qui s'y accrochent. Le mode de reglement se
+                         lit sur mode_reglement_id, qui affiche « code - libelle »
+                         et porte la meme donnee que le devis. -->
+                    <field name="inv_mode_de_reglement" invisible="1"/>
                     <field name="inv_code_tiers"/>
                     <field name="inv_affacturage"/>
                     <field name="inv_commande_client"/>

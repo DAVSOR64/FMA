@@ -17,7 +17,7 @@
     # 1.0.9 : le titre repasse sous le pave adresse, comme en v17.
     # 1.0.10 : la TVA societe quitte l'entete repete et revient dans le
     # corps, donc sur la seule premiere page, comme en v17.
-    "version": "19.0.1.0.10",
+    "version": "19.0.1.0.11",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom", "web"],
