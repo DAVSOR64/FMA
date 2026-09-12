@@ -117,8 +117,22 @@
                                 <span t-field="o.invoice_date_due" />
                             </td>
                             <td>
+                                <!-- Trois sources, de la plus ancienne a la plus
+                                     recente. x_studio_libelle_1 reste en tete :
+                                     c'est ce qui s'imprime aujourd'hui, et le
+                                     reimprimer autrement changerait le PDF de
+                                     factures deja envoyees au client.
+
+                                     Le referentiel prend le relais des que ce
+                                     champ Studio est vide — le cas des factures
+                                     recentes, ou seul mode_reglement_id est
+                                     alimente. C'est lui qui aligne la facture
+                                     sur le devis. -->
                                 <t t-if="o.x_studio_libelle_1">
                                     <span t-field="o.x_studio_libelle_1"/>
+                                </t>
+                                <t t-elif="o.mode_reglement_id.x_studio_libelle">
+                                    <span t-field="o.mode_reglement_id.x_studio_libelle"/>
                                 </t>
                                 <t t-else="">
                                     <!-- Selection liee au client, cf. custom -->
