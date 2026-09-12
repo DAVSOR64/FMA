@@ -239,7 +239,11 @@ class ExportSFTPScheduler(models.Model):
                         # getattr(p, 'x_studio_gneration_n_compte_1', '') or '',
                         getattr(p, "x_studio_compte", "") or "",
                         getattr(p, "x_studio_code_diap", "") or "",
-                        getattr(p, "x_studio_mode_de_rglement_dsa", "") or "",
+                        # Le CODE du mode de reglement. La colonne exportait
+                        # jusqu'ici le many2one lui-meme, ce qui donnait
+                        # « x_reglements(12,) » cote Power BI. Le libelle reste
+                        # dans la colonne suivante, inchangee.
+                        p.x_studio_mode_de_rglement_dsa.x_name or "",
                         p.x_studio_mode_de_rglement_dsa.x_studio_libelle or "",
                         # bool(getattr(p, 'active', True)),
                         getattr(p, "html2plaintext(comment).strip()", "") or "",
