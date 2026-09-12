@@ -241,12 +241,7 @@ if resultat and resultat is not True:
 
             <!-- Deuxieme rangee de la maquette : Conditions a gauche, Statut
                  de l'affaire a droite. -->
-            <!-- Apres le carnet d'onglets, et non plus apres l'en-tete :
-                 demande de l'atelier, pour que « Livraison & acces » soit
-                 atteignable sans faire defiler les deux paves. Les groupes ne
-                 changent pas de nom : les vues Studio qui s'y accrochent les
-                 retrouvent. -->
-            <xpath expr="//sheet/notebook" position="after">
+            <xpath expr="//group[@name='sale_header']" position="after">
                 <group name="fma_paves">
 
                     <group string="Conditions" name="fma_conditions">

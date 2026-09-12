@@ -24,28 +24,48 @@
                  fma_sale_order_custom) et dans l'onglet Livraison & acces. -->
 
             <!-- Onglets en bas de la vue -->
+            <!-- Troisieme rangee de paves : acces chantier et expedition,
+                 remontes de l'onglet « Livraison & acces ».
+
+                 L'ancrage vise sale_header, noeud de la vue standard, et non
+                 fma_paves, pose par fma_sale_order_custom : custom charge en
+                 premier, l'autre groupe n'existe pas encore quand cette vue
+                 s'applique. fma_sale_order_custom insere ensuite ses paves
+                 au meme point, donc Conditions et Statut restent au-dessus.
+
+                 float_time sur les horaires, sinon 8:00 s'affiche « 0,00 ». -->
+            <xpath expr="//group[@name='sale_header']" position="after">
+                <group name="fma_paves_livraison">
+                    <group string="Accès chantier" name="fma_acces_chantier">
+                        <field name="so_acces_bl"/>
+                        <field name="so_type_camion_bl"/>
+                        <field name="so_horaire_ouverture_bl" widget="float_time"/>
+                        <field name="so_horaire_fermeture_bl" widget="float_time"/>
+                    </group>
+                    <!-- commitment_date n'est pas affiche : il vaut toujours
+                         so_date_de_livraison, qui l'alimente, et en Datetime
+                         il s'affichait « 7 oct. 02:00 ». -->
+                    <group string="Expédition" name="fma_expedition">
+                        <field name="so_date_de_livraison" readonly="1"/>
+                        <field name="so_date_de_livraison_prevu"/>
+                    </group>
+                </group>
+            </xpath>
+
             <xpath expr="//sheet/notebook" position="inside">
 
                 <!-- §5 : acces chantier et expedition, sortis de l'entete.
                      float_time sur les horaires pour afficher 8:00 et non
                      0,00 (§6). -->
-                <page string="Livraison &amp; accès" name="fma_livraison">
-                    <group>
-                        <group string="Accès chantier">
-                            <field name="so_acces_bl"/>
-                            <field name="so_type_camion_bl"/>
-                            <field name="so_horaire_ouverture_bl" widget="float_time"/>
-                            <field name="so_horaire_fermeture_bl" widget="float_time"/>
-                        </group>
-                        <!-- commitment_date n'est pas affiche : il vaut
-                             toujours so_date_de_livraison, qui l'alimente, et
-                             en Datetime il s'affichait « 7 oct. 02:00 ». -->
-                        <group string="Expédition">
-                            <field name="so_date_de_livraison" readonly="1"/>
-                            <field name="so_date_de_livraison_prevu"/>
-                        </group>
-                    </group>
-                </page>
+                <!-- Onglet vide et masque. Son contenu est remonte dans
+                     l'en-tete, en pave, a la demande de l'atelier : l'acces
+                     chantier et les horaires se consultent en permanence, et
+                     non une fois par devis.
+
+                     Le noeud de page est CONSERVE. Des vues Studio peuvent
+                     s'y accrocher ; le retirer les casserait au chargement,
+                     et ce scenario a deja mis la production a terre. -->
+                <page string="Livraison &amp; accès" name="fma_livraison" invisible="1"/>
 
                 <!-- §5 : source de verite des dates. La frise du haut n'en est
                      que le reflet, en lecture seule. -->
