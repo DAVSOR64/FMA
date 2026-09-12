@@ -10,6 +10,12 @@ from odoo import api, fields, models
 
 class XReglements(models.Model):
     _name = "x_reglements"
+    # Le modele Studio d'origine portait un chatter, et la vue en base en
+    # affiche toujours un. Sans ces mixins, ouvrir une fiche fait lever
+    # « 'x_reglements' object has no attribute '_get_thread_with_access' » et
+    # le formulaire devient inutilisable. x_affaire, repris de la meme facon
+    # dans ce module, herite deja des deux.
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Règlements"
     _rec_name = "x_name"
     _order = "x_studio_sequence, id"
