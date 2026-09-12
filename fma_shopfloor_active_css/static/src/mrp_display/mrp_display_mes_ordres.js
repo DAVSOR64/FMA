@@ -1,39 +1,45 @@
 /**
- * « Mes ordres de travail » : uniquement ce qui est en cours.
+ * « Mes ordres de travail » : ce sur quoi l'operateur est pointe, maintenant.
  *
- * L'onglet accumulait tout ce que l'operateur avait touche. adminWorkorderIds
- * retient un ordre des que l'operateur figure dans employee_assigned_ids — une
- * assignation ne s'efface jamais — ou dans employee_ids, et le filtre d'origine
- * n'ecarte que « cancel », jamais « done » ni « ready » :
+ * Le getter d'origine retient un ordre des que l'operateur figure dans
+ * employee_assigned_ids OU dans employee_ids, et le filtre qui le consomme
+ * n'ecarte que « cancel » :
  *
  *     const myWorkordersFilter = (wo) =>
  *         this.adminWorkorderIds.includes(wo.resId) && wo.data.state !== "cancel";
  *
- * On reecrit adminWorkorderIds, seul consommateur de ce filtre, en exigeant
- * que l'ordre soit demarre.
+ * employee_assigned_ids est le coupable : une assignation ne s'efface jamais.
+ * L'operateur retrouvait donc dans son onglet tout ce qui lui avait ete
+ * attribue, termine ou non.
  *
- * POURQUOI defineProperty ET PAS patch().
+ * LE CRITERE, ET L'ERREUR QUI A COUTE LA JOURNEE.
  *
- * Trois versions successives passant par patch() n'ont eu aucun effet en
- * pre-production, et les mesures ont elimine toutes les autres explications :
- * le module est installe, le fichier est sur le disque du build, le bundle
- * web.assets_web.min.js contient nos marqueurs, adminWorkorderIds appartient
- * bien a MrpDisplay (lignes 33 a 694 de mrp_display.js) et aucune sous-classe
- * n'existe dans Enterprise ni dans le coeur.
+ * Les versions precedentes exigeaient state === "progress". Sans effet, et
+ * pour une raison qu'aucune de nos mesures ne pouvait montrer : le bouton
+ * « DEMARRER » d'une carte ne dit pas que l'ordre n'est pas demarre, il dit
+ * que L'OPERATEUR COURANT n'est pas pointe dessus. Un ordre lance plus tot,
+ * puis laisse sans chrono actif, reste a l'etat progress. Les cartes etaient
+ * donc deja « demarrees » et le filtre ne retirait rien.
  *
- * Le seul maillon jamais verifie etait patch() lui-meme. On le contourne :
- * defineProperty pose le getter sur le prototype sans intermediaire, sans
- * super, sans recablage de [[HomeObject]]. C'est exactement ce que faisait la
- * surcharge testee en direct dans la console.
+ * Le critere demande — « les OT actifs et relies a l'employe sur lequel nous
+ * sommes » — n'est pas un etat d'ordre mais un pointage : employee_ids, les
+ * operateurs qui ont un chrono en cours. C'est la meme donnee que celle qui
+ * fait passer la carte au vert dans mrp_display_record_patch.js.
  *
- * LA TRACE. Le console.info en fin de fichier n'est pas un oubli. Savoir si ce
- * fichier s'execute a coute une demi-journee d'allers-retours : la trace rend
- * la reponse immediate, il suffit d'ouvrir la console. A retirer quand le
- * comportement sera stabilise en production.
+ * employee_assigned_ids n'est plus consulte : une assignation n'est pas un
+ * travail en cours.
+ *
+ * POURQUOI defineProperty ET PAS patch(). Trois versions passant par patch()
+ * n'ont rien change ; on ne saura pas laquelle des deux causes jouait, le
+ * critere etant faux de toute facon. defineProperty pose le getter sans
+ * intermediaire : une inconnue de moins.
+ *
+ * LA TRACE. Savoir si ce fichier s'execute a coute une demi-journee. Elle
+ * repond en ouvrant la console. A retirer une fois le comportement stabilise.
  *
  * Les onglets par poste de charge passent par workcenterFilter, qui n'utilise
  * pas ce getter : ils restent inchanges. Le compteur de l'en-tete lit le meme
- * getter, il se cale donc sur la liste.
+ * getter et se cale donc sur la liste.
  */
 import { MrpDisplay } from "@mrp_workorder/mrp_display/mrp_display";
 
@@ -51,13 +57,11 @@ Object.defineProperty(MrpDisplay.prototype, "adminWorkorderIds", {
 
         const retenus = [];
         for (const wo of this.workorders) {
-            // La seule ligne qui nous distingue de l'original.
-            if (wo.data.state !== "progress") {
-                continue;
-            }
-            const assignes = (wo.data.employee_assigned_ids || {}).resIds || [];
+            // employee_ids : les operateurs qui ont un chrono en cours sur cet
+            // ordre. Un ordre pointe est actif par definition — inutile de
+            // verifier l'etat en plus.
             const pointes = (wo.data.employee_ids || {}).resIds || [];
-            if (assignes.includes(adminId) || pointes.includes(adminId)) {
+            if (pointes.includes(adminId)) {
                 retenus.push(wo.resId);
             }
         }
@@ -65,4 +69,4 @@ Object.defineProperty(MrpDisplay.prototype, "adminWorkorderIds", {
     },
 });
 
-console.info("[FMA] Mes ordres de travail : filtre « demarre » actif");
+console.info("[FMA] Mes ordres de travail : pointage de l'operateur courant");
