@@ -129,19 +129,23 @@ class AccountMove(models.Model):
                 invoice_date_due = str(move.invoice_date_due)
                 items_grouped_by_account = list(items_grouped_by_account)
 
-                # La comptabilite attend le CODE du mode de reglement, pas son
-                # libelle : « 11 » et non « VIREMENT BANCAIRE ». Le referentiel
-                # x_reglements porte les deux, x_name etant le code.
+                # La comptabilite attend le LIBELLE, pas le code : on ne
+                # change pas ce qu'elle recoit.
                 #
-                # Repli sur x_studio_libelle_1 pour les factures anterieures au
-                # referentiel, ou mode_reglement_id est vide. Le tronquage a
-                # vingt caracteres ne concernait que ce libelle ; un code en
-                # fait deux, il n'a plus lieu d'etre sur le chemin nominal.
-                mode_reg = move.mode_reglement_id.x_name or ""
+                # x_studio_libelle_1 reste lu en premier — c'est ce qui part
+                # aujourd'hui, et les libelles du referentiel ne sont pas
+                # ecrits pareil (« L.C.R. à l'acceptation » contre
+                # « L.C.R. A L ACCEPTATION ») : basculer la source changerait
+                # silencieusement toutes les lignes.
+                #
+                # Le referentiel n'est qu'un repli, pour les factures ou le
+                # champ Studio n'a jamais ete alimente : sans lui la colonne
+                # partait vide.
+                mode_reg = (move.x_studio_libelle_1 or "")
                 if not mode_reg:
-                    mode_reg = (move.x_studio_libelle_1 or "")
-                    if mode_reg == "L.C.R. A L ACCEPTATION":
-                        mode_reg = "L.C.R. A L ACCEPTATI"
+                    mode_reg = move.mode_reglement_id.x_studio_libelle or ""
+                if mode_reg == "L.C.R. A L ACCEPTATION":
+                    mode_reg = "L.C.R. A L ACCEPTATI"
 
                 grouped_items.append(
                     {
