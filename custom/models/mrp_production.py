@@ -34,19 +34,28 @@ class MrpProduction(models.Model):
     x_studio_text_field_7bi_1jnoud87m = fields.Text(string="Nouveau Texte multiligne")
 
     def button_mark_done(self):
-        # Appel de la méthode d'origine pour valider l'ordre de production
+        """Apres validation, recalcule les dates de fabrication des commandes.
+
+        L'ancienne version cherchait la commande par `origin == nom`. Un OF de
+        lot porte « LOT-xxx - A26-... » en origine, un OF chaine le nom de
+        l'OF parent : la commande n'etait jamais trouvee et la date jamais
+        ecrite. Elle lisait aussi self.origin sur un ensemble d'OF, ce qui
+        levait « Expected singleton » des qu'on en validait plusieurs.
+
+        « Tout produire » passe aussi par ici : c'est le meme bouton cote
+        serveur.
+        """
         res = super(MrpProduction, self).button_mark_done()
 
-        # Vérifiez si l'ordre de production a une référence vers un devis
-        if self.origin:
-            # Recherche du devis correspondant en fonction de l'origine (nom de l'ordre de vente)
-            sale_order = self.env["sale.order"].search(
-                [("name", "=", self.origin)], limit=1
-            )
-            if sale_order:
-                # Mettez à jour le champ de date avec la date actuelle
-                sale_order.write({"so_date_de_fin_de_production_reel": datetime.now()})
-
+        commandes = self.env["sale.order"]
+        for production in self:
+            commande = production._fma_commande_de_la_vente()
+            if not commande and production.origin:
+                commande = self.env["sale.order"].search(
+                    [("name", "=", production.origin)], limit=1)
+            commandes |= commande
+        if commandes:
+            commandes._fma_recalculer_dates_fab()
         return res
 
     def _fma_commande_de_la_vente(self):

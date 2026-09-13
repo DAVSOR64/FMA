@@ -317,6 +317,15 @@ class SaleOrder(models.Model):
     so_date_ARC = fields.Date(string="ARC du : ")
     so_date_bon_pour_fab = fields.Date(string="Bon pour Fab. le : ")
     so_date_de_fin_de_production_reel = fields.Date(string="Fin de production du : ")
+    # Debut de fab : le jour ou la production a reellement commence,
+    # c'est-a-dire le plus ancien transfert TERMINE parmi ceux des OF de
+    # la commande. Date effective et non planifiee, par symetrie avec la
+    # fin de production « reelle » juste au-dessus.
+    #
+    # Champ simple, alimente par _fma_recalculer_dates_fab — surtout pas
+    # calcule : un calcul stocke qui ne trouve rien ecrit du vide, et un
+    # recalcul de masse efface l'historique. C'est deja arrive ici.
+    so_date_debut_fab = fields.Date(string="Début de fab", copy=False)
     # Deux dates de livraison, et deux seulement -- ce sont les libelles de
     # la prod :
     #  - « Date de livraison prévue » : la date promise au client, BPE +
@@ -583,3 +592,75 @@ class SaleOrder(models.Model):
                 order.so_prc_mcv_reel = (order.so_mcv_reel / order.so_mtt_facturer_reel) * 100
             else:
                 order.so_prc_mcv_reel = 0.0
+
+    # ------------------------------------------------------------------
+    # Dates de fabrication
+    # ------------------------------------------------------------------
+    def _fma_ordres_de_fabrication(self):
+        """Ordres de fabrication de la commande, par tous les liens connus.
+
+        Aucun lien ne suffit seul. L'origine ne vaut le nom de la commande que
+        pour les OF crees par une regle MTO ; x_studio_mtn_mrp_sale_order est
+        pose par une automatisation ; reference_ids est le mecanisme v19 du
+        bouton « Ventes » ; lot_sale_order_id n'existe qu'avec les lots.
+
+        Chaque chemin n'est emprunte que si le champ existe : ce module charge
+        avant ceux qui en declarent plusieurs.
+        """
+        self.ensure_one()
+        Production = self.env["mrp.production"]
+        champs = Production._fields
+        termes = [("origin", "=", self.name)]
+        if "x_studio_mtn_mrp_sale_order" in champs:
+            termes.append(("x_studio_mtn_mrp_sale_order", "=", self.id))
+        if "sale_line_id" in champs:
+            termes.append(("sale_line_id.order_id", "=", self.id))
+        if "lot_sale_order_id" in champs:
+            termes.append(("lot_sale_order_id", "=", self.id))
+        if "reference_ids" in champs:
+            reference = self.env[champs["reference_ids"].comodel_name]
+            if "sale_ids" in reference._fields:
+                termes.append(("reference_ids.sale_ids", "in", self.ids))
+        domaine = ["|"] * (len(termes) - 1) + termes
+        return Production.search(domaine)
+
+    def _fma_recalculer_dates_fab(self):
+        """Pose le debut et la fin de fabrication a partir des OF.
+
+        Debut : le plus ancien transfert TERMINE rattache aux OF — la collecte
+        des composants, en pratique. Fin : la date de fin du dernier OF, mais
+        seulement quand TOUS les OF non annules sont termines. Poser la fin au
+        premier OF valide, comme avant, datait la fin de production d'une
+        affaire dont la moitie restait a fabriquer.
+
+        Les dates sont ramenees au jour du fuseau de l'utilisateur : Odoo
+        stocke les instants en UTC, et un transfert valide a 23 h 30 serait
+        sinon date du lendemain.
+
+        Ne JAMAIS effacer : une valeur introuvable laisse l'existant en place.
+        """
+        Picking = self.env["stock.picking"]
+        for order in self:
+            ofs = order._fma_ordres_de_fabrication()
+            if not ofs:
+                continue
+            vals = {}
+
+            transferts = ofs.picking_ids if "picking_ids" in ofs._fields else Picking
+            instants = [t.date_done for t in transferts
+                        if t.state == "done" and t.date_done]
+            if instants:
+                debut = fields.Date.context_today(order, timestamp=min(instants))
+                if order.so_date_debut_fab != debut:
+                    vals["so_date_debut_fab"] = debut
+
+            actifs = ofs.filtered(lambda o: o.state != "cancel")
+            if actifs and all(o.state == "done" for o in actifs):
+                fins = [o.date_finished for o in actifs if o.date_finished]
+                if fins:
+                    fin = fields.Date.context_today(order, timestamp=max(fins))
+                    if order.so_date_de_fin_de_production_reel != fin:
+                        vals["so_date_de_fin_de_production_reel"] = fin
+
+            if vals:
+                order.write(vals)
