@@ -677,8 +677,13 @@ class SaleOrder(models.Model):
             vals = {}
 
             transferts = order._fma_transferts_des_of(ofs)
+            # Hors livraisons : elles remontent par le chainage du produit
+            # fini, et sur une commande sans transfert de composants —
+            # fabrication en une etape — la livraison deviendrait le seul
+            # transfert trouve. Le debut de fab tomberait apres la fin.
             instants = [t.date_done for t in transferts
-                        if t.state == "done" and t.date_done]
+                        if t.state == "done" and t.date_done
+                        and t.picking_type_code != "outgoing"]
             if instants:
                 debut = fields.Date.context_today(order, timestamp=min(instants))
                 if order.so_date_debut_fab != debut:
