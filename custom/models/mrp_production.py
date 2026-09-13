@@ -50,6 +50,11 @@ class MrpProduction(models.Model):
         commandes = self.env["sale.order"]
         for production in self:
             commande = production._fma_commande_de_la_vente()
+            # Les OF de lot portent leur commande dans lot_sale_order_id, et
+            # une origine « LOT-xxx - A26-... » qu'aucune recherche par nom ne
+            # retrouve. Le champ n'existe qu'avec fma_lot_fabrication.
+            if not commande and "lot_sale_order_id" in production._fields:
+                commande = production.lot_sale_order_id
             if not commande and production.origin:
                 commande = self.env["sale.order"].search(
                     [("name", "=", production.origin)], limit=1)
