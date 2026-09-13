@@ -421,8 +421,13 @@ class ExportSFTPScheduler(models.Model):
                         o.so_date_bpe.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_bpe", False)
                         else "",
-                        o.so_date_bon_pour_fab.strftime("%Y-%m-%d")
-                        if getattr(o, "so_date_bon_pour_fab", False)
+                        # « Date debut de fab » : la date REELLE de debut de
+                        # fabrication, posee par custom (so_date_debut_fab). La
+                        # colonne portait jusqu'ici le Bon pour fab sous un
+                        # en-tete qui ne le disait pas ; le Bon pour fab est
+                        # conserve, en derniere colonne.
+                        o.so_date_debut_fab.strftime("%Y-%m-%d")
+                        if getattr(o, "so_date_debut_fab", False)
                         else "",
                         o.so_date_de_fin_de_production_reel.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_de_fin_de_production_reel", False)
@@ -457,6 +462,12 @@ class ExportSFTPScheduler(models.Model):
                         to_float(getattr(o, "x_studio_montant_non_lvr_non_factur", 0.0) or 0.0),
                         to_float(getattr(o, "x_studio_montant_livr_non_factur", 0.0) or 0.0),
                         to_float(getattr(o, "x_studio_montant_livr_factur", 0.0) or 0.0),
+                        # Ajoutee en DERNIER, et non a cote des autres dates :
+                        # une colonne inseree au milieu decalerait toutes les
+                        # suivantes, et Power BI les lit parfois par position.
+                        o.so_date_bon_pour_fab.strftime("%Y-%m-%d")
+                        if getattr(o, "so_date_bon_pour_fab", False)
+                        else "",
                     )
                     for o in orders
                 ]
@@ -526,6 +537,7 @@ class ExportSFTPScheduler(models.Model):
                         "Montant non livre non facture",
                         "Montant livre non facture",
                         "Montant livre facturé",
+                        "Date bon pour fab",
                     ],
                     
                     order_data,
