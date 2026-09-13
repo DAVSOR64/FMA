@@ -1,4 +1,9 @@
+import logging
+
 from odoo import models, fields, api
+
+
+_logger = logging.getLogger(__name__)
 
 
 class StockPicking(models.Model):
@@ -75,6 +80,27 @@ class StockPicking(models.Model):
         # (docstring de la méthode d'origine : "to be overridden in order
         # to inject new fields to the client action").
         return super()._get_fields_stock_barcode() + ["x_studio_n_bl"]
+
+    def _action_done(self):
+        """Un transfert d'OF valide peut dater le debut de fabrication.
+
+        Encadre : une erreur dans le calcul d'une date ne doit JAMAIS empecher
+        de valider un transfert. Bloquer une livraison ou une collecte de
+        composants pour un champ d'information serait sans commune mesure.
+        """
+        res = super()._action_done()
+        try:
+            commandes = self.env["sale.order"]
+            for picking in self:
+                for production in picking._fma_ordres_de_fabrication():
+                    commandes |= production._fma_commande_de_la_vente()
+            if commandes:
+                commandes._fma_recalculer_dates_fab()
+        except Exception:
+            _logger.exception(
+                "Dates de fabrication non recalculees apres validation de %s",
+                ", ".join(self.mapped("name")))
+        return res
 
     def _fma_ordres_de_fabrication(self):
         """Ordres de fabrication auxquels ce transfert se rattache.
