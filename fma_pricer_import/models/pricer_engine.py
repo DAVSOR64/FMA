@@ -50,6 +50,11 @@ ROUTES_ARTICLE = ("stock.route_warehouse0_mto", "__export__.stock_route_54_b165c
 CATEGORIE_VITRAGE = "__export__.product_category_23_31345211"
 
 
+#: Operations portees par l'OF de debit. CU (banc) y va aussi : c'est la
+#: coupe, elle se fait sur la meme table que le debit et dans le meme temps.
+OPERATIONS_DEBIT = ("Debit", "CU (banc)")
+
+
 def sans_accent(texte):
     """Minuscules et sans accent, pour rapprocher des noms saisis a la main.
 
@@ -435,14 +440,34 @@ class FmaPricerEngine(models.AbstractModel):
         de nomenclature — sinon les profiles seraient comptes deux fois, une
         fois en barres entieres et une fois en metres lineaires.
         """
-        code = "%s-DEB" % (product.default_code or product.name)
+        return self._semi_fini(product, "DEB", _("%s - debite"), "debit")
+
+    def _quincaillerie_product(self, product):
+        """Kit quincaillerie d'une menuiserie.
+
+        Produit par l'OF de quincaillerie, consomme par l'OF d'assemblage : un
+        kit par menuiserie. Il a, lui, une nomenclature — la quincaillerie —
+        contrairement a l'ensemble debite, dont les barres sont propres au lot.
+        """
+        return self._semi_fini(product, "QUI", _("%s - kit quincaillerie"),
+                               "quincaillerie")
+
+    def _semi_fini(self, product, suffixe, libelle, nature):
+        """Article intermediaire d'une menuiserie, cree a la premiere demande.
+
+        La nature est marquee sur l'article (fma_semi_fini) : c'est elle, et non
+        le suffixe de la reference, qui dit au lot quel OF generer.
+        """
+        code = "%s-%s" % (product.default_code or product.name, suffixe)
         Product = self.env["product.product"].sudo()
-        debit = Product.search([("default_code", "=", code)], limit=1)
-        if debit:
-            return debit
+        article = Product.search([("default_code", "=", code)], limit=1)
+        if article:
+            if article.fma_semi_fini != nature:
+                article.fma_semi_fini = nature
+            return article
         return Product.create(
             {
-                "name": _("%s - debite", product.name),
+                "name": libelle % product.name,
                 "default_code": code,
                 "type": "consu",
                 "is_storable": True,
@@ -450,6 +475,7 @@ class FmaPricerEngine(models.AbstractModel):
                 "sale_ok": False,
                 "uom_id": product.uom_id.id,
                 "categ_id": product.categ_id.id,
+                "fma_semi_fini": nature,
             }
         )
 
@@ -590,10 +616,24 @@ class FmaPricerEngine(models.AbstractModel):
         """
         men = pivot_line.menuiserie
         issues = []
+        # Trois nomenclatures, une par OF du lot :
+        #   <ref>-DEB : ensemble debite — operations Debit et CU, sans composant
+        #               (les barres viennent du besoin matiere du lot) ;
+        #   <ref>-QUI : kit quincaillerie — la quincaillerie, sans operation
+        #               (le travail, c'est le transfert Stock -> Pre-Fab) ;
+        #   <ref>     : la menuiserie — le kit, le vitrage, et le reste des
+        #               operations.
+        # L'ensemble debite N'EST PLUS dans la nomenclature de la menuiserie :
+        # le lot l'ajoute a chaque OF d'assemblage (_add_debit_component).
+        # L'y laisser le faisait consommer deux fois des qu'un lot melangeait
+        # plusieurs menuiseries — une fois l'ensemble de la menuiserie, une
+        # fois l'ensemble generique du lot.
         components = []
+        quincaillerie = []
 
         debit = self._debit_product(product)
-        components.append((debit, 1.0))
+        kit = self._quincaillerie_product(product)
+        components.append((kit, 1.0))
 
         # Creation autorisee pour les pricers sans redacteur : LOGIKAL a son
         # connecteur, qui cree deja articles et vitrages avant l'import. Pour
@@ -636,7 +676,10 @@ class FmaPricerEngine(models.AbstractModel):
                 if probleme not in issues:
                     issues.append(probleme)
                 continue
-            components.append((found, comp.qty))
+            if comp.kind == "glass":
+                components.append((found, comp.qty))
+            else:
+                quincaillerie.append((found, comp.qty))
 
         Bom = self.env["mrp.bom"].sudo()
         bom = Bom.search(
@@ -655,9 +698,22 @@ class FmaPricerEngine(models.AbstractModel):
         # Le debit est mutualise sur le lot : son temps appartient a l'OF de
         # debit, pas aux OF d'assemblage. Il part donc sur la nomenclature du
         # sous-ensemble debite.
-        operations, missing_wc = self._bom_operations(men, product, skip=("Debit",))
+        operations, missing_wc = self._bom_operations(
+            men, product, skip=OPERATIONS_DEBIT)
         issues_gamme = list(missing_wc)
         issues_gamme.extend(self._sync_debit_bom(debit, men))
+
+        # Une nomenclature de l'ancienne structure — ensemble debite en
+        # composant, pas de kit — doit etre reconstruite meme si le chiffrage
+        # n'a pas bouge : sans kit, le lot ne sait generer aucun OF de
+        # quincaillerie. Ce n'est pas une question d'empreinte mais de forme.
+        ancienne_forme = bool(
+            bom and bom.bom_line_ids
+            and (debit in bom.bom_line_ids.product_id
+                 or kit not in bom.bom_line_ids.product_id)
+        )
+        if ancienne_forme and not issues:
+            unchanged = False
 
         # Deux raisons de ne pas retoucher les COMPOSANTS d'une nomenclature
         # existante : l'empreinte du chiffrage n'a pas bouge — cinq lots d'une
@@ -667,7 +723,18 @@ class FmaPricerEngine(models.AbstractModel):
         # jour : c'est une autre information.
         if bom and bom.bom_line_ids and (unchanged or issues):
             bom.write({"operation_ids": [(5, 0, 0)] + operations})
+            if ancienne_forme:
+                issues_gamme.append(_(
+                    "nomenclature %(ref)s laissee dans l'ancienne forme, faute "
+                    "de pouvoir resoudre tous ses composants : aucun OF de "
+                    "quincaillerie ne sera genere pour elle",
+                    ref=pivot_line.ref,
+                ))
             return issues + issues_gamme
+
+        # Les composants sont tous resolus : le kit est reconstruit avec la
+        # menuiserie, sinon les deux divergeraient d'un import a l'autre.
+        self._sync_quincaillerie_bom(kit, quincaillerie)
 
         issues.extend(issues_gamme)
         merged = {}
@@ -707,7 +774,7 @@ class FmaPricerEngine(models.AbstractModel):
         lot, qui varie d'un lot a l'autre alors que la nomenclature, elle, est
         commune. Cette nomenclature ne sert qu'a porter le temps de debit.
         """
-        operations, missing = self._bom_operations(men, debit, keep=("Debit",))
+        operations, missing = self._bom_operations(men, debit, keep=OPERATIONS_DEBIT)
         if not operations:
             return missing
 
@@ -733,6 +800,46 @@ class FmaPricerEngine(models.AbstractModel):
         else:
             Bom.create(vals)
         return missing
+
+    def _sync_quincaillerie_bom(self, kit, composants):
+        """Nomenclature du kit quincaillerie : la quincaillerie, sans operation.
+
+        Pas d'operation, volontairement. Le travail du kit, c'est de sortir la
+        quincaillerie du stock vers la Pre-Fab, et ce transfert existe deja :
+        une operation « Quincaillerie » sur un poste le compterait deux fois,
+        et apparaitrait a l'ecran atelier alors qu'on ne pointe rien.
+        """
+        merged = {}
+        for item, qty in composants:
+            merged[item] = merged.get(item, 0.0) + qty
+        lignes = [
+            (0, 0, {
+                "product_id": item.id,
+                "product_qty": qty,
+                "product_uom_id": item.uom_id.id,
+            })
+            for item, qty in merged.items()
+            if qty
+        ]
+        Bom = self.env["mrp.bom"].sudo()
+        bom = Bom.search(
+            [("product_tmpl_id", "=", kit.product_tmpl_id.id),
+             ("type", "=", "normal")],
+            limit=1,
+        )
+        vals = {
+            "product_tmpl_id": kit.product_tmpl_id.id,
+            "product_id": kit.id,
+            "type": "normal",
+            "product_qty": 1.0,
+            "product_uom_id": kit.uom_id.id,
+            "operation_ids": [(5, 0, 0)],
+            "bom_line_ids": [(5, 0, 0)] + lignes,
+        }
+        if bom:
+            bom.write(vals)
+        else:
+            Bom.create(vals)
 
     def _workcenters(self, product):
         """Postes de charge candidats, et ceux explicitement rattaches.

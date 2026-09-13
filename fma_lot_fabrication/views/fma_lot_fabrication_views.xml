@@ -113,6 +113,7 @@
                                     <field name="product_qty" sum="Total"/>
                                     <field name="product_uom_id" readonly="1"
                                            groups="uom.group_uom" optional="hide"/>
+                                    <field name="production_quincaillerie_id" readonly="1" optional="show"/>
                                     <field name="production_id" readonly="1" optional="show"/>
                                     <field name="production_state" readonly="1" optional="show"
                                            widget="badge"/>

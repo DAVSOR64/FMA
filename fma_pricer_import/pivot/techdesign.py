@@ -123,6 +123,10 @@ def _catalogue(root):
     """
     par_couple = {}
     par_code = {}
+    # Codes vus dans un catalogue de PROFILES. LengthArticles melange joints
+    # et profiles vendus au metre : seule la presence ici prouve qu'un article
+    # vendu a la longueur est un profile, et doit donc rester au debit.
+    codes_profil = set()
     # Quatre catalogues, pas trois : LengthArticles porte les joints et
     # profiles vendus au metre. Les oublier laissait 17 codes de nomenclature
     # sur 62 sans reference LOGIKAL, donc introuvables dans Odoo.
@@ -134,7 +138,10 @@ def _catalogue(root):
             code = (article.get("Code") or "").strip()
             couleur = teinte(article.get("SurfaceOrderCode"))
             fournisseur = article.find("Supplier")
+            if chemin.endswith(("/Profile", "/PieceProfile")) and code:
+                codes_profil.add(code)
             infos = {
+                "section": chemin.rsplit("/", 1)[-1],
                 "supplier": (
                     (fournisseur.get("SupplierDescription")
                      or fournisseur.get("SupplierCode") or "").strip()
@@ -169,7 +176,33 @@ def _catalogue(root):
             if nue and nue != code:
                 par_code.setdefault(nue, infos)
                 par_couple.setdefault((nue, infos["color_logikal"]), infos)
+
+    # Un profile reste un profile, meme si LengthArticles l'a reecrit ensuite :
+    # l'ordre d'enregistrement ne doit pas decider du poste qui le debite.
+    for infos in list(par_code.values()) + list(par_couple.values()):
+        infos["profil"] = False
+    for (code, _couleur), infos in par_couple.items():
+        if code in codes_profil:
+            infos["profil"] = True
+    for code, infos in par_code.items():
+        if code in codes_profil:
+            infos["profil"] = True
     return par_couple, par_code
+
+
+def _joint(catalogue, code, couleur):
+    """Vrai pour un article vendu a la longueur qui n'est PAS un profile.
+
+    Joints, bandes, mousses : TechDesign les range avec les profiles, parmi
+    ce qui se coupe a la longueur. Chez FMA ils partent avec la quincaillerie,
+    pas au debit.
+
+    Un article absent des catalogues reste au debit : on ne sort que ce qu'on
+    sait etre un joint. Mieux vaut un joint de trop sur le debit qu'un profile
+    manquant sur la table de coupe.
+    """
+    infos = _infos(catalogue, code, couleur)
+    return infos.get("section") == "LengthArticle" and not infos.get("profil")
 
 
 def _infos(catalogue, code, couleur):
@@ -205,6 +238,23 @@ def _composants(item, catalogue):
             color=teinte_odoo,
             supplier=_infos(catalogue, brut, couleur).get("supplier", ""),
         ))
+    for part in item.findall("PartsList/PartArticle/PartLengthArticle"):
+        brut = reference(part.get("Id"))
+        couleur = teinte(part.get("SurfaceFinish"))
+        if not _joint(catalogue, brut, couleur):
+            continue
+        code, teinte_odoo = _reference_odoo(catalogue, brut, couleur)
+        # Quantite en METRES : un joint se consomme a la longueur, pas a la
+        # piece. Longueur unitaire en mm, fois le nombre de pieces.
+        composants.append(Component(
+            kind="article",
+            code=code,
+            description=(part.get("Description") or "").strip(),
+            qty=_nombre(part, "Length") * _attr_nombre(part, "Quantity") / 1000.0,
+            uom="m",
+            color=teinte_odoo,
+            supplier=_infos(catalogue, brut, couleur).get("supplier", ""),
+        ))
     for pane in item.findall("PartsList/PartArticle/PartPane"):
         composants.append(Component(
             kind="glass",
@@ -225,6 +275,9 @@ def _debit(item, catalogue):
     for part in item.findall("PartsList/PartArticle/PartLengthArticle"):
         brut = reference(part.get("Id"))
         couleur = teinte(part.get("SurfaceFinish"))
+        # Les joints partent en quincaillerie, cf. _composants.
+        if _joint(catalogue, brut, couleur):
+            continue
         code, teinte_odoo = _reference_odoo(catalogue, brut, couleur)
         coupes.append(Cut(
             code=code,
@@ -264,6 +317,40 @@ def _operations(item):
             sequence=(rang + 1) * 10,
         ))
     return operations
+
+
+#: Operations sur lesquelles le temps TechDesign est reparti, dans l'ordre de
+#: l'atelier. Ce sont les noms que LOGIKAL produit (cf. logikal.TIME_TYPES) :
+#: les postes de charge les reconnaissent deja.
+OPERATIONS_REPARTIES = (
+    ("Debit", 10),
+    ("CU (banc)", 20),
+    ("Usinage", 30),
+    ("Montage", 40),
+    ("Vitrage", 50),
+)
+
+
+def _repartir_temps(operations, quantite):
+    """Repartit le temps TechDesign sur les operations de l'atelier.
+
+    REGLE PROVISOIRE, en attendant l'arbitrage du metier. TechDesign ne
+    declare que « Fabrication » et « Vitrage », quand l'atelier distingue
+    debit, CU, usinage, montage et vitrage. Sans decoupage, impossible de
+    charger les trois OF du lot.
+
+    On prend donc le temps total de la menuiserie, on le ramene a UN
+    exemplaire — TechDesign le donne pour la quantite de la ligne, le pivot
+    raisonne a l'unite —, puis on le partage a parts egales entre les cinq
+    operations. Grossier, mais la charge totale est juste ; c'est sa
+    ventilation qui reste a affiner.
+    """
+    total = sum(o.minutes for o in operations)
+    if not total or not quantite:
+        return operations
+    part = total / quantite / len(OPERATIONS_REPARTIES)
+    return [Operation(name=nom, minutes=part, sequence=rang)
+            for nom, rang in OPERATIONS_REPARTIES]
 
 
 def _nom_operation(libelle):
@@ -350,7 +437,8 @@ def _parse(root, source):
                 price=_nombre(item, "SpreadingEnforcement/TotalUnitFinalPrice", "Price"),
                 components=_composants(item, catalogue),
                 debit=_debit(item, catalogue),
-                operations=_operations(item),
+                operations=_repartir_temps(
+                    _operations(item), _attr_nombre(item, "Quantity") or 1.0),
             ))
         quo.lots.append(lot)
 

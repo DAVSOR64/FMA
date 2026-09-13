@@ -84,6 +84,13 @@ class FmaLotFabricationLine(models.Model):
         related="production_id.state",
         string="Etat OF",
     )
+    production_quincaillerie_id = fields.Many2one(
+        "mrp.production",
+        string="OF Quincaillerie",
+        copy=False,
+        readonly=True,
+        ondelete="set null",
+    )
 
     _product_qty_positive = models.Constraint(
         "CHECK(product_qty > 0)",

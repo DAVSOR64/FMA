@@ -27,13 +27,15 @@ class MrpProduction(models.Model):
     lot_production_type = fields.Selection(
         [
             ("debit", "Debit"),
+            ("quincaillerie", "Quincaillerie"),
             ("assemblage", "Assemblage"),
         ],
         string="Type dans le lot",
         copy=False,
         index=True,
         help="Debit : 1 par lot, consomme les profiles. "
-        "Assemblage : 1 par menuiserie, point de declaration de fabrication.",
+        "Quincaillerie : 1 par ligne, produit le kit, sans operation. "
+        "Assemblage : 1 par ligne, point de declaration de fabrication.",
     )
     lot_line_id = fields.Many2one(
         "fma.lot.fabrication.line",
@@ -104,6 +106,30 @@ class MrpProduction(models.Model):
                 )
             )
         return moves
+
+    # ------------------------------------------------------------------
+    # Reliquats
+    # ------------------------------------------------------------------
+    def _get_backorder_mo_vals(self):
+        """Le reliquat reste dans le lot.
+
+        Declarer une menuiserie sur un OF de dix cree un reliquat de neuf, par
+        copie. Or tous les champs du lot sont en copy=False — a raison : un OF
+        duplique a la main ne doit pas se retrouver dans le lot d'origine. Mais
+        le reliquat, lui, EST le meme travail : sans ce report, les neuf
+        menuiseries restantes sortaient du lot, de son etat, de sa vue et de sa
+        planification.
+        """
+        vals = super()._get_backorder_mo_vals()
+        vals.update(
+            {
+                "lot_fabrication_id": self.lot_fabrication_id.id,
+                "lot_production_type": self.lot_production_type,
+                "lot_line_id": self.lot_line_id.id,
+                "lot_sale_line_id": self.lot_sale_line_id.id,
+            }
+        )
+        return vals
 
     # ------------------------------------------------------------------
     # Propagation d'etat vers le lot
