@@ -624,6 +624,36 @@ class SaleOrder(models.Model):
         domaine = ["|"] * (len(termes) - 1) + termes
         return Production.search(domaine)
 
+    def _fma_transferts_des_of(self, ofs):
+        """Transferts rattaches a des OF, par tous les liens connus.
+
+        picking_ids seul ne suffit pas en v19. Il passait par le groupe
+        d'approvisionnement, remplace par les references : sur A26-01-00022/2,
+        il ne remontait pas REM/PC/01833 ni REM/PC/01876, pourtant termines le
+        30 juin avec REM/MO/00578 pour source. La commande restait sans debut de
+        fabrication alors que sa fin etait posee.
+
+        Trois chemins, reunis :
+        - le chainage des mouvements — les composants arrivent en Pre-Fab par
+          des mouvements dont la destination est celle de l'OF ;
+        - le chainage aval, pour le transfert du produit fini ;
+        - l'origine du transfert, qui porte le nom de l'OF.
+        """
+        Picking = self.env["stock.picking"]
+        transferts = Picking
+        if not ofs:
+            return transferts
+        if "picking_ids" in ofs._fields:
+            transferts |= ofs.picking_ids
+        if "move_raw_ids" in ofs._fields:
+            transferts |= ofs.move_raw_ids.move_orig_ids.picking_id
+        if "move_finished_ids" in ofs._fields:
+            transferts |= ofs.move_finished_ids.move_dest_ids.picking_id
+        noms = [nom for nom in ofs.mapped("name") if nom]
+        if noms:
+            transferts |= Picking.search([("origin", "in", noms)])
+        return transferts
+
     def _fma_recalculer_dates_fab(self):
         """Pose le debut et la fin de fabrication a partir des OF.
 
@@ -646,7 +676,7 @@ class SaleOrder(models.Model):
                 continue
             vals = {}
 
-            transferts = ofs.picking_ids if "picking_ids" in ofs._fields else Picking
+            transferts = order._fma_transferts_des_of(ofs)
             instants = [t.date_done for t in transferts
                         if t.state == "done" and t.date_done]
             if instants:
