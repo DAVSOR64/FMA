@@ -293,21 +293,33 @@ if resultat and resultat is not True:
                  hauteur, et Acces chantier etait relegue trois rangees plus
                  bas.
 
-                 Le groupe est DEPLACE, pas recopie : il est pose par custom
-                 (fma_paves_livraison), et un second exemplaire afficherait
-                 ses champs deux fois. Deplacable ici parce que custom charge
-                 avant ce module — le noeud existe deja quand cette vue
-                 s'applique. Comme pour payment_term_id, le move doit etre
-                 l'enfant direct de la specification qui le positionne.
+                 UNE COLONNE CONTENEUR, ET NON UN GROUPE IMBRIQUE DANS
+                 fma_affaire. La premiere version glissait Acces chantier A
+                 L'INTERIEUR de fma_affaire. Or un <group> qui contient un
+                 sous-groupe devient pour Odoo un conteneur de colonnes : les
+                 champs poses directement dedans perdent leurs libelles. Le
+                 pave Affaire affichait ses valeurs sans intitule, et Bureau
+                 d'etude, Gamme, Serie n'etaient plus qu'un champ vide.
 
-                 colspan="2" : dans une colonne de formulaire, un groupe
-                 imbrique n'occupe qu'une cellule sur deux par defaut, et
-                 s'afficherait a demi-largeur. -->
-            <xpath expr="//group[@name='fma_affaire']" position="inside">
-                <xpath expr="//group[@name='fma_acces_chantier']" position="move"/>
+                 D'ou fma_colonne_droite : un conteneur a une seule colonne
+                 (col="1"), qui empile deux groupes ordinaires. Chacun garde ses
+                 libelles. fma_affaire et fma_acces_chantier gardent leur nom,
+                 les vues Studio qui les visent les retrouvent.
+
+                 Deux specifications et non une : Odoo ne traite position="move"
+                 que sur les enfants DIRECTS du noeud positionne. Un move
+                 imbrique dans le groupe cree serait insere tel quel dans
+                 l'arch. On pose donc le conteneur vide, puis on y deplace les
+                 deux groupes.
+
+                 Deplacable ici parce que custom, qui pose fma_acces_chantier,
+                 est une dependance de ce module. -->
+            <xpath expr="//group[@name='fma_affaire']" position="before">
+                <group name="fma_colonne_droite" col="1"/>
             </xpath>
-            <xpath expr="//group[@name='fma_acces_chantier']" position="attributes">
-                <attribute name="colspan">2</attribute>
+            <xpath expr="//group[@name='fma_colonne_droite']" position="inside">
+                <xpath expr="//group[@name='fma_affaire']" position="move"/>
+                <xpath expr="//group[@name='fma_acces_chantier']" position="move"/>
             </xpath>
 
         </field>
