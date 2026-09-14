@@ -295,6 +295,29 @@ if resultat and resultat is not True:
                 <xpath expr="//field[@name='payment_term_id']" position="move"/>
             </xpath>
 
+            <!-- Acces chantier passe dans la colonne de droite, sous Affaire &
+                 equipe. Le pave Client est haut, celui d'Affaire court : a
+                 cote, la colonne de droite restait vide sur la moitie de sa
+                 hauteur, et Acces chantier etait relegue trois rangees plus
+                 bas.
+
+                 Le groupe est DEPLACE, pas recopie : il est pose par custom
+                 (fma_paves_livraison), et un second exemplaire afficherait
+                 ses champs deux fois. Deplacable ici parce que custom charge
+                 avant ce module — le noeud existe deja quand cette vue
+                 s'applique. Comme pour payment_term_id, le move doit etre
+                 l'enfant direct de la specification qui le positionne.
+
+                 colspan="2" : dans une colonne de formulaire, un groupe
+                 imbrique n'occupe qu'une cellule sur deux par defaut, et
+                 s'afficherait a demi-largeur. -->
+            <xpath expr="//group[@name='fma_affaire']" position="inside">
+                <xpath expr="//group[@name='fma_acces_chantier']" position="move"/>
+            </xpath>
+            <xpath expr="//group[@name='fma_acces_chantier']" position="attributes">
+                <attribute name="colspan">2</attribute>
+            </xpath>
+
         </field>
     </record>
 
