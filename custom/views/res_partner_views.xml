@@ -29,6 +29,8 @@
                      et continuent d'alimenter le PDF, le temps que le
                      referentiel soit peuple. -->
                 <field name="x_studio_mode_de_rglement_dsa"/>
+                <field name="fma_remise_alu"/>
+                <field name="fma_remise_acier"/>
             </xpath>
 
             <xpath expr="//page[@name='sales_purchases']/group" position="inside">
