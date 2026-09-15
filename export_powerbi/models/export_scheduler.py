@@ -74,6 +74,33 @@ class ExportSFTPScheduler(models.Model):
                 return val
 
         # helper M2O -> texte (safe)
+        def _reglement(val):
+            """(code, libelle) d'un mode de reglement, quelle que soit sa forme.
+
+            Le nom d'affichage du referentiel x_reglements vaut desormais
+            « 11 - Virement Bancaire ». Ecrire l'enregistrement tel quel dans le
+            CSV — _to_cell passe par display_name — mettait ce texte dans la
+            colonne CODE, que Power BI lit comme un nombre : l'actualisation
+            plantait. On lit donc explicitement le code (x_name) et le libelle
+            (x_studio_libelle), et on redecoupe un texte « code - libelle » s'il
+            en arrive un.
+            """
+            try:
+                if not val:
+                    return "", ""
+                if getattr(val, "_name", "") == "x_reglements":
+                    val = val[:1]
+                    return (val.x_name or "").strip(), (val.x_studio_libelle or "").strip()
+                if hasattr(val, "_name"):
+                    return (val[:1].display_name or "").strip(), ""
+                texte = str(val).strip()
+                if " - " in texte:
+                    code, libelle = texte.split(" - ", 1)
+                    return code.strip(), libelle.strip()
+                return texte, ""
+            except Exception:
+                return "", ""
+
         def _m2o_name(val):
             try:
                 if not val:
@@ -401,8 +428,9 @@ class ExportSFTPScheduler(models.Model):
                         or (getattr(o, "x_studio_projet", "") or ""),
                         getattr(o, "so_delai_confirme_en_semaine", "") or "",
                         getattr(o, "so_commande_client", "") or "",
-                        _m2o_name(getattr(o, "x_studio_mode_de_rglement", None))
-                        or (getattr(o, "x_studio_mode_de_rglement", "") or ""),
+                        # Le code seul, depuis la meme source : un eventuel
+                        # « code - libelle » est redecoupe plutot qu'exporte.
+                        _reglement(getattr(o, "x_studio_mode_de_rglement", None))[0],
                         o.so_date_de_reception_devis.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_de_reception_devis", False)
                         else "",
@@ -724,8 +752,20 @@ class ExportSFTPScheduler(models.Model):
                             if getattr(i, "invoice_payment_term_id", False)
                             else ""
                         ),
-                        i.x_studio_mode_de_reglement_1 or "",
-                        i.x_studio_libelle_1 or "",
+                        # Code puis libelle, depuis les MEMES champs qu'avant.
+                        # Repli sur mode_reglement_id quand le champ Studio est
+                        # vide, et sur le libelle du referentiel quand
+                        # x_studio_libelle_1 l'est : les factures recentes ne
+                        # portent souvent que le lien au referentiel.
+                        _reglement(
+                            i.x_studio_mode_de_reglement_1
+                            or (i.mode_reglement_id if "mode_reglement_id" in i._fields else False)
+                        )[0],
+                        (i.x_studio_libelle_1 or "")
+                        or _reglement(
+                            i.x_studio_mode_de_reglement_1
+                            or (i.mode_reglement_id if "mode_reglement_id" in i._fields else False)
+                        )[1],
                         (
                             i.fiscal_position_id.name
                             if getattr(i, "fiscal_position_id", False)
