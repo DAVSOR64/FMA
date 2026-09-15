@@ -25,6 +25,8 @@ IZIQO_TRACKED_FIELDS = {
     "customer_rank",
     "email",
     "is_company",
+    "fma_remise_acier",
+    "fma_remise_alu",
     "iziqo_sync_excluded",
     "name",
     "parent_id",
@@ -245,6 +247,10 @@ class ResPartner(models.Model):
             "cp_livraison": delivery.zip or "",
             "ville_livraison": delivery.city or "",
             "pays_livraison": delivery.country_id.name or "",
+            # Remises client en pourcentage (47.0 = 47 %). Nouvelles cles :
+            # le mapping cote IziQo doit les prendre en compte.
+            "remise_alu": self._iziqo_get("fma_remise_alu") or 0.0,
+            "remise_acier": self._iziqo_get("fma_remise_acier") or 0.0,
             "actif": bool(self.active),
             "date_modification": fields.Datetime.to_string(self.write_date) or "",
         }

@@ -124,6 +124,8 @@
                          c'est lui qu'alimente mode_reglement_id sur le devis et
                          la facture. -->
                     <field name="x_studio_mode_de_rglement_dsa" string="Mode de règlement"/>
+                    <field name="fma_remise_alu"/>
+                    <field name="fma_remise_acier"/>
                     <field name="part_code_tiers" string="Code tiers"/>
                     <field name="x_studio_gneration_n_compte_1"
                            string="Génération automatique du n° de compte"/>

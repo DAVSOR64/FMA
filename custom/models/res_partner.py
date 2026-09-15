@@ -42,6 +42,14 @@ class ResPartner(models.Model):
     x_studio_iziqo_1 = fields.Boolean(string="Iziqo")
     x_studio_mode_de_rglement = fields.Char(string="Mode de réglement")
     x_studio_mode_de_rglement_dsa = fields.Many2one("x_reglements", string="Mode de règlement")
+    # Remises client, en POURCENTAGE (47.0 = 47 %), l'une pour l'aluminium
+    # (affaires etiquetees FMA), l'autre pour l'acier (F2M). Portees par le
+    # client seul : elles ne s'appliquent a aucun devis, elles sont transmises
+    # a IziQo par fma_iziqo_sync.
+    #
+    # 47 % par defaut sur les societes, cf. create et la migration de reprise.
+    fma_remise_alu = fields.Float(string="Remise ALU (%)", digits=(5, 2))
+    fma_remise_acier = fields.Float(string="Remise ACIER (%)", digits=(5, 2))
     x_studio_mtt_echu = fields.Float(string="Mtt Echu")
     x_studio_mtt_non_echu = fields.Float(string="Mtt Non Echu")
     x_studio_ref_logikal = fields.Char(string="Ref. LOGIKAL")
@@ -175,6 +183,11 @@ class ResPartner(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            # Remise par defaut des societes : 47 %, le taux applique a tous
+            # les clients societe. Une valeur fournie a la creation l'emporte.
+            if vals.get("is_company"):
+                vals.setdefault("fma_remise_alu", 47.0)
+                vals.setdefault("fma_remise_acier", 47.0)
             if vals.get("x_studio_gneration_n_compte_1", False):
                 last_record = self.search(
                     [("is_company", "=", True), ("x_studio_compte", "!=", False)],
