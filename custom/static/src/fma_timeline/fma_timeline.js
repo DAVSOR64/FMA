@@ -26,7 +26,9 @@ const ETAPES = [
     ["so_date_bon_pour_fab", "Bon pour fab.", "orange"],
     ["so_date_de_fin_de_production_reel", "Fin de production", "orange"],
     ["so_date_de_livraison", "Livraison prévue", "orange"],
-    ["so_date_de_livraison_prevu", "Livraison", "orange"],
+    // Livraison REELLE : date effective du BL. L'etape affichait la date
+    // revisee (so_date_de_livraison_prevu), qui reste dans le pave Expedition.
+    ["so_date_livraison_reelle", "Livraison", "orange"],
 ];
 
 export class FmaTimeline extends Component {

@@ -48,6 +48,7 @@
                     <group string="Expédition" name="fma_expedition">
                         <field name="so_date_de_livraison" readonly="1"/>
                         <field name="so_date_de_livraison_prevu"/>
+                        <field name="so_date_livraison_reelle" readonly="1"/>
                     </group>
                 </group>
             </xpath>
