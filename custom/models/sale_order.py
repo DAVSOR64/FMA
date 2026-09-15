@@ -275,6 +275,15 @@ class SaleOrder(models.Model):
     so_date_debut_fab = fields.Date(string="Début de fab", copy=False)
     so_date_de_livraison = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison', store=True)
     so_date_de_livraison_prevu = fields.Date(string="Date livraison saisie")
+    # Livraison REELLE : la date effective des bons de livraison. A ne pas
+    # confondre avec so_date_de_livraison_prevu juste au-dessus, qui porte la
+    # date REVISEE recopiee de la date planifiee du BL — et sur laquelle le
+    # retroplanning de mrp_capacity_planning s'appuie en priorite. On ne la
+    # detourne donc pas : la date reelle a son propre champ.
+    #
+    # Alimente par _fma_recalculer_livraison_reelle, jamais calcule : une
+    # valeur introuvable laisse l'existant en place.
+    so_date_livraison_reelle = fields.Date(string="Livraison réelle le", copy=False)
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 
@@ -681,3 +690,27 @@ class SaleOrder(models.Model):
 
             if vals:
                 order.write(vals)
+
+    def _fma_recalculer_livraison_reelle(self):
+        """Pose la date de livraison reelle a partir des bons de livraison.
+
+        La date effective du DERNIER bon de livraison, mais seulement quand
+        tous les bons non annules sont faits. Une commande livree en deux fois
+        n'est livree qu'au second passage ; dater sa livraison au premier
+        reviendrait a la declarer livree alors qu'un reliquat attend.
+
+        Les retours sont des receptions, pas des livraisons : ils ne comptent
+        pas. Les instants sont ramenes au jour du fuseau de l'utilisateur, Odoo
+        les stockant en UTC.
+        """
+        for order in self:
+            livraisons = order.picking_ids.filtered(
+                lambda p: p.picking_type_code == "outgoing" and p.state != "cancel")
+            if not livraisons or any(p.state != "done" for p in livraisons):
+                continue
+            instants = [p.date_done for p in livraisons if p.date_done]
+            if not instants:
+                continue
+            jour = fields.Date.context_today(order, timestamp=max(instants))
+            if order.so_date_livraison_reelle != jour:
+                order.so_date_livraison_reelle = jour

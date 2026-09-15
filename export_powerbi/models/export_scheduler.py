@@ -420,8 +420,12 @@ class ExportSFTPScheduler(models.Model):
                         o.so_date_de_livraison.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_de_livraison", False)
                         else "",
-                        o.so_date_de_livraison_prevu.strftime("%Y-%m-%d")
-                        if getattr(o, "so_date_de_livraison_prevu", False)
+                        # « Date de livraison reelle » : la date effective des
+                        # BL. La colonne exportait la date revisee saisie
+                        # (so_date_de_livraison_prevu) sous un en-tete qui ne
+                        # le disait pas. Structure du fichier inchangee.
+                        o.so_date_livraison_reelle.strftime("%Y-%m-%d")
+                        if getattr(o, "so_date_livraison_reelle", False)
                         else "",
                         to_float(getattr(o, "so_achat_matiere_devis", 0.0) or 0.0),
                         to_float(getattr(o, "so_achat_vitrage_devis", 0.0) or 0.0),
