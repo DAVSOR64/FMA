@@ -47,7 +47,11 @@
                          il s'affichait « 7 oct. 02:00 ». -->
                     <group string="Expédition" name="fma_expedition">
                         <field name="so_date_de_livraison" readonly="1"/>
-                        <field name="so_date_de_livraison_prevu"/>
+                        <!-- Date revisee, masquee : le devis n'affiche plus qu'une date de
+                             livraison realisee, la date reelle ci-dessous. Le champ n'est pas
+                             retire de l'arch : il reste alimente par la date planifiee du BL et
+                             par BPE + delai, et le retroplanning des OF s'appuie dessus. -->
+                        <field name="so_date_de_livraison_prevu" invisible="1"/>
                         <field name="so_date_livraison_reelle" readonly="1"/>
                     </group>
                 </group>
