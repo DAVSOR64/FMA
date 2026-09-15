@@ -96,6 +96,11 @@ class StockPicking(models.Model):
                     commandes |= production._fma_commande_de_la_vente()
             if commandes:
                 commandes._fma_recalculer_dates_fab()
+            # Un bon de livraison valide peut dater la livraison reelle.
+            livrees = self.filtered(
+                lambda p: p.picking_type_code == "outgoing").mapped("sale_id")
+            if livrees:
+                livrees._fma_recalculer_livraison_reelle()
         except Exception:
             _logger.exception(
                 "Dates de fabrication non recalculees apres validation de %s",
