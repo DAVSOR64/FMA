@@ -9,7 +9,8 @@
                   decoration-warning="state == 'pending' and attempt_count &gt; 0"
                   decoration-muted="state == 'cancelled'">
                 <field name="create_date"/>
-                <field name="partner_id"/>
+                <field name="res_model"/>
+                <field name="record_name"/>
                 <field name="operation"/>
                 <field name="origin" optional="hide"/>
                 <field name="state" widget="badge"/>
@@ -18,6 +19,8 @@
                 <field name="last_attempt_date" optional="hide"/>
                 <field name="response_code"/>
                 <field name="error_message" optional="show"/>
+                <button name="action_open_record" type="object" icon="fa-external-link"
+                        title="Ouvrir la fiche"/>
                 <button name="action_retry" type="object" icon="fa-refresh"
                         title="Relancer" invisible="state == 'done'"/>
                 <button name="action_cancel" type="object" icon="fa-times"
@@ -34,6 +37,8 @@
                 <header>
                     <button name="action_retry" type="object" string="Relancer"
                             class="btn-primary" invisible="state == 'done'"/>
+                    <button name="action_open_record" type="object"
+                            string="Ouvrir la fiche"/>
                     <button name="action_cancel" type="object" string="Annuler"
                             invisible="state != 'pending'"/>
                     <field name="state" widget="statusbar"
@@ -42,7 +47,9 @@
                 <sheet>
                     <group>
                         <group>
-                            <field name="partner_id"/>
+                            <field name="res_model"/>
+                            <field name="record_name"/>
+                            <field name="res_id"/>
                             <field name="operation"/>
                             <field name="origin"/>
                         </group>
@@ -76,8 +83,13 @@
         <field name="model">iziqo.sync.job</field>
         <field name="arch" type="xml">
             <search string="Synchronisations Iziqo">
-                <field name="partner_id"/>
+                <field name="record_name"/>
                 <field name="error_message"/>
+                <filter name="filter_customers" string="Clients"
+                        domain="[('res_model', '=', 'res.partner')]"/>
+                <filter name="filter_employees" string="Commerciaux"
+                        domain="[('res_model', '=', 'hr.employee')]"/>
+                <separator/>
                 <filter name="filter_pending" string="À envoyer"
                         domain="[('state', '=', 'pending')]"/>
                 <filter name="filter_error" string="En échec"
@@ -90,7 +102,7 @@
                 <group name="group_by">
                     <filter name="group_state" string="État" context="{'group_by': 'state'}"/>
                     <filter name="group_operation" string="Opération" context="{'group_by': 'operation'}"/>
-                    <filter name="group_partner" string="Client" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_res_model" string="Ressource" context="{'group_by': 'res_model'}"/>
                 </group>
             </search>
         </field>
