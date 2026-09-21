@@ -9,8 +9,7 @@
             Task: 4022500
         """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.4",
-    "depends": ["account_accountant", "sale_management", "custom"],
+    "version": "19.0.1.0.4",    "depends": ["account_accountant", "sale_management", "custom"],
     "data": [
         "data/ir_cron.xml",
         "views/account_move_views.xml",

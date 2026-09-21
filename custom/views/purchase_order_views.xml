@@ -21,10 +21,28 @@
                 <attribute name="widget">fma_product_and_description_o2m</attribute>
             </xpath>
 
-            <!-- Le repere se lit AVANT le produit : c'est lui qui identifie la
-                 ligne sur le chantier, le produit vient ensuite. -->
+            <!--
+                Colonnes vitrage : structure reprise a l'identique de PreProd,
+                ou elles s'affichent. Le modele Python est le meme sur les deux
+                environnements ; seule cette vue differait. Les tentatives de
+                correction en prod (les cinq champs regroupes avant product_id,
+                sans condition) ne donnaient rien alors que la disposition de
+                PreProd fonctionne : repere avant product_id, les quatre
+                colonnes vitrage apres, chacune conditionnee a la commande.
+
+                Ne pas regrouper ces champs dans un seul xpath : le widget
+                fma_product_and_description_o2m traite la colonne produit a
+                part, et c'est la seule difference restante entre les deux
+                environnements.
+            -->
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="before">
                 <field name="x_fma_repere" string="Repère" column_invisible="not parent.x_is_glazing_order"/>
+                <!--
+                    x_studio_posit est conserve, masque : une vue Studio s'y
+                    accroche, et son retrait a rendu toute commande d'achat
+                    impossible a ouvrir.
+                -->
+                <field name="x_studio_posit" column_invisible="1"/>
             </xpath>
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="after">
                 <field name="x_studio_hauteur" column_invisible="not parent.x_is_glazing_order"/>
