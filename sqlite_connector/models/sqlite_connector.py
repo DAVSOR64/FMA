@@ -1606,7 +1606,16 @@ class SqliteConnector(models.Model):
             Qte = ligne[8]
             #_logger.warning('Dans les vitrages %s', refart)
             pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
-            if pro:
+            # nomenclatures_data peut etre VIDE : la nomenclature de projet
+            # n'est creee que si l'article projet est trouve, et la boucle
+            # precedente se protege deja de ce cas. Celle-ci ne le faisait pas
+            # et levait « IndexError: list index out of range » au premier
+            # vitrage, faisant echouer tout l'import.
+            if pro and not nomenclatures_data:
+                self.log_request(
+                    "Nomenclature de projet absente : vitrage non rattache",
+                    refart, 'Nomenclatures Creation')
+            if pro and nomenclatures_data:
                 #_logger.warning('Affaire %s', proj)
                 nomenclatures_data[0].get('bom_line_ids').append(Command.create({
                 'product_id': pro[0].id,
