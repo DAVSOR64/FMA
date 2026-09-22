@@ -1047,8 +1047,7 @@ class FmaPricerEngine(models.AbstractModel):
         # Reference posee par le connecteur : affaire + position de base.
         refs = {r.strip().upper() for r in pivot_line.refs if r}
         position = getattr(pivot_line.menuiserie, "position", "")
-        if project and position:
-            refs.add(("%s_%s" % (project, position)).upper())
+        refs |= self._refs_position(order, project, position)
         match = lines.filtered(
             lambda l: (l.product_id.default_code or "").strip().upper() in refs
         )
@@ -1063,6 +1062,38 @@ class FmaPricerEngine(models.AbstractModel):
             if match:
                 return self._merge_duplicates(match)
         return self.env["sale.order.line"]
+
+    def _refs_position(self, order, project, position):
+        """Les references sous lesquelles l'article d'une position peut exister.
+
+        Le connecteur nomme l'article « affaire_position », et son « affaire »
+        est le NUMERO d'offre du fichier (Projects.OfferNo), pas le nom du
+        chantier. C'est aussi le numero d'offre qu'on retrouve dans order.name,
+        puisque l'import refuse deja un fichier chiffre pour un autre devis.
+
+        Le moteur passait ici Projects.Name. Sur A26-00-00002 cela donnait
+        « INTERNAT LA FLECHE TEST ODOO_E-MEXT-A TG », qui ne ressemble a rien
+        de ce qui existe en base : les trois lignes etaient pourtant la, sous
+        « A26-00-00002_E-MEXT-A TG », et le lot LOT-2026-0007 est ressorti sans
+        aucune ligne, avec trois « aucune ligne de devis correspondante ».
+
+        On essaie donc les deux origines, et les deux ecritures de la tranche :
+        sans, comme le connecteur l'ecrit pour la tranche 0, et avec.
+        """
+        position = (position or "").strip()
+        if not position:
+            return set()
+        tranche = order.x_tranche if "x_tranche" in order._fields else 0
+        refs = set()
+        for affaire in ((order.name or ""), (project or "")):
+            # Une affaire lotie s'ecrit « A26-.../2 » dans le fichier ; le
+            # numero de tranche est repris a part dans la reference.
+            affaire = affaire.split("/")[0].strip()
+            if not affaire:
+                continue
+            refs.add(("%s_%s" % (affaire, position)).upper())
+            refs.add(("%s/%s_%s" % (affaire, tranche or 0, position)).upper())
+        return refs
 
     def _merge_duplicates(self, lines):
         """Ramene plusieurs lignes d'un meme produit fabrique a une seule.
