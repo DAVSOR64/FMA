@@ -1294,35 +1294,47 @@ class FmaPricerEngine(models.AbstractModel):
     def _find_article_libre(self, comp):
         """Retrouve l'article d'un composant saisi a la main dans LOGIKAL.
 
-        Une ligne « manuelle » (``Articles.IsManual``) n'a pas de reference :
-        le chiffreur l'a tapee, LOGIKAL ne lui donne qu'une designation. Le
-        connecteur en fait pourtant un article Odoo, sous une reference qu'il
-        fabrique lui-meme : les trois premieres lettres de la designation,
-        l'affaire, et un compteur — « ABC A26-00-00002_LB1 ».
+        Une ligne « manuelle » (``Articles.IsManual``) n'a rien a quoi se
+        raccrocher : ni code article, ni GUID, ni hashcode — tout est vide.
+        Les identifiants techniques du fichier, eux, sont locaux au fichier :
+        le meme volet roulant est ``AllArticleID`` 4 dans l'export du lot 1 et
+        15 dans celui du chantier entier. Il n'y a donc rien de plus solide a
+        chercher dans le fichier : la designation est la seule chose stable,
+        et elle porte d'ailleurs la reference du chiffreur
+        (« SOP A26-07-03020/1_1 VR »).
 
-        Ce compteur suit l'ordre de la table AllArticles ; rien dans le
-        composant ne le porte, il est donc inexploitable ici. La designation,
-        elle, est recopiee telle quelle dans le nom de l'article : c'est par
-        elle qu'on retrouve la piece, en se limitant aux articles libres de
-        l'affaire pour ne pas attraper l'homonyme d'un autre chantier.
+        Cote Odoo, en revanche, on ne s'appuie pas sur le NOM de l'article,
+        que n'importe qui peut modifier. Le connecteur recopie desormais la
+        designation dans ``x_studio_ref_int_logikal`` — le champ technique sur
+        lequel TOUS les autres articles sont deja rattachés. Un seul mecanisme
+        pour tout le monde, et un champ que personne ne retouche.
 
-        Sans ca, les six lisses galva et le volet roulant de A26-00-00002
-        sortaient de l'import en « profile sans reference dans le fichier »,
-        alors que leurs articles existaient.
+        Le nom reste une deuxieme passe, pour les articles libres crees avant
+        que le connecteur ne pose la reference et que la reprise n'aurait pas
+        rattrapes.
         """
         Product = self.env["product.product"]
         designation = (comp.description or "").strip()
         if not designation:
             return Product
-        domaine = [("name", "=", designation)]
+
         # Le connecteur ne garde que la partie avant la barre : une affaire
         # lotie « A26-.../1 » donne des articles libres « A26-..._LB1 ».
         affaire = (self.env.context.get("fma_affaire") or "").split("/")[0].strip()
-        if affaire:
-            domaine.append(("default_code", "like", "%s_LB" % affaire))
+        # « _ » est un joker SQL ; il joue ici en notre faveur, la reference
+        # etant de toute facon suffixee par le compteur.
+        libres = [("default_code", "like", "%s_LB" % affaire)] if affaire else []
+
+        if "x_studio_ref_int_logikal" in Product._fields:
+            trouve = Product.search(
+                libres + [("x_studio_ref_int_logikal", "=", designation)], limit=1
+            )
+            if trouve:
+                return trouve
+
         # Deux lignes manuelles de meme designation donnent deux articles
         # libres distincts ; c'est la meme piece, le premier fait foi.
-        return Product.search(domaine, limit=1)
+        return Product.search(libres + [("name", "=", designation)], limit=1)
 
     def _libelle_composant(self, comp, men):
         """De quoi nommer un composant que le fichier ne reference pas.

@@ -716,6 +716,17 @@ class SqliteConnector(models.Model):
                     CptLb = CptLb + 1
                     refart = nom[:3] + ' ' + projet +'_LB' + str(CptLb)
                     fournisseur = 'NONDEF'
+                    # LOGIKAL ne donne aucune reference a une ligne saisie a la
+                    # main : ni code, ni GUID, ni hashcode. La designation est
+                    # tout ce qu'il y a de stable, et elle porte deja la
+                    # reference du chiffreur (« SOP A26-07-03020/1_1 VR »).
+                    #
+                    # Le compteur _LB, lui, suit l'ordre du fichier DEPOSE :
+                    # ce meme volet roulant est _LB4 dans l'export du lot 1 et
+                    # _LB15 dans celui du chantier entier. La reference ne peut
+                    # donc pas servir a reconnaitre l'article d'un depot a
+                    # l'autre -- c'est ce qui en creait un second.
+                    RefLogikal = nom
                     
                 # to get price
                 for article in articles:
@@ -767,7 +778,18 @@ class SqliteConnector(models.Model):
             # Created new article
             #_logger.warning("**********Prix  Article********* %s " % str(prix) )
             _logger.warning("**********Article********* %s " % refart )
-            if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
+            # Un article libre se reconnait a sa designation, pas a sa
+            # reference : celle-ci depend du rang dans le fichier depose et
+            # change d'un export a l'autre. Sans ce rattrapage, redeposer le
+            # chantier entier apres un lot recreait les memes pieces sous
+            # d'autres _LB.
+            existant = self.env['product.product'].search(
+                [('default_code', '=', refart)], limit=1)
+            if not existant and ligne[8] and ligne[10]:
+                existant = self.env['product.product'].search(
+                    [('x_studio_ref_int_logikal', '=', ligne[10]),
+                     ('default_code', 'like', '_LB')], limit=1)
+            if not existant:
                 _logger.warning("**********Creation Article********* %s " % refart )
                 vals = {
                     'default_code': refart,
