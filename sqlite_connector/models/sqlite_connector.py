@@ -786,9 +786,14 @@ class SqliteConnector(models.Model):
             existant = self.env['product.product'].search(
                 [('default_code', '=', refart)], limit=1)
             if not existant and ligne[8] and ligne[10]:
+                # Restreint a l'affaire : deux lots d'un meme chantier doivent
+                # retomber sur le meme article, mais « Lisse galva basse »
+                # tapee sur deux affaires decrit deux pieces, a deux prix.
+                # L'affaire est dans la reference, seul le compteur bouge.
                 existant = self.env['product.product'].search(
                     [('x_studio_ref_int_logikal', '=', ligne[10]),
-                     ('fma_article_libre', '=', True)], limit=1)
+                     ('fma_article_libre', '=', True),
+                     ('default_code', 'like', projet + '_LB')], limit=1)
             if not existant:
                 _logger.warning("**********Creation Article********* %s " % refart )
                 vals = {

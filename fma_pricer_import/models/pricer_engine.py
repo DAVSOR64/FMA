@@ -1314,26 +1314,39 @@ class FmaPricerEngine(models.AbstractModel):
         Le nom reste une deuxieme passe, pour les articles libres crees avant
         que le connecteur ne pose la reference et que la reprise n'aurait pas
         rattrapes.
+
+        LA RECHERCHE NE SORT PAS DE L'AFFAIRE. Deux lots d'un meme chantier
+        doivent bien retomber sur le meme article : c'est la meme piece, et
+        c'est tout l'interet. Deux chantiers differents, non — un chiffreur
+        qui tape « Lisse galva basse » sur deux affaires decrit deux pieces,
+        a deux prix. La marque dit que l'article est libre, elle ne dit pas
+        de quel chantier il vient ; c'est la reference qui le porte, sous la
+        forme « ABC A26-00-00002_LB1 ». Cette partie-la, elle, ne bouge pas :
+        seul le compteur suit le fichier deposE.
         """
         Product = self.env["product.product"]
         designation = (comp.description or "").strip()
         if not designation:
             return Product
 
-        Template = self.env["product.template"]
-        if "fma_article_libre" in Template._fields:
+        # Le connecteur ne garde que la partie avant la barre : une affaire
+        # lotie « A26-.../1 » donne des articles libres « A26-..._LB1 ».
+        affaire = (
+            self.env.context.get("fma_affaire") or ""
+        ).split("/")[0].strip()
+        if not affaire:
+            # Sans affaire, on ne sait pas circonscrire la recherche, et
+            # prendre l'article libre d'un autre chantier serait pire que de
+            # signaler le manque.
+            return Product
+
+        # « _ » est un joker SQL ; il joue ici en notre faveur, la reference
+        # etant de toute facon suffixee par le compteur.
+        libres = [("default_code", "like", "%s_LB" % affaire)]
+        if "fma_article_libre" in self.env["product.template"]._fields:
             # Marque posee par le connecteur a la creation : l'article ne vient
             # d'aucun catalogue, il a ete saisi a la main dans LOGIKAL.
-            libres = [("fma_article_libre", "=", True)]
-        else:
-            # Le connecteur ne garde que la partie avant la barre : une affaire
-            # lotie « A26-.../1 » donne des articles libres « A26-..._LB1 ».
-            affaire = (
-                self.env.context.get("fma_affaire") or ""
-            ).split("/")[0].strip()
-            # « _ » est un joker SQL ; il joue ici en notre faveur, la
-            # reference etant de toute facon suffixee par le compteur.
-            libres = [("default_code", "like", "%s_LB" % affaire)] if affaire else []
+            libres.append(("fma_article_libre", "=", True))
 
         if "x_studio_ref_int_logikal" in Product._fields:
             trouve = Product.search(
@@ -1342,8 +1355,9 @@ class FmaPricerEngine(models.AbstractModel):
             if trouve:
                 return trouve
 
-        # Deux lignes manuelles de meme designation donnent deux articles
-        # libres distincts ; c'est la meme piece, le premier fait foi.
+        # Deux lignes manuelles de meme designation DANS LA MEME AFFAIRE
+        # donnent deux articles libres distincts ; rien ne les distingue, le
+        # premier fait foi.
         return Product.search(libres + [("name", "=", designation)], limit=1)
 
     def _libelle_composant(self, comp, men):
