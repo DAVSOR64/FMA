@@ -1,26 +1,27 @@
 # -*- coding: utf-8 -*-
-"""Donne une reference LOGIKAL aux articles libres deja crees.
+"""Marque les articles libres deja crees, et leur donne une reference.
 
-Une ligne saisie a la main dans LOGIKAL n'a ni code, ni GUID, ni hashcode :
-sa designation est tout ce qui la distingue. Le connecteur ne la reportait
-nulle part, et l'import pricer devait donc reconnaitre ces articles a leur
-NOM -- un champ que n'importe qui peut renommer.
+Une ligne saisie a la main dans LOGIKAL n'a ni code article, ni GUID, ni
+hashcode : sa designation est tout ce qui la distingue. Le connecteur ne la
+reportait nulle part, et l'import pricer devait reconnaitre ces articles a
+leur NOM -- un champ que n'importe qui peut renommer.
 
-Le connecteur ecrit desormais la designation dans x_studio_ref_int_logikal a
-la creation. Cette reprise fait la meme chose pour les articles libres deja
-en base : on recopie le nom, une fois, dans le champ technique. Le nom peut
-ensuite bouger sans casser le rattachement.
+Le connecteur pose desormais deux reperes a la creation : fma_article_libre,
+qui dit ce qu'est l'article, et x_studio_ref_int_logikal, qui dit lequel.
+Cette reprise fait la meme chose sur l'existant, une fois, a partir de ce que
+la base porte deja : la reference « ..._LB<n> » fabriquee par le connecteur,
+et le nom.
 
-Les articles libres se reconnaissent a leur reference « ..._LB<n> », posee
-par le connecteur lui-meme. Le champ Studio peut vivre sur le modele ou sur
-la variante selon la facon dont il a ete cree : on traite la table qui le
-porte, sans rien supposer.
+Aucun parametre n'est passe a execute() : les motifs LIKE s'ecrivent donc avec
+un seul %, sans quoi psycopg les transmettrait tels quels a PostgreSQL.
 """
 import logging
 
 _logger = logging.getLogger(__name__)
 
-# (table, table portant default_code et name)
+# Le champ Studio vit sur le modele ou sur la variante selon la facon dont il
+# a ete cree : on traite la table qui le porte, sans rien supposer.
+# (table a mettre a jour, table portant default_code et name, colonne de lien)
 CIBLES = [
     ("product_template", "product_template", "id"),
     ("product_product", "product_template", "product_tmpl_id"),
@@ -28,6 +29,16 @@ CIBLES = [
 
 
 def migrate(cr, version):
+    # La marque d'abord : c'est un champ du module, il existe forcement, et
+    # c'est lui que l'import interroge desormais.
+    cr.execute(
+        r"""UPDATE product_template
+               SET fma_article_libre = TRUE
+             WHERE default_code LIKE '%\_LB%'
+               AND COALESCE(fma_article_libre, FALSE) = FALSE"""
+    )
+    _logger.info("Articles libres : %s articles marques", cr.rowcount)
+
     for table, source, lien in CIBLES:
         cr.execute(
             """SELECT 1 FROM information_schema.columns
@@ -38,14 +49,14 @@ def migrate(cr, version):
             continue
 
         cr.execute(
-            """UPDATE {table} t
-                  SET x_studio_ref_int_logikal = COALESCE(
-                          s.name->>'fr_FR', s.name->>'en_US')
-                 FROM {source} s
-                WHERE s.id = t.{lien}
-                  AND s.default_code LIKE '%%\\_LB%%'
-                  AND COALESCE(t.x_studio_ref_int_logikal, '') = ''
-                  AND COALESCE(s.name->>'fr_FR', s.name->>'en_US', '') <> ''
+            r"""UPDATE {table} t
+                   SET x_studio_ref_int_logikal = COALESCE(
+                           s.name->>'fr_FR', s.name->>'en_US')
+                  FROM {source} s
+                 WHERE s.id = t.{lien}
+                   AND s.default_code LIKE '%\_LB%'
+                   AND COALESCE(t.x_studio_ref_int_logikal, '') = ''
+                   AND COALESCE(s.name->>'fr_FR', s.name->>'en_US', '') <> ''
             """.format(table=table, source=source, lien=lien)
         )
         _logger.info(
@@ -54,4 +65,4 @@ def migrate(cr, version):
         return
 
     _logger.info(
-        "x_studio_ref_int_logikal absent : reprise des articles libres sans objet")
+        "x_studio_ref_int_logikal absent : references non reprises")

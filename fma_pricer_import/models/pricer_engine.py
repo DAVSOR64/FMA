@@ -1304,10 +1304,12 @@ class FmaPricerEngine(models.AbstractModel):
         (« SOP A26-07-03020/1_1 VR »).
 
         Cote Odoo, en revanche, on ne s'appuie pas sur le NOM de l'article,
-        que n'importe qui peut modifier. Le connecteur recopie desormais la
-        designation dans ``x_studio_ref_int_logikal`` — le champ technique sur
-        lequel TOUS les autres articles sont deja rattachés. Un seul mecanisme
-        pour tout le monde, et un champ que personne ne retouche.
+        que n'importe qui peut modifier. Le connecteur marque ces articles a la
+        creation (``fma_article_libre``) et recopie leur designation dans
+        ``x_studio_ref_int_logikal`` — le champ technique sur lequel TOUS les
+        autres articles sont deja rattaches. La marque dit ce qu'est
+        l'article, la reference dit lequel ; ni l'une ni l'autre ne bouge
+        quand le commercial renomme la fiche.
 
         Le nom reste une deuxieme passe, pour les articles libres crees avant
         que le connecteur ne pose la reference et que la reprise n'aurait pas
@@ -1318,12 +1320,20 @@ class FmaPricerEngine(models.AbstractModel):
         if not designation:
             return Product
 
-        # Le connecteur ne garde que la partie avant la barre : une affaire
-        # lotie « A26-.../1 » donne des articles libres « A26-..._LB1 ».
-        affaire = (self.env.context.get("fma_affaire") or "").split("/")[0].strip()
-        # « _ » est un joker SQL ; il joue ici en notre faveur, la reference
-        # etant de toute facon suffixee par le compteur.
-        libres = [("default_code", "like", "%s_LB" % affaire)] if affaire else []
+        Template = self.env["product.template"]
+        if "fma_article_libre" in Template._fields:
+            # Marque posee par le connecteur a la creation : l'article ne vient
+            # d'aucun catalogue, il a ete saisi a la main dans LOGIKAL.
+            libres = [("fma_article_libre", "=", True)]
+        else:
+            # Le connecteur ne garde que la partie avant la barre : une affaire
+            # lotie « A26-.../1 » donne des articles libres « A26-..._LB1 ».
+            affaire = (
+                self.env.context.get("fma_affaire") or ""
+            ).split("/")[0].strip()
+            # « _ » est un joker SQL ; il joue ici en notre faveur, la
+            # reference etant de toute facon suffixee par le compteur.
+            libres = [("default_code", "like", "%s_LB" % affaire)] if affaire else []
 
         if "x_studio_ref_int_logikal" in Product._fields:
             trouve = Product.search(

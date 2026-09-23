@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Retrouver les articles saisis a la main dans LOGIKAL.
+
+         Leur reference est fabriquee par le connecteur (« ABC A26-..._LB1 ») :
+         elle ne se retient pas, et elle change d'un depot a l'autre. La marque,
+         elle, ne bouge pas. C'est par elle qu'on les liste.
+
+         L'ancrage se fait sur la balise search elle-meme, et non sur un filtre
+         nomme du standard : un nom de filtre qui disparait d'une version a
+         l'autre ferait echouer l'installation du module. -->
+    <record id="product_template_search_article_libre" model="ir.ui.view">
+        <field name="name">product.template.search.article.libre</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_search_view"/>
+        <field name="arch" type="xml">
+            <search position="inside">
+                <separator/>
+                <filter string="Articles libres LOGIKAL"
+                        name="fma_article_libre"
+                        domain="[('fma_article_libre', '=', True)]"/>
+                <group name="fma_groupby_article_libre">
+                    <filter string="Article libre LOGIKAL"
+                            name="groupby_fma_article_libre"
+                            context="{'group_by': 'fma_article_libre'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+</odoo>

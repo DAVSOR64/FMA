@@ -788,7 +788,7 @@ class SqliteConnector(models.Model):
             if not existant and ligne[8] and ligne[10]:
                 existant = self.env['product.product'].search(
                     [('x_studio_ref_int_logikal', '=', ligne[10]),
-                     ('default_code', 'like', '_LB')], limit=1)
+                     ('fma_article_libre', '=', True)], limit=1)
             if not existant:
                 _logger.warning("**********Creation Article********* %s " % refart )
                 vals = {
@@ -810,6 +810,12 @@ class SqliteConnector(models.Model):
                     'x_studio_unit_logikal' : ligne[12],
                     'x_studio_longueur_m' : ligne[13],
                     'x_studio_cration_auto' : True,
+                    # Marque d'origine : cet article ne vient d'aucun
+                    # catalogue fournisseur, le chiffreur l'a saisi a la
+                    # main dans LOGIKAL. C'est ce qui permet de les
+                    # retrouver tous, et de ne chercher que parmi eux
+                    # quand l'import pricer rattache une ligne manuelle.
+                    'fma_article_libre' : bool(ligne[8]),
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
@@ -1029,6 +1035,7 @@ class SqliteConnector(models.Model):
                             'x_studio_unit_logikal' : ligne[12],
                             'x_studio_longueur_m' : ligne[13],
                             'x_studio_cration_auto' : True,
+                            'fma_article_libre' : bool(ligne[8]),
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
