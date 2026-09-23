@@ -649,10 +649,20 @@ class FmaPricerEngine(models.AbstractModel):
                     found, problem = self._creer_vitrage(
                         comp, men.position or men.ref, rangs.get(id(comp), 1)
                     ), None
-            else:
+            elif comp.code:
                 found, problem = self._find_product(comp.code, comp.color)
-                if not found and creer and comp.code:
+                if not found and creer:
                     found, problem = self._creer_article(comp), None
+            else:
+                # Ligne saisie a la main dans LOGIKAL : elle n'a pas de
+                # reference article, mais le connecteur en fait bien un
+                # article Odoo. C'est par la designation qu'on le retrouve.
+                found, problem = self._find_article_libre(comp), None
+                if not found:
+                    problem = _(
+                        "%(quoi)s : article libre introuvable dans Odoo",
+                        quoi=self._libelle_composant(comp, men),
+                    )
             if not found:
                 if problem not in issues:
                     issues.append(problem)
@@ -1243,7 +1253,10 @@ class FmaPricerEngine(models.AbstractModel):
         by_product = {}
         for key, entry in by_key.items():
             code, color = key
-            product, problem = self._find_product(code, color)
+            product, problem = self._find_product(
+                code, color,
+                _("barre de %s mm du plan de coupe", int(entry["length"] or 0)),
+            )
             if not product:
                 missing[problem] = missing.get(problem, 0.0) + entry["qty"]
                 continue
@@ -1278,7 +1291,61 @@ class FmaPricerEngine(models.AbstractModel):
             for d, q in sorted(missing.items())
         ]
 
-    def _find_product(self, code, color=""):
+    def _find_article_libre(self, comp):
+        """Retrouve l'article d'un composant saisi a la main dans LOGIKAL.
+
+        Une ligne « manuelle » (``Articles.IsManual``) n'a pas de reference :
+        le chiffreur l'a tapee, LOGIKAL ne lui donne qu'une designation. Le
+        connecteur en fait pourtant un article Odoo, sous une reference qu'il
+        fabrique lui-meme : les trois premieres lettres de la designation,
+        l'affaire, et un compteur — « ABC A26-00-00002_LB1 ».
+
+        Ce compteur suit l'ordre de la table AllArticles ; rien dans le
+        composant ne le porte, il est donc inexploitable ici. La designation,
+        elle, est recopiee telle quelle dans le nom de l'article : c'est par
+        elle qu'on retrouve la piece, en se limitant aux articles libres de
+        l'affaire pour ne pas attraper l'homonyme d'un autre chantier.
+
+        Sans ca, les six lisses galva et le volet roulant de A26-00-00002
+        sortaient de l'import en « profile sans reference dans le fichier »,
+        alors que leurs articles existaient.
+        """
+        Product = self.env["product.product"]
+        designation = (comp.description or "").strip()
+        if not designation:
+            return Product
+        domaine = [("name", "=", designation)]
+        # Le connecteur ne garde que la partie avant la barre : une affaire
+        # lotie « A26-.../1 » donne des articles libres « A26-..._LB1 ».
+        affaire = (self.env.context.get("fma_affaire") or "").split("/")[0].strip()
+        if affaire:
+            domaine.append(("default_code", "like", "%s_LB" % affaire))
+        # Deux lignes manuelles de meme designation donnent deux articles
+        # libres distincts ; c'est la meme piece, le premier fait foi.
+        return Product.search(domaine, limit=1)
+
+    def _libelle_composant(self, comp, men):
+        """De quoi nommer un composant que le fichier ne reference pas.
+
+        L'import de LOT-2026-0008 a sorti trois fois la meme ligne, « profile
+        sans reference dans le fichier », sur laquelle il n'y avait rien a
+        faire : ni de quel profile il s'agissait, ni sur quelle menuiserie.
+        Le code est vide, c'est le probleme meme ; on rapporte donc tout ce
+        que le fichier porte par ailleurs, de quoi retrouver la ligne dans
+        LOGIKAL et lui donner sa reference.
+        """
+        bouts = [_("position %s", men.position or men.ref)]
+        designation = (comp.description or "").strip()
+        if designation:
+            bouts.append('"%s"' % designation)
+        teinte = (comp.color or "").strip()
+        if teinte:
+            bouts.append(_("teinte %s", teinte))
+        if comp.qty:
+            bouts.append(_("qte %s", "%g" % comp.qty))
+        return ", ".join(bouts)
+
+    def _find_product(self, code, color="", contexte=""):
         """Retrouve un article par sa reference **et sa teinte**.
 
         ``sqlite_connector`` cree un article par couple (reference, teinte) :
@@ -1290,12 +1357,21 @@ class FmaPricerEngine(models.AbstractModel):
         Renvoie ``(article, motif)``. Le motif decrit ce qui a empeche de
         trancher quand aucun article ne convient ; il est inscrit sur le lot,
         et n'interrompt pas l'import.
+
+        ``contexte`` nomme l'element traite. Il ne sert qu'au cas ou le fichier
+        ne donne aucune reference : sans lui, le message se resume a « profile
+        sans reference dans le fichier », repete autant de fois qu'il y a de
+        menuiseries concernees et sans rien pour retrouver le profile dans
+        LOGIKAL. Les autres motifs citent deja le code et la teinte.
         """
         Product = self.env["product.product"]
         code = (code or "").strip()
         color = (color or "").strip()
         if not code:
-            return Product, _("profile sans reference dans le fichier")
+            return Product, _(
+                "%(quoi)s : aucune reference article dans le fichier",
+                quoi=contexte or _("profile"),
+            )
 
         absent = _(
             "profile %(code)s en %(color)s : article inexistant dans Odoo",
