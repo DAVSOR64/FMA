@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""File d'attente des envois de fiches clients vers Iziqo.
+"""File d'attente des envois vers Iziqo, toutes ressources confondues.
 
-Un job = une fiche client a pousser. Il sert a la fois de tampon (l'envoi a
-lieu apres le commit, donc en dehors de la transaction de l'utilisateur) et de
-journal : on garde le payload envoye, le code HTTP et le message de reponse.
+Un job = une fiche a pousser, designee par (res_model, res_id). Il sert a la
+fois de tampon -- l'envoi a lieu apres le commit, donc en dehors de la
+transaction de l'utilisateur -- et de journal : on garde le payload envoye, le
+code HTTP et le message de reponse.
 """
 import json
 import logging
-from urllib.parse import quote
 
 from dateutil.relativedelta import relativedelta
 
@@ -27,16 +27,25 @@ DEFAULT_KEEP_DAYS = 30
 
 class IziqoSyncJob(models.Model):
     _name = "iziqo.sync.job"
-    _description = "Synchronisation client Iziqo"
+    _description = "Synchronisation Iziqo"
     _order = "id desc"
-    _rec_name = "partner_id"
+    _rec_name = "record_name"
 
-    partner_id = fields.Many2one(
-        "res.partner",
-        string="Client",
+    res_model = fields.Selection(
+        selection="_selection_res_model",
+        string="Ressource",
         required=True,
-        ondelete="cascade",
         index=True,
+    )
+    res_id = fields.Integer(string="ID Odoo", required=True, index=True)
+    record_name = fields.Char(
+        string="Fiche",
+        compute="_compute_record_name",
+        compute_sudo=True,
+        store=True,
+        readonly=True,
+        help="Nom de la fiche au moment de la mise en file. Stocké pour rester "
+        "consultable même après renommage ou suppression.",
     )
     operation = fields.Selection(
         [("create", "Création"), ("update", "Modification")],
@@ -75,6 +84,29 @@ class IziqoSyncJob(models.Model):
     error_message = fields.Text(string="Erreur", readonly=True)
     payload = fields.Text(string="Payload envoyé", readonly=True)
 
+    @api.model
+    def _selection_res_model(self):
+        """Ressources synchronisables. Point d'entree pour en ajouter une."""
+        return [
+            ("res.partner", "Client"),
+            ("hr.employee", "Commercial"),
+        ]
+
+    @api.depends("res_model", "res_id")
+    def _compute_record_name(self):
+        for job in self:
+            record = job._iziqo_record()
+            job.record_name = (
+                record.display_name if record else "%s,%s" % (job.res_model, job.res_id)
+            )
+
+    def _iziqo_record(self):
+        """La fiche visee, ou un recordset vide si elle n'existe plus."""
+        self.ensure_one()
+        if not self.res_model or self.res_model not in self.env:
+            return self.env["iziqo.sync.job"].browse()
+        return self.env[self.res_model].sudo().browse(self.res_id).exists()
+
     # -------------------------------------------------------------------------
     # Traitement
     # -------------------------------------------------------------------------
@@ -83,11 +115,6 @@ class IziqoSyncJob(models.Model):
         """Envoie les jobs du recordset. Ne leve jamais d'exception."""
         connector = self.env["iziqo.connector"]
         params = connector._iziqo_params()
-        if not params["url"]:
-            _logger.info(
-                "Iziqo: URL non configurée, %s job(s) laissé(s) en attente.", len(self)
-            )
-            return False
 
         transport_errors = 0
         for job in self._iziqo_lock():
@@ -128,35 +155,70 @@ class IziqoSyncJob(models.Model):
 
     def _process_one(self, params, connector):
         self.ensure_one()
-        partner = self.partner_id
-        if not partner.exists():
+        record = self._iziqo_record()
+        if not record:
             self.write({
                 "state": "cancelled",
-                "error_message": _("Le contact a été supprimé avant l'envoi."),
+                "error_message": _("La fiche a été supprimée avant l'envoi."),
                 "next_attempt_date": False,
             })
             # None : aucune tentative reseau, ne compte pas dans le coupe-circuit.
             return False, None
 
-        payload = partner.sudo()._iziqo_payload(self.operation)
-        method, url = self._iziqo_endpoint(params)
+        if not record._iziqo_is_configured():
+            _logger.info(
+                "Iziqo: URL non configurée pour %s, job %s laissé en attente.",
+                self.res_model,
+                self.id,
+            )
+            return False, None
+
+        payload = record._iziqo_payload(self.operation)
+        method, url = self._iziqo_endpoint(record)
         success, status_code, message = connector._iziqo_request(
             method, url, payload, params
         )
 
-        # POST refuse en 409 : Iziqo connait deja ce client (cas classique du
-        # chargement initial des clients historiques). On bascule en PATCH.
+        # POST refuse en 409 : le cas courant est la fiche deja connue d'Iziqo
+        # (chargement initial des historiques), et le PATCH la met a jour. Mais
+        # un 409 sanctionne aussi un conflit sur un autre critere -- e-mail
+        # deja porte par un commercial, code deja pris par un client. Le PATCH
+        # repond alors 404 : rien a relancer tant que le conflit n'est pas
+        # arbitre dans Iziqo, et c'est le 409 d'origine qu'il faut afficher.
+        give_up = False
         if not success and status_code == 409 and self.operation == "create":
+            conflict = message
             _logger.info(
                 "Iziqo: %s déjà présent (409), bascule en mise à jour.",
-                partner.display_name,
+                record.display_name,
             )
             self.operation = "update"
-            payload = partner.sudo()._iziqo_payload(self.operation)
-            method, url = self._iziqo_endpoint(params)
+            payload = record._iziqo_payload(self.operation)
+            method, url = self._iziqo_endpoint(record)
             success, status_code, message = connector._iziqo_request(
                 method, url, payload, params
             )
+            if not success and status_code == 404:
+                # La fiche n'existe pas chez Iziqo : le conflit portait sur
+                # autre chose. Le job redevient une creation, pour qu'une
+                # relance reparte du POST une fois le conflit arbitre.
+                self.operation = "create"
+                give_up = True
+                status_code = 409
+                message = _(
+                    "Iziqo a refusé la création (409 : %(conflict)s) et ne connaît "
+                    "pas l'identifiant %(identifier)s (404) : le conflit porte sur "
+                    "un autre critère (e-mail ou code déjà pris côté Iziqo), à "
+                    "arbitrer dans Iziqo avant de relancer."
+                ) % {
+                    "conflict": (conflict or "").strip()[:500],
+                    "identifier": record._iziqo_identifier(),
+                }
+                _logger.warning(
+                    "Iziqo: conflit non résolu sur %s : %s",
+                    record.display_name,
+                    message,
+                )
 
         attempt_count = self.attempt_count + 1
         vals = {
@@ -177,7 +239,13 @@ class IziqoSyncJob(models.Model):
             })
         else:
             error = message or _("Erreur inconnue")
-            if attempt_count >= params["max_attempts"]:
+            if give_up:
+                vals.update({
+                    "state": "error",
+                    "error_message": error,
+                    "next_attempt_date": False,
+                })
+            elif attempt_count >= params["max_attempts"]:
                 vals.update({
                     "state": "error",
                     "error_message": _("Abandon après %(count)s tentative(s) : %(error)s")
@@ -194,45 +262,20 @@ class IziqoSyncJob(models.Model):
                 })
 
         self.write(vals)
-        partner._iziqo_store_result(success, vals.get("error_message") or False)
+        record._iziqo_store_result(success, vals.get("error_message") or False)
         return success, status_code
 
-    def _iziqo_endpoint(self, params):
+    def _iziqo_endpoint(self, record):
         """(methode, url) du contrat REST Iziqo :
 
         - creation     : POST sur la collection ;
         - modification : PATCH sur la ressource identifiee.
         """
         self.ensure_one()
-        url = (params["url"] or "").rstrip("/")
+        url = (record._iziqo_url() or "").rstrip("/")
         if self.operation == "update":
-            return "PATCH", "%s/%s" % (url, self._iziqo_identifier(params))
+            return "PATCH", "%s/%s" % (url, record._iziqo_identifier())
         return "POST", url
-
-    def _iziqo_identifier(self, params):
-        """Identifiant de la ressource dans l'URL du PATCH.
-
-        Repli sur le SIRET puis sur l'ID Odoo : le SIRET est toujours renseigne
-        (c'est une condition d'entree dans le perimetre), le code client non.
-        """
-        self.ensure_one()
-        partner = self.partner_id
-        wanted = params["identifier_field"]
-        candidates = {
-            "ref": partner.ref,
-            "siret": partner._iziqo_siret(),
-            "id": str(partner.id),
-        }
-        identifier = candidates.get(wanted)
-        if not identifier:
-            identifier = candidates["siret"] or candidates["id"]
-            _logger.warning(
-                "Iziqo: %s n'a pas de valeur pour l'identifiant « %s », repli sur %s.",
-                partner.display_name,
-                wanted,
-                identifier,
-            )
-        return quote(str(identifier), safe="")
 
     # -------------------------------------------------------------------------
     # Boutons
@@ -255,6 +298,20 @@ class IziqoSyncJob(models.Model):
         })
         return True
 
+    def action_open_record(self):
+        """Ouvre la fiche visee par le job."""
+        self.ensure_one()
+        record = self._iziqo_record()
+        if not record:
+            return False
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": self.res_model,
+            "res_id": self.res_id,
+            "view_mode": "form",
+            "views": [(False, "form")],
+        }
+
     # -------------------------------------------------------------------------
     # Cron
     # -------------------------------------------------------------------------
@@ -269,6 +326,15 @@ class IziqoSyncJob(models.Model):
         return jobs._process()
 
     @api.model
+    def _cron_domain(self):
+        return [
+            ("state", "=", "pending"),
+            "|",
+            ("next_attempt_date", "=", False),
+            ("next_attempt_date", "<=", fields.Datetime.now()),
+        ]
+
+    @api.model
     def _cron_vacuum(self):
         """Purge les envois reussis au-dela de la duree de conservation."""
         keep_days = self.env["iziqo.connector"]._iziqo_int(
@@ -281,15 +347,8 @@ class IziqoSyncJob(models.Model):
             ("create_date", "<", limit_date),
         ])
         if jobs:
-            _logger.info("Iziqo: purge de %s envoi(s) de plus de %s jours.", len(jobs), keep_days)
+            _logger.info(
+                "Iziqo: purge de %s envoi(s) de plus de %s jours.", len(jobs), keep_days
+            )
             jobs.unlink()
         return True
-
-    @api.model
-    def _cron_domain(self):
-        return [
-            ("state", "=", "pending"),
-            "|",
-            ("next_attempt_date", "=", False),
-            ("next_attempt_date", "<=", fields.Datetime.now()),
-        ]
