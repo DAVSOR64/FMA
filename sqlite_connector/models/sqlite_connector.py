@@ -1506,7 +1506,9 @@ class SqliteConnector(models.Model):
             deja_pose = bool(pro) and bool(sale_order.order_line.filtered(
                 lambda l: l.product_id == pro
             ))
-            if sale_order and not deja_pose:
+            # Voir « LA NOMENCLATURE D'AFFAIRE EST UN HERITAGE » plus bas :
+            # sans nomenclature d'affaire, cette ligne n'a plus d'objet.
+            if sale_order and not deja_pose and 'fma.pricer.engine' not in self.env:
             # stagging before merge if sale_order and so_data:
                if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                     so_data[sale_order.id].get('order_line').append(Command.create({
@@ -1575,6 +1577,23 @@ class SqliteConnector(models.Model):
                                     })
                                 )
         # Now we will create nomenclatures
+        #
+        # LA NOMENCLATURE D'AFFAIRE EST UN HERITAGE. Elle posait, sur un
+        # article « projet » unique vendu 1 fois a 0 euro, tous les profiles,
+        # articles et vitrages du chantier, plus toutes les operations. C'etait
+        # la seule nomenclature possible tant que LOGIKAL ne decrivait pas
+        # menuiserie par menuiserie.
+        #
+        # Depuis l'import pricer, chaque position porte SA nomenclature et SA
+        # gamme. La ligne d'affaire ne fabrique plus qu'un ordre parasite a la
+        # confirmation, et sa nomenclature fait double emploi avec celles des
+        # menuiseries.
+        #
+        # On ne la cree donc plus la ou le pricer prend le relais -- et
+        # seulement la. Sans fma_pricer_import, ce qui est le cas en
+        # production aujourd'hui, elle reste la seule nomenclature du
+        # chantier : la retirer partout arreterait la fabrication.
+        nomenclature_affaire = 'fma.pricer.engine' not in self.env
         datanom=[]
         cpt = 0
         elevID = ''
@@ -1602,6 +1621,8 @@ class SqliteConnector(models.Model):
                 datanom1 = ['','','','','','']
             
             pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
+            if not nomenclature_affaire:
+                continue
             if datanom1[1] != '':
                 pro_t = self.env['product.product'].search([('default_code', '=', datanom1[1])], limit=1)
                 if not pro_t:
@@ -1645,7 +1666,7 @@ class SqliteConnector(models.Model):
             # precedente se protege deja de ce cas. Celle-ci ne le faisait pas
             # et levait « IndexError: list index out of range » au premier
             # vitrage, faisant echouer tout l'import.
-            if pro and not nomenclatures_data:
+            if pro and not nomenclatures_data and nomenclature_affaire:
                 self.log_request(
                     "Nomenclature de projet absente : vitrage non rattache",
                     refart, 'Nomenclatures Creation')
