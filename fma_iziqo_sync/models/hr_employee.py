@@ -39,6 +39,16 @@ class HrEmployee(models.Model):
         "work_phone",
     })
 
+    # Champs du mixin reserves aux RH. Pour les autres utilisateurs, Odoo lit
+    # hr.employee au travers de hr.employee.public et refuse tout champ absent
+    # de ce profil public : sans groupe, ces champs entraient dans le prefetch
+    # et le pointage tombait en « Erreur d'acces ». Le groupe les en exclut,
+    # comme les champs prives natifs de hr.employee.
+    iziqo_sync_excluded = fields.Boolean(groups="hr.group_hr_user")
+    iziqo_last_sync_date = fields.Datetime(groups="hr.group_hr_user")
+    iziqo_last_sync_status = fields.Selection(groups="hr.group_hr_user")
+    iziqo_last_sync_error = fields.Text(groups="hr.group_hr_user")
+
     # -------------------------------------------------------------------------
     # Perimetre
     # -------------------------------------------------------------------------
