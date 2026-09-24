@@ -15,9 +15,8 @@ le transfert Stock -> Pre-Fab de ses composants. Ce transfert existe en
 propre — c'est la sortie matiere du lot — et le kit est devenu une
 nomenclature phantom, eclatee dans l'OF d'assemblage.
 
-La matiere sort en DEUX temps, et donc en deux documents. Chaque niveau a
-son groupe d'approvisionnement : les prelevements se fondent a l'interieur
-d'un niveau, jamais entre les deux.
+La matiere sort en DEUX temps, et donc en deux documents : les prelevements
+de composants sont regroupes par niveau, jamais entre les deux.
 
 * la quincaillerie et le vitrage partent en Pre-Fab a J-3 ouvres, le temps
   pour le magasin de garnir un casier par menuiserie ;
@@ -198,24 +197,6 @@ class FmaLotFabrication(models.Model):
         copy=False,
         readonly=True,
     )
-    group_debit_id = fields.Many2one(
-        "procurement.group",
-        string="Groupe d'appro — débit",
-        copy=False,
-        index="btree_not_null",
-        help="Groupe de l'OF de debit. Il tient les profiles a l'ecart de la "
-        "sortie de quincaillerie : les barres vont au banc de debit, pas au "
-        "casier, et trois jours plus tard.",
-    )
-    group_assemblage_id = fields.Many2one(
-        "procurement.group",
-        string="Groupe d'appro — assemblage",
-        copy=False,
-        index="btree_not_null",
-        help="Groupe commun a tous les OF d'assemblage du lot. C'est lui qui "
-        "fond leurs prelevements en un seul bon de sortie vers la Pre-Fab, au "
-        "lieu d'un bon par ordre.",
-    )
     picking_profile_ids = fields.Many2many(
         "stock.picking",
         string="Sortie profilés",
@@ -298,6 +279,73 @@ class FmaLotFabrication(models.Model):
     def _pickings_de(self, productions):
         """Transferts qui amenent les composants de ces ordres."""
         return productions.move_raw_ids.move_orig_ids.picking_id
+
+    def _fusionner_sorties_matiere(self):
+        """Ramene les prelevements du lot a un document par niveau.
+
+        Le magasin doit avoir UN bon en main pour les barres et UN pour la
+        quincaillerie, pas un par ordre de fabrication : trois reperes ne font
+        pas trois fois le tour des allees.
+
+        En v17 et v18, il suffisait d'un groupe d'approvisionnement commun,
+        Odoo fondait alors les mouvements dans un meme transfert.
+        procurement.group N'EXISTE PLUS en v19 — le demarrage de la base l'a
+        dit sans detour, « unknown comodel_name » — et stock.move.group_id a
+        disparu avec lui. On regroupe donc nous-memes, apres confirmation.
+
+        Debit et assemblage restent separes : les barres vont au banc de
+        debit, la quincaillerie au casier, et trois jours plus tot.
+
+        Encadre : une erreur de regroupement ne doit pas empecher de generer
+        les ordres. Au pire le magasin a plusieurs bons, ce qui est genant,
+        pas bloquant.
+        """
+        self.ensure_one()
+        garde = self.env["stock.picking"]
+        try:
+            for productions in (
+                self.production_debit_id,
+                self.production_ids - self.production_debit_id,
+            ):
+                garde |= self._fusionner(self._pickings_de(productions))
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Regroupement des sorties matiere du lot %s", self.name)
+        return garde
+
+    def _fusionner(self, pickings):
+        """Fond des transferts de meme flux en un seul.
+
+        Meme flux veut dire meme type d'operation et memes emplacements : on
+        ne melange pas ce qui part de deux magasins, ni une reception avec une
+        sortie. Le premier transfert recoit les mouvements des autres, qui
+        sont supprimes une fois vides.
+        """
+        pickings = pickings.filtered(lambda p: p.state not in ("done", "cancel"))
+        if len(pickings) < 2:
+            return pickings
+
+        par_flux = {}
+        for picking in pickings:
+            cle = (
+                picking.picking_type_id.id,
+                picking.location_id.id,
+                picking.location_dest_id.id,
+            )
+            par_flux[cle] = par_flux.get(cle, self.env["stock.picking"]) | picking
+
+        gardes = self.env["stock.picking"]
+        for du_flux in par_flux.values():
+            cible, autres = du_flux[0], du_flux[1:]
+            gardes |= cible
+            if not autres:
+                continue
+            autres.move_ids.write({"picking_id": cible.id})
+            autres.invalidate_recordset(["move_ids"])
+            vides = autres.filtered(lambda p: not p.move_ids)
+            if vides:
+                vides.unlink()
+        return gardes
 
     @api.depends("line_ids.product_qty")
     def _compute_menuiserie_qty(self):
@@ -473,6 +521,10 @@ class FmaLotFabrication(models.Model):
             a_confirmer = productions.filtered(lambda p: p.state == "draft")
             if a_confirmer:
                 a_confirmer.action_confirm()
+
+            # Les prelevements de composants n'existent qu'une fois les ordres
+            # confirmes : c'est ici, et pas avant, qu'on peut les regrouper.
+            lot._fusionner_sorties_matiere()
 
             lot._chainer_debit_et_assemblage()
 
@@ -717,7 +769,7 @@ class FmaLotFabrication(models.Model):
             )
         return picking_type
 
-    def _common_production_vals(self, picking_type, niveau="assemblage"):
+    def _common_production_vals(self, picking_type):
         self.ensure_one()
         Production = self.env["mrp.production"]
         vals = {
@@ -737,36 +789,7 @@ class FmaLotFabrication(models.Model):
         if projet and "x_studio_projet_de_la_vente" in Production._fields:
             vals["x_studio_projet_de_la_vente"] = projet.id
 
-        # Un groupe par niveau : les prelevements se fondent a l'interieur du
-        # debit et a l'interieur des assemblages, jamais entre les deux. Les
-        # barres et la quincaillerie ne sortent ni au meme moment ni vers le
-        # meme poste.
-        vals["procurement_group_id"] = self._get_procurement_group(niveau).id
         return vals
-
-    def _get_procurement_group(self, niveau):
-        """Groupe d'approvisionnement d'un niveau, cree a la premiere demande.
-
-        Deux groupes, deux bons de sortie : « ... - Debit » pour les barres,
-        « ... - Assemblage » pour la quincaillerie et le vitrage. Le nom du
-        groupe se retrouve sur le transfert, ce qui evite au magasin d'avoir a
-        deviner lequel il a en main.
-        """
-        self.ensure_one()
-        champ = "group_debit_id" if niveau == "debit" else "group_assemblage_id"
-        groupe = self[champ]
-        if not groupe:
-            groupe = self.env["procurement.group"].create(
-                {
-                    "name": "%s - %s" % (
-                        self.name,
-                        "Debit" if niveau == "debit" else "Assemblage",
-                    ),
-                    "partner_id": self.partner_id.id or False,
-                }
-            )
-            self[champ] = groupe
-        return groupe
 
     def _generate_debit_order(self):
         """Cree l'OF de debit du lot (1 par lot)."""
@@ -798,7 +821,7 @@ class FmaLotFabrication(models.Model):
             product = self._get_product_debit()
             qty = self.menuiserie_qty or 1.0
 
-        vals = self._common_production_vals(picking_type, niveau="debit")
+        vals = self._common_production_vals(picking_type)
         vals.update(
             {
                 "product_id": product.id,
@@ -813,13 +836,24 @@ class FmaLotFabrication(models.Model):
             }
         )
         production = Production.create(vals)
-        for ligne in autres:
-            production._add_debit_byproduct(
-                ligne.product_debit_id, ligne.product_qty)
+        # Encadre : les sous-produits et la gamme sont de l'information. Une
+        # signature native qui aurait bouge d'une version a l'autre ne doit
+        # pas empecher le lot de sortir son OF de debit.
+        try:
+            for ligne in autres:
+                production._add_debit_byproduct(
+                    ligne.product_debit_id, ligne.product_qty)
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Sous-produits de l'OF de debit du lot %s", self.name)
         # Les barres viennent du besoin matiere du lot et non d'une
         # nomenclature : elles varient d'un lot a l'autre.
         production._add_lot_material_moves(self.material_line_ids)
-        self._poser_operations_debit(production)
+        try:
+            self._poser_operations_debit(production)
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Gamme de debit du lot %s", self.name)
 
         self.production_debit_id = production
         self._verifier_debit_profiles(production)

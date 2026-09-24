@@ -23,6 +23,19 @@ Import Pricer  ──►  Mise en lot  ──►  LOT-2026-0001  ──►  OF D
    N OF Assemblage (1 par menuiserie).
 4. Les achats déclenchés par l'OF Débit remontent sur le lot
    (`Achats > Regrouper par lot de fabrication`).
+5. **Sortie matière**, en deux temps et donc deux bons :
+   les **profilés** partent au banc de débit avec l'OF Débit, qui les consomme
+   tous — l'optimisation porte sur le lot entier, une barre sert plusieurs
+   menuiseries ; la **quincaillerie et le vitrage** partent en Pré-Fab à J-3
+   ouvrés, le temps de garnir un casier par menuiserie.
+6. **Éditions** (`Imprimer > Sortie matière du lot`) : récapitulatif des
+   profilés, récapitulatif de la quincaillerie et du vitrage, détail par
+   repère, puis une page par casier.
+
+`procurement.group` n'existant plus en v19, les prélèvements de composants ne
+se regroupent pas tout seuls : le lot les fond lui-même après confirmation des
+OF, par flux (type d'opération et emplacements), et sans jamais mélanger le
+débit et l'assemblage.
 
 Note technique : `procurement.group` ayant disparu en Odoo 19, le lien
 achat ↔ lot est établi par les mouvements (`move_dest_ids` →
