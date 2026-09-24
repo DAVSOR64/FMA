@@ -929,6 +929,91 @@ class FmaLotFabrication(models.Model):
     # ------------------------------------------------------------------
     # Actions de navigation
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Besoin matiere, pour les editions du magasin
+    # ------------------------------------------------------------------
+    def _composants_unitaires(self, product):
+        """Ce qu'il faut sortir du stock pour UNE menuiserie.
+
+        On passe par ``explode`` et non par les lignes brutes : le kit
+        quincaillerie est une nomenclature phantom, et c'est cette methode qui
+        l'eclate en vraies pieces — celles que le magasin va chercher.
+
+        L'ensemble debite est ecarte : il n'est pas sorti du stock, il est
+        produit par l'OF de debit et rejoint le casier apres la scie.
+        """
+        self.ensure_one()
+        Bom = self.env["mrp.bom"]
+        bom = Bom._bom_find(
+            product, company_id=self.company_id.id, bom_type="normal"
+        ).get(product)
+        if not bom:
+            return []
+        _boms, lignes = bom.explode(product, 1.0)
+        composants = []
+        for bom_line, donnees in lignes:
+            article = bom_line.product_id
+            if article.fma_semi_fini == "debit":
+                continue
+            composants.append(
+                (article, donnees.get("qty", 0.0), bom_line.product_uom_id)
+            )
+        return composants
+
+    def _besoin_matiere(self):
+        """Le besoin du lot, aux deux grains dont le magasin a besoin.
+
+        Renvoie ``(global, casiers)``.
+
+        ``global`` est ce qui quitte le stock, agrege par article : les barres
+        du debit, puis la quincaillerie et le vitrage de toutes les
+        menuiseries. C'est le bon de sortie.
+
+        ``casiers`` descend a l'unite — un casier par menuiserie, puisque
+        c'est ainsi que le magasin travaille. Chaque casier porte son rang
+        dans la ligne ; le jour ou les menuiseries seront suivies au numero de
+        serie, ce rang deviendra ce numero.
+        """
+        self.ensure_one()
+        agrege = {}
+
+        def ajouter(article, qty, uom):
+            if not article or not qty:
+                return
+            cle = (article, uom)
+            agrege[cle] = agrege.get(cle, 0.0) + qty
+
+        # Les barres : besoin du lot, pas d'une menuiserie.
+        for materiel in self.material_line_ids:
+            ajouter(materiel.product_id, materiel.product_qty,
+                    materiel.product_uom_id)
+
+        casiers = []
+        for ligne in self.line_ids:
+            if not ligne.product_id:
+                continue
+            contenu = self._composants_unitaires(ligne.product_id)
+            for article, qty, uom in contenu:
+                ajouter(article, qty * ligne.product_qty, uom)
+            nombre = int(ligne.product_qty or 0)
+            for rang in range(1, nombre + 1):
+                casiers.append({
+                    "ligne": ligne,
+                    "rang": rang,
+                    "sur": nombre,
+                    "contenu": contenu,
+                })
+
+        global_ = [
+            {"product": article, "uom": uom, "qty": qty}
+            for (article, uom), qty in agrege.items()
+        ]
+        global_.sort(key=lambda d: (
+            d["product"].fma_nature_logikal or "zzz",
+            d["product"].default_code or d["product"].name or "",
+        ))
+        return global_, casiers
+
     def action_view_sortie_matiere(self):
         """Le bon de sortie matiere du lot. Il ne devrait y en avoir qu'un."""
         self.ensure_one()

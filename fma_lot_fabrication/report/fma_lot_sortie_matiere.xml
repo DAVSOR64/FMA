@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Sortie matiere du lot, aux trois grains dont l'atelier a besoin :
+         ce qui quitte le stock, ce qui revient a chaque repere, et ce qui
+         entre dans chaque casier. Le magasin travaille par casier, et un
+         casier vaut une menuiserie. -->
+    <record id="action_report_lot_sortie_matiere" model="ir.actions.report">
+        <field name="name">Sortie matière du lot</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fma_lot_fabrication.report_lot_sortie_matiere</field>
+        <field name="report_file">fma_lot_fabrication.report_lot_sortie_matiere</field>
+        <field name="binding_model_id" ref="model_fma_lot_fabrication"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Sortie matiere - %s' % object.name</field>
+    </record>
+
+    <template id="report_lot_sortie_matiere">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="lot">
+                <!-- web.external_layout lit « o » et « company » pour son
+                     en-tete ; sans eux le rapport sort sans logo ni pied. -->
+                <t t-set="o" t-value="lot"/>
+                <t t-set="company" t-value="lot.company_id"/>
+                <t t-set="besoin" t-value="lot._besoin_matiere()"/>
+                <t t-set="global_" t-value="besoin[0]"/>
+                <t t-set="casiers" t-value="besoin[1]"/>
+
+                <!-- 1. Recapitulatif : ce qui quitte le stock -->
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>
+                            Sortie matière
+                            <span t-field="lot.name"/>
+                        </h2>
+                        <div class="row mb-3">
+                            <div class="col-4">
+                                <strong>Client</strong><br/>
+                                <span t-field="lot.partner_id"/>
+                            </div>
+                            <div class="col-4">
+                                <strong>Référence LOGIKAL</strong><br/>
+                                <span t-field="lot.logikal_ref"/>
+                            </div>
+                            <div class="col-4">
+                                <strong>Menuiseries</strong><br/>
+                                <span t-field="lot.menuiserie_qty"/>
+                                en <span t-esc="len(lot.line_ids)"/> repère(s)
+                            </div>
+                        </div>
+
+                        <h4>Récapitulatif — à sortir du stock</h4>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>Référence</th>
+                                    <th>Désignation</th>
+                                    <th>Nature</th>
+                                    <th class="text-end">Quantité</th>
+                                    <th>Unité</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="global_" t-as="poste">
+                                    <td><span t-field="poste['product'].default_code"/></td>
+                                    <td><span t-field="poste['product'].name"/></td>
+                                    <td><span t-field="poste['product'].fma_nature_logikal"/></td>
+                                    <td class="text-end"><span t-esc="'%.2f' % poste['qty']"/></td>
+                                    <td><span t-field="poste['uom'].name"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p t-if="not global_" class="text-muted">
+                            Aucun besoin matière : le lot n'a ni barres ni nomenclature exploitable.
+                        </p>
+
+                        <h4 class="mt-4">Détail par repère</h4>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>Repère</th>
+                                    <th>Commande</th>
+                                    <th class="text-end">Menuiseries</th>
+                                    <th>Ensemble débité</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="lot.line_ids" t-as="ligne">
+                                    <td><span t-field="ligne.product_id"/></td>
+                                    <td><span t-field="ligne.order_id.name"/></td>
+                                    <td class="text-end"><span t-field="ligne.product_qty"/></td>
+                                    <td><span t-field="ligne.product_debit_id.default_code"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </t>
+
+                <!-- 2. Un casier par menuiserie -->
+                <t t-foreach="casiers" t-as="casier">
+                    <t t-call="web.external_layout">
+                        <div class="page">
+                            <h2>
+                                Casier
+                                <span t-field="casier['ligne'].product_id"/>
+                                <small class="text-muted">
+                                    — <span t-esc="casier['rang']"/> sur <span t-esc="casier['sur']"/>
+                                </small>
+                            </h2>
+                            <div class="row mb-3">
+                                <div class="col-4">
+                                    <strong>Lot</strong><br/>
+                                    <span t-field="lot.name"/>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Commande</strong><br/>
+                                    <span t-field="casier['ligne'].order_id.name"/>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Client</strong><br/>
+                                    <span t-field="lot.partner_id"/>
+                                </div>
+                            </div>
+
+                            <table class="table table-sm o_main_table">
+                                <thead>
+                                    <tr>
+                                        <th>Référence</th>
+                                        <th>Désignation</th>
+                                        <th>Nature</th>
+                                        <th class="text-end">Quantité</th>
+                                        <th>Unité</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-if="casier['ligne'].product_debit_id">
+                                        <td><span t-field="casier['ligne'].product_debit_id.default_code"/></td>
+                                        <td><span t-field="casier['ligne'].product_debit_id.name"/></td>
+                                        <td>Ensemble débité</td>
+                                        <td class="text-end">1,00</td>
+                                        <td><span t-field="casier['ligne'].product_debit_id.uom_id.name"/></td>
+                                    </tr>
+                                    <tr t-foreach="casier['contenu']" t-as="poste">
+                                        <td><span t-field="poste[0].default_code"/></td>
+                                        <td><span t-field="poste[0].name"/></td>
+                                        <td><span t-field="poste[0].fma_nature_logikal"/></td>
+                                        <td class="text-end"><span t-esc="'%.2f' % poste[1]"/></td>
+                                        <td><span t-field="poste[2].name"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p class="text-muted">
+                                L'ensemble débité rejoint le casier après le débit ; la quincaillerie
+                                et le vitrage y sont mis à la préparation.
+                            </p>
+                        </div>
+                    </t>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>

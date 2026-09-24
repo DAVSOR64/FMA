@@ -11,7 +11,7 @@
     # l'approvisionnement standard a la confirmation de la commande ; le lot
     # les scinde selon sa repartition et se les rattache. Le bouton du lot ne
     # cree plus que l'OF de debit, et complete les assemblages manquants.
-    "version": "19.0.1.20.0",
+    "version": "19.0.1.21.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
@@ -69,6 +69,7 @@ Voir README.md pour le detail du parametrage.
         "views/purchase_order_views.xml",
         "views/res_config_settings_views.xml",
         "wizard/fma_lot_wizard_views.xml",
+        "report/fma_lot_sortie_matiere.xml",
         "views/menus.xml",
     ],
     "installable": True,
