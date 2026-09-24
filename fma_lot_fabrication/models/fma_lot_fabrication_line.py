@@ -84,6 +84,17 @@ class FmaLotFabricationLine(models.Model):
         related="production_id.state",
         string="Etat OF",
     )
+    product_debit_id = fields.Many2one(
+        "product.product",
+        string="Ensemble débité",
+        index="btree_not_null",
+        help="Le sous-ensemble debite de CETTE menuiserie : ce que l'OF de "
+        "debit sort pour elle, et ce que son OF d'assemblage consomme. Les "
+        "coupes d'un repere ne servent pas a un autre — un ensemble debite "
+        "commun a tout le lot laisserait croire qu'une menuiserie est "
+        "montable alors que seules les barres d'une autre sont coupees.",
+    )
+
     production_quincaillerie_id = fields.Many2one(
         "mrp.production",
         string="OF Quincaillerie",

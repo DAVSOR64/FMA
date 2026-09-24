@@ -91,6 +91,31 @@ class MrpProduction(models.Model):
             self._lot_move_vals(product_debit, qty)
         )
 
+    def _add_debit_byproduct(self, product, qty):
+        """Ajoute un ensemble debite en SOUS-PRODUIT de l'OF de debit.
+
+        Un ordre de fabrication ne produit qu'un article, or une seance de
+        debit en sort autant qu'il y a de reperes dans le lot : les barres
+        sont mutualisees, les coupes ne le sont pas. Le premier repere est
+        l'article produit, les autres sont des sous-produits. C'est
+        exactement ce que le mecanisme natif decrit — plusieurs sorties pour
+        une meme consommation.
+        """
+        self.ensure_one()
+        if not product or not qty:
+            return self.env["stock.move"]
+        deja = self.move_finished_ids.filtered(
+            lambda m: m.product_id == product
+        )
+        if deja:
+            return deja
+        vals = self._get_move_finished_values(
+            product.id, qty, product.uom_id.id
+        )
+        if self.origin:
+            vals["origin"] = self.origin
+        return self.env["stock.move"].create(vals)
+
     def _add_lot_material_moves(self, material_lines):
         """Alimente les composants de l'OF Debit depuis le besoin matiere."""
         self.ensure_one()

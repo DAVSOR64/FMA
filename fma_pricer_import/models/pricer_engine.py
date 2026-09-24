@@ -1209,13 +1209,20 @@ class FmaPricerEngine(models.AbstractModel):
                         _("menuiserie %s : ligne de devis introuvable", men.ref)
                     )
                 continue
-            vals.append(
-                {
-                    "lot_id": lot.id,
-                    "sale_line_id": line.id,
-                    "product_qty": men.qty,
-                }
-            )
+            ligne = {
+                "lot_id": lot.id,
+                "sale_line_id": line.id,
+                "product_qty": men.qty,
+            }
+            # L'ensemble debite de CE repere. L'OF de debit le sort, l'OF
+            # d'assemblage de la meme ligne le consomme. Sans ce lien, tout le
+            # lot partageait un ensemble debite generique : les coupes d'un
+            # repere devenaient interchangeables avec celles d'un autre.
+            if "product_debit_id" in self.env["fma.lot.fabrication.line"]._fields:
+                ligne["product_debit_id"] = self._debit_product(
+                    line.product_id
+                ).id
+            vals.append(ligne)
         if vals:
             self.env["fma.lot.fabrication.line"].create(vals)
         return issues

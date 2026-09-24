@@ -727,13 +727,28 @@ class FmaLotFabrication(models.Model):
             return self.production_debit_id
 
         Production = self.env["mrp.production"]
-        product = self._get_product_debit()
         picking_type = self._get_picking_type()
-        qty = self.menuiserie_qty or 1.0
 
-        bom = self.env["mrp.bom"]._bom_find(
-            product, company_id=self.company_id.id, bom_type="normal"
-        ).get(product)
+        # Un OF ne produit qu'un article, or une seance de debit sort un
+        # ensemble debite PAR REPERE : les barres sont mutualisees, les coupes
+        # ne le sont pas. Le premier repere est l'article produit, les autres
+        # suivent en sous-produits.
+        #
+        # Repli sur l'ensemble debite generique de la societe quand aucune
+        # ligne ne porte le sien — lot saisi a la main, ou importe avant que
+        # le lien n'existe.
+        lignes = self.line_ids.filtered(
+            lambda l: l.product_debit_id and not float_is_zero(
+                l.product_qty, precision_digits=2)
+        )
+        if lignes:
+            principale, autres = lignes[0], lignes[1:]
+            product = principale.product_debit_id
+            qty = principale.product_qty
+        else:
+            principale = autres = self.env["fma.lot.fabrication.line"]
+            product = self._get_product_debit()
+            qty = self.menuiserie_qty or 1.0
 
         vals = self._common_production_vals(picking_type)
         vals.update(
@@ -741,17 +756,22 @@ class FmaLotFabrication(models.Model):
                 "product_id": product.id,
                 "product_qty": qty,
                 uom_fname(Production): product.uom_id.id,
-                "bom_id": bom.id if bom else False,
+                # Pas de nomenclature, volontairement : celle de l'ensemble
+                # debite ne porte la gamme que d'UN repere, et pour un
+                # exemplaire. Le temps de debit du lot est la somme de ses
+                # reperes, et c'est nous qui la posons — cf. _operations_debit.
+                "bom_id": False,
                 "lot_production_type": "debit",
             }
         )
         production = Production.create(vals)
-        # L'article debite peut porter une nomenclature *sans composant*, qui
-        # ne sert qu'a porter la gamme de debit : les barres, elles, varient
-        # d'un lot a l'autre et viennent du besoin matiere. Il faut donc les
-        # ajouter aussi dans ce cas.
-        if not bom or not bom.bom_line_ids:
-            production._add_lot_material_moves(self.material_line_ids)
+        for ligne in autres:
+            production._add_debit_byproduct(
+                ligne.product_debit_id, ligne.product_qty)
+        # Les barres viennent du besoin matiere du lot et non d'une
+        # nomenclature : elles varient d'un lot a l'autre.
+        production._add_lot_material_moves(self.material_line_ids)
+        self._poser_operations_debit(production)
 
         self.production_debit_id = production
         self._verifier_debit_profiles(production)
@@ -759,6 +779,57 @@ class FmaLotFabrication(models.Model):
             body=_("OF de debit %s genere.", production.display_name)
         )
         return production
+
+    def _poser_operations_debit(self, production):
+        """Le temps de debit du lot : la somme de ses reperes.
+
+        L'import pose la gamme de debit — Debit et CU (banc) — sur la
+        nomenclature de l'ensemble debite de chaque menuiserie, pour UN
+        exemplaire. Un lot de trois reperes n'a pas de nomenclature qui les
+        additionne, et l'OF de debit sortait donc sans aucune operation : sur
+        le lot TR1 - lot1, les 531 minutes de debit n'etaient nulle part.
+
+        On cumule ici par poste de charge et par operation, temps unitaire
+        multiplie par la quantite de la ligne.
+        """
+        self.ensure_one()
+        Bom = self.env["mrp.bom"]
+        cumul = {}
+        for ligne in self.line_ids:
+            if not ligne.product_debit_id:
+                continue
+            bom = Bom._bom_find(
+                ligne.product_debit_id,
+                company_id=self.company_id.id,
+                bom_type="normal",
+            ).get(ligne.product_debit_id)
+            for operation in bom.operation_ids if bom else []:
+                cle = (operation.workcenter_id.id, operation.name)
+                minutes, sequence = cumul.get(cle, (0.0, operation.sequence))
+                cumul[cle] = (
+                    minutes + (operation.time_cycle_manual or 0.0) * ligne.product_qty,
+                    min(sequence, operation.sequence),
+                )
+        if not cumul:
+            return self.env["mrp.workorder"]
+
+        Workorder = self.env["mrp.workorder"]
+        ordres = Workorder.browse()
+        for (workcenter_id, nom), (minutes, sequence) in sorted(
+            cumul.items(), key=lambda item: item[1][1]
+        ):
+            if not workcenter_id or minutes <= 0:
+                continue
+            ordres |= Workorder.create(
+                {
+                    "name": nom,
+                    "production_id": production.id,
+                    "workcenter_id": workcenter_id,
+                    "duration_expected": minutes,
+                    "sequence": sequence,
+                }
+            )
+        return ordres
 
     def _verifier_debit_profiles(self, production):
         """L'OF de debit ne doit consommer que des profiles.
@@ -837,7 +908,11 @@ class FmaLotFabrication(models.Model):
                 }
             )
             production = Production.create(vals)
-            production._add_debit_component(product_debit, line.product_qty)
+            # L'ensemble debite de CETTE menuiserie, et non celui du lot : les
+            # coupes d'un repere ne montent pas un autre repere. L'ensemble
+            # generique ne sert que de repli, pour un lot saisi a la main.
+            production._add_debit_component(
+                line.product_debit_id or product_debit, line.product_qty)
             line.production_id = production
             created |= production
 
