@@ -65,7 +65,7 @@
                         <button name="action_view_sortie_matiere" type="object"
                                 class="oe_stat_button" icon="fa-truck"
                                 invisible="picking_matiere_count == 0">
-                            <field name="picking_matiere_count" widget="statinfo" string="Sortie matière"/>
+                            <field name="picking_matiere_count" widget="statinfo" string="Sorties matière"/>
                         </button>
                         <button name="action_view_purchases" type="object"
                                 class="oe_stat_button" icon="fa-shopping-cart"

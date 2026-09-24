@@ -24,8 +24,9 @@
                 <t t-set="o" t-value="lot"/>
                 <t t-set="company" t-value="lot.company_id"/>
                 <t t-set="besoin" t-value="lot._besoin_matiere()"/>
-                <t t-set="global_" t-value="besoin[0]"/>
-                <t t-set="casiers" t-value="besoin[1]"/>
+                <t t-set="profiles" t-value="besoin[0]"/>
+                <t t-set="prefab" t-value="besoin[1]"/>
+                <t t-set="casiers" t-value="besoin[2]"/>
 
                 <!-- 1. Recapitulatif : ce qui quitte le stock -->
                 <t t-call="web.external_layout">
@@ -50,7 +51,38 @@
                             </div>
                         </div>
 
-                        <h4>Récapitulatif — à sortir du stock</h4>
+                        <h4>1 — Profilés, au banc de débit</h4>
+                        <p class="text-muted">
+                            Toutes les barres du lot, d'un bloc : l'optimisation porte sur le lot
+                            entier, une barre sert plusieurs menuiseries. Elles partent avec l'OF
+                            de débit, pas au casier.
+                        </p>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>Référence</th>
+                                    <th>Désignation</th>
+                                    <th class="text-end">Quantité</th>
+                                    <th>Unité</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="profiles" t-as="poste">
+                                    <td><span t-field="poste['product'].default_code"/></td>
+                                    <td><span t-field="poste['product'].name"/></td>
+                                    <td class="text-end"><span t-esc="'%.2f' % poste['qty']"/></td>
+                                    <td><span t-field="poste['uom'].name"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p t-if="not profiles" class="text-muted">
+                            Aucune barre : le plan de coupe du lot n'a pas été repris.
+                        </p>
+
+                        <h4 class="mt-4">2 — Quincaillerie et vitrage, en pré-fab</h4>
+                        <p class="text-muted">
+                            À sortir trois jours ouvrés avant le débit, pour garnir les casiers.
+                        </p>
                         <table class="table table-sm o_main_table">
                             <thead>
                                 <tr>
@@ -62,7 +94,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr t-foreach="global_" t-as="poste">
+                                <tr t-foreach="prefab" t-as="poste">
                                     <td><span t-field="poste['product'].default_code"/></td>
                                     <td><span t-field="poste['product'].name"/></td>
                                     <td><span t-field="poste['product'].fma_nature_logikal"/></td>
@@ -71,11 +103,12 @@
                                 </tr>
                             </tbody>
                         </table>
-                        <p t-if="not global_" class="text-muted">
-                            Aucun besoin matière : le lot n'a ni barres ni nomenclature exploitable.
+                        <p t-if="not prefab" class="text-muted">
+                            Aucune quincaillerie ni vitrage : les menuiseries du lot n'ont pas de
+                            nomenclature exploitable.
                         </p>
 
-                        <h4 class="mt-4">Détail par repère</h4>
+                        <h4 class="mt-4">3 — Détail par repère</h4>
                         <table class="table table-sm o_main_table">
                             <thead>
                                 <tr>

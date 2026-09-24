@@ -15,9 +15,17 @@ le transfert Stock -> Pre-Fab de ses composants. Ce transfert existe en
 propre — c'est la sortie matiere du lot — et le kit est devenu une
 nomenclature phantom, eclatee dans l'OF d'assemblage.
 
-Tous les OF du lot partagent un meme groupe d'approvisionnement : leurs
-prelevements de composants se fondent alors en UN SEUL bon de sortie matiere,
-celui que le magasin utilise pour garnir les casiers.
+La matiere sort en DEUX temps, et donc en deux documents. Chaque niveau a
+son groupe d'approvisionnement : les prelevements se fondent a l'interieur
+d'un niveau, jamais entre les deux.
+
+* la quincaillerie et le vitrage partent en Pre-Fab a J-3 ouvres, le temps
+  pour le magasin de garnir un casier par menuiserie ;
+* les profiles partent au banc de debit avec l'OF de debit, qui les consomme
+  TOUS — c'est le lot entier qui est optimise, pas une menuiserie.
+
+Les fondre en un seul bon reviendrait a sortir les barres trois jours trop
+tot, et a les faire passer par le casier alors qu'elles vont a la scie.
 
 Quincaillerie et assemblage portent la quantite de la ligne : l'atelier
 declare menuiserie par menuiserie, Odoo cree le reliquat du reste.
@@ -190,14 +198,29 @@ class FmaLotFabrication(models.Model):
         copy=False,
         readonly=True,
     )
-    group_id = fields.Many2one(
+    group_debit_id = fields.Many2one(
         "procurement.group",
-        string="Groupe d'approvisionnement",
+        string="Groupe d'appro — débit",
         copy=False,
         index="btree_not_null",
-        help="Groupe commun a tous les ordres du lot. C'est lui qui fait que "
-        "leurs prelevements de composants se fondent en un seul bon de sortie "
-        "matiere, au lieu d'un bon par ordre.",
+        help="Groupe de l'OF de debit. Il tient les profiles a l'ecart de la "
+        "sortie de quincaillerie : les barres vont au banc de debit, pas au "
+        "casier, et trois jours plus tard.",
+    )
+    group_assemblage_id = fields.Many2one(
+        "procurement.group",
+        string="Groupe d'appro — assemblage",
+        copy=False,
+        index="btree_not_null",
+        help="Groupe commun a tous les OF d'assemblage du lot. C'est lui qui "
+        "fond leurs prelevements en un seul bon de sortie vers la Pre-Fab, au "
+        "lieu d'un bon par ordre.",
+    )
+    picking_profile_ids = fields.Many2many(
+        "stock.picking",
+        string="Sortie profilés",
+        compute="_compute_picking_matiere_ids",
+        help="Le transfert qui amene les barres du lot au debit.",
     )
     picking_matiere_count = fields.Integer(
         string="Sorties matiere",
@@ -207,8 +230,8 @@ class FmaLotFabrication(models.Model):
         "stock.picking",
         string="Sortie matiere",
         compute="_compute_picking_matiere_ids",
-        help="Les transferts qui amenent la matiere du lot en Pre-Fab. Il ne "
-        "devrait y en avoir qu'un.",
+        help="Tous les transferts qui amenent la matiere du lot : les barres "
+        "au debit, la quincaillerie et le vitrage aux casiers.",
     )
 
     production_quincaillerie_ids = fields.One2many(
@@ -267,9 +290,14 @@ class FmaLotFabrication(models.Model):
         avait deja coute une reprise de dates de fabrication.
         """
         for lot in self:
-            pickings = lot.production_ids.move_raw_ids.move_orig_ids.picking_id
-            lot.picking_matiere_ids = pickings
-            lot.picking_matiere_count = len(pickings)
+            tous = lot._pickings_de(lot.production_ids)
+            lot.picking_profile_ids = lot._pickings_de(lot.production_debit_id)
+            lot.picking_matiere_ids = tous
+            lot.picking_matiere_count = len(tous)
+
+    def _pickings_de(self, productions):
+        """Transferts qui amenent les composants de ces ordres."""
+        return productions.move_raw_ids.move_orig_ids.picking_id
 
     @api.depends("line_ids.product_qty")
     def _compute_menuiserie_qty(self):
@@ -537,10 +565,11 @@ class FmaLotFabrication(models.Model):
             debit._set_date_fin_de_fab(veille)
             debit.compute_macro_schedule_from_date_fin()
 
-            # 4. La matiere sort a J-3 ouvres avant le debit : c'est le
-            #    temps qu'il faut au magasin pour garnir un casier par
-            #    menuiserie. On date le bon de sortie lui-meme, la ou on
-            #    datait l'OF de quincaillerie qui ne servait qu'a cela.
+            # 4. La quincaillerie et le vitrage sortent a J-3 ouvres avant le
+            #    debit : c'est le temps qu'il faut au magasin pour garnir un
+            #    casier par menuiserie. On date le bon de sortie lui-meme, la
+            #    ou on datait l'OF de quincaillerie qui ne servait qu'a cela.
+            #    Les profiles, eux, partent avec le debit.
             depart_kits = self._planifier_sortie_matiere(debit)
         except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
             _logger.exception("Chainage debit/assemblage du lot %s", self.name)
@@ -556,7 +585,7 @@ class FmaLotFabrication(models.Model):
 
         if depart_kits:
             corps = _(
-                "Planification : matiere a sortir le %(kits)s, "
+                "Planification : quincaillerie et vitrage a sortir le %(kits)s, "
                 "debit termine le %(debit)s, assemblage a partir du "
                 "%(assemblage)s.",
                 kits=depart_kits,
@@ -583,11 +612,14 @@ class FmaLotFabrication(models.Model):
         avant un lundi tomberaient un vendredi soir, et le magasin garnirait
         les casiers pendant le week-end.
 
-        C'est la date que porte le bon de sortie matiere du lot — celui que le
-        groupe d'approvisionnement commun a fondu en un seul document. Elle
-        datait auparavant les OF de quincaillerie ; ils n'existent plus, mais
-        les lots d'avant en ont encore, et ils sont dates de la meme facon
-        pour ne pas rester en arriere.
+        C'est la date du bon de sortie de la quincaillerie et du vitrage —
+        celui que le groupe d'approvisionnement des assemblages a fondu en un
+        seul document. La sortie des profiles, elle, n'est pas concernee :
+        elle suit l'OF de debit, qui les consomme tous.
+
+        Elle datait auparavant les OF de quincaillerie ; ils n'existent plus,
+        mais les lots d'avant en ont encore, et ils sont dates de la meme
+        facon pour ne pas rester en arriere.
 
         Renvoie la date retenue, ou False si rien n'a ete planifie.
         """
@@ -595,7 +627,9 @@ class FmaLotFabrication(models.Model):
         if not debit.date_start:
             return False
 
-        sorties = self.picking_matiere_ids.filtered(
+        # Seulement la quincaillerie et le vitrage : les barres suivent l'OF
+        # de debit, elles n'ont rien a faire en Pre-Fab trois jours plus tot.
+        sorties = (self.picking_matiere_ids - self.picking_profile_ids).filtered(
             lambda p: p.state not in ("done", "cancel")
         )
         kits = self.production_quincaillerie_ids.filtered(
@@ -683,7 +717,7 @@ class FmaLotFabrication(models.Model):
             )
         return picking_type
 
-    def _common_production_vals(self, picking_type):
+    def _common_production_vals(self, picking_type, niveau="assemblage"):
         self.ensure_one()
         Production = self.env["mrp.production"]
         vals = {
@@ -703,22 +737,36 @@ class FmaLotFabrication(models.Model):
         if projet and "x_studio_projet_de_la_vente" in Production._fields:
             vals["x_studio_projet_de_la_vente"] = projet.id
 
-        # Le meme groupe pour tous les ordres du lot : c'est ce qui fond
-        # leurs prelevements de composants en un seul bon de sortie matiere.
-        vals["procurement_group_id"] = self._get_procurement_group().id
+        # Un groupe par niveau : les prelevements se fondent a l'interieur du
+        # debit et a l'interieur des assemblages, jamais entre les deux. Les
+        # barres et la quincaillerie ne sortent ni au meme moment ni vers le
+        # meme poste.
+        vals["procurement_group_id"] = self._get_procurement_group(niveau).id
         return vals
 
-    def _get_procurement_group(self):
-        """Groupe d'approvisionnement du lot, cree a la premiere demande."""
+    def _get_procurement_group(self, niveau):
+        """Groupe d'approvisionnement d'un niveau, cree a la premiere demande.
+
+        Deux groupes, deux bons de sortie : « ... - Debit » pour les barres,
+        « ... - Assemblage » pour la quincaillerie et le vitrage. Le nom du
+        groupe se retrouve sur le transfert, ce qui evite au magasin d'avoir a
+        deviner lequel il a en main.
+        """
         self.ensure_one()
-        if not self.group_id:
-            self.group_id = self.env["procurement.group"].create(
+        champ = "group_debit_id" if niveau == "debit" else "group_assemblage_id"
+        groupe = self[champ]
+        if not groupe:
+            groupe = self.env["procurement.group"].create(
                 {
-                    "name": self.name,
+                    "name": "%s - %s" % (
+                        self.name,
+                        "Debit" if niveau == "debit" else "Assemblage",
+                    ),
                     "partner_id": self.partner_id.id or False,
                 }
             )
-        return self.group_id
+            self[champ] = groupe
+        return groupe
 
     def _generate_debit_order(self):
         """Cree l'OF de debit du lot (1 par lot)."""
@@ -750,7 +798,7 @@ class FmaLotFabrication(models.Model):
             product = self._get_product_debit()
             qty = self.menuiserie_qty or 1.0
 
-        vals = self._common_production_vals(picking_type)
+        vals = self._common_production_vals(picking_type, niveau="debit")
         vals.update(
             {
                 "product_id": product.id,
@@ -832,20 +880,42 @@ class FmaLotFabrication(models.Model):
         return ordres
 
     def _verifier_debit_profiles(self, production):
-        """L'OF de debit ne doit consommer que des profiles.
+        """L'OF de debit porte TOUS les profiles du lot, et rien d'autre.
 
-        Le besoin matiere du lot vient du plan de coupe, donc de la table
-        Profiles du fichier : par construction, ce sont des barres. Mais l'OF
-        prend aussi les composants d'une eventuelle nomenclature posee sur
-        l'article debite, et rien n'empeche d'ajouter une ligne a la main.
+        Les deux sens comptent.
 
-        On ne bloque pas — un lot ne doit pas rester en rade pour un article
-        mal classe — mais on le dit sur le lot, la ou quelqu'un le lira.
+        Rien d'autre : le besoin matiere vient du plan de coupe, donc de la
+        table Profiles — par construction, des barres. Mais rien n'empeche
+        d'ajouter une ligne a la main, et une quincaillerie consommee au debit
+        ne serait plus disponible pour le casier.
+
+        Tous : l'optimisation porte sur le lot entier, une barre sert
+        plusieurs menuiseries. Un profile qui manque a l'OF de debit est un
+        profile que personne ne sortira du stock — et la coupe s'arretera au
+        banc, sans que rien ne l'ait annonce.
+
+        On ne bloque ni dans un cas ni dans l'autre — un lot ne doit pas
+        rester en rade pour un article mal classe — mais on l'ecrit sur le
+        lot, la ou quelqu'un le lira.
         """
         Template = self.env["product.template"]
+        consommes = production.move_raw_ids.product_id
+
+        manquants = self.material_line_ids.product_id - consommes
+        if manquants:
+            self.message_post(
+                body=_(
+                    "OF de debit : %(nb)s profile(s) du plan de coupe n'y sont "
+                    "pas consommes — %(liste)s. Personne ne les sortira du "
+                    "stock.",
+                    nb=len(manquants),
+                    liste=", ".join(manquants.mapped("display_name")),
+                )
+            )
+
         if "fma_nature_logikal" not in Template._fields:
             return
-        intrus = production.move_raw_ids.product_id.filtered(
+        intrus = consommes.filtered(
             lambda p: p.fma_nature_logikal and p.fma_nature_logikal != "profile"
         )
         if not intrus:
@@ -853,9 +923,8 @@ class FmaLotFabrication(models.Model):
         self.message_post(
             body=_(
                 "OF de debit : %(nb)s article(s) qui ne sont pas des profiles "
-                "y sont consommes — %(liste)s. Le debit ne devrait prendre que "
-                "des barres ; la quincaillerie et le vitrage appartiennent a "
-                "l'assemblage.",
+                "y sont consommes — %(liste)s. Le debit ne prend que des "
+                "barres ; la quincaillerie et le vitrage vont au casier.",
                 nb=len(intrus),
                 liste=", ".join(intrus.mapped("display_name")),
             )
@@ -961,40 +1030,53 @@ class FmaLotFabrication(models.Model):
         return composants
 
     def _besoin_matiere(self):
-        """Le besoin du lot, aux deux grains dont le magasin a besoin.
+        """Le besoin du lot, dans l'ordre ou il quitte le stock.
 
-        Renvoie ``(global, casiers)``.
+        Renvoie ``(profiles, prefab, casiers)``.
 
-        ``global`` est ce qui quitte le stock, agrege par article : les barres
-        du debit, puis la quincaillerie et le vitrage de toutes les
-        menuiseries. C'est le bon de sortie.
+        ``profiles`` : toutes les barres du lot. Elles partent d'un bloc au
+        banc de debit, parce que l'optimisation porte sur le lot entier — une
+        barre sert plusieurs menuiseries, on ne peut pas en sortir la moitie.
 
-        ``casiers`` descend a l'unite — un casier par menuiserie, puisque
-        c'est ainsi que le magasin travaille. Chaque casier porte son rang
-        dans la ligne ; le jour ou les menuiseries seront suivies au numero de
-        serie, ce rang deviendra ce numero.
+        ``prefab`` : la quincaillerie et le vitrage, agreges. Ils partent en
+        Pre-Fab a J-3, et c'est ce document que le magasin suit pour garnir
+        les casiers.
+
+        ``casiers`` : le meme contenu, mais a l'unite — un casier par
+        menuiserie, puisque c'est ainsi que le magasin travaille. Chaque
+        casier porte son rang dans la ligne ; le jour ou les menuiseries
+        seront suivies au numero de serie, ce rang deviendra ce numero.
         """
         self.ensure_one()
-        agrege = {}
 
-        def ajouter(article, qty, uom):
-            if not article or not qty:
-                return
-            cle = (article, uom)
-            agrege[cle] = agrege.get(cle, 0.0) + qty
+        def poste(article, qty, uom):
+            return {"product": article, "uom": uom, "qty": qty}
+
+        def trier(agrege):
+            lignes = [poste(a, q, u) for (a, u), q in agrege.items()]
+            lignes.sort(key=lambda d: (
+                d["product"].default_code or d["product"].name or ""))
+            return lignes
 
         # Les barres : besoin du lot, pas d'une menuiserie.
+        barres = {}
         for materiel in self.material_line_ids:
-            ajouter(materiel.product_id, materiel.product_qty,
-                    materiel.product_uom_id)
+            if not materiel.product_id or not materiel.product_qty:
+                continue
+            cle = (materiel.product_id, materiel.product_uom_id)
+            barres[cle] = barres.get(cle, 0.0) + materiel.product_qty
 
+        agrege = {}
         casiers = []
         for ligne in self.line_ids:
             if not ligne.product_id:
                 continue
             contenu = self._composants_unitaires(ligne.product_id)
             for article, qty, uom in contenu:
-                ajouter(article, qty * ligne.product_qty, uom)
+                if not article or not qty:
+                    continue
+                cle = (article, uom)
+                agrege[cle] = agrege.get(cle, 0.0) + qty * ligne.product_qty
             nombre = int(ligne.product_qty or 0)
             for rang in range(1, nombre + 1):
                 casiers.append({
@@ -1004,15 +1086,7 @@ class FmaLotFabrication(models.Model):
                     "contenu": contenu,
                 })
 
-        global_ = [
-            {"product": article, "uom": uom, "qty": qty}
-            for (article, uom), qty in agrege.items()
-        ]
-        global_.sort(key=lambda d: (
-            d["product"].fma_nature_logikal or "zzz",
-            d["product"].default_code or d["product"].name or "",
-        ))
-        return global_, casiers
+        return trier(barres), trier(agrege), casiers
 
     def action_view_sortie_matiere(self):
         """Le bon de sortie matiere du lot. Il ne devrait y en avoir qu'un."""
