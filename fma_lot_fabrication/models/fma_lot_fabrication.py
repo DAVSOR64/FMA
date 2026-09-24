@@ -1123,16 +1123,26 @@ class FmaLotFabrication(models.Model):
         return trier(barres), trier(agrege), casiers
 
     def action_view_sortie_matiere(self):
-        """Le bon de sortie matiere du lot. Il ne devrait y en avoir qu'un."""
+        """Les bons de sortie matiere du lot : les barres, puis les casiers.
+
+        L'action est construite a la main plutot que reprise d'un xmlid du
+        standard : un identifiant d'action qui disparait d'une version a
+        l'autre casserait le bouton, et on n'a besoin d'aucun de ses filtres.
+        """
         self.ensure_one()
         pickings = self.picking_matiere_ids
-        action = self.env["ir.actions.act_window"]._for_xml_id(
-            "stock.action_picking_tree_all"
-        )
-        action["domain"] = [("id", "in", pickings.ids)]
+        action = {
+            "type": "ir.actions.act_window",
+            "name": _("Sortie matière — %s", self.name),
+            "res_model": "stock.picking",
+            "domain": [("id", "in", pickings.ids)],
+            "context": {"create": False},
+        }
         if len(pickings) == 1:
-            action["views"] = [(False, "form")]
+            action["view_mode"] = "form"
             action["res_id"] = pickings.id
+        else:
+            action["view_mode"] = "list,form"
         return action
 
     def action_view_productions(self):
