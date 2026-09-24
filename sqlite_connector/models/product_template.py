@@ -14,3 +14,18 @@ class ProductTemplate(models.Model):
         "pas de reference article, et le connecteur lui en fabrique une, du "
         "type « ABC A26-00-00002_LB1 ».",
     )
+
+    fma_nature_logikal = fields.Selection(
+        [
+            ("profile", "Profilé"),
+            ("article", "Article / quincaillerie"),
+            ("glass", "Vitrage"),
+        ],
+        string="Nature LOGIKAL",
+        copy=False,
+        index="btree_not_null",
+        help="De quelle table du fichier pricer l'article provient : Profiles, "
+        "Articles ou Glass. C'est la seule distinction qui fasse foi — un "
+        "profile et une piece de quincaillerie peuvent porter le meme prefixe "
+        "fournisseur, et la categorie d'article se modifie a la main.",
+    )

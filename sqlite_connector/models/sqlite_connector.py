@@ -40,6 +40,19 @@ def base_position(name, phase):
     return name
 
 
+#: Categorie d'article posee par le connecteur, et nature LOGIKAL qui va avec.
+#:
+#: La distinction profile / article / vitrage n'existe que dans le FICHIER :
+#: trois tables, Profiles, Articles et Glass. Elle se perd ensuite, car rien
+#: ne la porte cote Odoo — la categorie peut etre changee a la main, et on l'a
+#: deja fait pour debloquer un import. On la recopie donc sur l'article, dans
+#: fma_nature_logikal, au moment ou on la connait encore.
+CATEGORIE_NATURE = {
+    '__export__.product_category_14_a5d33274': 'article',
+    '__export__.product_category_19_b8423373': 'profile',
+}
+
+
 class SqliteConnector(models.Model):
     _name = 'sqlite.connector'
     _inherit = ['mail.thread', 'mail.activity.mixin']
@@ -821,6 +834,7 @@ class SqliteConnector(models.Model):
                     # retrouver tous, et de ne chercher que parmi eux
                     # quand l'import pricer rattache une ligne manuelle.
                     'fma_article_libre' : bool(ligne[8]),
+                    'fma_nature_logikal' : CATEGORIE_NATURE.get(ligne[3]),
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
@@ -1041,6 +1055,7 @@ class SqliteConnector(models.Model):
                             'x_studio_longueur_m' : ligne[13],
                             'x_studio_cration_auto' : True,
                             'fma_article_libre' : bool(ligne[8]),
+                            'fma_nature_logikal' : CATEGORIE_NATURE.get(ligne[3]),
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
@@ -1302,6 +1317,7 @@ class SqliteConnector(models.Model):
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
                             'x_studio_cration_auto' : True,
+                            'fma_nature_logikal' : 'glass',
                             'x_studio_spacer': spacer,
                             'x_studio_position': position,
                             'x_studio_type': type,

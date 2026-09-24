@@ -675,6 +675,9 @@ class FmaPricerEngine(models.AbstractModel):
             # menuiserie, cree avec le repere. Sur LOGIKAL l'affaire departage
             # les candidats ; un chiffrage TechDesign n'en portant aucune, la
             # recherche retombait sur la menuiserie elle-meme.
+            self._marquer_nature(
+                found, "glass" if comp.kind == "glass" else "article")
+
             if found.id == product.id:
                 probleme = _(
                     "%(genre)s %(code)s de la position %(pos)s : la recherche "
@@ -1260,6 +1263,10 @@ class FmaPricerEngine(models.AbstractModel):
             if not product:
                 missing[problem] = missing.get(problem, 0.0) + entry["qty"]
                 continue
+            # Une barre vient de la table Profiles : c'est un profile, et
+            # c'est ce qui garantit que l'OF de debit n'en consomme pas
+            # d'autre nature.
+            self._marquer_nature(product, "profile")
             acc = by_product.setdefault(
                 product, {"qty": 0.0, "length": 0.0, "need": 0.0}
             )
@@ -1290,6 +1297,23 @@ class FmaPricerEngine(models.AbstractModel):
             _("%(detail)s (%(qty)s barre(s) non reprises)", detail=d, qty=int(q))
             for d, q in sorted(missing.items())
         ]
+
+    def _marquer_nature(self, product, nature):
+        """Recopie sur l'article la table du fichier dont il vient.
+
+        Profiles, Articles, Glass : c'est la seule distinction qui fasse foi.
+        Elle n'existe que pendant la lecture du fichier, et se perdait ensuite.
+        La categorie d'article ne peut pas en tenir lieu — elle se modifie a la
+        main, et on l'a deja fait pour debloquer un import.
+
+        Le connecteur la pose a la creation ; l'import la repose a chaque
+        passage, ce qui rattrape tout ce qui existe deja. sudo : le commercial
+        qui importe n'ecrit pas sur les articles.
+        """
+        if not product or "fma_nature_logikal" not in product._fields:
+            return
+        if product.fma_nature_logikal != nature:
+            product.sudo().fma_nature_logikal = nature
 
     def _find_article_libre(self, comp):
         """Retrouve l'article d'un composant saisi a la main dans LOGIKAL.

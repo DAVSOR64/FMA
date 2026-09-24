@@ -684,10 +684,41 @@ class FmaLotFabrication(models.Model):
             production._add_lot_material_moves(self.material_line_ids)
 
         self.production_debit_id = production
+        self._verifier_debit_profiles(production)
         self.message_post(
             body=_("OF de debit %s genere.", production.display_name)
         )
         return production
+
+    def _verifier_debit_profiles(self, production):
+        """L'OF de debit ne doit consommer que des profiles.
+
+        Le besoin matiere du lot vient du plan de coupe, donc de la table
+        Profiles du fichier : par construction, ce sont des barres. Mais l'OF
+        prend aussi les composants d'une eventuelle nomenclature posee sur
+        l'article debite, et rien n'empeche d'ajouter une ligne a la main.
+
+        On ne bloque pas — un lot ne doit pas rester en rade pour un article
+        mal classe — mais on le dit sur le lot, la ou quelqu'un le lira.
+        """
+        Template = self.env["product.template"]
+        if "fma_nature_logikal" not in Template._fields:
+            return
+        intrus = production.move_raw_ids.product_id.filtered(
+            lambda p: p.fma_nature_logikal and p.fma_nature_logikal != "profile"
+        )
+        if not intrus:
+            return
+        self.message_post(
+            body=_(
+                "OF de debit : %(nb)s article(s) qui ne sont pas des profiles "
+                "y sont consommes — %(liste)s. Le debit ne devrait prendre que "
+                "des barres ; la quincaillerie et le vitrage appartiennent a "
+                "l'assemblage.",
+                nb=len(intrus),
+                liste=", ".join(intrus.mapped("display_name")),
+            )
+        )
 
     def _ligne_kit_quincaillerie(self, product):
         """Ligne du kit quincaillerie dans la nomenclature d'une menuiserie.

@@ -20,10 +20,20 @@
                 <filter string="Articles libres LOGIKAL"
                         name="fma_article_libre"
                         domain="[('fma_article_libre', '=', True)]"/>
+                <separator/>
+                <filter string="Profilés" name="fma_nature_profile"
+                        domain="[('fma_nature_logikal', '=', 'profile')]"/>
+                <filter string="Quincaillerie" name="fma_nature_article"
+                        domain="[('fma_nature_logikal', '=', 'article')]"/>
+                <filter string="Vitrages" name="fma_nature_glass"
+                        domain="[('fma_nature_logikal', '=', 'glass')]"/>
                 <group name="fma_groupby_article_libre">
                     <filter string="Article libre LOGIKAL"
                             name="groupby_fma_article_libre"
                             context="{'group_by': 'fma_article_libre'}"/>
+                    <filter string="Nature LOGIKAL"
+                            name="groupby_fma_nature_logikal"
+                            context="{'group_by': 'fma_nature_logikal'}"/>
                 </group>
             </search>
         </field>

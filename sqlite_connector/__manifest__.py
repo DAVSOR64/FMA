@@ -18,7 +18,7 @@
     # (fma_article_libre) et portent leur designation en reference interne.
     # Leur reference « _LB<n> » suit le rang dans le fichier depose et change
     # d'un export a l'autre : elle ne pouvait pas servir a les reconnaitre.
-    "version": "19.0.1.2.0",
+    "version": "19.0.1.3.0",
     "description": """
 
     """,
