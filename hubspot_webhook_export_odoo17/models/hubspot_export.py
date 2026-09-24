@@ -92,6 +92,7 @@ class HubspotWebhookExport(models.AbstractModel):
                 "code_postal": partner.zip or "",
                 "ville": partner.city or "",
                 "statut": self._get_partner_status(partner),
+                "commercial": self._get_partner_commercial(partner),
                 "date_modification": fields.Date.to_string(partner.write_date.date()) if partner.write_date else "",
             })
 
@@ -109,6 +110,18 @@ class HubspotWebhookExport(models.AbstractModel):
             since = fields.Datetime.now() - timedelta(days=1)
             domain.append(("write_date", ">=", since))
         return self.env["res.partner"].sudo().search(domain)
+
+    @api.model
+    def _get_partner_commercial(self, partner):
+        """Le vendeur rattache au client.
+
+        x_studio_commercial_1 est un champ Studio : sur le client c'est un
+        many2one vers hr.employee, alors que le champ de meme nom sur la
+        commande est un simple Char. _safe_get rend le bon resultat dans les
+        deux cas, et une chaine vide si le champ n'existe pas dans la base —
+        un champ Studio peut avoir ete supprime sans que le code le sache.
+        """
+        return self._safe_get(partner, "x_studio_commercial_1")
 
     @api.model
     def _get_partner_status(self, partner):
