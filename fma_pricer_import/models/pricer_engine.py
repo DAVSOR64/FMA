@@ -815,12 +815,18 @@ class FmaPricerEngine(models.AbstractModel):
         return missing
 
     def _sync_quincaillerie_bom(self, kit, composants):
-        """Nomenclature du kit quincaillerie : la quincaillerie, sans operation.
+        """Nomenclature du kit quincaillerie : un kit, au sens d'Odoo.
 
-        Pas d'operation, volontairement. Le travail du kit, c'est de sortir la
-        quincaillerie du stock vers la Pre-Fab, et ce transfert existe deja :
-        une operation « Quincaillerie » sur un poste le compterait deux fois,
-        et apparaitrait a l'ecran atelier alors qu'on ne pointe rien.
+        Pas d'operation, et surtout pas de nomenclature « normale » : le type
+        est *phantom*. Mettre de la quincaillerie dans un bac n'est pas une
+        etape de fabrication, c'est une preparation — et ce transfert existe
+        deja en propre. Un ordre de fabrication de plus ne faisait que
+        compter le meme travail deux fois.
+
+        En phantom, Odoo eclate le kit dans l'OF d'assemblage : la
+        quincaillerie devient directement composant de la menuiserie. Le kit
+        survit comme regroupement nomme, ce qui reste utile aux editions du
+        magasin, mais plus rien ne le fabrique.
         """
         merged = {}
         for item, qty in composants:
@@ -835,15 +841,16 @@ class FmaPricerEngine(models.AbstractModel):
             if qty
         ]
         Bom = self.env["mrp.bom"].sudo()
+        # Sans filtre sur le type : une nomenclature posee « normal » par un
+        # import precedent doit basculer en phantom, pas cohabiter avec elle.
         bom = Bom.search(
-            [("product_tmpl_id", "=", kit.product_tmpl_id.id),
-             ("type", "=", "normal")],
+            [("product_tmpl_id", "=", kit.product_tmpl_id.id)],
             limit=1,
         )
         vals = {
             "product_tmpl_id": kit.product_tmpl_id.id,
             "product_id": kit.id,
-            "type": "normal",
+            "type": "phantom",
             "product_qty": 1.0,
             "product_uom_id": kit.uom_id.id,
             "operation_ids": [(5, 0, 0)],

@@ -40,7 +40,7 @@
     # 1.19.0 : creation des articles et vitrages manquants pour les pricers
     # sans redacteur, a la convention et aux routes de sqlite_connector, et
     # normalisation des libelles d'operations de TechDesign.
-    "version": "19.0.1.26.0",
+    "version": "19.0.1.27.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

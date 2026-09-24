@@ -2,15 +2,22 @@
 """Lot de fabrication FMA.
 
 Un lot regroupe des lignes de devis (= des menuiseries) pour la production.
-Il porte trois niveaux d'ordres de fabrication :
+Il porte deux niveaux d'ordres de fabrication :
 
-* 1 OF Debit -> niveau lot, consomme les profiles, porte les operations Debit
-  et CU, et sert de point d'entree aux approvisionnements ;
-* 1 OF Quincaillerie par ligne de lot -> produit le kit quincaillerie, SANS
-  operation : son travail est le transfert Stock -> Pre-Fab de ses composants,
-  et il se termine seul quand toute sa quincaillerie y est arrivee ;
-* 1 OF Assemblage par ligne de lot -> consomme l'ensemble debite et le kit,
-  c'est la que l'on declare la fabrication.
+* 1 OF Debit -> niveau lot, consomme les profiles — et eux seuls —, porte les
+  operations Debit et CU, et sert de point d'entree aux approvisionnements ;
+* 1 OF Assemblage par ligne de lot -> consomme l'ensemble debite, la
+  quincaillerie et le vitrage, c'est la que l'on declare la fabrication.
+
+Il n'y a pas de troisieme niveau. Un OF de quincaillerie a existe : il ne
+produisait rien et ne portait aucune operation, son seul travail reel etant
+le transfert Stock -> Pre-Fab de ses composants. Ce transfert existe en
+propre — c'est la sortie matiere du lot — et le kit est devenu une
+nomenclature phantom, eclatee dans l'OF d'assemblage.
+
+Tous les OF du lot partagent un meme groupe d'approvisionnement : leurs
+prelevements de composants se fondent alors en UN SEUL bon de sortie matiere,
+celui que le magasin utilise pour garnir les casiers.
 
 Quincaillerie et assemblage portent la quantite de la ligne : l'atelier
 declare menuiserie par menuiserie, Odoo cree le reliquat du reste.
@@ -183,6 +190,27 @@ class FmaLotFabrication(models.Model):
         copy=False,
         readonly=True,
     )
+    group_id = fields.Many2one(
+        "procurement.group",
+        string="Groupe d'approvisionnement",
+        copy=False,
+        index="btree_not_null",
+        help="Groupe commun a tous les ordres du lot. C'est lui qui fait que "
+        "leurs prelevements de composants se fondent en un seul bon de sortie "
+        "matiere, au lieu d'un bon par ordre.",
+    )
+    picking_matiere_count = fields.Integer(
+        string="Sorties matiere",
+        compute="_compute_picking_matiere_ids",
+    )
+    picking_matiere_ids = fields.Many2many(
+        "stock.picking",
+        string="Sortie matiere",
+        compute="_compute_picking_matiere_ids",
+        help="Les transferts qui amenent la matiere du lot en Pre-Fab. Il ne "
+        "devrait y en avoir qu'un.",
+    )
+
     production_quincaillerie_ids = fields.One2many(
         "mrp.production",
         "lot_fabrication_id",
@@ -230,6 +258,19 @@ class FmaLotFabrication(models.Model):
     # ------------------------------------------------------------------
     # Computes
     # ------------------------------------------------------------------
+    @api.depends("production_ids.move_raw_ids.move_orig_ids.picking_id")
+    def _compute_picking_matiere_ids(self):
+        """Les transferts qui alimentent les OF du lot.
+
+        On remonte par le chainage des mouvements et non par picking_ids :
+        en v19 ce champ ne rend pas les transferts de composants, ce qui nous
+        avait deja coute une reprise de dates de fabrication.
+        """
+        for lot in self:
+            pickings = lot.production_ids.move_raw_ids.move_orig_ids.picking_id
+            lot.picking_matiere_ids = pickings
+            lot.picking_matiere_count = len(pickings)
+
     @api.depends("line_ids.product_qty")
     def _compute_menuiserie_qty(self):
         for lot in self:
@@ -394,7 +435,6 @@ class FmaLotFabrication(models.Model):
                 lot.action_confirm()
 
             productions = lot._generate_debit_order()
-            productions |= lot._generate_quincaillerie_orders()
             productions |= lot._generate_assembly_orders()
 
             # Un OF cree reste en brouillon : il ne reserve rien, n'entre pas
@@ -497,11 +537,11 @@ class FmaLotFabrication(models.Model):
             debit._set_date_fin_de_fab(veille)
             debit.compute_macro_schedule_from_date_fin()
 
-            # 4. La quincaillerie part a J-3 ouvres avant le debit. Son OF n'a
-            #    pas d'operation : c'est sa date de debut qui date le transfert
-            #    Stock -> Pre-Fab de ses composants, et ce transfert EST le
-            #    travail de quincaillerie.
-            depart_kits = self._planifier_quincaillerie(debit)
+            # 4. La matiere sort a J-3 ouvres avant le debit : c'est le
+            #    temps qu'il faut au magasin pour garnir un casier par
+            #    menuiserie. On date le bon de sortie lui-meme, la ou on
+            #    datait l'OF de quincaillerie qui ne servait qu'a cela.
+            depart_kits = self._planifier_sortie_matiere(debit)
         except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
             _logger.exception("Chainage debit/assemblage du lot %s", self.name)
             self.message_post(
@@ -516,7 +556,7 @@ class FmaLotFabrication(models.Model):
 
         if depart_kits:
             corps = _(
-                "Planification : quincaillerie a sortir le %(kits)s, "
+                "Planification : matiere a sortir le %(kits)s, "
                 "debit termine le %(debit)s, assemblage a partir du "
                 "%(assemblage)s.",
                 kits=depart_kits,
@@ -533,23 +573,35 @@ class FmaLotFabrication(models.Model):
         self.message_post(body=corps)
         return True
 
-    #: Jours ouvres entre la sortie de la quincaillerie et le debut du debit.
+    #: Jours ouvres entre la sortie de la matiere et le debut du debit.
     JOURS_AVANCE_QUINCAILLERIE = 3
 
-    def _planifier_quincaillerie(self, debit):
-        """Cale les OF de quincaillerie a J-3 ouvres avant le debut du debit.
+    def _planifier_sortie_matiere(self, debit):
+        """Cale la sortie matiere a J-3 ouvres avant le debut du debit.
 
         Jours OUVRES, sur le calendrier de la societe : trois jours calendaires
-        avant un lundi tomberaient un vendredi soir, et le magasin preparerait
-        les kits pendant le week-end.
+        avant un lundi tomberaient un vendredi soir, et le magasin garnirait
+        les casiers pendant le week-end.
+
+        C'est la date que porte le bon de sortie matiere du lot — celui que le
+        groupe d'approvisionnement commun a fondu en un seul document. Elle
+        datait auparavant les OF de quincaillerie ; ils n'existent plus, mais
+        les lots d'avant en ont encore, et ils sont dates de la meme facon
+        pour ne pas rester en arriere.
 
         Renvoie la date retenue, ou False si rien n'a ete planifie.
         """
         self.ensure_one()
+        if not debit.date_start:
+            return False
+
+        sorties = self.picking_matiere_ids.filtered(
+            lambda p: p.state not in ("done", "cancel")
+        )
         kits = self.production_quincaillerie_ids.filtered(
             lambda p: p.state not in ("done", "cancel")
         )
-        if not kits or not debit.date_start:
+        if not sorties and not kits:
             return False
 
         depart = fields.Datetime.to_datetime(debit.date_start)
@@ -561,11 +613,13 @@ class FmaLotFabrication(models.Model):
             )
         if not cible:
             # Sans calendrier exploitable, trois jours calendaires valent mieux
-            # qu'un kit non date, qui ne serait jamais prepare.
+            # qu'une sortie non datee, qui ne serait jamais preparee.
             cible = depart - timedelta(days=self.JOURS_AVANCE_QUINCAILLERIE)
 
-        champ = date_start_fname(self.env["mrp.production"])
-        kits.write({champ: cible})
+        if sorties:
+            sorties.write({"scheduled_date": cible})
+        if kits:
+            kits.write({date_start_fname(self.env["mrp.production"]): cible})
         return fields.Datetime.to_datetime(cible).date()
 
     def _get_product_debit(self):
@@ -648,7 +702,23 @@ class FmaLotFabrication(models.Model):
         projet = self.sale_order_ids.project_id[:1]
         if projet and "x_studio_projet_de_la_vente" in Production._fields:
             vals["x_studio_projet_de_la_vente"] = projet.id
+
+        # Le meme groupe pour tous les ordres du lot : c'est ce qui fond
+        # leurs prelevements de composants en un seul bon de sortie matiere.
+        vals["procurement_group_id"] = self._get_procurement_group().id
         return vals
+
+    def _get_procurement_group(self):
+        """Groupe d'approvisionnement du lot, cree a la premiere demande."""
+        self.ensure_one()
+        if not self.group_id:
+            self.group_id = self.env["procurement.group"].create(
+                {
+                    "name": self.name,
+                    "partner_id": self.partner_id.id or False,
+                }
+            )
+        return self.group_id
 
     def _generate_debit_order(self):
         """Cree l'OF de debit du lot (1 par lot)."""
@@ -720,80 +790,14 @@ class FmaLotFabrication(models.Model):
             )
         )
 
-    def _ligne_kit_quincaillerie(self, product):
-        """Ligne du kit quincaillerie dans la nomenclature d'une menuiserie.
-
-        Le kit est reconnu a sa nature (fma_semi_fini), pas a sa reference :
-        c'est l'import qui la pose, et une nomenclature saisie a la main
-        pourra la porter aussi. Une menuiserie sans kit — nomenclature de
-        l'ancienne forme, ou lot hors pricer — ne genere pas d'OF de
-        quincaillerie : la quincaillerie reste alors dans l'assemblage.
-        """
-        bom = self.env["mrp.bom"]._bom_find(
-            product, company_id=self.company_id.id, bom_type="normal"
-        ).get(product)
-        if not bom:
-            return self.env["mrp.bom.line"]
-        return bom.bom_line_ids.filtered(
-            lambda l: l.product_id.fma_semi_fini == "quincaillerie"
-        )[:1]
-
-    def _generate_quincaillerie_orders(self):
-        """Cree un OF de quincaillerie par ligne de lot non encore servie.
-
-        Quantite de la ligne, et non une par menuiserie : l'atelier ne pointe
-        rien sur cet OF, il n'y a donc aucune declaration a detailler. Il se
-        termine seul quand sa quincaillerie est arrivee en Pre-Fab — cf.
-        stock.picking._fma_terminer_kits_quincaillerie.
-        """
-        self.ensure_one()
-        Production = self.env["mrp.production"]
-        picking_type = self._get_picking_type()
-        created = Production.browse()
-
-        for line in self.line_ids:
-            existant = line.production_quincaillerie_id
-            if existant and existant.state != "cancel":
-                continue
-            if float_is_zero(line.product_qty, precision_digits=2):
-                continue
-            if not line.product_id:
-                continue
-
-            ligne_kit = self._ligne_kit_quincaillerie(line.product_id)
-            if not ligne_kit:
-                continue
-            kit = ligne_kit.product_id
-            bom = self.env["mrp.bom"]._bom_find(
-                kit, company_id=self.company_id.id, bom_type="normal"
-            ).get(kit)
-
-            vals = self._common_production_vals(picking_type)
-            vals.update(
-                {
-                    "product_id": kit.id,
-                    "product_qty": line.product_qty * (ligne_kit.product_qty or 1.0),
-                    uom_fname(Production): kit.uom_id.id,
-                    "bom_id": bom.id if bom else False,
-                    "lot_production_type": "quincaillerie",
-                    "lot_line_id": line.id,
-                    "lot_sale_line_id": line.sale_line_id.id,
-                    "origin": "%s - %s" % (self.name, line.order_id.name or ""),
-                }
-            )
-            production = Production.create(vals)
-            line.production_quincaillerie_id = production
-            created |= production
-
-        if created:
-            self.message_post(
-                body=_(
-                    "%(count)s OF de quincaillerie generes : %(names)s",
-                    count=len(created),
-                    names=", ".join(created.mapped("name")),
-                )
-            )
-        return created
+    # L'OF de quincaillerie n'existe plus. Il ne produisait rien, ne portait
+    # aucune operation, et son seul travail reel -- sortir la quincaillerie du
+    # stock vers la Pre-Fab -- est celui du bon de sortie matiere du lot. Le
+    # kit reste une nomenclature phantom, eclatee dans l'OF d'assemblage.
+    #
+    # Les champs production_quincaillerie_id(s) et le type « quincaillerie »
+    # sont conserves : des lots d'avant en portent, et ils doivent rester
+    # lisibles et planifiables.
 
     def _generate_assembly_orders(self):
         """Cree un OF d'assemblage par ligne de lot non encore servie."""
@@ -850,6 +854,19 @@ class FmaLotFabrication(models.Model):
     # ------------------------------------------------------------------
     # Actions de navigation
     # ------------------------------------------------------------------
+    def action_view_sortie_matiere(self):
+        """Le bon de sortie matiere du lot. Il ne devrait y en avoir qu'un."""
+        self.ensure_one()
+        pickings = self.picking_matiere_ids
+        action = self.env["ir.actions.act_window"]._for_xml_id(
+            "stock.action_picking_tree_all"
+        )
+        action["domain"] = [("id", "in", pickings.ids)]
+        if len(pickings) == 1:
+            action["views"] = [(False, "form")]
+            action["res_id"] = pickings.id
+        return action
+
     def action_view_productions(self):
         self.ensure_one()
         action = self.env["ir.actions.act_window"]._for_xml_id(
