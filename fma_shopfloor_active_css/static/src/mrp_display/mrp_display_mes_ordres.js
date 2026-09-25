@@ -1,5 +1,10 @@
 /**
- * « Mes ordres de travail » : ce sur quoi l'operateur est pointe, maintenant.
+ * « Mes ordres de travail » : ce sur quoi l'operateur est pointe, ou qu'il soit.
+ *
+ * Deux corrections, posees a un an d'intervalle sur le meme ecran.
+ *
+ * ---------------------------------------------------------------------------
+ * 1. LE CRITERE : pointage, pas assignation.
  *
  * Le getter d'origine retient un ordre des que l'operateur figure dans
  * employee_assigned_ids OU dans employee_ids, et le filtre qui le consomme
@@ -12,35 +17,51 @@
  * L'operateur retrouvait donc dans son onglet tout ce qui lui avait ete
  * attribue, termine ou non.
  *
- * LE CRITERE, ET L'ERREUR QUI A COUTE LA JOURNEE.
- *
- * Les versions precedentes exigeaient state === "progress". Sans effet, et
- * pour une raison qu'aucune de nos mesures ne pouvait montrer : le bouton
- * « DEMARRER » d'une carte ne dit pas que l'ordre n'est pas demarre, il dit
- * que L'OPERATEUR COURANT n'est pas pointe dessus. Un ordre lance plus tot,
- * puis laisse sans chrono actif, reste a l'etat progress. Les cartes etaient
- * donc deja « demarrees » et le filtre ne retirait rien.
+ * Le piege, qui a coute une journee : exiger state === "progress" ne changeait
+ * rien. Le bouton « DEMARRER » d'une carte ne dit pas que l'ordre n'est pas
+ * demarre, il dit que L'OPERATEUR COURANT n'est pas pointe dessus. Un ordre
+ * lance plus tot, puis laisse sans chrono actif, reste a l'etat progress.
  *
  * Le critere demande — « les OT actifs et relies a l'employe sur lequel nous
  * sommes » — n'est pas un etat d'ordre mais un pointage : employee_ids, les
  * operateurs qui ont un chrono en cours. C'est la meme donnee que celle qui
  * fait passer la carte au vert dans mrp_display_record_patch.js.
  *
- * employee_assigned_ids n'est plus consulte : une assignation n'est pas un
- * travail en cours.
+ * defineProperty plutot que patch() : trois versions passant par patch()
+ * n'avaient rien change, on ne saura pas laquelle des deux causes jouait.
+ * defineProperty pose le getter sans intermediaire, une inconnue de moins.
  *
- * POURQUOI defineProperty ET PAS patch(). Trois versions passant par patch()
- * n'ont rien change ; on ne saura pas laquelle des deux causes jouait, le
- * critere etant faux de toute facon. defineProperty pose le getter sans
- * intermediaire : une inconnue de moins.
+ * ---------------------------------------------------------------------------
+ * 2. LA PAGINATION : le filtre ne voyait qu'une page.
  *
- * LA TRACE. Savoir si ce fichier s'execute a coute une demi-journee. Elle
- * repond en ouvrant la console. A retirer une fois le comportement stabilise.
+ * L'ecran pagine les ORDRES DE FABRICATION — 40 sur 214 — et les ordres de
+ * travail en decoulent :
  *
- * Les onglets par poste de charge passent par workcenterFilter, qui n'utilise
- * pas ce getter : ils restent inchanges. Le compteur de l'en-tete lit le meme
- * getter et se cale donc sur la liste.
+ *     get workorders() {
+ *         return this.model.root.records.flatMap((mo) => mo.data.workorder_ids.records);
+ *     }
+ *
+ * Tous les onglets filtrent donc cette page-la, et rien d'autre. Sur une meme
+ * session : page 81-120, « Mes ordres de travail 0 », « Debit FMA 22 » ; page
+ * 41-80, « Mes ordres de travail 1 », « Debit FMA 35 ». L'operateur devait
+ * parcourir les pages une a une pour tomber sur son ordre.
+ *
+ * Aucun filtre cote client ne peut corriger cela : ce qui manque n'est pas
+ * filtre, il n'est pas charge. On agit donc sur le chargement.
+ *
+ * setMaxLimit() est natif — c'est ce que fait le bouton « Charger tous les
+ * ordres de fabrication » de la vue d'ensemble. On l'appelle des qu'un onglet
+ * d'ordres de travail est choisi, ce qui vaut aussi pour les postes de charge :
+ * voir 22 ordres sur 35 au Debit est faux de la meme facon.
+ *
+ * La vue d'ensemble est laissee telle quelle : elle liste les ordres de
+ * fabrication eux-memes, et la pagination y a un sens.
+ *
+ * Le cout est paye UNE fois. setMaxLimit ecrit la limite dans l'etat : les
+ * rechargements suivants restent complets, et seul le bouton « Rafraichir » la
+ * ramene a la valeur de l'action.
  */
+import { patch } from "@web/core/utils/patch";
 import { MrpDisplay } from "@mrp_workorder/mrp_display/mrp_display";
 
 Object.defineProperty(MrpDisplay.prototype, "adminWorkorderIds", {
@@ -69,4 +90,19 @@ Object.defineProperty(MrpDisplay.prototype, "adminWorkorderIds", {
     },
 });
 
-console.info("[FMA] Mes ordres de travail : pointage de l'operateur courant");
+patch(MrpDisplay.prototype, {
+    async selectWorkcenter(workcenterId, showcaseId = false) {
+        await super.selectWorkcenter(workcenterId, showcaseId);
+
+        // 0 = vue d'ensemble : on y liste les ordres de fabrication, la
+        // pagination garde son sens. Tout le reste affiche des ordres de
+        // travail, qui doivent etre complets.
+        if (!Number(workcenterId)) {
+            return;
+        }
+        const racine = this.model && this.model.root;
+        if (racine && racine.count > racine.records.length) {
+            await this.setMaxLimit();
+        }
+    },
+});
