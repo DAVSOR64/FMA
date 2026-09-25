@@ -12,8 +12,7 @@
     """,
     "summary": "Custom delete button",
     "author": "Odoo PS",
-    "version": "19.0.1.0.18",
-    "depends": ["custom", "hr", "sale", "purchase", "mrp", "account", "stock"],
+    "version": "19.0.1.0.18",    "depends": ["custom", "hr", "sale", "purchase", "mrp", "account", "stock"],
     "data": [
         "views/mail_templates.xml",
         "views/sale_order_actions.xml",

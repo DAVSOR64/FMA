@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "FMA Shop Floor Chantier",
-    "version": "19.0.1.0.1",
-    "category": "Manufacturing",
+    "version": "19.0.1.0.1",    "category": "Manufacturing",
     "summary": "Afficher le chantier de l'affaire sur la carte de l'operateur connecte",
     "description": """
 Le panneau des operateurs de l'Atelier montre, pour chaque personne

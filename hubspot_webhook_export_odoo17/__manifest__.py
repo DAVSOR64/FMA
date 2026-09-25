@@ -8,6 +8,7 @@
     "depends": ["base", "sale_management", "contacts"],
     "data": [
         "security/ir.model.access.csv",
+        "views/hubspot_actions.xml",
         "data/ir_cron.xml",
         "views/res_config_settings_views.xml",
         "views/hubspot_export_log_views.xml"

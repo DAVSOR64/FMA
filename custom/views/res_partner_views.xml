@@ -77,6 +77,23 @@
                 <div><field name="x_studio_client_bloque" nolabel="1"/></div>
                 <label for="x_studio_cgv_rib" string="CGV + RIB"/>
                 <div><field name="x_studio_cgv_rib" nolabel="1"/></div>
+                <!--
+                    part_siren est CONSERVE, masque.
+
+                    L'ancienne version de cette vue le posait. Une vue Studio
+                    peut donc s'y accrocher, et son retrait rendrait la fiche
+                    impossible a ouvrir — c'est ce qui est arrive aux commandes
+                    d'achat avec x_studio_posit : « L'element ne peut etre
+                    localise dans la vue parente ».
+
+                    Un champ pose par une vue n'est pas seulement une donnee
+                    affichee : c'est aussi un point d'ancrage pour d'autres
+                    personnalisations, invisibles depuis le code. On ne le
+                    retire donc pas de l'arbre, on cesse seulement de
+                    l'afficher. Il pourra disparaitre une fois les vues
+                    Studio de res.partner reprises.
+                -->
+                <field name="part_siren" invisible="1"/>
             </xpath>
 
             <!-- Comptabilite et reglement, la ou l'onglet Ventes & Achats les

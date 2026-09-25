@@ -43,6 +43,12 @@
                  La Série est filtrée par la Gamme sélectionnée (relation
                  x_serie_mtn.x_studio_gamme_de_la_srie), filtre attendu. -->
             <xpath expr="//field[@name='tag_ids']" position="after">
+                <!-- date_bpe reste dans l'arch, masque. Il n'a plus lieu
+                     d'etre affiche, mais une vue Studio de production peut
+                     s'y accrocher : le retirer rendrait alors tout devis
+                     impossible a ouvrir, comme cela s'est produit sur les
+                     commandes d'achat avec x_studio_posit. -->
+                <field name="date_bpe" invisible="1"/>
                 <!-- Saisissable jusqu'au Bon pour fabrication, cf. le pave
                      Conditions plus bas. -->
                 <field name="so_date_bpe" readonly="so_date_bon_pour_fab"/>

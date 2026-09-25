@@ -22,7 +22,10 @@
     # relevees en base. Prealable indispensable a la refonte de la vue :
     # un champ « manual » n'existe pas au chargement des vues des modules.
     # 1.0.11 : x_studio_commercial_1 devient le reflet de commercial_id.
-    "version": "19.0.1.0.53",
+    # 1.0.12 : fusion avec iziqo-sales-sync. Le pave « Affaire & equipe »
+    # garde projet, chantier et tranche : ces notions restent propres a
+    # Staging_19, l'autre branche ne les portait pas encore.
+    "version": "19.0.1.0.54",
     "depends": [
         "sale_management",
         "custom",
