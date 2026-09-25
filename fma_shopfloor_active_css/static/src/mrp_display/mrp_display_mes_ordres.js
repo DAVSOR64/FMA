@@ -1,7 +1,8 @@
 /**
  * « Mes ordres de travail » : ce sur quoi l'operateur est pointe, ou qu'il soit.
  *
- * Deux corrections, posees a un an d'intervalle sur le meme ecran.
+ * Deux corrections successives sur le meme ecran, et une troisieme qui revient
+ * sur la deuxieme.
  *
  * ---------------------------------------------------------------------------
  * 1. LE CRITERE : pointage, pas assignation.
@@ -24,44 +25,51 @@
  *
  * Le critere demande — « les OT actifs et relies a l'employe sur lequel nous
  * sommes » — n'est pas un etat d'ordre mais un pointage : employee_ids, les
- * operateurs qui ont un chrono en cours. C'est la meme donnee que celle qui
- * fait passer la carte au vert dans mrp_display_record_patch.js.
- *
- * defineProperty plutot que patch() : trois versions passant par patch()
- * n'avaient rien change, on ne saura pas laquelle des deux causes jouait.
- * defineProperty pose le getter sans intermediaire, une inconnue de moins.
+ * operateurs qui ont un chrono en cours.
  *
  * ---------------------------------------------------------------------------
  * 2. LA PAGINATION : le filtre ne voyait qu'une page.
  *
- * L'ecran pagine les ORDRES DE FABRICATION — 40 sur 214 — et les ordres de
+ * L'ecran pagine les ordres de FABRICATION — 40 sur 214 — et les ordres de
  * travail en decoulent :
  *
  *     get workorders() {
  *         return this.model.root.records.flatMap((mo) => mo.data.workorder_ids.records);
  *     }
  *
- * Tous les onglets filtrent donc cette page-la, et rien d'autre. Sur une meme
- * session : page 81-120, « Mes ordres de travail 0 », « Debit FMA 22 » ; page
- * 41-80, « Mes ordres de travail 1 », « Debit FMA 35 ». L'operateur devait
- * parcourir les pages une a une pour tomber sur son ordre.
+ * Tous les onglets filtrent donc cette page-la. Sur une meme session : page
+ * 81-120, « Mes ordres de travail 0 », « Debit FMA 22 » ; page 41-80, « Mes
+ * ordres de travail 1 », « Debit FMA 35 ».
  *
- * Aucun filtre cote client ne peut corriger cela : ce qui manque n'est pas
- * filtre, il n'est pas charge. On agit donc sur le chargement.
+ * ---------------------------------------------------------------------------
+ * 3. ET POURQUOI ON NE CHARGE PAS TOUT.
  *
- * setMaxLimit() est natif — c'est ce que fait le bouton « Charger tous les
- * ordres de fabrication » de la vue d'ensemble. On l'appelle des qu'un onglet
- * d'ordres de travail est choisi, ce qui vaut aussi pour les postes de charge :
- * voir 22 ordres sur 35 au Debit est faux de la meme facon.
+ * La premiere reponse a ete d'appeler setMaxLimit(), le natif derriere
+ * « Charger tous les ordres de fabrication ». Correct, et inutilisable : 214
+ * ordres de fabrication avec leurs mouvements, leurs controles qualite et
+ * leurs lots, l'atelier attendait.
+ *
+ * Le bon geste n'est pas de tout charger pour en garder trois, c'est de ne
+ * demander que ce qu'on garde. L'onglet pose donc un DOMAINE, et le serveur
+ * ne renvoie que les ordres de fabrication concernes :
+ *
+ *   - « Mes ordres de travail » : workorder_ids.employee_ids contient
+ *     l'operateur connecte — les rares OF ou il a un chrono en cours ;
+ *   - un poste de charge : workorder_ids.workcenter_id vaut ce poste.
+ *
+ * La pagination redevient alors sans objet : il n'y a plus rien a paginer.
+ * Et les compteurs deviennent justes, puisqu'ils comptent sur un ensemble
+ * complet — c'est le meme defaut qui donnait 22 ordres au Debit au lieu de 35.
  *
  * La vue d'ensemble est laissee telle quelle : elle liste les ordres de
  * fabrication eux-memes, et la pagination y a un sens.
  *
- * Le cout est paye UNE fois. setMaxLimit ecrit la limite dans l'etat : les
- * rechargements suivants restent complets, et seul le bouton « Rafraichir » la
- * ramene a la valeur de l'action.
+ * On surveille le couple (onglet, operateur connecte) plutot que le seul clic
+ * sur l'onglet : quand un autre operateur prend la main sur la tablette, son
+ * onglet doit suivre sans qu'il ait a le re-selectionner.
  */
 import { patch } from "@web/core/utils/patch";
+import { onWillRender } from "@odoo/owl";
 import { MrpDisplay } from "@mrp_workorder/mrp_display/mrp_display";
 
 Object.defineProperty(MrpDisplay.prototype, "adminWorkorderIds", {
@@ -91,18 +99,73 @@ Object.defineProperty(MrpDisplay.prototype, "adminWorkorderIds", {
 });
 
 patch(MrpDisplay.prototype, {
-    async selectWorkcenter(workcenterId, showcaseId = false) {
-        await super.selectWorkcenter(workcenterId, showcaseId);
+    setup() {
+        super.setup();
+        // Le filtre serveur deja applique, et un verrou : un chargement en
+        // cours ne doit pas en declencher un second au rendu suivant.
+        this.fmaFiltreApplique = null;
+        this.fmaChargementEnCours = false;
+        onWillRender(() => this.fmaSurveillerOnglet());
+    },
 
-        // 0 = vue d'ensemble : on y liste les ordres de fabrication, la
-        // pagination garde son sens. Tout le reste affiche des ordres de
-        // travail, qui doivent etre complets.
-        if (!Number(workcenterId)) {
+    get fmaOperateurConnecte() {
+        const admin =
+            this.useEmployee &&
+            this.useEmployee.employees &&
+            this.useEmployee.employees.admin;
+        return (admin && admin.id) || false;
+    },
+
+    /**
+     * Le domaine a demander au serveur pour l'onglet courant.
+     *
+     * On repart du domaine de l'ecran — celui que la barre de recherche et les
+     * postes actives composent — et on y ajoute une seule condition. Le
+     * remplacer ferait disparaitre la recherche que l'operateur vient de
+     * taper.
+     */
+    get fmaDomaineOnglet() {
+        const base = (this.env.searchModel && this.env.searchModel.domain) || [];
+        const onglet = Number(this.state.activeWorkcenter);
+        if (!onglet) {
+            return base; // vue d'ensemble : les OF eux-memes
+        }
+        if (onglet === -1) {
+            const operateur = this.fmaOperateurConnecte;
+            return operateur
+                ? [...base, ["workorder_ids.employee_ids", "in", [operateur]]]
+                : base;
+        }
+        return [...base, ["workorder_ids.workcenter_id", "=", onglet]];
+    },
+
+    fmaSurveillerOnglet() {
+        const onglet = Number(this.state.activeWorkcenter);
+        const cle = `${onglet}:${onglet === -1 ? this.fmaOperateurConnecte : 0}`;
+        if (cle === this.fmaFiltreApplique || this.fmaChargementEnCours) {
             return;
         }
-        const racine = this.model && this.model.root;
-        if (racine && racine.count > racine.records.length) {
-            await this.setMaxLimit();
-        }
+        this.fmaFiltreApplique = cle;
+        this.fmaChargementEnCours = true;
+        // Hors du rendu : charger pendant qu'OWL rend ferait boucler.
+        Promise.resolve().then(async () => {
+            try {
+                await this.fmaChargerOnglet();
+            } catch (erreur) {
+                // Le filtre serveur est un confort. S'il echoue, l'ecran
+                // retombe sur son comportement d'origine — page courante
+                // filtree cote client — plutot que de rester blanc.
+                this.fmaFiltreApplique = null;
+                console.warn("[FMA] filtre d'onglet non applique", erreur);
+            } finally {
+                this.fmaChargementEnCours = false;
+            }
+        });
+    },
+
+    async fmaChargerOnglet() {
+        this.invalidateRecordIdsCache();
+        this.state.offset = 0;
+        await this.model.load({ domain: this.fmaDomaineOnglet, offset: 0 });
     },
 });
