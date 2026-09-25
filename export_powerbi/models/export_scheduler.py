@@ -1244,6 +1244,181 @@ class ExportSFTPScheduler(models.Model):
                 _logger.exception("[Export Power BI] ERREUR section OF_COMPONENTS: %s", e)
 
             # ========================================
+            # Mouvements de stock - export batche
+            #
+            # A quoi ca sert : mesurer l'en-cours atelier et savoir si une
+            # commande a encore de la matiere en fabrication ou si elle est
+            # produite. La reponse ne se lit pas sur une ligne, elle se
+            # calcule dans Power BI en confrontant les emplacements : ce qui
+            # est entre en Pre-Fab et n'en est pas ressorti est en cours.
+            # D'ou les colonnes d'usage d'emplacement, sans lesquelles il
+            # faudrait deviner la nature d'un emplacement a son nom.
+            #
+            # Seuls les mouvements FAITS sont exportes : un mouvement prevu ne
+            # dit rien de l'en-cours reel.
+            # ========================================
+            try:
+                ICP = self.env["ir.config_parameter"].sudo()
+                depuis = ICP.get_param(
+                    "export_powerbi.mouvements_depuis", "2025-01-01"
+                )
+                Move = self.env["stock.move"]
+                valorisation = "stock_valuation_layer_ids" in Move._fields
+
+                # L'OF d'un mouvement ne change pas d'une ligne a l'autre :
+                # on resout commande et projet une fois par OF, pas une fois
+                # par mouvement. Sur un export de plusieurs centaines de
+                # milliers de lignes, la difference n'est pas theorique.
+                cache_of = {}
+
+                def _unite(move):
+                    """Le nom de l'unite du mouvement.
+
+                    stock.move porte product_uom jusqu'en v18 et
+                    product_uom_id en v19. On interroge l'enregistrement
+                    plutot que de parier sur une version : le reste du fichier
+                    suit deja cette regle, et un attribut absent ferait echouer
+                    la section entiere sans un mot.
+                    """
+                    for champ in ("product_uom", "product_uom_id"):
+                        unite = getattr(move, champ, False)
+                        if unite:
+                            return unite.name or ""
+                    return ""
+
+                def _of_contexte(mo):
+                    if not mo:
+                        return False, False
+                    if mo.id in cache_of:
+                        return cache_of[mo.id]
+                    commande = False
+                    if hasattr(mo, "_fma_commande_de_la_vente"):
+                        commande = mo._fma_commande_de_la_vente()
+                    if not commande:
+                        commande = getattr(mo, "sale_id", False)
+                    projet = getattr(mo, "x_studio_projet_de_la_vente", False)
+                    cache_of[mo.id] = (commande or False, projet or False)
+                    return cache_of[mo.id]
+
+                mouvement_file = os.path.join(temp_dir, "MOUVEMENTS_STOCK.csv")
+                batch_size = 1000
+                total = 0
+                with open(mouvement_file, "w", newline="", encoding="utf-8") as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([
+                        "ID_Mouvement", "Date", "Etat",
+                        "ID_Commande", "Commande", "Projet",
+                        "ID_OF", "OF", "Type_OF",
+                        "Transfert", "Type_Transfert", "Origine",
+                        "ID_Produit", "Ref_Produit", "Produit", "Categorie",
+                        "Unite", "Quantite", "Quantite_Demandee",
+                        "Valeur", "Source_Valeur",
+                        "Emplacement_Depart", "Usage_Depart",
+                        "Emplacement_Arrivee", "Usage_Arrivee",
+                    ])
+                    last_id = 0
+                    while True:
+                        moves = Move.search([
+                            ("id", ">", last_id),
+                            ("state", "=", "done"),
+                            ("date", ">=", depuis),
+                        ], order="id", limit=batch_size)
+                        if not moves:
+                            break
+                        for move in moves:
+                            last_id = move.id
+                            produit = move.product_id
+                            picking = move.picking_id
+
+                            # L'OF, et de quel cote : un composant consomme
+                            # n'est pas un produit fini rentre en stock.
+                            consommation = getattr(move, "raw_material_production_id", False)
+                            production = getattr(move, "production_id", False)
+                            mo = consommation or production
+                            type_of = (
+                                "composant" if consommation
+                                else ("produit fini" if production else "")
+                            )
+
+                            commande, projet = _of_contexte(mo)
+                            if not commande:
+                                ligne_vente = getattr(move, "sale_line_id", False)
+                                commande = ligne_vente.order_id if ligne_vente else False
+                            if not commande and picking:
+                                commande = getattr(picking, "sale_id", False)
+                            if not projet and picking:
+                                projet = getattr(
+                                    picking, "x_studio_projet_de_la_vente", False)
+                            if not projet and commande:
+                                projet = getattr(commande, "x_studio_projet", False)
+
+                            quantite = getattr(move, "quantity", None)
+                            if quantite is None:
+                                quantite = sum(
+                                    getattr(ml, "quantity", 0.0) or 0.0
+                                    for ml in move.move_line_ids
+                                )
+
+                            # La valeur comptable d'abord. Mais un transfert
+                            # interne -- stock vers Pre-Fab, justement celui
+                            # qui fait l'en-cours -- ne cree aucune couche de
+                            # valorisation : la valeur ne bouge pas, elle
+                            # change d'endroit. On retombe alors sur le cout
+                            # standard, faute de quoi l'en-cours vaudrait zero.
+                            valeur = 0.0
+                            source = ""
+                            couches = (
+                                move.stock_valuation_layer_ids if valorisation else False
+                            )
+                            if couches:
+                                valeur = sum(couches.mapped("value"))
+                                source = "valorisation"
+                            elif produit:
+                                valeur = quantite * (produit.standard_price or 0.0)
+                                source = "cout standard"
+
+                            writer.writerow([_to_cell(cell) for cell in (
+                                move.id,
+                                move.date or "",
+                                move.state or "",
+                                commande.id if commande else "",
+                                commande.name if commande else "",
+                                projet.name if projet else "",
+                                mo.id if mo else "",
+                                mo.name if mo else "",
+                                type_of,
+                                picking.name if picking else "",
+                                picking.picking_type_id.display_name if picking else "",
+                                move.origin or "",
+                                produit.id if produit else "",
+                                produit.default_code if produit else "",
+                                produit.display_name if produit else "",
+                                produit.categ_id.display_name if produit else "",
+                                _unite(move),
+                                quantite,
+                                move.product_uom_qty or 0.0,
+                                valeur,
+                                source,
+                                move.location_id.complete_name if move.location_id else "",
+                                move.location_id.usage if move.location_id else "",
+                                move.location_dest_id.complete_name if move.location_dest_id else "",
+                                move.location_dest_id.usage if move.location_dest_id else "",
+                            )])
+                            total += 1
+                        # Le cache des OF traverse volontairement les lots :
+                        # c'est tout son interet, et il ne retient que des
+                        # enregistrements, que env.clear() se contente de
+                        # rendre a relire.
+                        self.env.clear()
+                create_attachment(mouvement_file, os.path.basename(mouvement_file))
+                _logger.info(
+                    "[Export Power BI] MOUVEMENTS_STOCK: %s lignes depuis %s",
+                    total, depuis)
+            except Exception as e:
+                _logger.exception(
+                    "[Export Power BI] ERREUR section MOUVEMENTS_STOCK: %s", e)
+
+            # ========================================
             # Commande Appro (purchase.order)
             # ==========================================
             try:

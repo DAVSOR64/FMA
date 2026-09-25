@@ -26,6 +26,19 @@
                                     </div>
                                 </div>
                         </setting>
+                        <setting id="powerbi_mouvements_setting">
+                            <span class="o_form_label">Mouvements de stock</span>
+                                <div class="text-muted">
+                                    Date à partir de laquelle les mouvements de stock faits sont exportés,
+                                    pour mesurer l'en-cours atelier. Vide = 1er janvier 2025.
+                                </div>
+                                <div class="content-group">
+                                    <div class="mt16 row">
+                                        <label for="powerbi_mouvements_depuis" string="Depuis le" class="col-5 o_light_label"/>
+                                        <field name="powerbi_mouvements_depuis" class="col-7"/>
+                                    </div>
+                                </div>
+                        </setting>
                     </block>
                 </div>
             </xpath>
