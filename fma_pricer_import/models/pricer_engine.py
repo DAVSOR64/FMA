@@ -1272,7 +1272,7 @@ class FmaPricerEngine(models.AbstractModel):
             code, color = key
             product, problem = self._find_product(
                 code, color,
-                _("barre de %s mm du plan de coupe", int(entry["length"] or 0)),
+                _("barre du plan de coupe"),
             )
             if not product:
                 missing[problem] = missing.get(problem, 0.0) + entry["qty"]
@@ -1447,8 +1447,12 @@ class FmaPricerEngine(models.AbstractModel):
                 quoi=contexte or _("profile"),
             )
 
+        # « profile » etait ecrit en dur ici, quelle que soit la nature de la
+        # piece. Un JEU DE CLES manquant etait annonce comme un profile
+        # introuvable : on cherchait la piece dans le mauvais catalogue.
         absent = _(
-            "profile %(code)s en %(color)s : article inexistant dans Odoo",
+            "%(quoi)s %(code)s en %(color)s : article inexistant dans Odoo",
+            quoi=contexte or _("article"),
             code=code,
             color=color or _("sans teinte"),
         )
@@ -1477,7 +1481,8 @@ class FmaPricerEngine(models.AbstractModel):
         # Plusieurs teintes, aucune ne correspond : choisir au hasard ferait
         # acheter la mauvaise barre. On ne reprend pas la ligne et on le dit.
         return Product, _(
-            "profile %(code)s : existe en %(colors)s, mais pas en %(wanted)s",
+            "%(quoi)s %(code)s : existe en %(colors)s, mais pas en %(wanted)s",
+            quoi=contexte or _("article"),
             code=code,
             colors=", ".join(
                 sorted((p.x_studio_color_logikal or "?") for p in candidates)
