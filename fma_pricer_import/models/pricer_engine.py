@@ -616,23 +616,36 @@ class FmaPricerEngine(models.AbstractModel):
         """
         men = pivot_line.menuiserie
         issues = []
-        # Trois nomenclatures, une par OF du lot :
-        #   <ref>-DEB : ensemble debite — operations Debit et CU, sans composant
-        #               (les barres viennent du besoin matiere du lot) ;
-        #   <ref>-QUI : kit quincaillerie — la quincaillerie, sans operation
-        #               (le travail, c'est le transfert Stock -> Pre-Fab) ;
-        #   <ref>     : la menuiserie — le kit, le vitrage, et le reste des
-        #               operations.
-        # L'ensemble debite N'EST PLUS dans la nomenclature de la menuiserie :
-        # le lot l'ajoute a chaque OF d'assemblage (_add_debit_component).
-        # L'y laisser le faisait consommer deux fois des qu'un lot melangeait
-        # plusieurs menuiseries — une fois l'ensemble de la menuiserie, une
-        # fois l'ensemble generique du lot.
+        # La nomenclature de la menuiserie doit dire ce QU'ELLE EST, en
+        # entier. Les ordres de fabrication en prennent ensuite chacun leur
+        # part ; c'est a eux de se partager le travail, pas a la nomenclature
+        # de se laisser amputer.
+        #
+        #   <ref>     : la menuiserie — l'ensemble debite, le kit
+        #               quincaillerie, le vitrage, et les operations
+        #               d'usinage, de montage et de vitrage ;
+        #   <ref>-DEB : l'ensemble debite — les operations Debit et CU. Ses
+        #               barres ne sont pas ici : elles viennent du plan de
+        #               coupe du lot, ou une meme barre sert plusieurs
+        #               menuiseries. Une nomenclature ne sait pas dire cela ;
+        #               fma.lot.material.line, si ;
+        #   <ref>-QUI : le kit quincaillerie — la quincaillerie, en phantom :
+        #               Odoo l'eclate dans l'OF d'assemblage. Le kit reste un
+        #               regroupement nomme pour les editions du magasin, mais
+        #               plus rien ne le fabrique.
+        #
+        # L'ensemble debite avait ete retire d'ici, a l'epoque ou le lot
+        # ajoutait a chaque OF d'assemblage un ensemble debite GENERIQUE : on
+        # le consommait alors deux fois. Depuis que chaque ligne de lot porte
+        # le sien (product_debit_id), _add_debit_component retrouve le meme
+        # article et ne l'ajoute pas une seconde fois. La cause a disparu, la
+        # ligne revient.
         components = []
         quincaillerie = []
 
         debit = self._debit_product(product)
         kit = self._quincaillerie_product(product)
+        components.append((debit, 1.0))
         components.append((kit, 1.0))
 
         # Creation autorisee pour les pricers sans redacteur : LOGIKAL a son
@@ -720,9 +733,13 @@ class FmaPricerEngine(models.AbstractModel):
         # composant, pas de kit — doit etre reconstruite meme si le chiffrage
         # n'a pas bouge : sans kit, le lot ne sait generer aucun OF de
         # quincaillerie. Ce n'est pas une question d'empreinte mais de forme.
+        # Une nomenclature de la forme precedente doit etre reconstruite meme
+        # si le chiffrage n'a pas bouge : ce n'est pas une question
+        # d'empreinte mais de forme. Elle se reconnait a ce qui lui manque --
+        # l'ensemble debite, ou le kit.
         ancienne_forme = bool(
             bom and bom.bom_line_ids
-            and (debit in bom.bom_line_ids.product_id
+            and (debit not in bom.bom_line_ids.product_id
                  or kit not in bom.bom_line_ids.product_id)
         )
         if ancienne_forme and not issues:
@@ -739,8 +756,9 @@ class FmaPricerEngine(models.AbstractModel):
             if ancienne_forme:
                 issues_gamme.append(_(
                     "nomenclature %(ref)s laissee dans l'ancienne forme, faute "
-                    "de pouvoir resoudre tous ses composants : aucun OF de "
-                    "quincaillerie ne sera genere pour elle",
+                    "de pouvoir resoudre tous ses composants : il lui manque "
+                    "l'ensemble debite ou le kit quincaillerie, et son OF "
+                    "d'assemblage sortira incomplet",
                     ref=pivot_line.ref,
                 ))
             return issues + issues_gamme
@@ -783,9 +801,19 @@ class FmaPricerEngine(models.AbstractModel):
     def _sync_debit_bom(self, debit, men):
         """Nomenclature du sous-ensemble debite : la gamme de debit, sans composant.
 
-        Aucune ligne de composant : les barres viennent du besoin matiere du
-        lot, qui varie d'un lot a l'autre alors que la nomenclature, elle, est
-        commune. Cette nomenclature ne sert qu'a porter le temps de debit.
+        Aucune ligne de composant, et ce n'est pas un oubli.
+
+        Une nomenclature dit « tant d'unites de tel article ». Le besoin en
+        profiles ne se dit pas ainsi : il se dit en COUPES — quatre morceaux
+        de 2430 mm dans une barre de 6500 — et une meme barre sert plusieurs
+        menuiseries. La ramener a une quantite d'articles ferait perdre les
+        longueurs, et la nesterait deux fois : une fois en barres entieres sur
+        le lot, une fois en fractions de barre ici.
+
+        C'est fma.lot.material.line qui porte cela, avec la longueur de barre,
+        le besoin debite et la chute. La nomenclature de l'ensemble debite ne
+        porte donc que le TEMPS de debit, et l'OF de debit consomme les barres
+        du lot.
         """
         operations, missing = self._bom_operations(men, debit, keep=OPERATIONS_DEBIT)
         if not operations:

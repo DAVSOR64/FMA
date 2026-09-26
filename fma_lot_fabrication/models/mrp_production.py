@@ -78,12 +78,20 @@ class MrpProduction(models.Model):
 
         C'est le lien matiere entre l'OF Debit (qui produit l'ensemble) et
         l'OF Assemblage (qui le consomme).
+
+        La nomenclature de la menuiserie porte desormais son propre ensemble
+        debite : dans le cas courant, le composant est deja la et il n'y a
+        rien a ajouter. On ne se contente pas de comparer l'article, on
+        regarde s'il y a DEJA un ensemble debite, quel qu'il soit : un lot
+        importe avant que chaque ligne ne porte le sien pointe encore vers
+        l'ensemble generique, et on en consommerait deux.
         """
         self.ensure_one()
         if not product_debit or not qty:
             return self.env["stock.move"]
         already = self.move_raw_ids.filtered(
             lambda m: m.product_id == product_debit
+            or m.product_id.fma_semi_fini == "debit"
         )
         if already:
             return already
