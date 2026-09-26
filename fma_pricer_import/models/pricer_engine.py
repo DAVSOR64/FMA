@@ -799,24 +799,31 @@ class FmaPricerEngine(models.AbstractModel):
         return issues
 
     def _sync_debit_bom(self, debit, men):
-        """Nomenclature du sous-ensemble debite : la gamme de debit, sans composant.
+        """Nomenclature du sous-ensemble debite : les profiles et le temps.
 
-        Aucune ligne de composant, et ce n'est pas un oubli.
+        Le debit appartient a la MENUISERIE et ne change jamais : le fichier
+        rattache chaque coupe a sa position, exactement comme il y rattache la
+        quincaillerie et le vitrage. Ce qui appartient au lot, c'est
+        l'optimisation — la facon de nester ces coupes dans des barres
+        entieres, qui elle varie d'un regroupement a l'autre.
 
-        Une nomenclature dit « tant d'unites de tel article ». Le besoin en
-        profiles ne se dit pas ainsi : il se dit en COUPES — quatre morceaux
-        de 2430 mm dans une barre de 6500 — et une meme barre sert plusieurs
-        menuiseries. La ramener a une quantite d'articles ferait perdre les
-        longueurs, et la nesterait deux fois : une fois en barres entieres sur
-        le lot, une fois en fractions de barre ici.
+        Les deux vivent donc a deux endroits, et ce n'est pas un doublon :
+        ici le BESOIN par menuiserie, stable, exprime en longueur ; sur
+        fma.lot.material.line les BARRES a sortir pour le lot, avec la chute
+        que le nesting laisse. L'OF de debit consomme les barres (il a
+        bom_id=False), jamais cette nomenclature-ci. Rien n'est compte deux
+        fois.
 
-        C'est fma.lot.material.line qui porte cela, avec la longueur de barre,
-        le besoin debite et la chute. La nomenclature de l'ensemble debite ne
-        porte donc que le TEMPS de debit, et l'OF de debit consomme les barres
-        du lot.
+        L'unite est le point delicat. Un profile se stocke a la barre et se
+        consomme au metre : on ecrit donc la ligne en METRES quand l'unite de
+        l'article appartient a la meme categorie, Odoo faisant lui-meme la
+        conversion vers la barre. Quand il ne le peut pas, on ne devine pas :
+        on le dit, et le manque remonte sur le lot.
         """
         operations, missing = self._bom_operations(men, debit, keep=OPERATIONS_DEBIT)
-        if not operations:
+        lignes, manques = self._lignes_debit(men)
+        missing = list(missing) + manques
+        if not operations and not lignes:
             return missing
 
         Bom = self.env["mrp.bom"].sudo()
@@ -834,13 +841,77 @@ class FmaPricerEngine(models.AbstractModel):
             "product_qty": 1.0,
             "product_uom_id": debit.uom_id.id,
             "operation_ids": [(5, 0, 0)] + operations,
-            "bom_line_ids": [(5, 0, 0)],
+            "bom_line_ids": [(5, 0, 0)] + lignes,
         }
         if bom:
             bom.write(vals)
         else:
             Bom.create(vals)
         return missing
+
+    def _lignes_debit(self, men):
+        """Les profiles d'une menuiserie, en lignes de nomenclature.
+
+        Une coupe porte une longueur et une quantite ; plusieurs coupes du
+        meme profile et de la meme teinte se cumulent en un seul besoin. Le
+        detail des longueurs n'a pas sa place ici — une nomenclature ne sait
+        pas le dire — il reste dans le plan de coupe du lot.
+
+        Renvoie ``(lignes, manques)``.
+        """
+        besoin = {}
+        manques = []
+        for cut in men.debit:
+            cle = ((cut.code or "").strip(), (cut.color or "").strip())
+            besoin[cle] = besoin.get(cle, 0.0) + cut.total_mm
+
+        lignes = []
+        for (code, couleur), total_mm in besoin.items():
+            if total_mm <= 0:
+                continue
+            produit, probleme = self._find_product(
+                code, couleur, _("profile du debit"))
+            if not produit:
+                if probleme and probleme not in manques:
+                    manques.append(probleme)
+                continue
+            uom, quantite, probleme = self._quantite_au_metre(produit, total_mm)
+            if not uom:
+                if probleme not in manques:
+                    manques.append(probleme)
+                continue
+            lignes.append((0, 0, {
+                "product_id": produit.id,
+                "product_qty": quantite,
+                "product_uom_id": uom.id,
+            }))
+        return lignes, manques
+
+    def _quantite_au_metre(self, produit, total_mm):
+        """Exprime une longueur dans une unite que l'article accepte.
+
+        Le metre d'abord : c'est la mesure du besoin, et Odoo convertit seul
+        vers la barre au moment de consommer. A defaut, l'unite de l'article
+        elle-meme, mais seulement si elle mesure une longueur — sans quoi on
+        ecrirait « 1,39 barre » pour 1,39 metre, et on achèterait neuf metres
+        de trop.
+
+        Renvoie ``(uom, quantite, probleme)``.
+        """
+        metres = total_mm / 1000.0
+        metre = self.env.ref("uom.product_uom_meter", raise_if_not_found=False)
+        # On juge l'unite sur sa CATEGORIE, jamais sur son nom : « BARRE6.50 »
+        # ne dit rien a personne d'autre qu'a nous, mais si elle vit dans la
+        # categorie du metre, Odoo sait convertir et la ligne peut s'ecrire en
+        # metres.
+        if metre and metre.category_id == produit.uom_id.category_id:
+            return metre, metres, None
+        return None, 0.0, _(
+            "profile %(code)s : son unite « %(uom)s » ne mesure pas une "
+            "longueur, le besoin de debit ne peut pas y etre exprime",
+            code=produit.default_code or produit.display_name,
+            uom=produit.uom_id.display_name,
+        )
 
     def _sync_quincaillerie_bom(self, kit, composants):
         """Nomenclature du kit quincaillerie : un kit, au sens d'Odoo.
