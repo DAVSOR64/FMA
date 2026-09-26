@@ -154,6 +154,10 @@ class FmaPricerEngine(models.AbstractModel):
             # Meme regle que pour les lignes de devis : le pricer qui n'a pas
             # de redacteur doit creer lui-meme les articles qui lui manquent.
             fma_creer_articles=quotation.pricer not in PRICERS_AVEC_REDACTEUR,
+            # Longueur de barre par profile, relevee sur le plan de coupe de
+            # l'affaire. C'est elle qui permet d'exprimer un besoin en metres
+            # dans une unite qui compte des barres.
+            fma_longueurs_barres=self._longueurs_de_barre(quotation),
         )
         self._check_offer_matches(order, quotation)
         self._check_bars_usable(order, quotation)
@@ -863,6 +867,22 @@ class FmaPricerEngine(models.AbstractModel):
             Bom.create(vals)
         return missing
 
+    def _longueurs_de_barre(self, quotation):
+        """Longueur de barre par (reference, teinte), en millimetres.
+
+        Le fichier la donne sur le plan de coupe : chaque barre porte sa
+        longueur. C'est la seule source fiable — l'article Odoo ne la porte
+        pas toujours, et le nom de son unite (« BARRE6.50 ») n'est pas une
+        donnee, c'est du texte.
+        """
+        longueurs = {}
+        for lot in quotation.lots:
+            for barre in lot.bars:
+                cle = ((barre.code or "").strip(), (barre.color or "").strip())
+                if barre.length_mm and cle not in longueurs:
+                    longueurs[cle] = barre.length_mm
+        return longueurs
+
     def _lignes_debit(self, men):
         """Les profiles d'une menuiserie, en lignes de nomenclature.
 
@@ -889,7 +909,8 @@ class FmaPricerEngine(models.AbstractModel):
                 if probleme and probleme not in manques:
                     manques.append(probleme)
                 continue
-            uom, quantite, probleme = self._quantite_au_metre(produit, total_mm)
+            uom, quantite, probleme = self._quantite_debit(
+                produit, total_mm, (code, couleur))
             if not uom:
                 if probleme not in manques:
                     manques.append(probleme)
@@ -948,14 +969,25 @@ class FmaPricerEngine(models.AbstractModel):
             courant = suivant
         return courant
 
-    def _quantite_au_metre(self, produit, total_mm):
-        """Exprime une longueur dans une unite que l'article accepte.
+    def _quantite_debit(self, produit, total_mm, cle):
+        """Le besoin de debit, dans une unite que l'article accepte.
 
-        Le metre d'abord : c'est la mesure du besoin, et Odoo convertit seul
-        vers la barre au moment de consommer. A defaut, l'unite de l'article
-        elle-meme, mais seulement si elle mesure une longueur — sans quoi on
-        ecrirait « 1,39 barre » pour 1,39 metre, et on achèterait neuf metres
-        de trop.
+        Deux chemins, et il en faut deux.
+
+        Le metre d'abord : c'est la mesure du besoin, Odoo convertit seul vers
+        la barre au moment de consommer, et la ligne se lit. Encore faut-il
+        que l'unite de l'article sache se convertir en metres.
+
+        Quand elle ne le sait pas — une unite « BARRE6.50 » posee hors de
+        toute chaine de conversion, ce qui est le cas ici — on exprime le
+        besoin en FRACTION DE BARRE : 1,39 m d'une barre de 6,50 m font 0,214
+        barre. C'est exact, c'est achetable, et surtout c'est valorise : sans
+        cette ligne, l'ensemble debite reste a 0,00 euro et le prix de revient
+        de la menuiserie perd tous ses profiles.
+
+        La longueur de barre vient du plan de coupe de l'affaire, a defaut de
+        x_studio_longueur_m sur l'article. On ne l'invente jamais : sans elle,
+        le profile est laisse de cote et le manque remonte sur le lot.
 
         Renvoie ``(uom, quantite, probleme)``.
         """
@@ -963,181 +995,21 @@ class FmaPricerEngine(models.AbstractModel):
         metre = self.env.ref("uom.product_uom_meter", raise_if_not_found=False)
         if metre and self._unites_convertibles(metre, produit.uom_id):
             return metre, metres, None
+
+        longueur_mm = (self.env.context.get("fma_longueurs_barres") or {}).get(cle)
+        if not longueur_mm:
+            longueur_m = getattr(produit, "x_studio_longueur_m", 0.0) or 0.0
+            longueur_mm = longueur_m * 1000.0
+        if longueur_mm:
+            return produit.uom_id, total_mm / longueur_mm, None
+
         return None, 0.0, _(
-            "profile %(code)s : son unite « %(uom)s » ne mesure pas une "
-            "longueur, le besoin de debit ne peut pas y etre exprime",
+            "profile %(code)s : son unite « %(uom)s » ne se convertit pas en "
+            "metres et sa longueur de barre est inconnue — le besoin de debit "
+            "ne peut etre exprime ni en longueur ni en barres",
             code=produit.default_code or produit.display_name,
             uom=produit.uom_id.display_name,
         )
-
-    def _sync_quincaillerie_bom(self, kit, composants):
-        """Nomenclature du kit quincaillerie : un kit, au sens d'Odoo.
-
-        Pas d'operation, et surtout pas de nomenclature « normale » : le type
-        est *phantom*. Mettre de la quincaillerie dans un bac n'est pas une
-        etape de fabrication, c'est une preparation — et ce transfert existe
-        deja en propre. Un ordre de fabrication de plus ne faisait que
-        compter le meme travail deux fois.
-
-        En phantom, Odoo eclate le kit dans l'OF d'assemblage : la
-        quincaillerie devient directement composant de la menuiserie. Le kit
-        survit comme regroupement nomme, ce qui reste utile aux editions du
-        magasin, mais plus rien ne le fabrique.
-        """
-        merged = {}
-        for item, qty in composants:
-            merged[item] = merged.get(item, 0.0) + qty
-        lignes = [
-            (0, 0, {
-                "product_id": item.id,
-                "product_qty": qty,
-                "product_uom_id": item.uom_id.id,
-            })
-            for item, qty in merged.items()
-            if qty
-        ]
-        Bom = self.env["mrp.bom"].sudo()
-        # Sans filtre sur le type : une nomenclature posee « normal » par un
-        # import precedent doit basculer en phantom, pas cohabiter avec elle.
-        bom = Bom.search(
-            [("product_tmpl_id", "=", kit.product_tmpl_id.id)],
-            limit=1,
-        )
-        vals = {
-            "product_tmpl_id": kit.product_tmpl_id.id,
-            "product_id": kit.id,
-            "type": "phantom",
-            "product_qty": 1.0,
-            "product_uom_id": kit.uom_id.id,
-            "operation_ids": [(5, 0, 0)],
-            "bom_line_ids": [(5, 0, 0)] + lignes,
-        }
-        if bom:
-            bom.write(vals)
-        else:
-            Bom.create(vals)
-
-    def _workcenters(self, product):
-        """Postes de charge candidats, et ceux explicitement rattaches.
-
-        Renvoie deux structures : le rattachement declare par le metier
-        (champ « Operation pricer » sur le poste), qui fait foi, et la liste
-        des postes tries du nom le plus court au plus long, pour le
-        rapprochement par nom en repli.
-
-        La societe est celle de l'article, ou a defaut celle de
-        l'utilisateur : un article sans societe — le cas courant — reduisait
-        le filtre a « company_id = False » et ne trouvait aucun poste, alors
-        que tous en portent une.
-        """
-        company = product.company_id or self.env.company
-        postes = self.env["mrp.workcenter"].search(
-            [("company_id", "in", [company.id, False])]
-        )
-        # Le site du fichier departage les postes homonymes. La cle inclut
-        # donc le site quand le poste en declare un ; un poste sans site sert
-        # de valeur par defaut, utilisee quand le fichier ne dit rien ou
-        # qu'aucun poste ne correspond au site.
-        site = sans_accent(self.env.context.get("fma_site") or "")
-
-        declares = {}
-        par_code = {}
-        for poste in postes:
-            nom = sans_accent(poste.name)
-            site_poste = "fma" if "fma" in nom else ("f2m" if "f2m" in nom else "")
-
-            if poste.pricer_operation:
-                declares.setdefault(
-                    (sans_accent(poste.pricer_operation),
-                     sans_accent(poste.pricer_site) or site_poste),
-                    poste,
-                )
-
-            # Le code du poste vaut la sequence de l'operation : 10 Debit,
-            # 20 CU (banc), 30 Usinage, 40 Montage, 50 Vitrage, 60 Emballage.
-            # C'est la convention deja en place dans l'atelier, et elle
-            # ecarte d'elle-meme les postes secondaires — « Usinage 2 FMA »
-            # n'a pas de code.
-            if poste.code:
-                par_code.setdefault((poste.code.strip(), site_poste), poste)
-
-        par_nom = sorted(
-            ((sans_accent(w.name), w) for w in postes),
-            key=lambda couple: (len(couple[0]), couple[0]),
-        )
-        return site, declares, par_code, par_nom
-
-    def _bom_operations(self, men, product, skip=(), keep=None):
-        """Gamme d'une menuiserie, a partir des temps du pricer.
-
-        Le connecteur agrege ces temps au niveau de l'affaire, sur la
-        nomenclature de projet. Ici ils sont ramenes a la menuiserie et a
-        l'unite, ce qui les rend exploitables par OF d'assemblage.
-        """
-        operations = []
-        missing = []
-        site, declares, par_code, par_nom = self._workcenters(product)
-        for operation in men.operations:
-            if keep is not None and operation.name not in keep:
-                continue
-            if operation.name in skip:
-                continue
-
-            prefixe = sans_accent(operation.name)
-
-            # 1. Le rattachement declare a la main fait foi.
-            workcenter = declares.get((prefixe, site)) or declares.get((prefixe, ""))
-
-            # 2. Sinon le code du poste, qui vaut la sequence de l'operation.
-            #    C'est la convention de l'atelier et elle est sans ambiguite.
-            if not workcenter:
-                code = str(operation.sequence)
-                workcenter = par_code.get((code, site)) or par_code.get((code, ""))
-
-            if not workcenter:
-                # 3. Dernier repli : rapprochement par le debut du nom, en
-                #    preferant les postes dont le nom porte le site du fichier.
-                candidats = [w for cle, w in par_nom if cle.startswith(prefixe)]
-                if site:
-                    du_site = [w for w in candidats if site in sans_accent(w.name)]
-                    if du_site:
-                        candidats = du_site
-                if not candidats:
-                    label = _(
-                        "operation %(name)s : aucun poste de charge de ce nom. "
-                        "Renseignez « Opération pricer » sur le poste concerné.",
-                        name=operation.name,
-                    )
-                    if label not in missing:
-                        missing.append(label)
-                    continue
-
-                # Plusieurs postes commencent par le meme mot (« Usinage
-                # FMA », « Usinage F2M », « Usinage Simple »...). On retient
-                # le nom le plus court, et on signale : c'est au metier de
-                # trancher, pas au code de choisir en silence.
-                workcenter = candidats[0]
-                if len(candidats) > 1:
-                    label = _(
-                        "operation %(name)s : %(nb)s postes possibles "
-                        "(%(liste)s). %(retenu)s a ete retenu — renseignez "
-                        "« Opération pricer » sur le bon poste pour lever le doute.",
-                        name=operation.name,
-                        nb=len(candidats),
-                        liste=", ".join(c.display_name for c in candidats),
-                        retenu=workcenter.display_name,
-                    )
-                    if label not in missing:
-                        missing.append(label)
-            operations.append(
-                (0, 0, {
-                    "name": operation.name,
-                    "workcenter_id": workcenter.id,
-                    "time_cycle_manual": operation.minutes,
-                    "sequence": operation.sequence,
-                })
-            )
-        return operations, missing
 
     def _find_glass(self, comp, position):
         """Retrouve le vitrage d'une position.
