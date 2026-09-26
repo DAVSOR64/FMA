@@ -821,7 +821,21 @@ class FmaPricerEngine(models.AbstractModel):
         on le dit, et le manque remonte sur le lot.
         """
         operations, missing = self._bom_operations(men, debit, keep=OPERATIONS_DEBIT)
-        lignes, manques = self._lignes_debit(men)
+        # Encadre : le besoin de debit est une information. Le module pose en
+        # principe qu'un import ne s'arrete pas sur une piece introuvable --
+        # le lot et les autres positions restent valides. Une exception
+        # inattendue ici ne doit pas faire exception a ce principe, et le
+        # premier import sur la staging a montre ce que ca coute.
+        try:
+            lignes, manques = self._lignes_debit(men)
+        except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Import pricer : besoin de debit de %s", men.ref)
+            lignes, manques = [], [_(
+                "menuiserie %(ref)s : le besoin de debit n'a pas pu etre "
+                "repris (%(erreur)s)",
+                ref=men.ref, erreur=erreur,
+            )]
         missing = list(missing) + manques
         if not operations and not lignes:
             return missing
@@ -887,6 +901,53 @@ class FmaPricerEngine(models.AbstractModel):
             }))
         return lignes, manques
 
+    def _unites_convertibles(self, source, cible):
+        """Odoo sait-il passer de l'une a l'autre ?
+
+        On ne juge jamais une unite sur son nom : « BARRE6.50 » ne dit rien a
+        personne d'autre qu'a nous. Mais la façon de poser la question a
+        change de version en version.
+
+        Jusqu'en v18, deux unites se convertissaient si elles partageaient une
+        categorie. La v19 a supprime uom.category : les unites se rattachent
+        desormais les unes aux autres par relative_uom_id, et c'est la racine
+        commune qui fait foi. Le premier import sur la staging l'a dit sans
+        detour -- « 'uom.uom' object has no attribute 'category_id' ».
+
+        On regarde donc ce que le modele porte vraiment, plutot que de parier
+        sur une version. Et si aucun des deux chemins n'existe, on repond non :
+        mieux vaut signaler un profile que lui inventer une quantite.
+        """
+        if not source or not cible:
+            return False
+        if source == cible:
+            return True
+        champs = cible._fields
+        if "category_id" in champs:
+            return source.category_id == cible.category_id
+        if "relative_uom_id" in champs:
+            return bool(self._racine_uom(source)) and (
+                self._racine_uom(source) == self._racine_uom(cible)
+            )
+        return False
+
+    def _racine_uom(self, uom):
+        """L'unite de reference au bout de la chaine des rattachements.
+
+        La garde sur les identifiants deja vus n'est pas theorique : rien
+        n'empeche un parametrage de refermer la chaine sur elle-meme, et on
+        tournerait sans fin au milieu d'un import.
+        """
+        vus = set()
+        courant = uom
+        while courant and courant.id not in vus:
+            vus.add(courant.id)
+            suivant = courant.relative_uom_id
+            if not suivant:
+                return courant
+            courant = suivant
+        return courant
+
     def _quantite_au_metre(self, produit, total_mm):
         """Exprime une longueur dans une unite que l'article accepte.
 
@@ -900,11 +961,7 @@ class FmaPricerEngine(models.AbstractModel):
         """
         metres = total_mm / 1000.0
         metre = self.env.ref("uom.product_uom_meter", raise_if_not_found=False)
-        # On juge l'unite sur sa CATEGORIE, jamais sur son nom : « BARRE6.50 »
-        # ne dit rien a personne d'autre qu'a nous, mais si elle vit dans la
-        # categorie du metre, Odoo sait convertir et la ligne peut s'ecrire en
-        # metres.
-        if metre and metre.category_id == produit.uom_id.category_id:
+        if metre and self._unites_convertibles(metre, produit.uom_id):
             return metre, metres, None
         return None, 0.0, _(
             "profile %(code)s : son unite « %(uom)s » ne mesure pas une "
