@@ -42,6 +42,18 @@ from odoo.tools import float_compare, float_is_zero
 _logger = logging.getLogger(__name__)
 
 
+#: Etiquette commerciale de la commande -> code de l'entrepot qui fabrique.
+#:
+#: C'est la regle metier, et elle est directe : une affaire etiquetee FMA se
+#: fabrique a La Regrippiere, une affaire F2M a La Remaudiere. Rien ne se
+#: deduit de l'article ni de l'adresse — on l'a tente, et un OF de debit est
+#: parti a La Chapelle pendant que l'assemblage se faisait a La Regrippiere.
+ENTREPOT_PAR_ETIQUETTE = {
+    "FMA": "LRE",
+    "F2M": "REM",
+}
+
+
 def uom_fname(model):
     """Nom du champ UoM sur ``model``.
 
@@ -739,22 +751,20 @@ class FmaLotFabrication(models.Model):
         a un autre : constate sur la staging, un OF de debit sur CBM face a
         des assemblages sur LRE.
 
-        Trois sources, de la plus sure a la plus approximative.
+        L'ETIQUETTE COMMERCIALE decide, et rien d'autre : FMA fabrique a La
+        Regrippiere, F2M a La Remaudiere. La regle est directe, elle n'a pas
+        a etre devinee.
 
-        Les OF D'ASSEMBLAGE d'abord, quand le lot en a deja. Ils viennent de
-        l'appro natif : leur type d'operation est celui qu'Odoo lui-meme a
-        choisi pour cette commande, et le debit doit aller au meme endroit.
-        Aucune deduction ne vaut cette copie.
+        Le reste n'est que du rattrapage, pour un lot dont la commande n'est
+        pas etiquetee. On copie alors le type d'operation des OF d'assemblage
+        — ils viennent de l'appro natif, c'est le choix d'Odoo lui-meme pour
+        cette commande — puis a defaut le manu_type_id de l'entrepot de la
+        commande, le type de fabrication que l'entrepot DESIGNE.
 
-        Sinon l'entrepot de la commande, mais par son manu_type_id -- le type
-        de fabrication que l'entrepot designe -- et non par une recherche.
-        C'est la que ca se jouait : chercher le premier mrp_operation de
-        l'entrepot rend n'importe lequel s'il y en a plusieurs, et l'ordre de
-        tri n'a aucune raison de designer le bon. Un OF de debit CBMF/LRE
-        sortait ainsi face a des assemblages LRE/LRE.
-
-        La recherche ne reste qu'en dernier recours, pour un lot sans
-        commande et sans OF.
+        La recherche ne vient qu'en dernier : prendre « le premier
+        mrp_operation de l'entrepot » rend n'importe lequel quand il y en a
+        plusieurs, et c'est ainsi qu'un OF de debit CBMF/LRE est sorti face a
+        des assemblages LRE/LRE.
         """
         self.ensure_one()
         Type = self.env["stock.picking.type"]
@@ -762,6 +772,10 @@ class FmaLotFabrication(models.Model):
             ("code", "=", "mrp_operation"),
             ("company_id", "in", (self.company_id.id, False)),
         ]
+
+        picking_type = self._picking_type_par_etiquette()
+        if picking_type:
+            return picking_type
 
         assemblages = self.production_ids.filtered(
             lambda p: p.lot_production_type == "assemblage"
@@ -793,6 +807,55 @@ class FmaLotFabrication(models.Model):
                 )
             )
         return picking_type
+
+    def _etiquette_commerciale(self):
+        """L'etiquette de la commande : « FMA » ou « F2M ».
+
+        Elle vit dans x_studio_etiquette_1, un many2many de crm.tag porte par
+        la commande. Le champ vient d'un autre module : on verifie qu'il
+        existe plutot que de le supposer.
+        """
+        self.ensure_one()
+        commandes = self.sale_order_ids
+        if not commandes or "x_studio_etiquette_1" not in commandes._fields:
+            return ""
+        for tag in commandes.mapped("x_studio_etiquette_1"):
+            nom = (tag.name or "").strip().upper()
+            if nom in ENTREPOT_PAR_ETIQUETTE:
+                return nom
+        return ""
+
+    def _picking_type_par_etiquette(self):
+        """Le type de fabrication de l'entrepot que l'etiquette designe.
+
+        On passe par manu_type_id, le type que l'entrepot declare pour la
+        fabrication — le meme que l'appro natif emploie. Un entrepot introuvable
+        ou sans type de fabrication ne bloque pas : on le dit sur le lot et on
+        laisse les autres chemins repondre.
+        """
+        self.ensure_one()
+        etiquette = self._etiquette_commerciale()
+        code = ENTREPOT_PAR_ETIQUETTE.get(etiquette)
+        if not code:
+            return self.env["stock.picking.type"]
+
+        entrepot = self.env["stock.warehouse"].search(
+            [("code", "=", code), ("company_id", "=", self.company_id.id)],
+            limit=1,
+        )
+        if entrepot and "manu_type_id" in entrepot._fields and entrepot.manu_type_id:
+            return entrepot.manu_type_id
+
+        self.message_post(
+            body=_(
+                "Etiquette %(etiquette)s : entrepot « %(code)s » introuvable "
+                "ou sans type de fabrication. Les ordres du lot partiront sur "
+                "l'entrepot de la commande.",
+                etiquette=etiquette,
+                code=code,
+            )
+        )
+        return self.env["stock.picking.type"]
 
     def _common_production_vals(self, picking_type):
         self.ensure_one()
