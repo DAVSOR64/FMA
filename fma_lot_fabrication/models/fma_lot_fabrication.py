@@ -292,6 +292,58 @@ class FmaLotFabrication(models.Model):
         """Transferts qui amenent les composants de ces ordres."""
         return productions.move_raw_ids.move_orig_ids.picking_id
 
+    #: Profondeur de descente vers les achats. Deux niveaux suffisent :
+    #: l'OF d'assemblage et, sous lui, l'OF du kit quincaillerie.
+    PROFONDEUR_ACHAT = 3
+
+    def _lignes_achat_du_lot(self):
+        """Les lignes d'achat nees des besoins de ce lot.
+
+        On ne se contente pas du champ lot_fabrication_id de la ligne
+        d'achat. Il est calcule ET STOCKE au moment ou la ligne nait — or a
+        cet instant, l'OF d'assemblage n'appartient encore a aucun lot :
+        l'appro natif cree ses achats pendant la confirmation de la commande,
+        et le rattachement au lot n'a lieu qu'apres, dans
+        _dispatch_productions_to_lots. Le champ reste donc vide pour toujours,
+        et c'est pourquoi la colonne « Lot de fabrication » restait blanche
+        sur les bons de quincaillerie.
+
+        On repart donc des mouvements, qui eux ne mentent pas : les composants
+        des OF du lot, ce qui les alimente, et de proche en proche les lignes
+        d'achat au bout. Un OF intermediaire — le kit — est traverse.
+        """
+        self.ensure_one()
+        Ligne = self.env["purchase.order.line"]
+        lignes = Ligne.search([("lot_fabrication_id", "=", self.id)])
+
+        moves = self.production_ids.move_raw_ids
+        vus = set()
+        for _niveau in range(self.PROFONDEUR_ACHAT):
+            amont = moves.move_orig_ids
+            if not amont:
+                break
+            if "purchase_line_id" in amont._fields:
+                lignes |= amont.mapped("purchase_line_id")
+            ordres = amont.production_id.filtered(lambda p: p.id not in vus)
+            if not ordres:
+                break
+            vus |= set(ordres.ids)
+            moves = ordres.move_raw_ids
+        return lignes
+
+    def _rattacher_achats(self):
+        """Pose le lot sur les lignes d'achat qui le concernent.
+
+        Repare ce que le calcul stocke ne pouvait pas voir a la naissance de
+        la ligne. Une affectation manuelle deja faite n'est pas touchee.
+        """
+        self.ensure_one()
+        lignes = self._lignes_achat_du_lot().filtered(
+            lambda l: not l.lot_fabrication_id)
+        if lignes:
+            lignes.write({"lot_fabrication_id": self.id})
+        return lignes
+
     def _fusionner_achats_du_lot(self):
         """Ramene les achats du lot a un bon de commande par fournisseur.
 
@@ -318,8 +370,7 @@ class FmaLotFabrication(models.Model):
         self.ensure_one()
         Achat = self.env["purchase.order"]
         try:
-            lignes = self.env["purchase.order.line"].search(
-                [("lot_fabrication_id", "=", self.id)])
+            lignes = self._lignes_achat_du_lot()
             commandes = lignes.order_id.filtered(
                 lambda o: o.state in ("draft", "sent"))
             if len(commandes) < 2:
@@ -618,6 +669,7 @@ class FmaLotFabrication(models.Model):
             # Prelevements et achats n'existent qu'une fois les ordres
             # confirmes : c'est ici, et pas avant, qu'on peut les regrouper.
             lot._fusionner_sorties_matiere()
+            lot._rattacher_achats()
             lot._fusionner_achats_du_lot()
 
             lot._chainer_debit_et_assemblage()
