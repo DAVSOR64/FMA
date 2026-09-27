@@ -292,6 +292,79 @@ class FmaLotFabrication(models.Model):
         """Transferts qui amenent les composants de ces ordres."""
         return productions.move_raw_ids.move_orig_ids.picking_id
 
+    def _fusionner_achats_du_lot(self):
+        """Ramene les achats du lot a un bon de commande par fournisseur.
+
+        Un lot fait naitre ses achats en deux temps : la quincaillerie et le
+        vitrage a la confirmation de la commande, les profiles a la generation
+        de l'OF de debit. Odoo ne les rapproche pas — les besoins ne viennent
+        ni du meme ordre ni du meme moment — et le fournisseur recevait deux
+        bons pour la meme affaire. Technal en recevait un pour les barres et
+        un pour la quincaillerie.
+
+        On garde le bon le plus ancien : c'est celui ne de la confirmation de
+        la commande, donc celui qui porte deja la reference du devis dans son
+        origine. Les achats de profiles le rejoignent, et deviennent visibles
+        depuis la commande — ce qu'ils n'etaient pas, l'OF de debit n'ayant
+        pas de ligne de vente.
+
+        Ne sont rapproches que les bons de MEME fournisseur, meme societe,
+        meme devise et meme type d'operation : on ne melange pas deux
+        receptions ni deux monnaies.
+
+        Encadre : au pire le fournisseur recoit deux bons, ce qui est genant,
+        pas bloquant.
+        """
+        self.ensure_one()
+        Achat = self.env["purchase.order"]
+        try:
+            lignes = self.env["purchase.order.line"].search(
+                [("lot_fabrication_id", "=", self.id)])
+            commandes = lignes.order_id.filtered(
+                lambda o: o.state in ("draft", "sent"))
+            if len(commandes) < 2:
+                return commandes
+
+            par_flux = {}
+            for achat in commandes:
+                cle = (
+                    achat.partner_id.id,
+                    achat.company_id.id,
+                    achat.currency_id.id,
+                    achat.picking_type_id.id,
+                )
+                par_flux[cle] = par_flux.get(cle, Achat) | achat
+
+            gardes = Achat
+            for du_flux in par_flux.values():
+                du_flux = du_flux.sorted("id")
+                cible, autres = du_flux[0], du_flux[1:]
+                gardes |= cible
+                if not autres:
+                    continue
+                origines = [cible.origin or ""]
+                origines += [a.origin or "" for a in autres]
+                autres.order_line.write({"order_id": cible.id})
+                autres.invalidate_recordset(["order_line"])
+                vides = autres.filtered(lambda a: not a.order_line)
+                if vides:
+                    vides.unlink()
+                # L'origine du bon absorbe garde sa trace : sans cela, on
+                # perdrait le lien vers l'OF de debit.
+                retenues = []
+                for origine in origines:
+                    for jeton in (origine or "").split(", "):
+                        jeton = jeton.strip()
+                        if jeton and jeton not in retenues:
+                            retenues.append(jeton)
+                if retenues:
+                    cible.origin = ", ".join(retenues)
+            return gardes
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Regroupement des achats du lot %s", self.name)
+            return Achat
+
     def _fusionner_sorties_matiere(self):
         """Ramene les prelevements du lot a un document par niveau.
 
@@ -542,9 +615,10 @@ class FmaLotFabrication(models.Model):
             if debit:
                 lot._verifier_appro_debit(debit)
 
-            # Les prelevements de composants n'existent qu'une fois les ordres
+            # Prelevements et achats n'existent qu'une fois les ordres
             # confirmes : c'est ici, et pas avant, qu'on peut les regrouper.
             lot._fusionner_sorties_matiere()
+            lot._fusionner_achats_du_lot()
 
             lot._chainer_debit_et_assemblage()
 
