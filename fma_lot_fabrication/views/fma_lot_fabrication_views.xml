@@ -38,6 +38,10 @@
                             string="Completer les OF"
                             invisible="state != 'progress'"
                             help="Regenere les OF manquants (menuiseries ajoutees apres coup)."/>
+                    <button name="action_imprimer_besoin_matiere" type="object"
+                            string="Imprimer le besoin matière"
+                            invisible="not line_ids"
+                            help="Profilés au débit, quincaillerie et vitrage en pré-fab, détail par repère, puis une page par casier."/>
                     <button name="action_replanifier_lot" type="object"
                             string="Replanifier"
                             invisible="state not in ('confirmed', 'progress')"

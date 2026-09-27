@@ -292,43 +292,58 @@ class FmaLotFabrication(models.Model):
         """Transferts qui amenent les composants de ces ordres."""
         return productions.move_raw_ids.move_orig_ids.picking_id
 
-    #: Profondeur de descente vers les achats. Deux niveaux suffisent :
-    #: l'OF d'assemblage et, sous lui, l'OF du kit quincaillerie.
-    PROFONDEUR_ACHAT = 3
+    #: Nombre de remontees successives depuis les composants des OF vers les
+    #: achats. La chaine reelle en compte quatre — composant, collecte des
+    #: composants, reception, ligne d'achat — et un OF intermediaire en ajoute
+    #: autant. Six bornent largement, et bornent surtout une chaine qu'un
+    #: parametrage pourrait refermer sur elle-meme.
+    PROFONDEUR_ACHAT = 6
 
     def _lignes_achat_du_lot(self):
         """Les lignes d'achat nees des besoins de ce lot.
 
-        On ne se contente pas du champ lot_fabrication_id de la ligne
-        d'achat. Il est calcule ET STOCKE au moment ou la ligne nait — or a
-        cet instant, l'OF d'assemblage n'appartient encore a aucun lot :
-        l'appro natif cree ses achats pendant la confirmation de la commande,
-        et le rattachement au lot n'a lieu qu'apres, dans
-        _dispatch_productions_to_lots. Le champ reste donc vide pour toujours,
-        et c'est pourquoi la colonne « Lot de fabrication » restait blanche
-        sur les bons de quincaillerie.
+        On ne se fie pas au champ lot_fabrication_id de la ligne d'achat. Il
+        est calcule ET STOCKE a la naissance de la ligne — or a cet instant
+        l'OF d'assemblage n'appartient encore a aucun lot : l'appro natif cree
+        ses achats PENDANT la confirmation de la commande, et le rattachement
+        au lot n'a lieu qu'apres. Le champ reste vide pour toujours.
 
-        On repart donc des mouvements, qui eux ne mentent pas : les composants
-        des OF du lot, ce qui les alimente, et de proche en proche les lignes
-        d'achat au bout. Un OF intermediaire — le kit — est traverse.
+        On repart donc des mouvements. Et il faut les remonter jusqu'au bout :
+        en fabrication a deux etapes, l'achat n'alimente pas directement l'OF.
+        La chaine est
+
+            ligne d'achat -> reception (fournisseur -> LRE/STOCK)
+                          -> collecte des composants (STOCK -> Pre-fab)
+                          -> composant de l'OF
+
+        Ma premiere version ne franchissait qu'un maillon : elle tombait sur
+        la collecte des composants, qui ne porte aucune ligne d'achat, et
+        repartait aussitot vers les OF. Elle ne trouvait donc que les achats
+        nes de l'OF de debit, jamais ceux de la quincaillerie.
+
+        On remonte maintenant sans compter les maillons : a chaque tour on
+        releve les lignes d'achat des mouvements vus, puis on passe a ce qui
+        les alimente — et aux composants des OF intermediaires, le kit
+        quincaillerie notamment.
         """
         self.ensure_one()
         Ligne = self.env["purchase.order.line"]
         lignes = Ligne.search([("lot_fabrication_id", "=", self.id)])
 
-        moves = self.production_ids.move_raw_ids
-        vus = set()
+        a_voir = self.production_ids.move_raw_ids
+        vus_moves, vus_ordres = set(), set()
         for _niveau in range(self.PROFONDEUR_ACHAT):
-            amont = moves.move_orig_ids
-            if not amont:
+            a_voir = a_voir.filtered(lambda m: m.id not in vus_moves)
+            if not a_voir:
                 break
-            if "purchase_line_id" in amont._fields:
-                lignes |= amont.mapped("purchase_line_id")
-            ordres = amont.production_id.filtered(lambda p: p.id not in vus)
-            if not ordres:
-                break
-            vus |= set(ordres.ids)
-            moves = ordres.move_raw_ids
+            vus_moves |= set(a_voir.ids)
+            if "purchase_line_id" in a_voir._fields:
+                lignes |= a_voir.mapped("purchase_line_id")
+            amont = a_voir.move_orig_ids
+            ordres = amont.production_id.filtered(
+                lambda p: p.id not in vus_ordres)
+            vus_ordres |= set(ordres.ids)
+            a_voir = amont | ordres.move_raw_ids
         return lignes
 
     def _rattacher_achats(self):
@@ -1445,6 +1460,19 @@ class FmaLotFabrication(models.Model):
                 })
 
         return trier(barres), trier(agrege), casiers
+
+    def action_imprimer_besoin_matiere(self):
+        """Edite le besoin matiere du lot.
+
+        Un bouton, et pas seulement une entree dans le menu « Imprimer » : le
+        rapport est rattache au LOT, alors qu'on le cherche naturellement
+        depuis le transfert de sortie. Sur le transfert, ce menu ne le propose
+        pas — il n'y est pas rattache — et on conclut qu'il n'existe pas.
+        """
+        self.ensure_one()
+        return self.env.ref(
+            "fma_lot_fabrication.action_report_lot_sortie_matiere"
+        ).report_action(self)
 
     def action_view_sortie_matiere(self):
         """Les bons de sortie matiere du lot : les barres, puis les casiers.
