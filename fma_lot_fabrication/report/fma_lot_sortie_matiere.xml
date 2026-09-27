@@ -19,8 +19,11 @@
     <template id="report_lot_sortie_matiere">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="lot">
-                <!-- web.external_layout lit « o » et « company » pour son
-                     en-tete ; sans eux le rapport sort sans logo ni pied. -->
+                <!-- internal_layout, et non external_layout : ceci est un
+                     document d'ATELIER, pas un document commercial. Le pied
+                     de page commercial y affichait le numero de TVA de la
+                     societe, qui n'a rien a faire sur un bon de sortie
+                     matiere. « o » et « company » restent lus pour l'en-tete. -->
                 <t t-set="o" t-value="lot"/>
                 <t t-set="company" t-value="lot.company_id"/>
                 <t t-set="besoin" t-value="lot._besoin_matiere()"/>
@@ -29,7 +32,7 @@
                 <t t-set="casiers" t-value="besoin[2]"/>
 
                 <!-- 1. Recapitulatif : ce qui quitte le stock -->
-                <t t-call="web.external_layout">
+                <t t-call="web.internal_layout">
                     <div class="page">
                         <h2>
                             Sortie matière
@@ -132,7 +135,7 @@
 
                 <!-- 2. Un casier par menuiserie -->
                 <t t-foreach="casiers" t-as="casier">
-                    <t t-call="web.external_layout">
+                    <t t-call="web.internal_layout">
                         <div class="page">
                             <h2>
                                 Casier

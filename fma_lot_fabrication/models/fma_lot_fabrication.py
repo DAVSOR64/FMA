@@ -344,6 +344,29 @@ class FmaLotFabrication(models.Model):
                 lambda p: p.id not in vus_ordres)
             vus_ordres |= set(ordres.ids)
             a_voir = amont | ordres.move_raw_ids
+
+        # Deuxieme filet, independant du chainage : l'ORIGINE. Odoo y recopie
+        # le nom du document qui a declenche le besoin — le lot, l'ordre de
+        # fabrication, la commande. Le chainage des mouvements m'a menti trois
+        # fois de suite ; un rapprochement par le texte ne depend d'aucune
+        # topologie et attrape ce qu'il laisse passer.
+        noms = [self.name]
+        noms += self.production_ids.mapped("name")
+        noms += self.sale_order_ids.mapped("name")
+        noms = [n for n in noms if n]
+        if noms:
+            Achat = self.env["purchase.order"]
+            candidats = Achat.search(
+                [
+                    ("state", "in", ("draft", "sent")),
+                    ("company_id", "=", self.company_id.id),
+                    ("origin", "!=", False),
+                ]
+            )
+            proches = candidats.filtered(
+                lambda a: any(nom in (a.origin or "") for nom in noms)
+            )
+            lignes |= proches.order_line
         return lignes
 
     def _rattacher_achats(self):
@@ -425,11 +448,46 @@ class FmaLotFabrication(models.Model):
                             retenues.append(jeton)
                 if retenues:
                     cible.origin = ", ".join(retenues)
+            self._rendre_compte_achats(lignes, commandes, gardes)
             return gardes
         except Exception:  # noqa: BLE001 — trace, pas de blocage
             _logger.exception(
                 "Regroupement des achats du lot %s", self.name)
             return Achat
+
+    def _rendre_compte_achats(self, lignes, avant, apres):
+        """Ecrit sur le lot ce que le regroupement a trouve, et ce qu'il a fait.
+
+        Ce rapprochement a echoue trois fois de suite sans rien dire, et
+        chaque essai a coute un aller-retour. Il rend desormais compte : de
+        quoi juger sans ouvrir de shell.
+
+        On n'ecrit que lorsqu'il y a matiere a lire — rien trouve, ou plusieurs
+        bons qui subsistent pour un meme fournisseur.
+        """
+        self.ensure_one()
+        restants = {}
+        for achat in apres:
+            restants.setdefault(achat.partner_id, []).append(achat.name)
+        doublons = {p: n for p, n in restants.items() if len(n) > 1}
+        if lignes and not doublons and len(avant) == len(apres):
+            return
+        detail = [_(
+            "Achats du lot : %(lignes)s ligne(s) trouvee(s), %(avant)s bon(s) "
+            "avant regroupement, %(apres)s apres.",
+            lignes=len(lignes), avant=len(avant), apres=len(apres),
+        )]
+        if not lignes:
+            detail.append(_(
+                "<br/>Aucune ligne d'achat rattachee au lot : ni par le "
+                "chainage des mouvements, ni par l'origine des bons."
+            ))
+        for partner, noms in doublons.items():
+            detail.append(_(
+                "<br/>%(frs)s garde %(nb)s bons : %(noms)s.",
+                frs=partner.display_name, nb=len(noms), noms=", ".join(noms),
+            ))
+        self.message_post(body="".join(detail))
 
     def _fusionner_sorties_matiere(self):
         """Ramene les prelevements du lot a un document par niveau.
