@@ -1332,6 +1332,7 @@ class ExportSFTPScheduler(models.Model):
                 mouvement_file = os.path.join(temp_dir, "MOUVEMENTS_STOCK.csv")
                 batch_size = 1000
                 total = 0
+                ecartes = 0
                 with open(mouvement_file, "w", newline="", encoding="utf-8") as csvfile:
                     writer = csv.writer(csvfile)
                     writer.writerow([
@@ -1378,6 +1379,19 @@ class ExportSFTPScheduler(models.Model):
                                     picking, "x_studio_projet_de_la_vente", False)
                             if not projet and commande:
                                 projet = getattr(commande, "x_studio_projet", False)
+
+                            # Sans commande, la ligne ne repond a aucune des
+                            # deux questions posees — l'en-cours d'une
+                            # commande, et si elle est produite. Le domaine ne
+                            # peut pas l'exprimer : un composant d'OF n'est
+                            # rattache qu'a son ordre, et c'est la resolution
+                            # ci-dessus, en trois chemins, qui remonte a la
+                            # commande. On tranche donc ici, une fois qu'on
+                            # sait. Sur la base de production, cela ramene
+                            # 111 736 lignes a ce qui sert vraiment.
+                            if perimetre != "tous" and not commande:
+                                ecartes += 1
+                                continue
 
                             quantite = getattr(move, "quantity", None)
                             if quantite is None:
@@ -1440,7 +1454,8 @@ class ExportSFTPScheduler(models.Model):
                 create_attachment(mouvement_file, os.path.basename(mouvement_file))
                 _logger.info(
                     "[Export Power BI] MOUVEMENTS_STOCK: %s lignes depuis %s "
-                    "(perimetre %s)", total, depuis, perimetre)
+                    "(perimetre %s, %s mouvement(s) ecarte(s) faute de "
+                    "commande)", total, depuis, perimetre, ecartes)
             except Exception as e:
                 _logger.exception(
                     "[Export Power BI] ERREUR section MOUVEMENTS_STOCK: %s", e)

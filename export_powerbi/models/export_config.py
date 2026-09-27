@@ -31,15 +31,16 @@ class ResConfigSettings(models.TransientModel):
     )
     powerbi_mouvements_perimetre = fields.Selection(
         [
-            ("production", "Fabrication et ventes seulement"),
+            ("production", "Rattachés à une commande seulement"),
             ("tous", "Tous les mouvements"),
         ],
         string="Périmètre des mouvements",
         config_parameter="export_powerbi.mouvements_perimetre",
         default="production",
-        help="« Fabrication et ventes » ne retient que les mouvements lies a "
-        "un ordre de fabrication ou a une commande : ce sont les seuls qui "
-        "repondent a la question de l'en-cours. Les receptions fournisseur, "
-        "les inventaires et les transferts internes sans rapport sont "
-        "ecartes. « Tous » exporte la totalite, au prix du volume.",
+        help="Par defaut, seuls les mouvements qui remontent a une commande "
+        "sont exportes — directement, ou par leur ordre de fabrication. Ce "
+        "sont les seuls qui repondent aux deux questions posees : l'en-cours "
+        "d'une commande, et si elle est produite. Receptions fournisseur, "
+        "inventaires et transferts internes sans rapport sont ecartes. "
+        "« Tous » exporte la totalite, au prix du volume.",
     )
