@@ -667,7 +667,9 @@ class FmaPricerEngine(models.AbstractModel):
                         comp, men.position or men.ref, rangs.get(id(comp), 1)
                     ), None
             elif comp.code:
-                found, problem = self._find_product(comp.code, comp.color)
+                found, problem = self._find_product(
+                    comp.code, comp.color,
+                    ref_fichier=getattr(comp, "ref_fichier", ""))
                 if not found and creer:
                     found, problem = self._creer_article(comp), None
             else:
@@ -894,17 +896,20 @@ class FmaPricerEngine(models.AbstractModel):
         Renvoie ``(lignes, manques)``.
         """
         besoin = {}
+        refs = {}
         manques = []
         for cut in men.debit:
             cle = ((cut.code or "").strip(), (cut.color or "").strip())
             besoin[cle] = besoin.get(cle, 0.0) + cut.total_mm
+            refs.setdefault(cle, getattr(cut, "ref_fichier", ""))
 
         lignes = []
         for (code, couleur), total_mm in besoin.items():
             if total_mm <= 0:
                 continue
             produit, probleme = self._find_product(
-                code, couleur, _("profile du debit"))
+                code, couleur, _("profile du debit"),
+                ref_fichier=refs.get((code, couleur), ""))
             if not produit:
                 if probleme and probleme not in manques:
                     manques.append(probleme)
@@ -1495,7 +1500,7 @@ class FmaPricerEngine(models.AbstractModel):
             bouts.append(_("qte %s", "%g" % comp.qty))
         return ", ".join(bouts)
 
-    def _find_product(self, code, color="", contexte=""):
+    def _find_product(self, code, color="", contexte="", ref_fichier=""):
         """Retrouve un article par sa reference **et sa teinte**.
 
         ``sqlite_connector`` cree un article par couple (reference, teinte) :
@@ -1507,6 +1512,14 @@ class FmaPricerEngine(models.AbstractModel):
         Renvoie ``(article, motif)``. Le motif decrit ce qui a empeche de
         trancher quand aucun article ne convient ; il est inscrit sur le lot,
         et n'interrompt pas l'import.
+
+        ``ref_fichier`` est la reference COMPLETE du fichier
+        (``ArticleCode``), prefixe fournisseur compris. Le connecteur la
+        reprend telle quelle pour les fournisseurs qu'il ne traite pas
+        specialement : « FMA JEU DE CLES » devient un article sous ce nom,
+        alors que ``code`` ne vaut que « JEU DE CLES ». Chez Technal au
+        contraire il recompose, et c'est ``code`` qui retombe sur ses pieds.
+        Aucune des deux references ne suffit seule ; on essaie les deux.
 
         ``contexte`` nomme l'element traite. Il ne sert qu'au cas ou le fichier
         ne donne aucune reference : sans lui, le message se resume a « profile
@@ -1539,8 +1552,19 @@ class FmaPricerEngine(models.AbstractModel):
             return product, (absent if not product else None)
 
         candidates = Product.search([("x_studio_ref_int_logikal", "=", code)])
+        if not candidates and ref_fichier and ref_fichier != code:
+            candidates = Product.search(
+                [("x_studio_ref_int_logikal", "=", ref_fichier)])
         if not candidates:
-            product = Product.search([("default_code", "=", code)], limit=1)
+            references = [code]
+            if ref_fichier and ref_fichier != code:
+                # Le connecteur suffixe la reference par la teinte quand il y
+                # en a une : « FMA XY.R7039 ».
+                references.append(ref_fichier)
+                if color:
+                    references.append("%s.%s" % (ref_fichier, color))
+            product = Product.search(
+                [("default_code", "in", references)], limit=1)
             return product, (absent if not product else None)
 
         if "x_studio_color_logikal" in fields_:

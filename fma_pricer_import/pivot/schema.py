@@ -20,6 +20,12 @@ class Component:
 
     kind: str  # "article" | "glass"
     code: str
+    #: Reference COMPLETE telle que le fichier la porte (``ArticleCode``),
+    #: prefixe fournisseur compris : « FMA JEU DE CLES », « TEC T720060 ».
+    #: Le connecteur la reprend telle quelle pour les fournisseurs qu'il ne
+    #: traite pas specialement ; ``code`` seul ne suffit alors pas a retrouver
+    #: l'article.
+    ref_fichier: str = ""
     description: str = ""
     qty: float = 0.0
     uom: str = ""
@@ -37,6 +43,12 @@ class Cut:
     """Coupe de profile necessaire a un exemplaire de menuiserie."""
 
     code: str
+    #: Reference COMPLETE telle que le fichier la porte (``ArticleCode``),
+    #: prefixe fournisseur compris : « FMA JEU DE CLES », « TEC T720060 ».
+    #: Le connecteur la reprend telle quelle pour les fournisseurs qu'il ne
+    #: traite pas specialement ; ``code`` seul ne suffit alors pas a retrouver
+    #: l'article.
+    ref_fichier: str = ""
     description: str = ""
     supplier: str = ""
     color: str = ""

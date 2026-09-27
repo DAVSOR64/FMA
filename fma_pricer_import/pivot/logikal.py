@@ -219,9 +219,10 @@ def _parse(con, source):
     # ``Units`` est la quantite pour UN exemplaire ; la multiplication par
     # ``Elevations.Amount`` reconstitue exactement ``AllArticles.Units``.
     for (
-        eid, code, desc, units, unit, price, sid, internal, color,
+        eid, code, ref_fichier, desc, units, unit, price, sid, internal, color,
     ) in con.execute(
-        """select i.ElevationId, a.ArticleCode_Number, a.Description,
+        """select i.ElevationId, a.ArticleCode_Number, a.ArticleCode,
+                  a.Description,
                   a.Units, a.Units_Unit, a.Price, a.LK_SupplierId,
                   a.ColorInfoInternal, a.Color
              from Articles a
@@ -234,6 +235,7 @@ def _parse(con, source):
             Component(
                 kind="article",
                 code=(code or "").strip(),
+                ref_fichier=(ref_fichier or "").strip(),
                 description=(desc or "").strip(),
                 qty=units or 0.0,
                 uom=(unit or "").strip(),
@@ -269,9 +271,11 @@ def _parse(con, source):
 
     # --- debit : les coupes de profiles, par exemplaire ----------------------
     for (
-        eid, code, desc, length, amount, sid, outer, inner, internal, color,
+        eid, code, ref_fichier, desc, length, amount, sid,
+        outer, inner, internal, color,
     ) in con.execute(
-        """select i.ElevationId, p.ArticleCode_Number, p.Description,
+        """select i.ElevationId, p.ArticleCode_Number, p.ArticleCode,
+                  p.Description,
                   p.Length_Output, p.Amount, p.LK_SupplierID,
                   p.OuterColorInfoInternal, p.InnerColorInfoInternal,
                   p.ColorInfoInternal, p.Color
@@ -284,6 +288,7 @@ def _parse(con, source):
         men.debit.append(
             Cut(
                 code=(code or "").strip(),
+                ref_fichier=(ref_fichier or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
                 color=color_of(outer, inner, internal, color),
