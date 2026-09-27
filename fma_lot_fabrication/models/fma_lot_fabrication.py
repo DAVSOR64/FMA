@@ -739,9 +739,22 @@ class FmaLotFabrication(models.Model):
         a un autre : constate sur la staging, un OF de debit sur CBM face a
         des assemblages sur LRE.
 
-        On cherche le type de l'entrepot de la commande, et on ne retombe sur
-        le premier type de la societe que si le lot n'est rattache a aucune
-        commande.
+        Trois sources, de la plus sure a la plus approximative.
+
+        Les OF D'ASSEMBLAGE d'abord, quand le lot en a deja. Ils viennent de
+        l'appro natif : leur type d'operation est celui qu'Odoo lui-meme a
+        choisi pour cette commande, et le debit doit aller au meme endroit.
+        Aucune deduction ne vaut cette copie.
+
+        Sinon l'entrepot de la commande, mais par son manu_type_id -- le type
+        de fabrication que l'entrepot designe -- et non par une recherche.
+        C'est la que ca se jouait : chercher le premier mrp_operation de
+        l'entrepot rend n'importe lequel s'il y en a plusieurs, et l'ordre de
+        tri n'a aucune raison de designer le bon. Un OF de debit CBMF/LRE
+        sortait ainsi face a des assemblages LRE/LRE.
+
+        La recherche ne reste qu'en dernier recours, pour un lot sans
+        commande et sans OF.
         """
         self.ensure_one()
         Type = self.env["stock.picking.type"]
@@ -750,7 +763,19 @@ class FmaLotFabrication(models.Model):
             ("company_id", "in", (self.company_id.id, False)),
         ]
 
+        assemblages = self.production_ids.filtered(
+            lambda p: p.lot_production_type == "assemblage"
+            and p.state != "cancel"
+            and p.picking_type_id
+        )
+        if assemblages:
+            return assemblages[0].picking_type_id
+
         entrepot = self.sale_order_ids.warehouse_id[:1]
+        if entrepot and "manu_type_id" in entrepot._fields:
+            picking_type = entrepot.manu_type_id
+            if picking_type:
+                return picking_type
         if entrepot:
             picking_type = Type.search(
                 domaine + [("warehouse_id", "=", entrepot.id)], limit=1
