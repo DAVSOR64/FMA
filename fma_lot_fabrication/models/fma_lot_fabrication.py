@@ -534,6 +534,14 @@ class FmaLotFabrication(models.Model):
             if a_confirmer:
                 a_confirmer.action_confirm()
 
+            # Apres la confirmation seulement : c'est la que procure_method
+            # est arrete, et donc qu'on sait si les achats partiront.
+            debit = lot.production_ids.filtered(
+                lambda p: p.lot_production_type == "debit" and p.state != "cancel"
+            )[:1]
+            if debit:
+                lot._verifier_appro_debit(debit)
+
             # Les prelevements de composants n'existent qu'une fois les ordres
             # confirmes : c'est ici, et pas avant, qu'on peut les regrouper.
             lot._fusionner_sorties_matiere()
@@ -880,10 +888,25 @@ class FmaLotFabrication(models.Model):
         return vals
 
     def _generate_debit_order(self):
-        """Cree l'OF de debit du lot (1 par lot)."""
+        """Cree l'OF de debit du lot (1 par lot).
+
+        Le controle ne se fie pas au seul production_debit_id : le champ peut
+        etre vide alors que l'OF existe -- creation par un autre chemin,
+        remise en brouillon, reprise de donnees. On regarde aussi les OF
+        rattaches au lot, et on en profite pour recoller le champ. Sans cela,
+        un second clic sur « Generer les OF » fabriquerait un deuxieme OF de
+        debit, qui consommerait les memes barres.
+        """
         self.ensure_one()
-        if self.production_debit_id and self.production_debit_id.state != "cancel":
-            return self.production_debit_id
+        existant = self.production_debit_id
+        if not existant or existant.state == "cancel":
+            existant = self.production_ids.filtered(
+                lambda p: p.lot_production_type == "debit" and p.state != "cancel"
+            )[:1]
+        if existant:
+            if self.production_debit_id != existant:
+                self.production_debit_id = existant
+            return existant
 
         Production = self.env["mrp.production"]
         picking_type = self._get_picking_type()
@@ -1000,6 +1023,59 @@ class FmaLotFabrication(models.Model):
                 }
             )
         return ordres
+
+    def _verifier_appro_debit(self, production):
+        """Dit sur le lot si les profiles ne partiront pas a l'achat.
+
+        Le constat demande un OF CONFIRME : procure_method n'est arrete qu'a
+        ce moment-la. On le pose donc apres la confirmation, et on n'ecrit que
+        si quelque chose cloche — un journal qui parle a chaque fois ne se lit
+        plus.
+
+        Deux situations, et elles menent a deux endroits differents. Un OF de
+        debit sans composant : il n'y a rien a acheter, et c'est le besoin
+        matiere du lot qu'il faut regarder. Des composants en
+        reapprovisionnement sur stock alors que l'article porte la route MTO :
+        aucun achat ne partira, et c'est l'emplacement SOURCE qui n'a pas de
+        regle MTO — l'information est dans le message, elle evitera une
+        session de shell.
+        """
+        self.ensure_one()
+        moves = production.move_raw_ids
+        if not moves:
+            self.message_post(
+                body=_(
+                    "OF de debit %(of)s : aucun composant. Rien ne partira a "
+                    "l'achat — le besoin matiere du lot compte %(nb)s ligne(s).",
+                    of=production.display_name,
+                    nb=len(self.material_line_ids),
+                )
+            )
+            return
+
+        mto = self.env.ref(
+            "stock.route_warehouse0_mto", raise_if_not_found=False)
+        if not mto:
+            return
+        sur_stock = moves.filtered(
+            lambda m: m.procure_method != "make_to_order"
+            and mto in m.product_id.route_ids
+        )
+        if not sur_stock:
+            return
+        self.message_post(
+            body=_(
+                "OF de debit %(of)s : %(nb)s profile(s) sont en "
+                "reapprovisionnement sur stock alors que leur article est en "
+                "MTO — aucun achat ne partira pour eux. Les composants sont "
+                "pris depuis %(source)s : c'est cet emplacement qui n'a pas de "
+                "regle MTO.<br/>%(liste)s",
+                of=production.display_name,
+                nb=len(sur_stock),
+                source=production.location_src_id.complete_name or "?",
+                liste=", ".join(sur_stock.product_id.mapped("display_name")[:10]),
+            )
+        )
 
     def _verifier_debit_profiles(self, production):
         """L'OF de debit porte TOUS les profiles du lot, et rien d'autre.
