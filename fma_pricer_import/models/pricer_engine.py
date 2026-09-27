@@ -922,6 +922,38 @@ class FmaPricerEngine(models.AbstractModel):
             }))
         return lignes, manques
 
+    def _unite_de_longueur(self, produit, longueur_barre_mm):
+        """L'unite fine de l'article, quand les donnees prouvent que c'est une
+        longueur.
+
+        Un profile se stocke a la barre et se mesure au metre lineaire :
+        « BARRE6.5ML » se rattache a « ML ». C'est en ML qu'un besoin de debit
+        doit s'ecrire.
+
+        Reste a savoir si l'unite de rattachement EST une longueur. On ne le
+        devine pas au nom — « ML » ici, ailleurs autre chose — et Odoo ne le
+        dit plus depuis que les categories ont disparu. On le demontre : si
+        une barre vaut 6,5 unites de rattachement, et que le plan de coupe dit
+        que cette barre fait 6,5 m, alors l'unite de rattachement est le
+        metre. Les donnees se repondent a elles-memes.
+
+        Sans longueur de barre pour confronter, on ne conclut pas.
+        """
+        racine = self._racine_uom(produit.uom_id)
+        if not racine or racine == produit.uom_id or not longueur_barre_mm:
+            return None
+        try:
+            par_barre = produit.uom_id._compute_quantity(
+                1.0, racine, round=False)
+        except Exception:  # noqa: BLE001 — une unite qui refuse se tait
+            return None
+        attendu = longueur_barre_mm / 1000.0
+        # Un pour cent de tolerance : le fichier arrondit les longueurs, et
+        # une barre de 6500 mm declaree 6,5 ne doit pas echouer au controle.
+        if attendu and abs(par_barre - attendu) <= max(0.01, attendu * 0.01):
+            return racine
+        return None
+
     def _unites_convertibles(self, source, cible):
         """Odoo sait-il passer de l'une a l'autre ?
 
@@ -959,6 +991,8 @@ class FmaPricerEngine(models.AbstractModel):
         n'empeche un parametrage de refermer la chaine sur elle-meme, et on
         tournerait sans fin au milieu d'un import.
         """
+        if not uom or "relative_uom_id" not in uom._fields:
+            return uom
         vus = set()
         courant = uom
         while courant and courant.id not in vus:
@@ -972,34 +1006,48 @@ class FmaPricerEngine(models.AbstractModel):
     def _quantite_debit(self, produit, total_mm, cle):
         """Le besoin de debit, dans une unite que l'article accepte.
 
-        Deux chemins, et il en faut deux.
+        Trois chemins, du plus lisible au plus brut, et le dernier existe
+        parce que sans ligne de profile l'ensemble debite reste a 0,00 euro :
+        le prix de revient de la menuiserie perd alors toute sa matiere.
 
-        Le metre d'abord : c'est la mesure du besoin, Odoo convertit seul vers
-        la barre au moment de consommer, et la ligne se lit. Encore faut-il
-        que l'unite de l'article sache se convertir en metres.
+        1. L'unite de longueur de l'article. « BARRE6.5ML » se rattache a
+           « ML », et c'est en ML qu'un besoin de debit s'ecrit. Encore
+           faut-il etablir que l'unite de rattachement mesure bien une
+           longueur — cf. _unite_de_longueur, qui le demontre par les donnees
+           plutot que de le deviner au nom.
 
-        Quand elle ne le sait pas — une unite « BARRE6.50 » posee hors de
-        toute chaine de conversion, ce qui est le cas ici — on exprime le
-        besoin en FRACTION DE BARRE : 1,39 m d'une barre de 6,50 m font 0,214
-        barre. C'est exact, c'est achetable, et surtout c'est valorise : sans
-        cette ligne, l'ensemble debite reste a 0,00 euro et le prix de revient
-        de la menuiserie perd tous ses profiles.
+        2. Le metre standard d'Odoo, pour les bases qui l'utilisent.
+
+        3. La fraction de barre, dans l'unite de l'article : 1,39 m d'une
+           barre de 6,50 m font 0,214 barre. Moins lisible, mais exact,
+           achetable et valorise.
 
         La longueur de barre vient du plan de coupe de l'affaire, a defaut de
         x_studio_longueur_m sur l'article. On ne l'invente jamais : sans elle,
-        le profile est laisse de cote et le manque remonte sur le lot.
+        et sans unite de longueur, le profile est laisse de cote et le manque
+        remonte sur le lot.
 
         Renvoie ``(uom, quantite, probleme)``.
         """
         metres = total_mm / 1000.0
-        metre = self.env.ref("uom.product_uom_meter", raise_if_not_found=False)
-        if metre and self._unites_convertibles(metre, produit.uom_id):
-            return metre, metres, None
-
         longueur_mm = (self.env.context.get("fma_longueurs_barres") or {}).get(cle)
         if not longueur_mm:
             longueur_m = getattr(produit, "x_studio_longueur_m", 0.0) or 0.0
             longueur_mm = longueur_m * 1000.0
+
+        # 1. L'unite de longueur de l'article lui-meme. « BARRE6.5ML » se
+        #    convertit en « ML » : c'est en ML qu'il faut ecrire, c'est la
+        #    mesure du besoin et elle se lit.
+        unite = self._unite_de_longueur(produit, longueur_mm)
+        if unite:
+            return unite, metres, None
+
+        # 2. Le metre standard d'Odoo, pour les bases qui l'utilisent.
+        metre = self.env.ref("uom.product_uom_meter", raise_if_not_found=False)
+        if metre and self._unites_convertibles(metre, produit.uom_id):
+            return metre, metres, None
+
+        # 3. A defaut, la fraction de barre, dans l'unite de l'article.
         if longueur_mm:
             return produit.uom_id, total_mm / longueur_mm, None
 
