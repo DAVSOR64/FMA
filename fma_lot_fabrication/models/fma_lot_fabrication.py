@@ -1032,13 +1032,22 @@ class FmaLotFabrication(models.Model):
         si quelque chose cloche — un journal qui parle a chaque fois ne se lit
         plus.
 
-        Deux situations, et elles menent a deux endroits differents. Un OF de
-        debit sans composant : il n'y a rien a acheter, et c'est le besoin
-        matiere du lot qu'il faut regarder. Des composants en
-        reapprovisionnement sur stock alors que l'article porte la route MTO :
-        aucun achat ne partira, et c'est l'emplacement SOURCE qui n'a pas de
-        regle MTO — l'information est dans le message, elle evitera une
-        session de shell.
+        Trois situations, qui menent a trois endroits differents.
+
+        Un OF de debit sans composant : il n'y a rien a acheter, et c'est le
+        besoin matiere du lot qu'il faut regarder.
+
+        Des articles SANS la route « Reapprovisionner sur commande » : Odoo
+        les prendra sur stock, aucun achat ne partira. C'est la fiche article
+        qu'il faut reprendre, pas le lot.
+
+        Des articles EN MTO mais approvisionnes sur stock : la route est la,
+        mais l'emplacement source n'a pas de regle MTO. Le message nomme cet
+        emplacement.
+
+        Le besoin et le disponible figurent a cote de chaque article : un
+        profile deja en stock n'a rien a acheter, et ce n'est pas un defaut.
+        Le dire evite de chercher un bug la ou il n'y en a pas.
         """
         self.ensure_one()
         moves = production.move_raw_ids
@@ -1057,25 +1066,50 @@ class FmaLotFabrication(models.Model):
             "stock.route_warehouse0_mto", raise_if_not_found=False)
         if not mto:
             return
+
+        # Trois etats possibles, trois causes differentes. On ne retient que
+        # les deux qui empechent un achat.
+        sans_mto = moves.filtered(lambda m: mto not in m.product_id.route_ids)
         sur_stock = moves.filtered(
-            lambda m: m.procure_method != "make_to_order"
-            and mto in m.product_id.route_ids
+            lambda m: mto in m.product_id.route_ids
+            and m.procure_method != "make_to_order"
         )
-        if not sur_stock:
+        if not sans_mto and not sur_stock:
             return
-        self.message_post(
-            body=_(
-                "OF de debit %(of)s : %(nb)s profile(s) sont en "
-                "reapprovisionnement sur stock alors que leur article est en "
-                "MTO — aucun achat ne partira pour eux. Les composants sont "
-                "pris depuis %(source)s : c'est cet emplacement qui n'a pas de "
-                "regle MTO.<br/>%(liste)s",
-                of=production.display_name,
-                nb=len(sur_stock),
-                source=production.location_src_id.complete_name or "?",
-                liste=", ".join(sur_stock.product_id.mapped("display_name")[:10]),
+
+        def _detail(mouvements):
+            """Besoin et disponible : un article en stock n'a rien a acheter,
+            et ce n'est pas un defaut. Le dire evite de chercher un bug."""
+            return "<br/>".join(
+                "%s — besoin %.2f %s, disponible %.2f" % (
+                    m.product_id.display_name,
+                    m.product_uom_qty,
+                    m.product_uom.name,
+                    m.product_id.free_qty,
+                )
+                for m in mouvements[:8]
             )
-        )
+
+        corps = [_(
+            "OF de debit %(of)s : composants pris depuis %(source)s.",
+            of=production.display_name,
+            source=production.location_src_id.complete_name or "?",
+        )]
+        if sans_mto:
+            corps.append(_(
+                "<br/><br/><b>%(nb)s article(s) sans route « Reapprovisionner "
+                "sur commande »</b> : aucun achat ne partira pour eux, Odoo "
+                "les prendra sur stock.<br/>%(liste)s",
+                nb=len(sans_mto), liste=_detail(sans_mto),
+            ))
+        if sur_stock:
+            corps.append(_(
+                "<br/><br/><b>%(nb)s article(s) en MTO mais approvisionnes sur "
+                "stock</b> : c'est l'emplacement source qui n'a pas de regle "
+                "MTO.<br/>%(liste)s",
+                nb=len(sur_stock), liste=_detail(sur_stock),
+            ))
+        self.message_post(body="".join(corps))
 
     def _verifier_debit_profiles(self, production):
         """L'OF de debit porte TOUS les profiles du lot, et rien d'autre.
