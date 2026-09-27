@@ -1265,6 +1265,35 @@ class ExportSFTPScheduler(models.Model):
                 Move = self.env["stock.move"]
                 valorisation = "stock_valuation_layer_ids" in Move._fields
 
+                # Le perimetre. Sur la base de production, « tous les
+                # mouvements faits depuis 2025 » represente 309 481 lignes :
+                # un fichier d'une centaine de Mo, a regenerer chaque nuit et
+                # a stocker en piece jointe. Or la question posee — l'en-cours
+                # atelier, et si une commande est produite — ne porte que sur
+                # ce qui touche une fabrication ou une vente. Les receptions
+                # fournisseur vers le stock, les inventaires et les transferts
+                # internes sans rapport n'y repondent pas.
+                #
+                # Par defaut on s'en tient donc a ce qui repond. « tous »
+                # reste possible, dans les reglages, pour qui veut la totalite.
+                perimetre = ICP.get_param(
+                    "export_powerbi.mouvements_perimetre", "production")
+                domaine = [("state", "=", "done"), ("date", ">=", depuis)]
+                if perimetre != "tous":
+                    rattachements = [
+                        champ for champ in (
+                            "raw_material_production_id",
+                            "production_id",
+                            "sale_line_id",
+                        )
+                        if champ in Move._fields
+                    ]
+                    feuilles = [(champ, "!=", False) for champ in rattachements]
+                    if "sale_id" in self.env["stock.picking"]._fields:
+                        feuilles.append(("picking_id.sale_id", "!=", False))
+                    if feuilles:
+                        domaine += ["|"] * (len(feuilles) - 1) + feuilles
+
                 # L'OF d'un mouvement ne change pas d'une ligne a l'autre :
                 # on resout commande et projet une fois par OF, pas une fois
                 # par mouvement. Sur un export de plusieurs centaines de
@@ -1318,11 +1347,9 @@ class ExportSFTPScheduler(models.Model):
                     ])
                     last_id = 0
                     while True:
-                        moves = Move.search([
-                            ("id", ">", last_id),
-                            ("state", "=", "done"),
-                            ("date", ">=", depuis),
-                        ], order="id", limit=batch_size)
+                        moves = Move.search(
+                            domaine + [("id", ">", last_id)],
+                            order="id", limit=batch_size)
                         if not moves:
                             break
                         for move in moves:
@@ -1412,8 +1439,8 @@ class ExportSFTPScheduler(models.Model):
                         self.env.clear()
                 create_attachment(mouvement_file, os.path.basename(mouvement_file))
                 _logger.info(
-                    "[Export Power BI] MOUVEMENTS_STOCK: %s lignes depuis %s",
-                    total, depuis)
+                    "[Export Power BI] MOUVEMENTS_STOCK: %s lignes depuis %s "
+                    "(perimetre %s)", total, depuis, perimetre)
             except Exception as e:
                 _logger.exception(
                     "[Export Power BI] ERREUR section MOUVEMENTS_STOCK: %s", e)

@@ -35,7 +35,9 @@
                                 <div class="content-group">
                                     <div class="mt16 row">
                                         <label for="powerbi_mouvements_depuis" string="Depuis le" class="col-5 o_light_label"/>
-                                        <field name="powerbi_mouvements_depuis" class="col-7"/>
+                                        <field name="powerbi_mouvements_depuis" class="col-7" placeholder="2025-01-01"/>
+                                        <label for="powerbi_mouvements_perimetre" string="Périmètre" class="col-5 o_light_label"/>
+                                        <field name="powerbi_mouvements_perimetre" class="col-7"/>
                                     </div>
                                 </div>
                         </setting>
