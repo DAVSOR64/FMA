@@ -22,6 +22,12 @@
                                invisible="not lot_production_type"/>
                         <field name="lot_sale_line_id" readonly="1"
                                invisible="lot_production_type != 'assemblage'"/>
+                        <!-- L'OF de debit n'a pas de ligne de vente : c'est le
+                             lot entier qu'il debite. La commande, elle,
+                             existe, et c'est elle qu'on cherche a l'ecran. -->
+                        <field name="x_studio_mtn_mrp_sale_order"
+                               string="Commande" readonly="1"
+                               invisible="lot_production_type != 'debit'"/>
                     </group>
                     <group string="Planification FMA" name="fma_of_planification">
                         <field name="macro_forced_end" string="Fin de fab"/>

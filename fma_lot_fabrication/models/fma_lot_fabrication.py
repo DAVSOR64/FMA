@@ -1084,6 +1084,22 @@ class FmaLotFabrication(models.Model):
         if projet and "x_studio_projet_de_la_vente" in Production._fields:
             vals["x_studio_projet_de_la_vente"] = projet.id
 
+        # La commande, sur l'OF de debit comme sur les autres. Il n'a pas de
+        # ligne de vente — c'est le lot entier qu'il debite, pas une
+        # menuiserie — et rien ne l'y rattachait : ni le numero de commande a
+        # l'ecran, ni le projet, ni les recherches par affaire.
+        #
+        # On passe par x_studio_mtn_mrp_sale_order et non par sale_line_id :
+        # poser une ligne de vente ferait croire a l'appro natif que le besoin
+        # de cette ligne est couvert par cet OF, et il cesserait de creer l'OF
+        # d'assemblage qui, lui, produit vraiment la menuiserie.
+        commandes = self.sale_order_ids
+        if commandes:
+            vals["origin"] = "%s - %s" % (
+                self.name, ", ".join(commandes.mapped("name")))
+            if len(commandes) == 1 and "x_studio_mtn_mrp_sale_order" in Production._fields:
+                vals["x_studio_mtn_mrp_sale_order"] = commandes.id
+
         return vals
 
     def _generate_debit_order(self):
