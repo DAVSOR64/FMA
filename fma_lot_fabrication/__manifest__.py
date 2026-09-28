@@ -15,7 +15,11 @@
     # date de livraison est controlee SUR EUX. Les bons d'achat ne sont
     # plus deplaces : c'est une negociation fournisseur, pas une
     # consequence du planning atelier.
-    "version": "19.0.1.39.0",
+    # 1.40.0 : la date projetee des assemblages tient compte du report
+    # derriere la fin du debit, et non du seul decalage. Un decalage nul
+    # donnait une projection nulle : des assemblages annonces AVANT le
+    # debit qui les alimente, et declares a l'heure.
+    "version": "19.0.1.40.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
