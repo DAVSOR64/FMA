@@ -822,20 +822,25 @@ class FmaLotFabrication(models.Model):
             decalage = nouvelle.date() - fields.Datetime.to_datetime(
                 ancienne).date()
 
-        debit.compute_macro_schedule_from_date_fin()
-
         assemblages = self.production_ids.filtered(
             lambda p: p.lot_production_type == "assemblage"
             and p.state not in ("done", "cancel")
         )
+
+        # A SEC D'ABORD. La replanification d'un OF, dans ce depot, controle
+        # la date de livraison AVANT d'ecrire et bloque si elle ne tient pas.
+        # On suit la meme regle : rien n'est ecrit tant que le lot entier n'a
+        # pas passe le controle. Ecrire puis constater laisserait un lot a
+        # moitie deplace.
+        self._controler_livraison(assemblages, decalage)
+
+        debit.compute_macro_schedule_from_date_fin()
         deplaces = self._decaler_assemblages(assemblages, decalage, debit)
         depart_matiere = self._planifier_sortie_matiere(debit)
         achats, bloques = self._decaler_achats(decalage)
-        en_retard = self._controler_livraison(assemblages)
 
         self._rendre_compte_replanification(
-            debit, decalage, deplaces, depart_matiere, achats, bloques,
-            en_retard)
+            debit, decalage, deplaces, depart_matiere, achats, bloques)
         return True
 
     def _decaler_assemblages(self, assemblages, decalage, debit):
@@ -896,28 +901,74 @@ class FmaLotFabrication(models.Model):
                     "Decalage de la date de %s", achat.display_name)
         return modifiables, bloques
 
-    def _controler_livraison(self, assemblages):
-        """Les assemblages tiennent-ils encore la date promise au client ?
+    def _controler_livraison(self, assemblages, decalage):
+        """Controle a sec : le lot deplace tient-il encore l'engagement ?
 
-        On ne corrige rien : deplacer un lot est une decision, et le systeme
-        n'a pas a la refuser. Il doit en revanche dire ce qu'elle coute.
+        Deux blocages, et ce sont ceux que la replanification d'un OF applique
+        deja dans mrp_capacity_planning. On les reprend a la maille du lot
+        plutot que d'inventer un autre comportement pour le meme geste.
+
+        Une date de livraison introuvable bloque. Ce n'est pas de la rigidite :
+        sans elle on ne controle rien, et on deplacerait un lot sans savoir ce
+        qu'on engage. La remonter est le travail de _get_macro_target_date,
+        qui passe par la ligne de vente puis par x_studio_mtn_mrp_sale_order.
+
+        Un depassement bloque aussi. Le message dit de combien, et pour
+        quelle menuiserie : on ne demande pas a l'ordonnanceur de deviner ce
+        qu'il faut negocier.
+
+        Rien n'est ecrit ici : le controle precede l'ecriture, sans quoi un
+        refus laisserait un lot a moitie deplace.
         """
-        en_retard = []
+        self.ensure_one()
+        if not assemblages or not hasattr(
+                assemblages[0], "_get_macro_target_date"):
+            return
+
+        sans_date, en_retard = [], []
         for mo in assemblages:
-            if not hasattr(mo, "_get_macro_target_date"):
-                break
             cible, _commande = mo._get_macro_target_date()
-            if not cible or not mo.date_finished:
+            if not cible:
+                sans_date.append(mo)
                 continue
-            fin = fields.Datetime.to_datetime(mo.date_finished)
-            cible = fields.Datetime.to_datetime(cible)
-            if fin.date() > cible.date():
-                en_retard.append((mo, fin.date(), cible.date()))
-        return en_retard
+            if not mo.date_finished:
+                continue
+            projetee = fields.Datetime.to_datetime(
+                mo.date_finished).date() + decalage
+            cible = fields.Datetime.to_datetime(cible).date()
+            if projetee > cible:
+                en_retard.append((mo, projetee, cible, (projetee - cible).days))
+
+        if sans_date:
+            raise UserError(_(
+                "Date de livraison introuvable pour %(nb)s menuiserie(s) : "
+                "%(liste)s.\n\n"
+                "Sans elle, le lot ne peut pas etre replanifie : rien ne "
+                "permettrait de dire si la nouvelle date tient l'engagement.\n"
+                "Renseignez la date de livraison prevue sur la commande, ou "
+                "rattachez l'ordre a sa commande.",
+                nb=len(sans_date),
+                liste=", ".join(sans_date.mapped("display_name")[:8]),
+            ))
+
+        if en_retard:
+            detail = "\n".join(
+                "%-22s fin %s   livraison %s   retard %d j" % (
+                    mo.display_name, projetee.strftime("%d/%m/%Y"),
+                    cible.strftime("%d/%m/%Y"), retard)
+                for mo, projetee, cible, retard in en_retard[:10]
+            )
+            raise ValidationError(_(
+                "\u26a0\ufe0f BLOCAGE : le lot deplace ne tient plus la date de "
+                "livraison client.\n\n"
+                "%(detail)s\n\n"
+                "Modifiez la fin de fab du debit ou negociez la livraison "
+                "avant de replanifier.",
+                detail=detail,
+            ))
 
     def _rendre_compte_replanification(self, debit, decalage, deplaces,
-                                       depart_matiere, achats, bloques,
-                                       en_retard):
+                                       depart_matiere, achats, bloques):
         """Ce que la replanification a fait, et ce qu'elle n'a pas pu faire."""
         self.ensure_one()
         jours = decalage.days if decalage else 0
@@ -945,15 +996,6 @@ class FmaLotFabrication(models.Model):
                 "fournisseur ne se deplace pas depuis Odoo.",
                 nb=len(bloques), noms=", ".join(bloques.mapped("name")),
             ))
-        if en_retard:
-            corps.append(_(
-                "<br/><b>%(nb)s menuiserie(s) ne tiennent plus la date "
-                "promise :</b>", nb=len(en_retard)))
-            for mo, fin, cible in en_retard[:8]:
-                corps.append(_(
-                    "<br/>%(of)s : finie le %(fin)s, attendue le %(cible)s.",
-                    of=mo.display_name, fin=fin, cible=cible,
-                ))
         self.message_post(body="".join(corps))
 
     def _chainer_debit_et_assemblage(self, security_days=6, fin_forcee=None):
