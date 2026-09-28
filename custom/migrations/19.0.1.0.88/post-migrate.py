@@ -74,8 +74,52 @@ def migrate(cr, version):
                    WHERE sp.sale_id = so.id
                      AND sp.state <> 'cancel'
                      AND spt.code = 'outgoing'
+                     AND sp.scheduled_date IS NOT NULL
               )"""
     )
     _logger.info(
         "Livraison reelle : %s commande(s) sans bon alignees sur la date "
         "prevue", cr.rowcount)
+
+    # « Date de livraison prevue » (delai + BPE) et commitment_date doivent
+    # dire la meme chose : c'est la regle posee, et le calcul la respecte
+    # desormais. Mais il ne s'execute que si so_date_bpe ou le delai bouge.
+    # Sur les commandes deja en base, ni l'un ni l'autre ne bougera : elles
+    # garderaient une commitment_date d'avant, voire aucune, alors que la
+    # replanification et le retroplanning la lisent en PREMIER. On l'aligne
+    # donc ici, une fois, sur toute la base.
+    #
+    # commitment_date est un Datetime : le calcul y ecrit une date, qu'Odoo
+    # pose a minuit. Le ::timestamp fait la meme chose.
+    cr.execute(
+        """SELECT so.name, so.commitment_date::date, so.so_date_de_livraison
+             FROM sale_order so
+            WHERE so.so_date_de_livraison IS NOT NULL
+              AND so.commitment_date IS NOT NULL
+              AND so.commitment_date::date
+                  IS DISTINCT FROM so.so_date_de_livraison
+            ORDER BY ABS(so.commitment_date::date - so.so_date_de_livraison)
+                     DESC
+            LIMIT 30"""
+    )
+    divergences = cr.fetchall()
+
+    cr.execute(
+        """UPDATE sale_order so
+              SET commitment_date = so.so_date_de_livraison::timestamp
+            WHERE so.so_date_de_livraison IS NOT NULL
+              AND so.commitment_date IS DISTINCT FROM
+                  so.so_date_de_livraison::timestamp"""
+    )
+    _logger.info(
+        "Date d'engagement : %s commande(s) alignees sur la date de "
+        "livraison prevue", cr.rowcount)
+
+    if divergences:
+        _logger.warning(
+            "Les commandes ci-dessous portaient une date d'engagement "
+            "differente de leur date prevue. Elle est desormais alignee ; "
+            "si l'une d'elles etait un engagement client negocie a part, "
+            "c'est ici qu'il faut le retablir a la main :")
+        for nom, avant, apres in divergences:
+            _logger.warning("  %-18s %s -> %s", nom, avant, apres)
