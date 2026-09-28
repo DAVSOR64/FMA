@@ -11,7 +11,11 @@
     # l'approvisionnement standard a la confirmation de la commande ; le lot
     # les scinde selon sa repartition et se les rattache. Le bouton du lot ne
     # cree plus que l'OF de debit, et complete les assemblages manquants.
-    "version": "19.0.1.38.0",
+    # 1.39.0 : replanifier l'OF de debit entraine les assemblages, et la
+    # date de livraison est controlee SUR EUX. Les bons d'achat ne sont
+    # plus deplaces : c'est une negociation fournisseur, pas une
+    # consequence du planning atelier.
+    "version": "19.0.1.39.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

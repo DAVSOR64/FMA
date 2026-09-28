@@ -849,10 +849,10 @@ class FmaLotFabrication(models.Model):
         debit.compute_macro_schedule_from_date_fin()
         deplaces = self._decaler_assemblages(assemblages, decalage, debit)
         depart_matiere = self._planifier_sortie_matiere(debit)
-        achats, bloques = self._decaler_achats(decalage)
 
         self._rendre_compte_replanification(
-            debit, decalage, deplaces, depart_matiere, achats, bloques)
+            debit, decalage, deplaces, depart_matiere,
+            self._achats_a_revoir())
         return True
 
     def _decaler_assemblages(self, assemblages, decalage, debit):
@@ -887,31 +887,19 @@ class FmaLotFabrication(models.Model):
                     mo.compute_macro_schedule_from_date_fin()
         return deplaces
 
-    def _decaler_achats(self, decalage):
-        """Decale la date de reception des achats du lot.
+    def _achats_a_revoir(self):
+        """Les bons d'achat du lot, pour information — SANS les deplacer.
 
-        Seuls les bons NON confirmes bougent. Un bon confirme est un
-        engagement pris avec le fournisseur : le decaler dans Odoo ne le
-        decale pas chez lui, et donnerait une date a laquelle personne n'a
-        souscrit. Ceux-la sont nommes dans le compte rendu, a l'acheteur de
-        trancher.
+        Odoo ne recale pas les achats tout seul, et c'est voulu. Une date de
+        reception n'est pas une consequence mecanique du planning atelier :
+        c'est une negociation avec le fournisseur, que lui seul peut
+        accepter. La deplacer dans Odoo ne la deplace pas chez lui — on
+        obtiendrait une base qui affiche une date a laquelle personne n'a
+        souscrit, et un acheteur qui croit l'affaire reglee.
+
+        Le lot les NOMME donc dans son compte rendu, et l'achat tranche.
         """
-        Achat = self.env["purchase.order"]
-        if not decalage:
-            return Achat, Achat
-        commandes = self._lignes_achat_du_lot().order_id
-        modifiables = commandes.filtered(lambda a: a.state in ("draft", "sent"))
-        bloques = commandes - modifiables
-        for achat in modifiables:
-            if not achat.date_planned:
-                continue
-            try:
-                achat.date_planned = fields.Datetime.to_datetime(
-                    achat.date_planned) + decalage
-            except Exception:  # noqa: BLE001 — trace, pas de blocage
-                _logger.exception(
-                    "Decalage de la date de %s", achat.display_name)
-        return modifiables, bloques
+        return self._lignes_achat_du_lot().order_id
 
     def _controler_livraison(self, assemblages, decalage):
         """Controle a sec : le lot deplace tient-il encore l'engagement ?
@@ -980,7 +968,7 @@ class FmaLotFabrication(models.Model):
             ))
 
     def _rendre_compte_replanification(self, debit, decalage, deplaces,
-                                       depart_matiere, achats, bloques):
+                                       depart_matiere, achats):
         """Ce que la replanification a fait, et ce qu'elle n'a pas pu faire."""
         self.ensure_one()
         jours = decalage.days if decalage else 0
@@ -998,15 +986,11 @@ class FmaLotFabrication(models.Model):
                 "<br/>Sortie matiere ramenee au %(date)s.", date=depart_matiere))
         if achats:
             corps.append(_(
-                "<br/>%(nb)s bon(s) d'achat decale(s) : %(noms)s.",
+                "<br/><b>%(nb)s bon(s) d'achat a revoir</b> — %(noms)s. "
+                "Leurs dates n'ont PAS ete modifiees : une date de reception "
+                "se negocie avec le fournisseur, elle ne se deduit pas du "
+                "planning atelier. A l'achat de trancher.",
                 nb=len(achats), noms=", ".join(achats.mapped("name")),
-            ))
-        if bloques:
-            corps.append(_(
-                "<br/><b>%(nb)s bon(s) deja confirme(s) n'ont pas ete "
-                "decales</b> — %(noms)s. Un engagement pris avec le "
-                "fournisseur ne se deplace pas depuis Odoo.",
-                nb=len(bloques), noms=", ".join(bloques.mapped("name")),
             ))
         self.message_post(body="".join(corps))
 
