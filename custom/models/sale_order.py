@@ -517,9 +517,22 @@ class SaleOrder(models.Model):
     def _compute_so_date_de_livraison(self):
         for order in self:
             if order.so_date_bpe and order.so_delai_confirme_en_semaine:
-                order.so_date_de_livraison = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
-                order.so_date_de_livraison_prevu = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+                order.so_date_de_livraison = order.so_date_bpe + timedelta(
+                    weeks=order.so_delai_confirme_en_semaine)
+                # commitment_date suit, et c'est le seul miroir voulu : la
+                # promesse Odoo dit la meme chose que « Livraison prevue le ».
                 order.commitment_date = order.so_date_de_livraison
+                # so_date_de_livraison_prevu N'EST PLUS ecrit ici. Il recevait
+                # a la fois delai + BPE et la date planifiee du BL, deux choses
+                # differentes dans un seul champ — d'ou l'impossibilite de
+                # savoir ce qu'il portait. La date planifiee du BL a desormais
+                # son champ : so_date_livraison_reelle.
+                if not order.picking_ids.filtered(
+                        lambda p: p.picking_type_code == "outgoing"
+                        and p.state != "cancel"):
+                    # Tant qu'aucun bon n'existe, la livraison « reelle » est
+                    # la prevue : c'est la date que le magasin recevra.
+                    order.so_date_livraison_reelle = order.so_date_de_livraison
             else:
                 order.so_date_de_livraison = False
                 order.commitment_date = False
@@ -710,25 +723,35 @@ class SaleOrder(models.Model):
                 order.write(vals)
 
     def _fma_recalculer_livraison_reelle(self):
-        """Pose la date de livraison reelle a partir des bons de livraison.
+        """La date a laquelle la commande sera livree, telle que le BL la dit.
 
-        La date effective du DERNIER bon de livraison, mais seulement quand
-        tous les bons non annules sont faits. Une commande livree en deux fois
-        n'est livree qu'au second passage ; dater sa livraison au premier
-        reviendrait a la declarer livree alors qu'un reliquat attend.
+        La DATE PLANIFIEE du bon de livraison, et non sa date effective. Le
+        choix se justifie par l'usage : on veut savoir quand la commande part,
+        et le savoir AVANT qu'elle parte. Une date effective n'existe qu'apres
+        coup, donc elle ne repond jamais quand on a besoin de la reponse.
 
-        Les retours sont des receptions, pas des livraisons : ils ne comptent
-        pas. Les instants sont ramenes au jour du fuseau de l'utilisateur, Odoo
-        les stockant en UTC.
+        La plus TARDIVE des livraisons non annulees, celles deja faites
+        comprises. Un bon valide qui laisse un reliquat n'a pas livre la
+        commande : c'est la date du reliquat qui dit quand elle le sera. La
+        deplacer deplace donc cette date, ce qui est l'effet voulu.
+
+        Sans aucune livraison, la date prevue fait foi -- delai + BPE. C'est
+        ce que le magasin recevra de toute facon quand le bon sera cree, Odoo
+        calant sa date planifiee sur l'engagement.
+
+        Champ simple et non calcule, comme les dates de fabrication : un
+        calcul stocke qui ne trouve rien ecrit du vide, et un recalcul de
+        masse efface l'historique. C'est deja arrive ici.
         """
         for order in self:
             livraisons = order.picking_ids.filtered(
-                lambda p: p.picking_type_code == "outgoing" and p.state != "cancel")
-            if not livraisons or any(p.state != "done" for p in livraisons):
-                continue
-            instants = [p.date_done for p in livraisons if p.date_done]
-            if not instants:
-                continue
-            jour = fields.Date.context_today(order, timestamp=max(instants))
-            if order.so_date_livraison_reelle != jour:
+                lambda p: p.picking_type_code == "outgoing"
+                and p.state != "cancel"
+            )
+            instants = [p.scheduled_date for p in livraisons if p.scheduled_date]
+            if instants:
+                jour = fields.Date.context_today(order, timestamp=max(instants))
+            else:
+                jour = order.so_date_de_livraison or False
+            if jour and order.so_date_livraison_reelle != jour:
                 order.so_date_livraison_reelle = jour
