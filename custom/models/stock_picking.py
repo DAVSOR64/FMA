@@ -107,6 +107,35 @@ class StockPicking(models.Model):
                 ", ".join(self.mapped("name")))
         return res
 
+    def write(self, vals):
+        """Deplacer la date planifiee d'un BL redate la commande.
+
+        La livraison « reelle » suit la date planifiee du bon. Elle ne peut
+        donc pas n'etre recalculee qu'a la validation : c'est justement quand
+        le magasin REPOUSSE un bon, avant de l'avoir fait, que l'information
+        vaut quelque chose.
+
+        Seuls les bons sortants comptent. Sans ce filtre, un transfert de
+        composants — que le macro planning deplace vers l'amont — donnerait a
+        la commande une date de fabrication en guise de date de livraison. Le
+        piege est documente dans custom_delivery, il avait fait tomber une
+        livraison promise en octobre 2026 au 12 decembre 2025.
+        """
+        res = super().write(vals)
+        if "scheduled_date" not in vals:
+            return res
+        try:
+            commandes = self.filtered(
+                lambda p: p.picking_type_code == "outgoing"
+            ).mapped("sale_id")
+            if commandes:
+                commandes._fma_recalculer_livraison_reelle()
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Livraison reelle non recalculee apres deplacement de %s",
+                ", ".join(self.mapped("name")))
+        return res
+
     def _fma_ordres_de_fabrication(self):
         """Ordres de fabrication auxquels ce transfert se rattache.
 

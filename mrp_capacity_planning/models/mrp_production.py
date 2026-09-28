@@ -297,9 +297,10 @@ class MrpProduction(models.Model):
         - NE TOUCHE PAS aux dates standard des WO (date_start/date_finished)
         """
         self.ensure_one()
-        raw_delivery = getattr(sale_order, "so_date_de_livraison_prevu", False) \
-            or getattr(sale_order, "x_studio_date_de_livraison_prevu", False) \
-            or sale_order.commitment_date
+        # Meme inversion qu'en _get_macro_target_date : l'engagement d'abord.
+        raw_delivery = sale_order.commitment_date \
+            or getattr(sale_order, "so_date_de_livraison_prevu", False) \
+            or getattr(sale_order, "x_studio_date_de_livraison_prevu", False)
 
         delivery_dt = fields.Datetime.to_datetime(raw_delivery)
         if not delivery_dt:
@@ -1188,7 +1189,18 @@ class MrpProduction(models.Model):
 
     def _get_macro_target_date(self):
         """Retourne (delivery_dt, sale_order) pour le recalcul macro.
-        Priorité : so_date_de_livraison_prevu > commitment_date > date_deadline
+        Priorité : commitment_date > so_date_de_livraison_prevu > date_deadline
+
+        L'ordre a été inversé. so_date_de_livraison_prevu venait en premier,
+        or il recevait DEUX choses : le calcul délai + BPE, et la date
+        planifiée du BL recopiée par custom_delivery. Le rétroplanning
+        prenait donc tantôt l'engagement, tantôt le plan du magasin — et
+        quand c'était le plan, il se replanifiait sur sa propre sortie.
+
+        commitment_date ne porte que l'engagement : « Livraison prévue le »,
+        soit délai + BPE. C'est sur une promesse qu'on rétroplanifie, pas sur
+        une prévision qui bouge. L'ancien champ reste en dernier recours, le
+        temps que les bases se vident de ses valeurs.
         """
         self.ensure_one()
         sale_order = False
@@ -1206,16 +1218,18 @@ class MrpProduction(models.Model):
 
         delivery_dt = False
         if sale_order:
-            # Priorité 1 : date de livraison prévue custom (so_date_de_livraison_prevu)
-            raw = (
-                getattr(sale_order, 'so_date_de_livraison_prevu', False)
-                or getattr(sale_order, 'x_studio_date_de_livraison_prevu', False)
-            )
-            if raw:
-                delivery_dt = fields.Datetime.to_datetime(raw)
-            # Priorité 2 : commitment_date Odoo
-            if not delivery_dt and sale_order.commitment_date:
-                delivery_dt = fields.Datetime.to_datetime(sale_order.commitment_date)
+            # Priorité 1 : commitment_date, l'engagement (délai + BPE)
+            if sale_order.commitment_date:
+                delivery_dt = fields.Datetime.to_datetime(
+                    sale_order.commitment_date)
+            # Priorité 2 : l'ancien champ, en dernier recours
+            if not delivery_dt:
+                raw = (
+                    getattr(sale_order, 'so_date_de_livraison_prevu', False)
+                    or getattr(sale_order, 'x_studio_date_de_livraison_prevu', False)
+                )
+                if raw:
+                    delivery_dt = fields.Datetime.to_datetime(raw)
 
         # Priorité 3 : date_deadline de l'OF
         if not delivery_dt and self.date_deadline:
