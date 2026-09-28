@@ -801,6 +801,18 @@ class FmaLotFabrication(models.Model):
             and p.state not in ("done", "cancel")
         )[:1]
         if not debit:
+            termine = self.production_ids.filtered(
+                lambda p: p.lot_production_type == "debit"
+                and p.state == "done"
+            )[:1]
+            if termine:
+                raise UserError(_(
+                    "L'ordre de debit %(of)s est deja termine : sa fin de fab "
+                    "ne pilote plus rien.\n\n"
+                    "Utilisez « Replanifier », qui recale les assemblages "
+                    "seuls depuis la date de fin de fab du lot.",
+                    of=termine.display_name,
+                ))
             raise UserError(
                 _("Le lot %s n'a pas d'ordre de debit actif.", self.name))
         if not debit.macro_forced_end:
@@ -1023,8 +1035,15 @@ class FmaLotFabrication(models.Model):
         assemblages = self.production_assembly_ids.filtered(
             lambda p: p.state not in ("done", "cancel")
         )
-        if not debit or debit.state in ("done", "cancel") or not assemblages:
+        if not assemblages:
             return False
+
+        # UN DEBIT TERMINE N'EMPECHE PLUS DE REPLANIFIER. Il bloquait tout :
+        # une fois le lot debite, plus aucune date d'assemblage ne bougeait,
+        # alors que c'est precisement le moment ou l'atelier a besoin de les
+        # reordonner. On replanifie donc les assemblages seuls, et on ne
+        # touche pas au debit : ce qui est fait est fait.
+        debit_fige = not debit or debit.state in ("done", "cancel")
 
         # mrp_capacity_planning n'est pas une dependance de ce module.
         if not hasattr(debit, "compute_macro_schedule_from_sale"):
@@ -1050,6 +1069,15 @@ class FmaLotFabrication(models.Model):
             debuts = [d for d in assemblages.mapped("date_start") if d]
             if not debuts:
                 return False
+
+            if debit_fige:
+                # Rien a caler en amont : le debit est fait, ou absent.
+                self.message_post(body=_(
+                    "Replanification des assemblages seuls, a partir du "
+                    "%(debut)s : le debit est deja termine.",
+                    debut=min(debuts),
+                ))
+                return True
 
             premier = fields.Datetime.to_datetime(min(debuts)).date()
             poste = debit.workorder_ids[:1].workcenter_id
