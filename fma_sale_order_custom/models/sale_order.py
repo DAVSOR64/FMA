@@ -194,7 +194,83 @@ class SaleOrder(models.Model):
     x_studio_numro_iziqo = fields.Char(string="Numéro Iziqo")
     x_studio_plannifier_en_prod = fields.Boolean(string="Planifié en Prod")
     x_studio_projet = fields.Many2one("project.project", string="Projet mtn")
-    x_studio_restant_a_facturer_ht_pivot = fields.Monetary(string="RAF HT", currency_field="currency_id", readonly=True)
+    # RAF HT : le seul. Il y en avait deux, et ils ne pouvaient pas etre
+    # d'accord — x_studio_calcul_raf_ht, calcule mais NON STOCKE cote Studio,
+    # et celui-ci, stocke mais fige, qu'un bouton recopiait depuis le premier.
+    # Ils divergeaient des que personne n'appuyait dessus.
+    #
+    # La raison d'etre des deux etait technique : un champ non stocke ne
+    # s'agrege pas dans un tableau croise et ne s'exporte pas. Un calcul
+    # STOCKE donne les deux a la fois, et le second champ n'a plus d'objet.
+    #
+    # Le nom technique ne bouge pas : il est cite par les vues, les rapports
+    # et l'export Power BI.
+    # Ce que le RAF soustrait, montre a cote de lui. Le RAF seul ne se
+    # verifie pas ; « total moins facture » se lit d'un coup d'oeil, et c'est
+    # exactement ce qui manquait quand deux champs de RAF coexistaient sans
+    # qu'on puisse dire lequel avait raison.
+    #
+    # NON STOCKE, volontairement : il n'est la que pour rendre le calcul
+    # lisible a l'ecran. C'est le RAF, lui stocke, qui s'agrege dans les
+    # tableaux croises et part dans Power BI. Un champ stocke de plus, ce
+    # serait une colonne de plus a reprendre et une occasion de plus de
+    # diverger.
+    fma_facture_ht = fields.Monetary(
+        string="Facturé HT",
+        currency_field="currency_id",
+        compute="_compute_raf_ht",
+        help="Total hors taxes des factures postées de cette commande, "
+        "avoirs postés déduits.",
+    )
+    x_studio_restant_a_facturer_ht_pivot = fields.Monetary(
+        string="RAF HT",
+        currency_field="currency_id",
+        compute="_compute_raf_ht",
+        store=True,
+        readonly=True,
+        help="Montant restant a facturer hors taxes : total HT de la "
+        "commande, moins les factures postees, plus les avoirs postes.",
+    )
+
+    @api.depends(
+        "amount_untaxed",
+        "invoice_ids.state",
+        "invoice_ids.move_type",
+        "invoice_ids.amount_untaxed",
+    )
+    def _compute_raf_ht(self):
+        """Total HT moins ce qui est deja facture, avoirs deduits.
+
+        On passe par invoice_ids, le lien que la commande porte elle-meme.
+        La formule Studio faisait une recherche sur account.move ; ce n'est
+        pas equivalent : une recherche par origine s'appuie sur un champ
+        texte libre, qu'une facture creee a la main ou reprise d'un autre
+        systeme ne remplit pas toujours. Le lien, lui, ne ment pas.
+
+        On somme la facture ENTIERE, pas seulement ses lignes rattachees a
+        la commande. Cela suppose qu'une facture ne couvre qu'une commande,
+        sinon son montant serait compte sur chacune. Verifie sur la base le
+        28/09/2026 : zero facture postee a cheval sur deux commandes. Si ce
+        jour arrive, il faudra sommer untaxed_amount_invoiced sur les lignes
+        -- le champ natif, qui ne remonte que le rattache.
+
+        Odoo ne propose rien d'equivalent a l'echelle de la commande :
+        amount_invoiced existe mais il est en TTC. Le HT n'existe qu'au
+        niveau de la ligne.
+
+        L'ecart eventuel entre l'ancienne valeur et la nouvelle est mesure
+        par la reprise, commande par commande : c'est la qu'il faut le
+        regarder, pas ici.
+        """
+        for order in self:
+            facture = 0.0
+            for move in order.invoice_ids.filtered(
+                    lambda m: m.state == "posted"):
+                signe = -1.0 if move.move_type == "out_refund" else 1.0
+                facture += signe * (move.amount_untaxed or 0.0)
+            order.fma_facture_ht = facture
+            order.x_studio_restant_a_facturer_ht_pivot = (
+                order.amount_untaxed or 0.0) - facture
     x_studio_so_cout_appro_affaire = fields.Monetary(string="Appro Affaire", currency_field="currency_id")
     x_studio_so_cout_appro_stock = fields.Monetary(string="Appro Stock", currency_field="currency_id")
     x_studio_srie = fields.Many2one("x_serie_mtn", string="Série")

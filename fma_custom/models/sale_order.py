@@ -151,14 +151,23 @@ class SaleOrder(models.Model):
                 order.so_mtt_facturer_reel = order.amount_untaxed
 
     def action_recalculer_restant_ht(self):
-        """Port of the "Recalculer 'Restant HT (pivot)'" Studio button."""
+        """Recalcule le RAF HT.
+
+        Le bouton ne recopie plus rien. Il recopiait le champ Studio
+        x_studio_calcul_raf_ht, non stocke, dans le champ stocke — d'ou deux
+        valeurs qui divergeaient des que personne n'appuyait dessus.
+
+        Le RAF est desormais un calcul STOCKE : il se tient a jour tout seul
+        des que le total de la commande ou ses factures bougent. Le bouton
+        reste, parce qu'une action serveur le cite et qu'il rassure, mais il
+        ne fait plus que forcer le recalcul.
+        """
         orders = self or self.search([])
-        for order in orders:
-            try:
-                val = float(order.x_studio_calcul_raf_ht or 0.0)
-            except (TypeError, ValueError):
-                val = 0.0
-            order.x_studio_restant_a_facturer_ht_pivot = val
+        if "x_studio_restant_a_facturer_ht_pivot" in orders._fields:
+            orders.invalidate_recordset(
+                ["x_studio_restant_a_facturer_ht_pivot"])
+            orders.modified(["amount_untaxed"])
+        return True
 
     def action_calcul_pri(self):
         """Port of the "Calcul PRI" Studio button (id 1214)."""
