@@ -28,7 +28,9 @@
     # 1.0.55 : RAF HT devient un calcul stocke — reprise dans
     # migrations/19.0.1.0.55, numerotee pour CETTE branche : un dossier
     # 19.0.1.0.50 ne tournerait jamais sur une base deja en 1.0.54.
-    "version": "19.0.1.0.55",
+    # 1.0.56 : RAF HT visible dans l'onglet Analyse Financiere, avec le
+    # total HT et le facture HT qui le composent.
+    "version": "19.0.1.0.56",
     "depends": [
         "sale_management",
         "custom",
