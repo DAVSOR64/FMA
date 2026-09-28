@@ -40,7 +40,11 @@
     # 1.19.0 : creation des articles et vitrages manquants pour les pricers
     # sans redacteur, a la convention et aux routes de sqlite_connector, et
     # normalisation des libelles d'operations de TechDesign.
-    "version": "19.0.1.36.0",
+    # 1.37.0 : l'OF de debit ne garde que l'operation Debit. L'usinage sur
+    # banc (CU) se fait sur des barres deja coupees mais appartient a la
+    # menuiserie -- c'est elle qu'on usine, pas le lot : il part sur l'OF
+    # d'assemblage, avec le reste de la gamme.
+    "version": "19.0.1.37.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
