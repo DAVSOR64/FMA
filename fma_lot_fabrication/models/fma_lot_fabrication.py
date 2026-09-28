@@ -771,6 +771,191 @@ class FmaLotFabrication(models.Model):
         self._chainer_debit_et_assemblage(fin_forcee=self.date_fin_fab)
         return True
 
+    def action_replanifier_depuis_debit(self):
+        """Replanifie le lot en partant de la fin de fab du DEBIT.
+
+        Le retroplanning natif va de la livraison vers l'amont, OF par OF.
+        L'ordonnanceur, lui, raisonne dans l'autre sens : il tient le banc de
+        debit, decide quand ce lot y passe, et tout le reste suit. C'est le
+        debit qui est la ressource rare et partagee — les assemblages, non.
+
+        On part donc de « Fin de fab » saisie sur l'OF de debit, on mesure de
+        combien elle deplace le debit, et on applique ce meme decalage a tous
+        les assemblages du lot. Le decalage plutot qu'un recalcul complet :
+        l'ordre relatif des menuiseries, et les arbitrages de capacite deja
+        rendus, n'ont aucune raison de changer parce qu'on decale le lot.
+
+        Chaque assemblage est ensuite recalcule par le moteur existant, qui
+        applique les regles de capacite et le calendrier. Aucune regle metier
+        n'est reecrite ici.
+
+        Trois choses suivent le mouvement, et c'est tout l'interet :
+        la sortie matiere, calee a J-3 ouvres du debit ; les achats non
+        confirmes, dont la date de reception se decale d'autant ; et le
+        controle de la date de livraison client, qui dit si le lot tient
+        encore l'engagement.
+        """
+        self.ensure_one()
+        debit = self.production_ids.filtered(
+            lambda p: p.lot_production_type == "debit"
+            and p.state not in ("done", "cancel")
+        )[:1]
+        if not debit:
+            raise UserError(
+                _("Le lot %s n'a pas d'ordre de debit actif.", self.name))
+        if not debit.macro_forced_end:
+            raise UserError(
+                _(
+                    "Renseignez « Fin de fab » sur l'ordre de debit %s : "
+                    "c'est elle qui pilote la replanification du lot.",
+                    debit.display_name,
+                )
+            )
+        if not hasattr(debit, "compute_macro_schedule_from_date_fin"):
+            raise UserError(
+                _("Le module de planification de capacite n'est pas installe."))
+
+        ancienne = debit.date_finished
+        nouvelle = fields.Datetime.to_datetime(debit.macro_forced_end)
+        decalage = timedelta(0)
+        if ancienne:
+            decalage = nouvelle.date() - fields.Datetime.to_datetime(
+                ancienne).date()
+
+        debit.compute_macro_schedule_from_date_fin()
+
+        assemblages = self.production_ids.filtered(
+            lambda p: p.lot_production_type == "assemblage"
+            and p.state not in ("done", "cancel")
+        )
+        deplaces = self._decaler_assemblages(assemblages, decalage, debit)
+        depart_matiere = self._planifier_sortie_matiere(debit)
+        achats, bloques = self._decaler_achats(decalage)
+        en_retard = self._controler_livraison(assemblages)
+
+        self._rendre_compte_replanification(
+            debit, decalage, deplaces, depart_matiere, achats, bloques,
+            en_retard)
+        return True
+
+    def _decaler_assemblages(self, assemblages, decalage, debit):
+        """Applique le decalage du debit aux assemblages, sans en croiser un.
+
+        Un assemblage ne peut pas commencer avant que le debit soit fini : il
+        consomme l'ensemble debite. Apres le decalage, on verifie, et on
+        repousse ceux qui auraient pris de l'avance.
+        """
+        Production = self.env["mrp.production"]
+        fin_debit = debit.date_finished or debit.date_start
+        fin_debit = fields.Datetime.to_datetime(fin_debit) if fin_debit else False
+        deplaces = Production.browse()
+
+        for mo in assemblages:
+            fin = mo.date_finished
+            if not fin:
+                continue
+            cible = fields.Datetime.to_datetime(fin).date() + decalage
+            mo._set_date_fin_de_fab(cible)
+            mo.compute_macro_schedule_from_date_fin()
+            deplaces |= mo
+
+            # Un assemblage qui commencerait avant la fin du debit est
+            # repousse d'autant de jours qu'il en manque. Une seule passe :
+            # le moteur de capacite fait le reste.
+            if fin_debit and mo.date_start:
+                debut = fields.Datetime.to_datetime(mo.date_start)
+                if debut < fin_debit:
+                    manque = (fin_debit.date() - debut.date()).days + 1
+                    mo._set_date_fin_de_fab(cible + timedelta(days=manque))
+                    mo.compute_macro_schedule_from_date_fin()
+        return deplaces
+
+    def _decaler_achats(self, decalage):
+        """Decale la date de reception des achats du lot.
+
+        Seuls les bons NON confirmes bougent. Un bon confirme est un
+        engagement pris avec le fournisseur : le decaler dans Odoo ne le
+        decale pas chez lui, et donnerait une date a laquelle personne n'a
+        souscrit. Ceux-la sont nommes dans le compte rendu, a l'acheteur de
+        trancher.
+        """
+        Achat = self.env["purchase.order"]
+        if not decalage:
+            return Achat, Achat
+        commandes = self._lignes_achat_du_lot().order_id
+        modifiables = commandes.filtered(lambda a: a.state in ("draft", "sent"))
+        bloques = commandes - modifiables
+        for achat in modifiables:
+            if not achat.date_planned:
+                continue
+            try:
+                achat.date_planned = fields.Datetime.to_datetime(
+                    achat.date_planned) + decalage
+            except Exception:  # noqa: BLE001 — trace, pas de blocage
+                _logger.exception(
+                    "Decalage de la date de %s", achat.display_name)
+        return modifiables, bloques
+
+    def _controler_livraison(self, assemblages):
+        """Les assemblages tiennent-ils encore la date promise au client ?
+
+        On ne corrige rien : deplacer un lot est une decision, et le systeme
+        n'a pas a la refuser. Il doit en revanche dire ce qu'elle coute.
+        """
+        en_retard = []
+        for mo in assemblages:
+            if not hasattr(mo, "_get_macro_target_date"):
+                break
+            cible, _commande = mo._get_macro_target_date()
+            if not cible or not mo.date_finished:
+                continue
+            fin = fields.Datetime.to_datetime(mo.date_finished)
+            cible = fields.Datetime.to_datetime(cible)
+            if fin.date() > cible.date():
+                en_retard.append((mo, fin.date(), cible.date()))
+        return en_retard
+
+    def _rendre_compte_replanification(self, debit, decalage, deplaces,
+                                       depart_matiere, achats, bloques,
+                                       en_retard):
+        """Ce que la replanification a fait, et ce qu'elle n'a pas pu faire."""
+        self.ensure_one()
+        jours = decalage.days if decalage else 0
+        corps = [_(
+            "Replanification depuis le debit %(of)s : fin de fab au "
+            "%(fin)s, soit %(jours)s jour(s) de decalage. "
+            "%(nb)s assemblage(s) suivent.",
+            of=debit.display_name,
+            fin=debit.macro_forced_end,
+            jours=jours,
+            nb=len(deplaces),
+        )]
+        if depart_matiere:
+            corps.append(_(
+                "<br/>Sortie matiere ramenee au %(date)s.", date=depart_matiere))
+        if achats:
+            corps.append(_(
+                "<br/>%(nb)s bon(s) d'achat decale(s) : %(noms)s.",
+                nb=len(achats), noms=", ".join(achats.mapped("name")),
+            ))
+        if bloques:
+            corps.append(_(
+                "<br/><b>%(nb)s bon(s) deja confirme(s) n'ont pas ete "
+                "decales</b> — %(noms)s. Un engagement pris avec le "
+                "fournisseur ne se deplace pas depuis Odoo.",
+                nb=len(bloques), noms=", ".join(bloques.mapped("name")),
+            ))
+        if en_retard:
+            corps.append(_(
+                "<br/><b>%(nb)s menuiserie(s) ne tiennent plus la date "
+                "promise :</b>", nb=len(en_retard)))
+            for mo, fin, cible in en_retard[:8]:
+                corps.append(_(
+                    "<br/>%(of)s : finie le %(fin)s, attendue le %(cible)s.",
+                    of=mo.display_name, fin=fin, cible=cible,
+                ))
+        self.message_post(body="".join(corps))
+
     def _chainer_debit_et_assemblage(self, security_days=6, fin_forcee=None):
         """Planifie le lot : l'assemblage depuis la livraison, le debit avant.
 

@@ -42,6 +42,10 @@
                             string="Imprimer le besoin matière"
                             invisible="not line_ids"
                             help="Profilés au débit, quincaillerie et vitrage en pré-fab, détail par repère, puis une page par casier."/>
+                    <button name="action_replanifier_depuis_debit" type="object"
+                            string="Replanifier depuis le débit"
+                            invisible="state not in ('confirmed', 'progress')"
+                            help="Part de la « Fin de fab » saisie sur l'OF de débit : les assemblages, la sortie matière et les achats non confirmés suivent le même décalage."/>
                     <button name="action_replanifier_lot" type="object"
                             string="Replanifier"
                             invisible="state not in ('confirmed', 'progress')"
