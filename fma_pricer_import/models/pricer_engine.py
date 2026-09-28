@@ -52,7 +52,14 @@ CATEGORIE_VITRAGE = "__export__.product_category_23_31345211"
 
 #: Operations portees par l'OF de debit. CU (banc) y va aussi : c'est la
 #: coupe, elle se fait sur la meme table que le debit et dans le meme temps.
-OPERATIONS_DEBIT = ("Debit", "CU (banc)")
+#: Les operations qui restent sur l'OF de DEBIT. Tout le reste part sur la
+#: menuiserie.
+#:
+#: CU (banc) en a ete retire : l'usinage sur banc se fait sur des barres deja
+#: coupees, mais il appartient a la menuiserie — c'est elle qu'on usine, pas
+#: le lot. Le debit ne garde que le sciage, qui est le seul travail
+#: veritablement mutualise entre les menuiseries d'un lot.
+OPERATIONS_DEBIT = ("Debit",)
 
 
 def sans_accent(texte):
