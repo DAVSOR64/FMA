@@ -401,6 +401,23 @@ class SaleOrder(models.Model):
     #
     # Le nom technique ne bouge pas : il est cite par les vues, les rapports
     # et l'export Power BI.
+    # Ce que le RAF soustrait, montre a cote de lui. Le RAF seul ne se
+    # verifie pas ; « total moins facture » se lit d'un coup d'oeil, et c'est
+    # exactement ce qui manquait quand deux champs de RAF coexistaient sans
+    # qu'on puisse dire lequel avait raison.
+    #
+    # NON STOCKE, volontairement : il n'est la que pour rendre le calcul
+    # lisible a l'ecran. C'est le RAF, lui stocke, qui s'agrege dans les
+    # tableaux croises et part dans Power BI. Un champ stocke de plus, ce
+    # serait une colonne de plus a reprendre et une occasion de plus de
+    # diverger.
+    fma_facture_ht = fields.Monetary(
+        string="Facturé HT",
+        currency_field="currency_id",
+        compute="_compute_raf_ht",
+        help="Total hors taxes des factures postées de cette commande, "
+        "avoirs postés déduits.",
+    )
     x_studio_restant_a_facturer_ht_pivot = fields.Monetary(
         string="RAF HT",
         currency_field="currency_id",
@@ -426,6 +443,17 @@ class SaleOrder(models.Model):
         texte libre, qu'une facture creee a la main ou reprise d'un autre
         systeme ne remplit pas toujours. Le lien, lui, ne ment pas.
 
+        On somme la facture ENTIERE, pas seulement ses lignes rattachees a
+        la commande. Cela suppose qu'une facture ne couvre qu'une commande,
+        sinon son montant serait compte sur chacune. Verifie sur la base le
+        28/09/2026 : zero facture postee a cheval sur deux commandes. Si ce
+        jour arrive, il faudra sommer untaxed_amount_invoiced sur les lignes
+        -- le champ natif, qui ne remonte que le rattache.
+
+        Odoo ne propose rien d'equivalent a l'echelle de la commande :
+        amount_invoiced existe mais il est en TTC. Le HT n'existe qu'au
+        niveau de la ligne.
+
         L'ecart eventuel entre l'ancienne valeur et la nouvelle est mesure
         par la reprise, commande par commande : c'est la qu'il faut le
         regarder, pas ici.
@@ -436,6 +464,7 @@ class SaleOrder(models.Model):
                     lambda m: m.state == "posted"):
                 signe = -1.0 if move.move_type == "out_refund" else 1.0
                 facture += signe * (move.amount_untaxed or 0.0)
+            order.fma_facture_ht = facture
             order.x_studio_restant_a_facturer_ht_pivot = (
                 order.amount_untaxed or 0.0) - facture
     x_studio_so_cout_appro_affaire = fields.Monetary(string="Appro Affaire", currency_field="currency_id")
