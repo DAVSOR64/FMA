@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_fma_lot_fabrication_form_pricer" model="ir.ui.view">
+        <field name="name">fma.lot.fabrication.form.pricer</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="inherit_id"
+               ref="fma_lot_fabrication.view_fma_lot_fabrication_form"/>
+        <field name="arch" type="xml">
+
+            <!--
+                Un import incomplet n'empeche pas de creer le lot, mais il doit
+                se voir : le besoin matiere est partiel, donc les achats le
+                seraient aussi. La confirmation reste bloquee tant que le
+                manque n'est pas leve ou assume.
+            -->
+            <xpath expr="//header" position="inside">
+                <button name="action_ignore_import_issues" type="object"
+                        string="Ignorer les manques"
+                        invisible="not import_incomplete or state != 'draft'"
+                        confirm="Le besoin matiere du lot restera partiel. Confirmer ?"
+                        help="A utiliser quand les barres manquantes ont ete ajoutees a la main."/>
+            </xpath>
+
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-warning" role="alert"
+                     invisible="not import_incomplete">
+                    <b>Import incomplet.</b> Une partie de ce que decrivait le
+                    fichier du pricer n'a pas pu etre reprise. Le lot ne peut pas
+                    etre confirme en l'etat.
+                    <field name="import_issues" readonly="1" nolabel="1"/>
+                </div>
+            </xpath>
+
+            <xpath expr="//field[@name='logikal_ref']" position="after">
+                <field name="pricer_lot_key" readonly="1"
+                       invisible="not pricer_lot_key" groups="base.group_no_one"/>
+                <field name="import_incomplete" invisible="1"/>
+                <!--
+                    Le besoin en metres n'apparait pas dans les nomenclatures :
+                    les profiles y sont representes par le sous-ensemble
+                    debite. C'est ici qu'il se mesure, en face des barres
+                    reellement sorties du stock.
+                -->
+                <field name="debit_length" readonly="1"
+                       invisible="not debit_length"/>
+                <field name="purchased_length" readonly="1"
+                       invisible="not purchased_length"/>
+                <field name="loss_rate" readonly="1"
+                       invisible="not purchased_length"/>
+            </xpath>
+
+            <xpath expr="//field[@name='material_line_ids']/list/field[@name='product_qty']"
+                   position="after">
+                <field name="bar_length" optional="show"/>
+                <field name="purchased_length" optional="show"/>
+                <field name="debit_length" optional="show"/>
+                <field name="loss_length" optional="hide"/>
+                <field name="loss_rate" optional="show"/>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

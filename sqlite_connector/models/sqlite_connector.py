@@ -15,6 +15,44 @@ from datetime import datetime, timedelta
 
 _logger = logging.getLogger(__name__)
 
+# Suffixe de lot ajoute par LOGIKAL quand une position est repartie en lots :
+# la position « A » devient « A_1 » dans LOT 1, « A_2 » dans LOT 2, etc.
+LOT_SUFFIX_RE = re.compile(r"_(\d+)$")
+
+
+def base_position(name, phase):
+    """Nom de position independant du lot.
+
+    Les references d'article doivent designer *ce qui est fabrique*, pas le lot
+    dans lequel il l'est : une meme menuiserie repartie sur cinq lots reste un
+    seul article, une seule nomenclature et une seule ligne de devis.
+
+    On ne retire le suffixe que s'il correspond au numero du lot : une position
+    reellement nommee « PORTE_2 » dans un lot 1 n'est pas tronquee.
+    """
+    name = (name or '').strip()
+    found = LOT_SUFFIX_RE.search(name)
+    if not found:
+        return name
+    numbers = re.findall(r"\d+", phase or '')
+    if numbers and numbers[-1] == found.group(1):
+        return name[:found.start()]
+    return name
+
+
+#: Categorie d'article posee par le connecteur, et nature LOGIKAL qui va avec.
+#:
+#: La distinction profile / article / vitrage n'existe que dans le FICHIER :
+#: trois tables, Profiles, Articles et Glass. Elle se perd ensuite, car rien
+#: ne la porte cote Odoo — la categorie peut etre changee a la main, et on l'a
+#: deja fait pour debloquer un import. On la recopie donc sur l'article, dans
+#: fma_nature_logikal, au moment ou on la connait encore.
+CATEGORIE_NATURE = {
+    '__export__.product_category_14_a5d33274': 'article',
+    '__export__.product_category_19_b8423373': 'profile',
+}
+
+
 class SqliteConnector(models.Model):
     _name = 'sqlite.connector'
     _inherit = ['mail.thread', 'mail.activity.mixin']
@@ -25,7 +63,95 @@ class SqliteConnector(models.Model):
     date = fields.Date(string='Date', default=fields.Date.context_today)
     state = fields.Selection([('new', 'New'), ('done', 'Exported'), ('error', 'Errors')], string='Status', readonly=True, default='new')
     file = fields.Binary(string='SQLite file')
+    filename = fields.Char(string='Nom du fichier')
     ir_log_ids = fields.One2many('ir.logging', 'connector_id')
+    target_sale_order_id = fields.Many2one(
+        'sale.order',
+        string='Devis cible',
+        help="Quand ce champ est renseigne, l'import ecrit dans CE devis au "
+             "lieu de chercher un devis dont le nom correspond au projet "
+             "LOGIKAL. C'est le mode utilise par le bouton 'Import Pricer' "
+             "pose sur le devis.",
+    )
+
+    def _glass_refs(self, glass, proj, base_positions):
+        """Reference de chaque vitrage : affaire, position, rang dans la position.
+
+        Le vitrage est toujours rattache a une insertion, donc a une elevation,
+        donc a une ligne de commande : sa reference le dit. Le rang est calcule
+        sur un tri stable (designation, dimensions, type) et non sur l'ordre de
+        lecture, pour qu'un meme vitrage porte la meme reference d'un export a
+        l'autre.
+
+        Renvoie une liste alignee sur ``glass``.
+        """
+        ranked = {}
+        for index, ligne in enumerate(glass):
+            position = base_positions.get(
+                (ligne[2] or '').strip(), (ligne[2] or '').strip()
+            )
+            ranked.setdefault(position, []).append(
+                ((str(ligne[3]), str(ligne[4]), str(ligne[5]), str(ligne[10])), index)
+            )
+
+        refs = [''] * len(glass)
+        for position, entries in ranked.items():
+            for rank, (_key, index) in enumerate(sorted(entries), start=1):
+                refs[index] = '%s_%s_%s' % (proj, position, rank)
+        return refs
+
+    def _base_positions(self, cursor):
+        """Position de base de chaque elevation, indexee par son nom.
+
+        Sert a construire des references stables d'un export a l'autre quand
+        l'affaire est exportee lot par lot.
+        """
+        rows = cursor.execute(
+            "select Elevations.Name, Phases.Name from Elevations "
+            "inner join ElevationGroups "
+            "on ElevationGroups.ElevationGroupID = Elevations.ElevationGroupId "
+            "left join Phases on Phases.PhaseID = ElevationGroups.PhaseId"
+        ).fetchall()
+        return {
+            (name or '').strip(): base_position(name, phase)
+            for name, phase in rows
+        }
+
+    def _resolve_sale_order(self, project_name):
+        """Devis dans lequel l'import doit ecrire.
+
+        Historiquement, l'import retrouvait le devis par son nom, qui devait
+        etre saisi manuellement a l'identique du projet LOGIKAL. Quand
+        l'import est lance depuis un devis (``target_sale_order_id``), on
+        ecrit directement dedans : le numero Odoo et le client font foi.
+        """
+        self.ensure_one()
+        if self.target_sale_order_id:
+            return self.target_sale_order_id
+        return self.env['sale.order'].search(
+            [('name', '=', project_name), ('state', 'not in', ['done', 'cancel'])],
+            limit=1,
+        )
+
+    # Champs d'entete que l'import ne doit pas ecraser quand il ecrit dans un
+    # devis existant : le devis Odoo fait foi pour le client et la date.
+    _TARGET_SO_PROTECTED_FIELDS = (
+        'partner_id',
+        'partner_shipping_id',
+        'partner_invoice_id',
+        'date_order',
+    )
+
+    def _clean_so_vals(self, vals):
+        """Retire les valeurs d'entete a ne pas ecraser sur le devis cible."""
+        self.ensure_one()
+        if not self.target_sale_order_id:
+            return vals
+        return {
+            key: value
+            for key, value in vals.items()
+            if key not in self._TARGET_SO_PROTECTED_FIELDS
+        }
 
     def _get_default_product_category(self):
         root = self.env.ref('product.product_category_all', raise_if_not_found=False)
@@ -363,6 +489,7 @@ class SqliteConnector(models.Model):
             elevID = ''
             cat = ''
             categorie = ''
+            base_positions = self._base_positions(cursor)
             resultsm = cursor.execute("select Elevations.ElevationID, Elevations.Name, Elevations.Model, Elevations.Autodescription, Elevations.Height_Output, Elevations.Width_Output, Projects.OfferNo, ReportOfferTexts.TotalPrice, Elevations.Description,Elevations.Model from Elevations INNER JOIN ElevationGroups ON Elevations.ElevationGroupID = ElevationGroups.ElevationGroupID INNER JOIN Phases ON Phases.PhaseID = ElevationGroups.PhaseId INNER JOIN Projects ON Projects.ProjectID = Phases.ProjectId INNER JOIN ReportOfferTexts ON ReportOfferTexts.ElevationId = Elevations.ElevationId order by Elevations.ElevationID")
 
             # To get the product category as Elevations.Name will be categ_id
@@ -372,10 +499,18 @@ class SqliteConnector(models.Model):
                     Index = str(cpt)
                     refart = row[8]
                     categorie = row[2]
+                    # Reference = affaire + position, et non le rang de la
+                    # position dans le fichier : sur une affaire exportee lot
+                    # par lot, le rang change d'un fichier a l'autre et deux
+                    # menuiseries differentes se retrouveraient sous la meme
+                    # reference.
+                    position = base_positions.get(
+                        (row[1] or '').strip(), (row[1] or '').strip()
+                    )
                     if Tranche == '0' :
-                        refint =  str(cpt) + '_' + projet
+                        refint =  projet + '_' + position
                     else :
-                        refint =  str(cpt) + '_' + projet + '/' + str(Tranche)
+                        refint =  projet + '/' + str(Tranche) + '_' + position
                     elevID = row[1]
                     idrefart = ''
                     HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
@@ -594,6 +729,17 @@ class SqliteConnector(models.Model):
                     CptLb = CptLb + 1
                     refart = nom[:3] + ' ' + projet +'_LB' + str(CptLb)
                     fournisseur = 'NONDEF'
+                    # LOGIKAL ne donne aucune reference a une ligne saisie a la
+                    # main : ni code, ni GUID, ni hashcode. La designation est
+                    # tout ce qu'il y a de stable, et elle porte deja la
+                    # reference du chiffreur (« SOP A26-07-03020/1_1 VR »).
+                    #
+                    # Le compteur _LB, lui, suit l'ordre du fichier DEPOSE :
+                    # ce meme volet roulant est _LB4 dans l'export du lot 1 et
+                    # _LB15 dans celui du chantier entier. La reference ne peut
+                    # donc pas servir a reconnaitre l'article d'un depot a
+                    # l'autre -- c'est ce qui en creait un second.
+                    RefLogikal = nom
                     
                 # to get price
                 for article in articles:
@@ -645,7 +791,23 @@ class SqliteConnector(models.Model):
             # Created new article
             #_logger.warning("**********Prix  Article********* %s " % str(prix) )
             _logger.warning("**********Article********* %s " % refart )
-            if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
+            # Un article libre se reconnait a sa designation, pas a sa
+            # reference : celle-ci depend du rang dans le fichier depose et
+            # change d'un export a l'autre. Sans ce rattrapage, redeposer le
+            # chantier entier apres un lot recreait les memes pieces sous
+            # d'autres _LB.
+            existant = self.env['product.product'].search(
+                [('default_code', '=', refart)], limit=1)
+            if not existant and ligne[8] and ligne[10]:
+                # Restreint a l'affaire : deux lots d'un meme chantier doivent
+                # retomber sur le meme article, mais « Lisse galva basse »
+                # tapee sur deux affaires decrit deux pieces, a deux prix.
+                # L'affaire est dans la reference, seul le compteur bouge.
+                existant = self.env['product.product'].search(
+                    [('x_studio_ref_int_logikal', '=', ligne[10]),
+                     ('fma_article_libre', '=', True),
+                     ('default_code', 'like', projet + '_LB')], limit=1)
+            if not existant:
                 _logger.warning("**********Creation Article********* %s " % refart )
                 vals = {
                     'default_code': refart,
@@ -666,6 +828,13 @@ class SqliteConnector(models.Model):
                     'x_studio_unit_logikal' : ligne[12],
                     'x_studio_longueur_m' : ligne[13],
                     'x_studio_cration_auto' : True,
+                    # Marque d'origine : cet article ne vient d'aucun
+                    # catalogue fournisseur, le chiffreur l'a saisi a la
+                    # main dans LOGIKAL. C'est ce qui permet de les
+                    # retrouver tous, et de ne chercher que parmi eux
+                    # quand l'import pricer rattache une ligne manuelle.
+                    'fma_article_libre' : bool(ligne[8]),
+                    'fma_nature_logikal' : CATEGORIE_NATURE.get(ligne[3]),
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
@@ -885,6 +1054,8 @@ class SqliteConnector(models.Model):
                             'x_studio_unit_logikal' : ligne[12],
                             'x_studio_longueur_m' : ligne[13],
                             'x_studio_cration_auto' : True,
+                            'fma_article_libre' : bool(ligne[8]),
+                            'fma_nature_logikal' : CATEGORIE_NATURE.get(ligne[3]),
                             # 'x_studio_positionn': ''
                             }
                         if idfrs:
@@ -984,7 +1155,7 @@ class SqliteConnector(models.Model):
                 
                 Frsid = row[17]
                 Id = str(row[16])
-                _logger.warning('fournisseur %s :' % str(Frsid))
+                #_logger.warning('fournisseur %s :' % str(Frsid))
                 typeglass = ''
                 type = row[18]
                 if type == 0:
@@ -996,11 +1167,11 @@ class SqliteConnector(models.Model):
                 for sup in suppliers :
                     if str(sup['id']).replace(" ", "") == str(Frsid).replace(" ", "") :
                         sname = sup['name']
-                        _logger.warning('----- %sname' % sname)
+                        
                 for part in res_partners.filtered(lambda p: p.x_studio_ref_logikal):
                     if sname == (part.x_studio_ref_logikal):
                         res_partner = part
-                        _logger.warning('----- %s' % res_partner)
+                        #_logger.warning('----- %s' % res_partner)
                 
                 if res_partner:
                     for partner in res_partner:
@@ -1078,6 +1249,8 @@ class SqliteConnector(models.Model):
             largNumDec = 0
             HautNum = 0
             largNum = 0
+            glass_positions = self._base_positions(cursor)
+            glass_refs = self._glass_refs(Glass, proj, glass_positions)
             for ligne in Glass :
                 cpt = cpt + 1
                 uom_uom = uom_uoms.filtered(lambda u: u.name == unnomf)
@@ -1097,9 +1270,14 @@ class SqliteConnector(models.Model):
                     x_affaire = self.env['x_affaire'].search([('x_name', 'ilike', projet)], limit=1)
                     
                 if vitrage != (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5])) :
-                    refinterne = proj + "_" + str(cpt)
+                    refinterne = glass_refs[cpt - 1]
                     vitrage = ligne[3]
-                    position = ligne[2]
+                    # Position de base : au deuxieme lot, LOGIKAL parle de
+                    # « A_2 » la ou le vitrage a ete cree sous « A ». Stocker
+                    # le nom brut ferait perdre le rattachement.
+                    position = glass_positions.get(
+                        (ligne[2] or '').strip(), (ligne[2] or '').strip()
+                    )
                     prix = ligne[6]
                     Qte = ligne[8]
                     HautNumDec = float(ligne[5])
@@ -1139,6 +1317,7 @@ class SqliteConnector(models.Model):
                             'x_studio_hauteur_mm': HautNum,
                             'x_studio_largeur_mm': largNum,
                             'x_studio_cration_auto' : True,
+                            'fma_nature_logikal' : 'glass',
                             'x_studio_spacer': spacer,
                             'x_studio_position': position,
                             'x_studio_type': type,
@@ -1247,17 +1426,22 @@ class SqliteConnector(models.Model):
                         refart = 'Frais de livraison'
                 else :
                     PourRem = PourRemProj
+                    # Meme convention que la creation de l'article :
+                    # <affaire>_<position>, position debarrassee du suffixe
+                    # de lot. Sans cet alignement, la ligne cherche un
+                    # article qui n'existe pas et n'est pas creee.
+                    position_ligne = base_position(row[11], row[3])
                     if (row[9] == None or row[7] == None) :
                         dimension = ''
                         NumLig = NumLig + 1
                         if Tranche == '0' :
                             #refart = '[' + str(NumLig) + '_' + projet + ']'
-                            refart = str(NumLig) + '_' + projet
+                            refart = projet + '_' + position_ligne
                             price = float(row[8])
                             Qty = float(row[6])
                         else :
                             #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']'
-                            refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
+                            refart = projet + '/' + str(Tranche) + '_' + position_ligne
                             price = float(row[8])
                             Qty = float(row[6])
                     else:
@@ -1266,12 +1450,12 @@ class SqliteConnector(models.Model):
                         #refart = '[' + str(NbrLig) + '_' + projet + ']' + row[12]
                         if Tranche == '0'  :
                             #refart = '[' + str(NumLig) + '_' + projet + ']' 
-                            refart = str(NumLig) + '_' + projet
+                            refart = projet + '_' + position_ligne
                             price = float(row[8])
                             Qty = float(row[6])
                         else :
                             #refart = '[' + str(NumLig) + '_' + projet + '/' + str(Tranche) + ']' 
-                            refart = str(NumLig) + '_' + projet + '/' + str(Tranche)
+                            refart = projet + '/' + str(Tranche) + '_' + position_ligne
                             price = float(row[8])
                             Qty = float(row[6])
                 
@@ -1292,7 +1476,7 @@ class SqliteConnector(models.Model):
                     warehouse = self.env.ref(entrepot).id
                     
                 _logger.warning('Dans la creation du sale order %s' % proj)
-                sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                sale_order = self._resolve_sale_order(proj)
                 ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                 
                 if sale_order:
@@ -1323,14 +1507,24 @@ class SqliteConnector(models.Model):
                                 'product_uom_id': pro.uom_id.id,
                                 # "analytic_tag_ids": [(6, 0, [account_analytic_tag_id])] if account_analytic_tag_id else None,
                                 }))
-            sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+            sale_order = self._resolve_sale_order(proj)
             
             ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                             
             dimension = ''
             pro = self.env['product.product'].search([('default_code', '=', proj)], limit=1)
             
-            if sale_order:
+            # L'article « projet » n'est ajoute qu'une fois. Sans ce controle,
+            # chaque import en reposait une ligne : trois lots importes
+            # donnaient trois lignes identiques a 1 unite, donc trois ordres
+            # de fabrication parasites a la confirmation. Constate sur la
+            # staging le 13/08/2026.
+            deja_pose = bool(pro) and bool(sale_order.order_line.filtered(
+                lambda l: l.product_id == pro
+            ))
+            # Voir « LA NOMENCLATURE D'AFFAIRE EST UN HERITAGE » plus bas :
+            # sans nomenclature d'affaire, cette ligne n'a plus d'objet.
+            if sale_order and not deja_pose and 'fma.pricer.engine' not in self.env:
             # stagging before merge if sale_order and so_data:
                if pro and so_data[sale_order.id] and so_data[sale_order.id].get('order_line'):
                     so_data[sale_order.id].get('order_line').append(Command.create({
@@ -1365,7 +1559,7 @@ class SqliteConnector(models.Model):
                     warehouse = False
                     if data1[10]:
                         warehouse = self.env.ref(data1[10]).id
-                    sale_order = self.env['sale.order'].search([('name', '=', proj), ('state', 'not in', ['done', 'cancel'])], limit=1)
+                    sale_order = self._resolve_sale_order(proj)
                     
                     ana_acc = self.env['account.analytic.account'].search([('name', 'ilike', projet)], limit=1)
                     if sale_order:
@@ -1399,6 +1593,23 @@ class SqliteConnector(models.Model):
                                     })
                                 )
         # Now we will create nomenclatures
+        #
+        # LA NOMENCLATURE D'AFFAIRE EST UN HERITAGE. Elle posait, sur un
+        # article « projet » unique vendu 1 fois a 0 euro, tous les profiles,
+        # articles et vitrages du chantier, plus toutes les operations. C'etait
+        # la seule nomenclature possible tant que LOGIKAL ne decrivait pas
+        # menuiserie par menuiserie.
+        #
+        # Depuis l'import pricer, chaque position porte SA nomenclature et SA
+        # gamme. La ligne d'affaire ne fabrique plus qu'un ordre parasite a la
+        # confirmation, et sa nomenclature fait double emploi avec celles des
+        # menuiseries.
+        #
+        # On ne la cree donc plus la ou le pricer prend le relais -- et
+        # seulement la. Sans fma_pricer_import, ce qui est le cas en
+        # production aujourd'hui, elle reste la seule nomenclature du
+        # chantier : la retirer partout arreterait la fabrication.
+        nomenclature_affaire = 'fma.pricer.engine' not in self.env
         datanom=[]
         cpt = 0
         elevID = ''
@@ -1426,6 +1637,8 @@ class SqliteConnector(models.Model):
                 datanom1 = ['','','','','','']
             
             pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
+            if not nomenclature_affaire:
+                continue
             if datanom1[1] != '':
                 pro_t = self.env['product.product'].search([('default_code', '=', datanom1[1])], limit=1)
                 if not pro_t:
@@ -1457,13 +1670,23 @@ class SqliteConnector(models.Model):
 
         cpt = 0
         refart = ''
+        glass_refs = self._glass_refs(Glass, proj, self._base_positions(cursor))
         for ligne in Glass :
             cpt = cpt + 1
-            refart = proj + '_' + str(cpt)
+            refart = glass_refs[cpt - 1]
             Qte = ligne[8]
             #_logger.warning('Dans les vitrages %s', refart)
             pro = self.env['product.product'].search([('default_code', '=', refart)], limit=1)
-            if pro:
+            # nomenclatures_data peut etre VIDE : la nomenclature de projet
+            # n'est creee que si l'article projet est trouve, et la boucle
+            # precedente se protege deja de ce cas. Celle-ci ne le faisait pas
+            # et levait « IndexError: list index out of range » au premier
+            # vitrage, faisant echouer tout l'import.
+            if pro and not nomenclatures_data and nomenclature_affaire:
+                self.log_request(
+                    "Nomenclature de projet absente : vitrage non rattache",
+                    refart, 'Nomenclatures Creation')
+            if pro and nomenclatures_data:
                 #_logger.warning('Affaire %s', proj)
                 nomenclatures_data[0].get('bom_line_ids').append(Command.create({
                 'product_id': pro[0].id,
@@ -1582,7 +1805,7 @@ class SqliteConnector(models.Model):
 
         for so in so_data:
             for so_to_update in self.env['sale.order'].browse(so):
-                so_to_update.write(so_data[so])
+                so_to_update.write(self._clean_so_vals(so_data[so]))
                 # so_to_update.action_confirm()
                 message = _("Sales Order Updated: ") + so_to_update._get_html_link()
                 self.message_post(body=message)

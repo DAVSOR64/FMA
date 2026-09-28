@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_order_form_pricer_import" model="ir.ui.view">
+        <field name="name">sale.order.form.pricer.import</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//div[@name='button_box']" position="before">
+                <field name="pricer_import_count" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_pricer_imports" type="object"
+                        class="oe_stat_button" icon="fa-download"
+                        invisible="pricer_import_count == 0">
+                    <field name="pricer_import_count" widget="statinfo"
+                           string="Imports Pricer"/>
+                </button>
+            </xpath>
+
+            <!-- L'import n'est plus un bouton de la barre d'etat : il rejoint
+                 le menu Action (cf. action serveur ci-dessous), pour ne garder
+                 en tete que les actions du quotidien. -->
+
+        </field>
+    </record>
+
+    <record id="action_server_pricer_import" model="ir.actions.server">
+        <field name="name">Import Pricer</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_open_pricer_import()</field>
+    </record>
+
+</odoo>

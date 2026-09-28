@@ -1,0 +1,188 @@
+# -*- coding: utf-8 -*-
+"""Rattachement des ordres de fabrication a leur lot.
+
+Les OF d'un meme lot sont relies par ``lot_fabrication_id`` (la reference de
+lot) et non par le chainage parent/enfant natif : c'est ce qui permet de
+regrouper 1 OF Debit + N OF Assemblage dans une seule vue, quel que soit le
+mode de reapprovisionnement.
+"""
+import logging
+
+from odoo import _, fields, models
+
+_logger = logging.getLogger(__name__)
+
+
+class MrpProduction(models.Model):
+    _inherit = "mrp.production"
+
+    lot_fabrication_id = fields.Many2one(
+        "fma.lot.fabrication",
+        string="Lot de fabrication",
+        copy=False,
+        index=True,
+        ondelete="set null",
+        help="Lot regroupant cet OF avec les autres OF de la meme serie.",
+    )
+    lot_production_type = fields.Selection(
+        [
+            ("debit", "Debit"),
+            ("quincaillerie", "Quincaillerie"),
+            ("assemblage", "Assemblage"),
+        ],
+        string="Type dans le lot",
+        copy=False,
+        index=True,
+        help="Debit : 1 par lot, consomme les profiles. "
+        "Quincaillerie : 1 par ligne, produit le kit, sans operation. "
+        "Assemblage : 1 par ligne, point de declaration de fabrication.",
+    )
+    lot_line_id = fields.Many2one(
+        "fma.lot.fabrication.line",
+        string="Ligne de lot",
+        copy=False,
+        ondelete="set null",
+    )
+    lot_sale_line_id = fields.Many2one(
+        "sale.order.line",
+        string="Ligne de commande",
+        copy=False,
+        index=True,
+        ondelete="set null",
+    )
+    lot_sale_order_id = fields.Many2one(
+        related="lot_sale_line_id.order_id",
+        string="Commande liee",
+        store=True,
+    )
+
+    # ------------------------------------------------------------------
+    # Composants ajoutes hors nomenclature
+    # ------------------------------------------------------------------
+    def _lot_move_vals(self, product, qty, uom=None):
+        """Valeurs d'un composant ajoute hors nomenclature.
+
+        On delegue a ``_get_move_raw_values``, la methode native qui construit
+        les composants d'un OF : elle gere l'emplacement de production, la
+        methode d'approvisionnement, l'entrepot et les dates, et elle suit les
+        renommages de champs de ``stock.move`` d'une version a l'autre.
+        """
+        self.ensure_one()
+        vals = self._get_move_raw_values(product, qty, uom or product.uom_id)
+        if self.origin:
+            vals["origin"] = self.origin
+        return vals
+
+    def _add_debit_component(self, product_debit, qty):
+        """Ajoute l'ensemble debite du lot aux composants de l'OF assemblage.
+
+        C'est le lien matiere entre l'OF Debit (qui produit l'ensemble) et
+        l'OF Assemblage (qui le consomme).
+
+        La nomenclature de la menuiserie porte desormais son propre ensemble
+        debite : dans le cas courant, le composant est deja la et il n'y a
+        rien a ajouter. On ne se contente pas de comparer l'article, on
+        regarde s'il y a DEJA un ensemble debite, quel qu'il soit : un lot
+        importe avant que chaque ligne ne porte le sien pointe encore vers
+        l'ensemble generique, et on en consommerait deux.
+        """
+        self.ensure_one()
+        if not product_debit or not qty:
+            return self.env["stock.move"]
+        already = self.move_raw_ids.filtered(
+            lambda m: m.product_id == product_debit
+            or m.product_id.fma_semi_fini == "debit"
+        )
+        if already:
+            return already
+        return self.env["stock.move"].create(
+            self._lot_move_vals(product_debit, qty)
+        )
+
+    def _add_debit_byproduct(self, product, qty):
+        """Ajoute un ensemble debite en SOUS-PRODUIT de l'OF de debit.
+
+        Un ordre de fabrication ne produit qu'un article, or une seance de
+        debit en sort autant qu'il y a de reperes dans le lot : les barres
+        sont mutualisees, les coupes ne le sont pas. Le premier repere est
+        l'article produit, les autres sont des sous-produits. C'est
+        exactement ce que le mecanisme natif decrit — plusieurs sorties pour
+        une meme consommation.
+        """
+        self.ensure_one()
+        if not product or not qty:
+            return self.env["stock.move"]
+        deja = self.move_finished_ids.filtered(
+            lambda m: m.product_id == product
+        )
+        if deja:
+            return deja
+        vals = self._get_move_finished_values(
+            product.id, qty, product.uom_id.id
+        )
+        if self.origin:
+            vals["origin"] = self.origin
+        return self.env["stock.move"].create(vals)
+
+    def _add_lot_material_moves(self, material_lines):
+        """Alimente les composants de l'OF Debit depuis le besoin matiere."""
+        self.ensure_one()
+        Move = self.env["stock.move"]
+        moves = Move.browse()
+        existing = self.move_raw_ids.mapped("product_id")
+        for line in material_lines:
+            if line.product_id in existing:
+                continue
+            moves |= Move.create(
+                self._lot_move_vals(
+                    line.product_id, line.product_qty, line.product_uom_id
+                )
+            )
+        return moves
+
+    # ------------------------------------------------------------------
+    # Reliquats
+    # ------------------------------------------------------------------
+    def _get_backorder_mo_vals(self):
+        """Le reliquat reste dans le lot.
+
+        Declarer une menuiserie sur un OF de dix cree un reliquat de neuf, par
+        copie. Or tous les champs du lot sont en copy=False — a raison : un OF
+        duplique a la main ne doit pas se retrouver dans le lot d'origine. Mais
+        le reliquat, lui, EST le meme travail : sans ce report, les neuf
+        menuiseries restantes sortaient du lot, de son etat, de sa vue et de sa
+        planification.
+        """
+        vals = super()._get_backorder_mo_vals()
+        vals.update(
+            {
+                "lot_fabrication_id": self.lot_fabrication_id.id,
+                "lot_production_type": self.lot_production_type,
+                "lot_line_id": self.lot_line_id.id,
+                "lot_sale_line_id": self.lot_sale_line_id.id,
+            }
+        )
+        return vals
+
+    # ------------------------------------------------------------------
+    # Propagation d'etat vers le lot
+    # ------------------------------------------------------------------
+    def write(self, vals):
+        res = super().write(vals)
+        if "state" in vals:
+            lots = self.mapped("lot_fabrication_id")
+            if lots:
+                lots._check_production_done()
+        return res
+
+    def action_view_lot_fabrication(self):
+        self.ensure_one()
+        if not self.lot_fabrication_id:
+            return False
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Lot de fabrication"),
+            "res_model": "fma.lot.fabrication",
+            "res_id": self.lot_fabrication_id.id,
+            "view_mode": "form",
+        }
