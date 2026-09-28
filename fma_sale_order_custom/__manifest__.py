@@ -25,7 +25,10 @@
     # 1.0.12 : fusion avec iziqo-sales-sync. Le pave « Affaire & equipe »
     # garde projet, chantier et tranche : ces notions restent propres a
     # Staging_19, l'autre branche ne les portait pas encore.
-    "version": "19.0.1.0.54",
+    # 1.0.55 : RAF HT devient un calcul stocke — reprise dans
+    # migrations/19.0.1.0.55, numerotee pour CETTE branche : un dossier
+    # 19.0.1.0.50 ne tournerait jamais sur une base deja en 1.0.54.
+    "version": "19.0.1.0.55",
     "depends": [
         "sale_management",
         "custom",
