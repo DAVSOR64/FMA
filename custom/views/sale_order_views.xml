@@ -94,8 +94,11 @@
                     </group>
                 </page>
 
-                <!-- Onglet Analyse Financière (déjà existant) -->
-                <page string="Analyse Financière">
+                <!-- Onglet Analyse Financière (déjà existant).
+                     Le name est indispensable : sans lui, un module qui
+                     dépend de custom ne peut s'y accrocher que par @string,
+                     ce qui casse dès que la vue est rendue en français. -->
+                <page string="Analyse Financière" name="fma_analyse_financiere">
                     <group>
                         <group string="Chiffres Devis">
                             <field name="so_achat_matiere_devis"/>

@@ -20,7 +20,9 @@
     # de la dependance sale_project et de views/project_project_views.xml.
     # 1.0.19 : RAF HT devient un champ calcule et stocke, et il n'y en
     # a plus qu'un. Reprise des commandes deja en base en post-migrate.
-    "version": "19.0.1.0.19",
+    # 1.0.20 : RAF HT visible dans l'onglet Analyse Financiere, avec le
+    # total HT et le facture HT qui le composent.
+    "version": "19.0.1.0.20",
     "depends": [
         "sale_management",
         "custom",
