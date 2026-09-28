@@ -23,9 +23,13 @@ class SaleOrder(models.Model):
         for order in self:
             # 1) Déterminer une date "cible" de livraison
             # Priorité: commitment_date du SO (vraie promesse)
-            commitment_dt = getattr(order, "so_date_de_livraison_prevu", False) \
-                or getattr(order, "x_studio_date_de_livraison_prevu", False) \
-                or order.commitment_date
+            # L'engagement d'abord — « Livraison prevue le », soit delai +
+            # BPE, recopie dans commitment_date. so_date_de_livraison_prevu
+            # ne vient qu'en secours : il portait aussi la date planifiee du
+            # BL, donc on ne pouvait pas savoir ce qu'il disait.
+            commitment_dt = order.commitment_date \
+                or getattr(order, "so_date_de_livraison_prevu", False) \
+                or getattr(order, "x_studio_date_de_livraison_prevu", False)
 
             # Fallback: si pas de commitment_date, construire une date via délai max des lignes
             if not commitment_dt:

@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Custom Field Transfer",
-    "version": "19.0.1.0.75",
+    # 1.0.76 : « Livraison reelle le » lit la date PLANIFIEE du BL et
+    # non sa date effective ; commitment_date suit « Date de livraison
+    # prevue ». Reprise des commandes deja en base en post-migrate.
+    "version": "19.0.1.0.76",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
