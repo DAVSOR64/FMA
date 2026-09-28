@@ -234,14 +234,14 @@ class MrpProduction(models.Model):
             return payload
 
         # Meme controle que la replanification au niveau du lot : une date de
-        # livraison introuvable bloque, un depassement aussi.
-        lot._controler_livraison(assemblages, decalage)
+        # livraison introuvable bloque, un depassement aussi. La fin visee du
+        # debit lui sert a repousser les assemblages qui le precederaient.
+        fin_debit = self._date_fin_de_fab()
+        lot._controler_livraison(assemblages, decalage, fin_debit)
 
         lignes = []
         for mo in assemblages.sorted(lambda m: m.name or ""):
-            fin = mo.date_finished
-            projetee = (fields.Datetime.to_datetime(fin).date() + decalage
-                        ) if fin else None
+            projetee = lot._fin_projetee(mo, decalage, fin_debit)
             cible, _commande = mo._get_macro_target_date()
             lignes.append({
                 "name": mo.display_name or "",
@@ -252,6 +252,7 @@ class MrpProduction(models.Model):
             })
         payload["fma_assemblages"] = lignes
         payload["fma_decalage"] = decalage.days
+        payload["fma_fin_debit"] = fin_debit.strftime("%d/%m/%Y")
         return payload
 
     def _render_replan_preview_html(self, payload):
@@ -266,7 +267,7 @@ class MrpProduction(models.Model):
             for l in lignes
         )
         return html + """
-            <h4 style="margin-top:12px">Assemblages decales de %s jour(s)</h4>
+            <h4 style="margin-top:12px">Assemblages du lot — debit fini le %s</h4>
             <table class="table table-sm">
                 <thead><tr>
                     <th>OF</th><th>Fin de fab projetee</th>
@@ -278,7 +279,7 @@ class MrpProduction(models.Model):
                 Les bons d'achat ne sont pas deplaces : une date de reception
                 se negocie avec le fournisseur.
             </div>
-        """ % (payload.get("fma_decalage", 0), rangs)
+        """ % (payload.get("fma_fin_debit", "-"), rangs)
 
     def action_apply_replan_preview(self, payload=None):
         """Applique au debit, puis entraine les assemblages et la matiere.

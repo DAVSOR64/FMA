@@ -844,7 +844,7 @@ class FmaLotFabrication(models.Model):
         # On suit la meme regle : rien n'est ecrit tant que le lot entier n'a
         # pas passe le controle. Ecrire puis constater laisserait un lot a
         # moitie deplace.
-        self._controler_livraison(assemblages, decalage)
+        self._controler_livraison(assemblages, decalage, nouvelle.date())
 
         debit.compute_macro_schedule_from_date_fin()
         deplaces = self._decaler_assemblages(assemblages, decalage, debit)
@@ -864,26 +864,29 @@ class FmaLotFabrication(models.Model):
         """
         Production = self.env["mrp.production"]
         fin_debit = debit.date_finished or debit.date_start
-        fin_debit = fields.Datetime.to_datetime(fin_debit) if fin_debit else False
+        fin_debit = (fields.Datetime.to_datetime(fin_debit).date()
+                     if fin_debit else False)
         deplaces = Production.browse()
 
         for mo in assemblages:
-            fin = mo.date_finished
-            if not fin:
+            # La MEME projection que celle annoncee dans le popup : le
+            # decalage et le report derriere le debit sont deja dedans.
+            cible = self._fin_projetee(mo, decalage, fin_debit)
+            if not cible:
                 continue
-            cible = fields.Datetime.to_datetime(fin).date() + decalage
             mo._set_date_fin_de_fab(cible)
             mo.compute_macro_schedule_from_date_fin()
             deplaces |= mo
 
-            # Un assemblage qui commencerait avant la fin du debit est
-            # repousse d'autant de jours qu'il en manque. Une seule passe :
-            # le moteur de capacite fait le reste.
+            # Le moteur de capacite peut encore avoir place le debut avant la
+            # fin du debit, en etalant l'assemblage sur une fenetre chargee.
+            # Une passe de rattrapage, et une seule : au-dela, ce n'est plus
+            # un decalage, c'est une replanification a refaire.
             if fin_debit and mo.date_start:
-                debut = fields.Datetime.to_datetime(mo.date_start)
+                debut = fields.Datetime.to_datetime(mo.date_start).date()
                 if debut < fin_debit:
-                    manque = (fin_debit.date() - debut.date()).days + 1
-                    mo._set_date_fin_de_fab(cible + timedelta(days=manque))
+                    mo._set_date_fin_de_fab(
+                        cible + timedelta(days=(fin_debit - debut).days + 1))
                     mo.compute_macro_schedule_from_date_fin()
         return deplaces
 
@@ -901,7 +904,35 @@ class FmaLotFabrication(models.Model):
         """
         return self._lignes_achat_du_lot().order_id
 
-    def _controler_livraison(self, assemblages, decalage):
+    def _fin_projetee(self, mo, decalage, fin_debit):
+        """Fin de fab qu'aura CET assemblage apres la replanification.
+
+        Deux termes, et le second est celui qu'on oubliait : le decalage du
+        debit, puis le report de l'assemblage qui commencerait avant que le
+        debit soit fini. Un assemblage consomme l'ensemble debite — il ne
+        peut pas le preceder.
+
+        Sans ce second terme, un decalage nul donnait une projection nulle :
+        le popup annoncait des assemblages au 06/11 derriere un debit fini le
+        16/11, et le controle de livraison les declarait a l'heure. Ils
+        etaient en retard certain, et c'est l'ecriture qui l'aurait decouvert.
+
+        Le calcul se fait a sec, sans rien ecrire, et c'est le meme qui sert a
+        afficher, a controler et a poser la cible : les trois ne peuvent plus
+        se contredire.
+        """
+        fin = mo.date_finished
+        if not fin:
+            return None
+        cible = fields.Datetime.to_datetime(fin).date() + decalage
+        debut = mo.date_start
+        if fin_debit and debut:
+            debut = fields.Datetime.to_datetime(debut).date() + decalage
+            if debut < fin_debit:
+                cible += timedelta(days=(fin_debit - debut).days + 1)
+        return cible
+
+    def _controler_livraison(self, assemblages, decalage, fin_debit=None):
         """Controle a sec : le lot deplace tient-il encore l'engagement ?
 
         Deux blocages, et ce sont ceux que la replanification d'un OF applique
@@ -931,10 +962,9 @@ class FmaLotFabrication(models.Model):
             if not cible:
                 sans_date.append(mo)
                 continue
-            if not mo.date_finished:
+            projetee = self._fin_projetee(mo, decalage, fin_debit)
+            if not projetee:
                 continue
-            projetee = fields.Datetime.to_datetime(
-                mo.date_finished).date() + decalage
             cible = fields.Datetime.to_datetime(cible).date()
             if projetee > cible:
                 en_retard.append((mo, projetee, cible, (projetee - cible).days))
