@@ -24,7 +24,10 @@
     # 1.0.11 : x_studio_commercial_1 devient le reflet de commercial_id.
     # 1.0.51 : RAF HT visible dans l'onglet Analyse Financiere, avec le
     # total HT et le facture HT qui le composent.
-    "version": "19.0.1.0.51",
+    # 1.0.52 : le numero de tranche est pose des la saisie, sur un devis
+    # neuf : il s'affiche avant l'enregistrement et n'appelle plus la
+    # sequence, qui perdait un numero a chaque tranche.
+    "version": "19.0.1.0.52",
     "depends": [
         "sale_management",
         "custom",
