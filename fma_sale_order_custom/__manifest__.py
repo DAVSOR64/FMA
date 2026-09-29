@@ -30,7 +30,10 @@
     # 19.0.1.0.50 ne tournerait jamais sur une base deja en 1.0.54.
     # 1.0.56 : RAF HT visible dans l'onglet Analyse Financiere, avec le
     # total HT et le facture HT qui le composent.
-    "version": "19.0.1.0.56",
+    # 1.0.57 : le numero de tranche est pose des la saisie, sur un devis
+    # neuf : il s'affiche avant l'enregistrement et n'appelle plus la
+    # sequence, qui perdait un numero a chaque tranche.
+    "version": "19.0.1.0.57",
     "depends": [
         "sale_management",
         "custom",

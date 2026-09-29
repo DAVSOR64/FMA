@@ -1,6 +1,6 @@
 from datetime import timedelta
 import logging
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -209,6 +209,37 @@ class SaleOrder(models.Model):
         deja = [t for t in autres.mapped("x_tranche") if t]
         if deja:
             self.x_tranche = max(deja) + 1
+
+    @api.onchange("project_id", "x_tranche")
+    def _onchange_numero_tranche(self):
+        """Pose le numero de tranche AVANT l'enregistrement, sur un devis neuf.
+
+        Sans cela, on saisit le chantier et la tranche, et le champ affiche
+        « Nouveau » jusqu'a la sauvegarde : rien ne dit quel numero on est en
+        train d'ouvrir, alors que c'est precisement ce que le chiffreur doit
+        connaitre pour retrouver l'affaire dans LOGIKAL.
+
+        Et cela evite de bruler un numero. Odoo ne consomme la sequence que si
+        le nom vaut encore « Nouveau » a la creation. Un devis de tranche qui
+        prenait A26-09-09877 avant d'etre renomme A26-09-09876/2 perdait le
+        premier definitivement : le compteur annuel se trouait d'autant. En
+        posant le nom ici, la sequence n'est pas appelee du tout.
+
+        Uniquement sur un devis NEUF. Sur un devis deja enregistre, le
+        renommage passe par write, qui verifie qu'aucune facture ni aucun bon
+        de livraison ne porte encore l'ancien numero.
+        """
+        for order in self:
+            if order._origin.id:
+                continue
+            code = order.project_id.x_code_affaire
+            if order.x_tranche and code:
+                order.name = "%s/%s" % (code, order.x_tranche)
+            elif "/" in (order.name or ""):
+                # La tranche vient d'etre effacee : on rend la main a la
+                # sequence. Le test sur « / » evite d'ecraser un numero
+                # saisi a la main, qui n'en contient pas.
+                order.name = _("New")
 
     def _appliquer_suffixe_tranche(self, explicite=False):
         """Renomme le devis en « <code affaire>/<tranche> ».
