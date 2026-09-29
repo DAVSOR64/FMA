@@ -19,7 +19,9 @@
     # derriere la fin du debit, et non du seul decalage. Un decalage nul
     # donnait une projection nulle : des assemblages annonces AVANT le
     # debit qui les alimente, et declares a l'heure.
-    "version": "19.0.1.40.0",
+    # 1.41.0 : le type dans le lot (Debit / Assemblage) devient une
+    # colonne et deux filtres sur l'ecran d'ordonnancement.
+    "version": "19.0.1.41.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
@@ -55,6 +57,8 @@ Voir README.md pour le detail du parametrage.
         "custom",
         "fma_atelier",
         "mrp_capacity_planning",
+        # Porte l'ecran d'ordonnancement que la vue ci-dessous etend.
+        "fma_mrp_ordonnancement",
         "base",
         "mail",
         "sale",
@@ -67,6 +71,7 @@ Voir README.md pour le detail du parametrage.
         "purchase_stock",
     ],
     "data": [
+        "views/mrp_production_ordonnancement_views.xml",
         "security/ir.model.access.csv",
         "security/fma_lot_security.xml",
         "data/ir_sequence.xml",

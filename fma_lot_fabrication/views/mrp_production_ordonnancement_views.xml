@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ==========================================================
+         Le type dans le lot sur l'ecran d'ordonnancement.
+
+         La colonne vit ICI et non dans fma_mrp_ordonnancement : ce
+         module-la tourne aussi en production, ou les lots ne sont pas
+         installes. Lui donner la dependance forcerait l'installation
+         de fma_lot_fabrication sur une base qui n'en veut pas. Le sens
+         inverse est gratuit : c'est le module specialise qui sait que
+         l'ecran general existe.
+
+         On montre lot_production_type plutot qu'une case a cocher :
+         il dit « Debit » ou « Assemblage », et reste vide pour les OF
+         hors lot. Une case aurait repondu « non » a trois questions
+         differentes.
+         ========================================================== -->
+    <record id="view_ordonnancement_list_lot" model="ir.ui.view">
+        <field name="name">mrp.production.ordonnancement.list.lot</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id"
+               ref="fma_mrp_ordonnancement.view_mrp_production_ordonnancement_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_id']" position="after">
+                <field name="lot_production_type" string="Type OF"
+                       readonly="1" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_ordonnancement_search_lot" model="ir.ui.view">
+        <field name="name">mrp.production.ordonnancement.search.lot</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id"
+               ref="fma_mrp_ordonnancement.view_mrp_production_ordonnancement_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='fma_non_livre']" position="after">
+                <separator/>
+                <!-- « Hors debit » prend aussi les OF sans lot : un OF qui
+                     n'appartient a aucun lot n'est pas un debit non plus.
+                     L'operateur != d'Odoo inclut les valeurs nulles, c'est
+                     exactement ce qu'on veut ici. -->
+                <filter name="fma_lot_debit" string="OF de débit"
+                        domain="[('lot_production_type', '=', 'debit')]"/>
+                <filter name="fma_lot_hors_debit" string="Hors débit"
+                        domain="[('lot_production_type', '!=', 'debit')]"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
