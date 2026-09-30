@@ -801,6 +801,22 @@ class MrpProduction(models.Model):
             _logger.info("MO %s : aucun picking associé", self.name)
             return
 
+        # Jamais un bon SORTANT. picking_ids d'un OF remonte les bons du
+        # meme groupe d'appro : sur une chaine MTO, la livraison client en
+        # fait partie. Le repli « or pickings » ci-dessous la prenait donc
+        # avec les autres et la datait 4 jours avant le debut de fabrication
+        # — une livraison ramenee AVANT la production qui l'alimente.
+        #
+        # C'est aussi ce qui rendrait circulaire le controle de replanification
+        # depuis que « Livraison reelle le » lui sert de repere : deplacer le
+        # bon deplacerait la cible, et plus rien ne bloquerait.
+        pickings = pickings.filtered(
+            lambda p: p.picking_type_id.code != "outgoing")
+        if not pickings:
+            _logger.info(
+                "MO %s : aucun transfert amont a recaler", self.name)
+            return
+
         comp_pickings = pickings.filtered(
             lambda p: "collect" in (p.picking_type_id.name or "").lower()
             or "compos" in (p.picking_type_id.name or "").lower()
@@ -1189,18 +1205,27 @@ class MrpProduction(models.Model):
 
     def _get_macro_target_date(self):
         """Retourne (delivery_dt, sale_order) pour le recalcul macro.
-        Priorité : commitment_date > so_date_de_livraison_prevu > date_deadline
 
-        L'ordre a été inversé. so_date_de_livraison_prevu venait en premier,
-        or il recevait DEUX choses : le calcul délai + BPE, et la date
-        planifiée du BL recopiée par custom_delivery. Le rétroplanning
-        prenait donc tantôt l'engagement, tantôt le plan du magasin — et
-        quand c'était le plan, il se replanifiait sur sa propre sortie.
+        Priorité : so_date_livraison_reelle > commitment_date >
+        so_date_de_livraison_prevu > date_deadline
 
-        commitment_date ne porte que l'engagement : « Livraison prévue le »,
-        soit délai + BPE. C'est sur une promesse qu'on rétroplanifie, pas sur
-        une prévision qui bouge. L'ancien champ reste en dernier recours, le
-        temps que les bases se vident de ses valeurs.
+        On vise « Livraison réelle le », c'est-à-dire la date PLANIFIÉE du
+        bon de livraison — celle que le client aura vraiment. Elle part égale
+        à l'engagement, puis suit le magasin : un bon validé qui laisse un
+        reliquat, un reliquat replanifié, une livraison renégociée. C'est
+        contre elle qu'il faut se demander si un décalage passe, pas contre
+        une promesse que la réalité a déjà corrigée.
+
+        commitment_date reste en second, pour la commande qui n'a pas encore
+        de bon : rien d'autre ne dit alors ce qui est engagé.
+
+        Ce champ n'est PAS celui qui posait problème avant. L'ancien premier
+        choix, so_date_de_livraison_prevu, recevait deux choses à la fois —
+        le calcul délai + BPE et la date planifiée du BL — sans qu'on puisse
+        savoir laquelle. so_date_livraison_reelle ne porte qu'une seule
+        notion, et le planning n'écrit jamais dessus : il lui est interdit
+        de toucher un bon SORTANT, sans quoi le contrôle se comparerait à sa
+        propre sortie et ne bloquerait plus jamais.
         """
         self.ensure_one()
         sale_order = False
@@ -1218,11 +1243,15 @@ class MrpProduction(models.Model):
 
         delivery_dt = False
         if sale_order:
-            # Priorité 1 : commitment_date, l'engagement (délai + BPE)
-            if sale_order.commitment_date:
+            # Priorité 1 : « Livraison réelle le », la date planifiée du BL
+            reelle = getattr(sale_order, "so_date_livraison_reelle", False)
+            if reelle:
+                delivery_dt = fields.Datetime.to_datetime(reelle)
+            # Priorité 2 : l'engagement, tant qu'aucun bon n'existe
+            if not delivery_dt and sale_order.commitment_date:
                 delivery_dt = fields.Datetime.to_datetime(
                     sale_order.commitment_date)
-            # Priorité 2 : l'ancien champ, en dernier recours
+            # Priorité 3 : l'ancien champ, en dernier recours
             if not delivery_dt:
                 raw = (
                     getattr(sale_order, 'so_date_de_livraison_prevu', False)
