@@ -27,7 +27,10 @@
     # 1.0.52 : le numero de tranche est pose des la saisie, sur un devis
     # neuf : il s'affiche avant l'enregistrement et n'appelle plus la
     # sequence, qui perdait un numero a chaque tranche.
-    "version": "19.0.1.0.52",
+    # 1.0.53 : le bloc Facturation devient une vue fille de celle qui
+    # cree l'onglet, au lieu d'une soeur. Entre soeurs l'ordre depend des
+    # id : une base chargeait, l'autre refusait, a code identique.
+    "version": "19.0.1.0.53",
     "depends": [
         "sale_management",
         "custom",
