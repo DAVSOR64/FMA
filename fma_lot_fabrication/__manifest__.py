@@ -24,7 +24,10 @@
     # 1.42.0 : l'etiquette est lue sur tag_ids, le champ standard ;
     # plafond a 8 menuiseries ; la designation du lot porte l'affaire et
     # le rang du lot ; la quantite commandee quitte la vue du lot.
-    "version": "19.0.1.42.0",
+    # 1.43.0 : la designation du lot porte le rang du lot dans la
+    # commande — « A26-00-00002 - Lot 3 » — et non plus le nom de la
+    # phase LOGIKAL.
+    "version": "19.0.1.43.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
