@@ -50,7 +50,10 @@
     # premiere colonne et suit l'ordre des rayons ; l'unite disparait.
     # 1.53.0 : l'emplacement est cherche sous STOCK seulement, jamais en
     # pre-fabrication, et c'est le premier de la tournee qui est retenu.
-    "version": "19.0.1.53.0",
+    # 1.54.0 : le document devient « Liste de quincaillerie » : profiles et
+    # vitrages quittent aussi le recapitulatif, le repere se reduit a la
+    # position et l'emplacement au nom court.
+    "version": "19.0.1.54.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
