@@ -8,7 +8,11 @@
          l'autre sens — et le magasin faisait un passage par casier la ou il
          en fait maintenant un par article, ce qui est sa facon de travailler.
          Le numero de casier reste sur chaque ligne : un casier vaut une
-         menuiserie, et porte son numero de serie. -->
+         menuiserie, et porte son numero de serie.
+
+         Le detail ne porte que la QUINCAILLERIE. Le vitrage se livre a part,
+         les profiles passent par le debit : ni l'un ni l'autre ne se prend en
+         rayon. Le recapitulatif, lui, continue de tout montrer. -->
     <record id="action_report_lot_sortie_matiere" model="ir.actions.report">
         <field name="name">Sortie matière du lot</field>
         <field name="model">fma.lot.fabrication</field>
@@ -151,7 +155,7 @@
                     <t t-call="web.internal_layout">
                         <div class="page">
                             <h2>
-                                Détail matière par article
+                                Liste de quincaillerie
                                 <span t-field="lot.display_name"/>
                             </h2>
                             <div class="row mb-3">
@@ -174,7 +178,6 @@
                                     <tr>
                                         <th>Code article</th>
                                         <th>Désignation</th>
-                                        <th>Nature</th>
                                         <th class="text-end">Qté globale</th>
                                         <th>Unité</th>
                                         <th class="text-end">Qté</th>
@@ -191,9 +194,6 @@
                                                 </td>
                                                 <td t-att-rowspan="poste['nb']">
                                                     <span t-field="poste['article'].name"/>
-                                                </td>
-                                                <td t-att-rowspan="poste['nb']">
-                                                    <span t-esc="poste['nature']"/>
                                                 </td>
                                                 <td t-att-rowspan="poste['nb']" class="text-end">
                                                     <span t-esc="'%.2f' % poste['total']"/>
@@ -212,8 +212,9 @@
                                 </tbody>
                             </table>
                             <p class="text-muted">
-                                L'ensemble débité rejoint le casier après le débit ;
-                                la quincaillerie et le vitrage y sont mis à la préparation.
+                                Quincaillerie seule. Le vitrage se livre à part et les
+                                profilés passent par le débit ; ni l'un ni l'autre ne se
+                                prend en rayon.
                             </p>
                         </div>
                     </t>

@@ -45,7 +45,8 @@
     # 1.50.0 : le detail par casier devient un detail par article, avec
     # le casier servi sur chaque ligne. Meme contenu, un passage en
     # rayon par article au lieu d'un par casier.
-    "version": "19.0.1.50.0",
+    # 1.51.0 : le detail du besoin matiere ne porte que la quincaillerie.
+    "version": "19.0.1.51.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
