@@ -2097,15 +2097,49 @@ class FmaLotFabrication(models.Model):
                     "casier": etiquette,
                     "repere": repere,
                 })
-        postes = sorted(
-            par_article.values(),
-            key=lambda p: (p["article"].default_code or "",
-                           p["article"].name or ""),
-        )
+        postes = list(par_article.values())
+        emplacements = self._emplacements_stock(
+            self.env["product.product"].browse(list(par_article)))
         for poste in postes:
+            poste["emplacement"] = emplacements.get(poste["article"].id)
             # Precalcule pour le rowspan : QWeb n'a pas a compter.
             poste["nb"] = len(poste["detail"])
-        return postes
+
+        # Tri par EMPLACEMENT d'abord : le magasin suit ses rayons, il ne
+        # suit pas l'ordre alphabetique des references. Les articles sans
+        # emplacement connu ferment la marche plutot que d'ouvrir la liste.
+        return sorted(postes, key=lambda p: (
+            not p["emplacement"],
+            p["emplacement"].complete_name if p["emplacement"] else "",
+            p["article"].default_code or "",
+            p["article"].name or "",
+        ))
+
+    def _emplacements_stock(self, articles):
+        """Ou chaque article se trouve reellement, d'apres le stock.
+
+        Aucun champ de la base ne porte l'emplacement de rangement d'un
+        article : on le deduit des quants. C'est meme plus fiable qu'une
+        saisie, qui vieillit des qu'on reorganise un rayon.
+
+        Quand un article est present a plusieurs endroits, on retient celui
+        qui en porte le plus. Le magasin ira la, et le reste est un reliquat
+        qu'un inventaire finira par regrouper.
+        """
+        self.ensure_one()
+        if not articles:
+            return {}
+        retenu = {}
+        for quant in self.env["stock.quant"].sudo().search([
+            ("product_id", "in", articles.ids),
+            ("location_id.usage", "=", "internal"),
+            ("company_id", "in", (self.company_id.id, False)),
+            ("quantity", ">", 0),
+        ]):
+            cle = quant.product_id.id
+            if cle not in retenu or quant.quantity > retenu[cle][1]:
+                retenu[cle] = (quant.location_id, quant.quantity)
+        return {cle: valeur[0] for cle, valeur in retenu.items()}
 
     def action_imprimer_besoin_matiere(self):
         """Edite le besoin matiere du lot.
