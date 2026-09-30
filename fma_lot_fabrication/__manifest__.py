@@ -38,7 +38,8 @@
     # 1.47.0 : « Generer les OF » scinde les assemblages en un ordre par
     # menuiserie et pose son numero de serie. Le magasin prepare des
     # casiers deja numerotes, l'atelier declare une menuiserie a la fois.
-    "version": "19.0.1.47.0",
+    # 1.48.0 : la feuille de besoin matiere nomme le lot comme l'ecran.
+    "version": "19.0.1.48.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
