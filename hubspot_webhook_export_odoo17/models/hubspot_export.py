@@ -327,7 +327,7 @@ class HubspotWebhookExport(models.AbstractModel):
                 "SIRET": self._get_siret(partner),
                 "SIREN": self._get_siren(partner),
                 "Chantier": self._get_site_name(order),
-                "Proprietaire": order.user_id.name or "",
+                "Proprietaire": order.commercial_id.name or "",
                 "Date_Creation": fields.Date.to_string(date_creation) if date_creation else "",
                 "Date_Envoi": fields.Date.to_string(date_envoi) if date_envoi else "",
                 # Champs conservés pour compatibilité avec la première structure reçue.

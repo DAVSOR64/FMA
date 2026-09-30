@@ -122,7 +122,6 @@
                                            domain="[('is_lotable', '=', True)]"/>
                                     <field name="product_id" readonly="1" optional="show"/>
                                     <field name="description" readonly="1" optional="hide"/>
-                                    <field name="qty_ordered" readonly="1" optional="show"/>
                                     <field name="product_qty" sum="Total"/>
                                     <field name="product_uom_id" readonly="1"
                                            groups="uom.group_uom" optional="hide"/>
