@@ -14,14 +14,14 @@
          les profiles passent par le debit : ni l'un ni l'autre ne se prend en
          rayon. Le recapitulatif, lui, continue de tout montrer. -->
     <record id="action_report_lot_sortie_matiere" model="ir.actions.report">
-        <field name="name">Sortie matière du lot</field>
+        <field name="name">Liste de quincaillerie</field>
         <field name="model">fma.lot.fabrication</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">fma_lot_fabrication.report_lot_sortie_matiere</field>
         <field name="report_file">fma_lot_fabrication.report_lot_sortie_matiere</field>
         <field name="binding_model_id" ref="model_fma_lot_fabrication"/>
         <field name="binding_type">report</field>
-        <field name="print_report_name">'Sortie matiere - %s' % object.display_name</field>
+        <field name="print_report_name">'Liste de quincaillerie - %s' % object.display_name</field>
     </record>
 
     <template id="report_lot_sortie_matiere">
@@ -40,12 +40,15 @@
                 <t t-set="casiers" t-value="besoin[2]"/>
                 <t t-set="quincaillerie"
                    t-value="lot._quincaillerie_par_article(casiers)"/>
+                <t t-set="quincaillerie_totaux"
+                   t-value="[{'product': p['article'], 'qty': p['total'],
+                              'uom': p['uom']} for p in quincaillerie]"/>
 
                 <!-- 1. Recapitulatif : ce qui quitte le stock -->
                 <t t-call="web.internal_layout">
                     <div class="page">
                         <h2>
-                            Sortie matière
+                            Liste de quincaillerie
                             <!-- La designation, celle de l'ecran : le numero
                                  de sequence seul ne situe ni l'affaire ni le
                                  rang du lot dedans. Le magasin et
@@ -68,64 +71,36 @@
                             </div>
                         </div>
 
-                        <h4>1 — Profilés, au banc de débit</h4>
-                        <p class="text-muted">
-                            Toutes les barres du lot, d'un bloc : l'optimisation porte sur le lot
-                            entier, une barre sert plusieurs menuiseries. Elles partent avec l'OF
-                            de débit, pas au casier.
-                        </p>
-                        <table class="table table-sm o_main_table">
-                            <thead>
-                                <tr>
-                                    <th>Référence</th>
-                                    <th>Désignation</th>
-                                    <th class="text-end">Quantité</th>
-                                    <th>Unité</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr t-foreach="profiles" t-as="poste">
-                                    <td><span t-field="poste['product'].default_code"/></td>
-                                    <td><span t-field="poste['product'].name"/></td>
-                                    <td class="text-end"><span t-esc="'%.2f' % poste['qty']"/></td>
-                                    <td><span t-field="poste['uom'].name"/></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <p t-if="not profiles" class="text-muted">
-                            Aucune barre : le plan de coupe du lot n'a pas été repris.
-                        </p>
-
-                        <h4 class="mt-4">2 — Quincaillerie et vitrage, en pré-fab</h4>
+                        <h4>1 — Quincaillerie du lot</h4>
                         <p class="text-muted">
                             À sortir trois jours ouvrés avant le débit, pour garnir les casiers.
+                            Les profilés partent avec l'OF de débit et le vitrage se livre à
+                            part : ni l'un ni l'autre ne se prend en rayon.
                         </p>
                         <table class="table table-sm o_main_table">
                             <thead>
                                 <tr>
                                     <th>Référence</th>
                                     <th>Désignation</th>
-                                    <th>Nature</th>
                                     <th class="text-end">Quantité</th>
                                     <th>Unité</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr t-foreach="prefab" t-as="poste">
+                                <tr t-foreach="quincaillerie_totaux" t-as="poste">
                                     <td><span t-field="poste['product'].default_code"/></td>
                                     <td><span t-field="poste['product'].name"/></td>
-                                    <td><span t-field="poste['product'].fma_nature_logikal"/></td>
                                     <td class="text-end"><span t-esc="'%.2f' % poste['qty']"/></td>
                                     <td><span t-field="poste['uom'].name"/></td>
                                 </tr>
                             </tbody>
                         </table>
-                        <p t-if="not prefab" class="text-muted">
-                            Aucune quincaillerie ni vitrage : les menuiseries du lot n'ont pas de
+                        <p t-if="not quincaillerie_totaux" class="text-muted">
+                            Aucune quincaillerie : les menuiseries du lot n'ont pas de
                             nomenclature exploitable.
                         </p>
 
-                        <h4 class="mt-4">3 — Détail par repère</h4>
+                        <h4 class="mt-4">2 — Détail par repère</h4>
                         <table class="table table-sm o_main_table">
                             <thead>
                                 <tr>
@@ -155,7 +130,7 @@
                     <t t-call="web.internal_layout">
                         <div class="page">
                             <h2>
-                                Liste de quincaillerie
+                                Détail par article et casier
                                 <span t-field="lot.display_name"/>
                             </h2>
                             <div class="row mb-3">
@@ -176,13 +151,13 @@
                             <table class="table table-sm o_main_table">
                                 <thead>
                                     <tr>
-                                        <th>Emplacement</th>
-                                        <th>Code article</th>
-                                        <th>Désignation</th>
-                                        <th class="text-end">Qté globale</th>
-                                        <th class="text-end">Qté</th>
-                                        <th>Casier</th>
-                                        <th>Repère</th>
+                                        <th style="width:13%">Emplacement</th>
+                                        <th style="width:17%">Code article</th>
+                                        <th style="width:33%">Désignation</th>
+                                        <th class="text-end" style="width:9%">Qté&#160;totale</th>
+                                        <th class="text-end" style="width:8%">Qté</th>
+                                        <th style="width:8%">Casier</th>
+                                        <th style="width:12%">Repère</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -190,7 +165,7 @@
                                         <tr t-foreach="poste['detail']" t-as="det">
                                             <t t-if="det_index == 0">
                                                 <td t-att-rowspan="poste['nb']">
-                                                    <span t-esc="poste['emplacement'].complete_name if poste['emplacement'] else ''"/>
+                                                    <span style="white-space:nowrap" t-esc="poste['emplacement'].name if poste['emplacement'] else ''"/>
                                                 </td>
                                                 <td t-att-rowspan="poste['nb']">
                                                     <span t-field="poste['article'].default_code"/>
@@ -205,8 +180,8 @@
                                             <td class="text-end">
                                                 <span t-esc="'%.2f' % det['qty']"/>
                                             </td>
-                                            <td><span t-esc="det['casier']"/></td>
-                                            <td><span t-esc="det['repere']"/></td>
+                                            <td style="white-space:nowrap"><span t-esc="det['casier']"/></td>
+                                            <td style="white-space:nowrap"><span t-esc="det['repere']"/></td>
                                         </tr>
                                     </t>
                                 </tbody>

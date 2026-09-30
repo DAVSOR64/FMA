@@ -2063,9 +2063,18 @@ class FmaLotFabrication(models.Model):
         par_article = {}
         for casier in casiers:
             ligne = casier["ligne"]
-            repere = (
-                ligne.product_id.default_code or ligne.product_id.name or ""
-            )
+            # La POSITION seule, pas la reference complete. Celle-ci vaut
+            # « A26-00-00002_E-MEXT-C3 » : le prefixe est l'affaire, identique
+            # sur tout le document, et il faisait deborder la colonne sur
+            # quatre lignes. Ce qui distingue un repere d'un autre, c'est ce
+            # qui suit.
+            produit = ligne.product_id
+            repere = produit.x_studio_position if (
+                "x_studio_position" in produit._fields
+                and produit.x_studio_position) else ""
+            if not repere:
+                code = produit.default_code or ""
+                repere = code.rpartition("_")[2] or code or produit.name or ""
             etiquette = casier.get("serie") or "%s/%s" % (
                 casier["rang"], casier["sur"])
 
