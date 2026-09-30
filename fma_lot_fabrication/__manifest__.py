@@ -39,7 +39,10 @@
     # menuiserie et pose son numero de serie. Le magasin prepare des
     # casiers deja numerotes, l'atelier declare une menuiserie a la fois.
     # 1.48.0 : la feuille de besoin matiere nomme le lot comme l'ecran.
-    "version": "19.0.1.48.0",
+    # 1.49.0 : le besoin matiere ne s'imprime qu'apres generation des OF,
+    # les casiers portent leur numero de serie, et une liste par article
+    # rejoint le document pour la prise en rayon.
+    "version": "19.0.1.49.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

@@ -38,9 +38,14 @@
                             string="Completer les OF"
                             invisible="state != 'progress'"
                             help="Regenere les OF manquants (menuiseries ajoutees apres coup)."/>
+                    <!-- Apres generation des OF seulement : c'est elle qui
+                         cree les ordres par menuiserie et pose les numeros de
+                         serie. Imprimer avant donnerait des casiers numerotes
+                         par rang, que rien ne rapprocherait ensuite des
+                         menuiseries declarees a l'atelier. -->
                     <button name="action_imprimer_besoin_matiere" type="object"
                             string="Imprimer le besoin matière"
-                            invisible="not line_ids"
+                            invisible="not line_ids or production_count == 0"
                             help="Profilés au débit, quincaillerie et vitrage en pré-fab, détail par repère, puis une page par casier."/>
                     <button name="action_replanifier_depuis_debit" type="object"
                             string="Replanifier depuis le débit"
