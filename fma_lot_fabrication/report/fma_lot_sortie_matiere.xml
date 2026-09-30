@@ -36,7 +36,11 @@
                     <div class="page">
                         <h2>
                             Sortie matière
-                            <span t-field="lot.name"/>
+                            <!-- La designation, celle de l'ecran : le numero
+                                 de sequence seul ne situe ni l'affaire ni le
+                                 rang du lot dedans. Le magasin et
+                                 l'ordonnanceur doivent lire la meme chose. -->
+                            <span t-field="lot.display_name"/>
                         </h2>
                         <div class="row mb-3">
                             <div class="col-4">
@@ -147,7 +151,7 @@
                             <div class="row mb-3">
                                 <div class="col-4">
                                     <strong>Lot</strong><br/>
-                                    <span t-field="lot.name"/>
+                                    <span t-field="lot.display_name"/>
                                 </div>
                                 <div class="col-4">
                                     <strong>Commande</strong><br/>
