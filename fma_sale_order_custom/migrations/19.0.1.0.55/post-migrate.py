@@ -11,17 +11,10 @@ invoice_ids -- le lien que la commande porte elle-meme -- plutot que par une
 recherche sur l'origine, un champ texte libre qu'une facture reprise d'un
 autre systeme ne remplit pas toujours.
 
-Elle fait deux choses, dans cet ordre : elle MESURE l'ecart entre l'ancienne
-valeur et la nouvelle, commande par commande au-dela d'un euro, puis elle
-FORCE le recalcul sur toute la base.
-
-Le recalcul force n'est pas une precaution, c'est la seule chose qui marche.
-Odoo ne calcule un champ stocke que sur les lignes dont la COLONNE vient
-d'etre creee. Ici la colonne existe deja depuis Studio, remplie de valeurs
-figees : sans reprise, chaque commande garderait la sienne indefiniment,
-jusqu'a ce qu'une facture ou un montant bouge dessus. Autrement dit, les
-commandes deja en base -- c'est-a-dire toutes -- n'auraient jamais ete
-corrigees, et le champ aurait eu l'air juste sur les nouvelles seulement.
+Cette reprise NE CORRIGE RIEN toute seule : Odoo recalcule le champ des que
+la migration a tourne, puisqu'il devient calcule. Elle sert a MESURER ce que
+ce changement deplace, avant que quiconque s'en apercoive sur un tableau de
+bord. L'ecart est journalise commande par commande au-dela d'un euro.
 
 Elle recense aussi ce qui cite encore le champ Studio. Il ne peut pas etre
 supprime d'ici : une vue Studio qui le mentionnerait encore ferait echouer le
@@ -29,13 +22,7 @@ chargement. Le journal dit ou regarder avant de le retirer a la main.
 """
 import logging
 
-from odoo import SUPERUSER_ID, api
-
 _logger = logging.getLogger(__name__)
-
-#: Taille des paquets de recalcul. Le calcul parcourt les factures de chaque
-#: commande : tout charger d'un coup ferait grossir le cache sans limite.
-PAQUET = 2000
 
 #: Au-dela de cet ecart en euros, une commande est signalee nommement.
 SEUIL = 1.0
@@ -69,7 +56,6 @@ def migrate(cr, version):
     if not cr.fetchone():
         _logger.warning(
             "RAF HT : table de liaison facture absente, ecart non mesure")
-        _recalculer(cr)
         return
 
     # La nouvelle valeur, selon la meme regle que le champ : total HT moins
@@ -119,7 +105,7 @@ def migrate(cr, version):
     # Ce qui cite encore le champ Studio : a nettoyer a la main avant de le
     # supprimer, sinon le chargement de la vue echouera.
     cr.execute(
-        """SELECT 'vue', v.id, v.name
+        """SELECT 'vue', v.id, COALESCE(v.name->>'fr_FR', v.name->>'en_US')
              FROM ir_ui_view v
             WHERE v.arch_db::text LIKE '%%x_studio_calcul_raf_ht%%'"""
     )
@@ -134,33 +120,3 @@ def migrate(cr, version):
         _logger.info(
             "x_studio_calcul_raf_ht n'est plus cite par aucune vue : il peut "
             "etre supprime depuis Studio")
-
-
-    _recalculer(cr)
-
-
-def _recalculer(cr):
-    """Force le recalcul du RAF sur toutes les commandes en base.
-
-    Sans etat filtre : un devis non confirme a un RAF egal a son total, et
-    c'est une information que le commerce lit. On ne se limite pas non plus
-    aux commandes facturees -- celles qui ne le sont pas doivent afficher
-    leur total, pas la valeur figee d'avant.
-    """
-    env = api.Environment(cr, SUPERUSER_ID, {})
-    Commande = env["sale.order"]
-    champ = Commande._fields.get("x_studio_restant_a_facturer_ht_pivot")
-    if champ is None or not champ.compute:
-        _logger.warning(
-            "RAF HT : le champ n'est pas calcule dans ce code, recalcul "
-            "ignore")
-        return
-
-    commandes = Commande.with_context(active_test=False).search([])
-    _logger.info("RAF HT : recalcul sur %s commande(s)", len(commandes))
-    for debut in range(0, len(commandes), PAQUET):
-        paquet = commandes[debut:debut + PAQUET]
-        env.add_to_compute(champ, paquet)
-        env.flush_all()
-        env.invalidate_all()
-    _logger.info("RAF HT : recalcul termine")

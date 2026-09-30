@@ -336,24 +336,6 @@ if resultat and resultat is not True:
                 <xpath expr="//group[@name='fma_acces_chantier']" position="move"/>
             </xpath>
 
-            <!-- RAF HT et sa decomposition, dans l'onglet Analyse
-                 Financiere ou se lisent deja les chiffres devis / BE / reel.
-                 Les trois lignes sont montrees ENSEMBLE a dessein : le RAF
-                 seul ne se verifie pas, alors que « total moins facture »
-                 se lit d'un coup d'oeil. C'est ce qui manquait quand deux
-                 champs de RAF coexistaient sans qu'on puisse les departager.
-                 fma_facture_ht n'est pas stocke : il ne sert qu'a rendre le
-                 calcul lisible, et c'est le RAF, lui stocke, qui alimente
-                 les tableaux croises et Power BI. -->
-            <xpath expr="//page[@name='fma_analyse_financiere']/group"
-                   position="inside">
-                <group string="Facturation" name="fma_facturation">
-                    <field name="amount_untaxed" string="Total HT"/>
-                    <field name="fma_facture_ht"/>
-                    <field name="x_studio_restant_a_facturer_ht_pivot"/>
-                </group>
-            </xpath>
-
         </field>
     </record>
 

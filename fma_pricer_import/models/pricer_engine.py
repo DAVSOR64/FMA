@@ -20,9 +20,8 @@ import logging
 import unicodedata
 import xml.etree.ElementTree as ET
 
-from odoo import Command, _, api, fields, models
+from odoo import Command, _, api, models
 from odoo.exceptions import UserError
-from markupsafe import Markup
 
 from ..pivot import logikal, techdesign, techdesign_order
 
@@ -47,30 +46,13 @@ PREFIXES_FOURNISSEUR = {
 #: a la commande, et la route d'achat propre a FMA.
 ROUTES_ARTICLE = ("stock.route_warehouse0_mto", "__export__.stock_route_54_b165c5dc")
 
-#: Fournisseur pose sur un article libre cree a l'import. Le chiffreur a
-#: saisi la ligne a la main dans LOGIKAL : elle ne vient d'aucun catalogue,
-#: donc aucun fournisseur reel ne peut etre devine. « NON DEF » dit cela, et
-#: rend la liste des articles a completer immediatement filtrable.
-#:
-#: Le nom est cherche, pas code en dur : un parametre systeme permet de le
-#: changer sans deploiement.
-FOURNISSEUR_ARTICLE_LIBRE = "NON DEF"
-PARAM_FOURNISSEUR_ARTICLE_LIBRE = "fma_pricer_import.fournisseur_article_libre"
-
 #: Categorie des vitrages, celle qu'utilise sqlite_connector.
 CATEGORIE_VITRAGE = "__export__.product_category_23_31345211"
 
 
 #: Operations portees par l'OF de debit. CU (banc) y va aussi : c'est la
 #: coupe, elle se fait sur la meme table que le debit et dans le meme temps.
-#: Les operations qui restent sur l'OF de DEBIT. Tout le reste part sur la
-#: menuiserie.
-#:
-#: CU (banc) en a ete retire : l'usinage sur banc se fait sur des barres deja
-#: coupees, mais il appartient a la menuiserie — c'est elle qu'on usine, pas
-#: le lot. Le debit ne garde que le sciage, qui est le seul travail
-#: veritablement mutualise entre les menuiseries d'un lot.
-OPERATIONS_DEBIT = ("Debit",)
+OPERATIONS_DEBIT = ("Debit", "CU (banc)")
 
 
 def sans_accent(texte):
@@ -154,10 +136,6 @@ class FmaPricerEngine(models.AbstractModel):
         Renvoie les lots crees ou mis a jour.
         """
         order.ensure_one()
-        # Repere de depart : il sert a retrouver, en fin d'import, les articles
-        # libres que CE depot a crees. Les chercher par date evite de trainer
-        # un accumulateur a travers dix methodes.
-        debut = fields.Datetime.now()
         # Le site qui a chiffre — « FMA » ou « F2M » — departage les postes de
         # charge homonymes des deux ateliers. Il est lu dans les parametres du
         # fichier (REPORTVARIABLES / Addresses / OwnAddress01) et voyage par le
@@ -213,63 +191,7 @@ class FmaPricerEngine(models.AbstractModel):
                     names=", ".join(incomplete.mapped("display_name")),
                 )
             )
-
-        self._prevenir_importateur(order, debut, incomplete)
         return lots
-
-    def _prevenir_importateur(self, order, debut, incomplete):
-        """Pose une activite sur le devis pour qui vient d'importer.
-
-        Un message dans le fil se lit si on le cherche. Deux choses sortant de
-        cet import demandent une action, pas une lecture : un article libre
-        cree sans prix ni vrai fournisseur, et un lot incomplet qui refusera
-        d'etre confirme. Sans rappel, on les decouvre a la confirmation, ou
-        plus tard chez l'acheteur.
-
-        L'activite va a l'utilisateur COURANT, celui qui a depose le fichier :
-        c'est lui qui a le chiffrage sous les yeux et peut trancher.
-        """
-        affaire = (self.env.context.get("fma_affaire") or "").strip()
-        libres = self.env["product.product"].sudo().search([
-            ("default_code", "=like", "%s_LB%%" % affaire),
-            ("create_date", ">=", fields.Datetime.to_string(debut)),
-        ]) if affaire else self.env["product.product"]
-
-        if not libres and not incomplete:
-            return
-
-        lignes = []
-        if libres:
-            lignes.append(_(
-                "<b>%(nb)s article(s) libre(s) cree(s)</b> — saisis a la main "
-                "dans le pricer, donc sans reference catalogue. Ils portent le "
-                "fournisseur « NON DEF » et attendent un prix et un vrai "
-                "fournisseur :<br/>%(liste)s",
-                nb=len(libres),
-                liste="<br/>".join(
-                    "&nbsp;&nbsp;%s — %s" % (p.default_code, p.name)
-                    for p in libres[:20]),
-            ))
-        if incomplete:
-            lignes.append(_(
-                "<b>%(nb)s lot(s) incomplet(s)</b> — ils ne pourront pas etre "
-                "confirmes tant que les manques ne sont pas leves : %(noms)s",
-                nb=len(incomplete),
-                noms=", ".join(incomplete.mapped("display_name")),
-            ))
-
-        try:
-            order.activity_schedule(
-                "mail.mail_activity_data_todo",
-                user_id=self.env.user.id,
-                summary=_("Import pricer : %s point(s) a traiter",
-                          len(lignes)),
-                note=Markup("<br/><br/>".join(lignes)),
-            )
-        except Exception:  # noqa: BLE001 — trace, pas de blocage
-            # Un rappel manquant ne doit pas faire perdre un import reussi.
-            _logger.exception(
-                "Import pricer : activite non posee sur %s", order.name)
 
     def _set_quantities(self, lots_pivot, sale_lines):
         """Recale la quantite de chaque ligne sur la somme de ses lots.
@@ -626,90 +548,6 @@ class FmaPricerEngine(models.AbstractModel):
         _logger.info("Import pricer : article %s cree (%s).", code, produit.name)
         return produit
 
-    def _fournisseur_article_libre(self):
-        """Le fournisseur « NON DEF », ou rien si la base ne l'a pas.
-
-        Rien plutot qu'une creation : inventer un fournisseur depuis un import
-        polluerait le referentiel achat, et le nom exact appartient a la
-        gestion. Son absence est tracee, l'article est cree sans lui.
-        """
-        nom = self.env["ir.config_parameter"].sudo().get_param(
-            PARAM_FOURNISSEUR_ARTICLE_LIBRE, FOURNISSEUR_ARTICLE_LIBRE)
-        partenaire = self.env["res.partner"].sudo().search(
-            [("name", "=ilike", nom)], limit=1)
-        if not partenaire:
-            partenaire = self.env["res.partner"].sudo().search(
-                [("name", "ilike", nom), ("supplier_rank", ">", 0)], limit=1)
-        if not partenaire:
-            _logger.warning(
-                "Import pricer : fournisseur « %s » introuvable, les articles "
-                "libres sont crees sans fournisseur.", nom)
-        return partenaire
-
-    def _creer_article_libre(self, comp):
-        """Cree l'article qu'un chiffreur a saisi a la main dans LOGIKAL.
-
-        Une ligne libre n'a aucune reference catalogue : personne d'autre ne
-        peut la creer a notre place, et elle ne se devine pas. Jusqu'ici
-        l'import se contentait de signaler « article libre introuvable », ce
-        qui bloquait le lot sur quelque chose que seule une saisie manuelle
-        pouvait lever. On cree donc l'article, et on demande qu'on le complete.
-
-        Contrairement aux autres creations, celle-ci n'est PAS conditionnee au
-        pricer. Pour un article code, attendre le redacteur a un sens : il
-        finira par le creer. Pour un article libre, il n'y a pas de redacteur
-        qui tienne — la ligne n'existe que dans ce fichier.
-
-        Reference « <affaire>_LB<n> » : c'est la convention du connecteur, et
-        c'est elle qui rattache l'article a l'affaire. La designation est
-        recopiee dans x_studio_ref_int_logikal, sur quoi le prochain import le
-        retrouvera au lieu d'en creer un second.
-        """
-        Product = self.env["product.product"].sudo()
-        affaire = (self.env.context.get("fma_affaire") or "").strip()
-        designation = (comp.description or "").strip() or _("Article libre")
-
-        # Rang suivant pour cette affaire. Le numero n'a aucune valeur
-        # d'identification — le connecteur lui-meme le voit changer d'un export
-        # a l'autre — il sert seulement a ne pas collisionner.
-        existants = Product.search_count(
-            [("default_code", "like", "%s_LB" % affaire)])
-        code = "%s_LB%s" % (affaire, existants + 1)
-
-        champs = Product._fields
-        vals = {
-            "default_code": code,
-            "name": designation,
-            "uom_id": self.env.ref("uom.product_uom_unit").id,
-            "purchase_ok": True,
-            "sale_ok": True,
-            "type": "consu",
-            "is_storable": True,
-            "route_ids": self._routes(),
-        }
-        if getattr(comp, "price", 0.0):
-            vals["standard_price"] = comp.price
-        for nom, valeur in (
-            ("x_studio_ref_int_logikal", designation),
-            ("x_studio_color_logikal", getattr(comp, "color", "")),
-            ("x_studio_cration_auto", True),
-            ("fma_article_libre", True),
-        ):
-            if nom in champs:
-                vals[nom] = valeur
-
-        fournisseur = self._fournisseur_article_libre()
-        if fournisseur:
-            vals["seller_ids"] = [Command.create({
-                "partner_id": fournisseur.id,
-                "price": getattr(comp, "price", 0.0) or 0.0,
-            })]
-
-        produit = Product.create(vals)
-        _logger.info(
-            "Import pricer : article libre %s cree (%s).", code, designation)
-        return produit
-
     def _creer_vitrage(self, comp, position, rang):
         """Cree le vitrage absent de la base.
 
@@ -840,9 +678,10 @@ class FmaPricerEngine(models.AbstractModel):
                 # article Odoo. C'est par la designation qu'on le retrouve.
                 found, problem = self._find_article_libre(comp), None
                 if not found:
-                    # Cree sans condition : voir _creer_article_libre. Une
-                    # ligne libre n'a pas de redacteur qui finira par la poser.
-                    found = self._creer_article_libre(comp)
+                    problem = _(
+                        "%(quoi)s : article libre introuvable dans Odoo",
+                        quoi=self._libelle_composant(comp, men),
+                    )
             if not found:
                 if problem not in issues:
                     issues.append(problem)
