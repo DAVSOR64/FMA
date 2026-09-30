@@ -266,6 +266,30 @@ class FmaLotFabrication(models.Model):
     )
     note = fields.Html(string="Notes")
 
+    @api.depends("name", "logikal_ref", "line_ids.order_id.name")
+    def _compute_display_name(self):
+        """« A26-09-07805/2 - lot 2 » plutot que « LOT-2026-0021 ».
+
+        Le numero de sequence ne dit rien a personne : il ne designe ni
+        l'affaire ni le rang du lot dedans. Les deux informations que l'on
+        cherche quand on lit « lot » sont justement celles-la, et elles
+        existent — l'affaire sur la ligne de devis, le rang dans la reference
+        LOGIKAL, qui est le nom de la phase du pricer.
+
+        Le champ name ne bouge pas : il reste l'identifiant technique, cite
+        par les origines d'OF, les messages et la contrainte d'unicite. Seule
+        la designation change, c'est-a-dire ce qui s'affiche.
+        """
+        for lot in self:
+            affaire = lot.line_ids.order_id[:1].name
+            ref = (lot.logikal_ref or "").strip()
+            if affaire and ref:
+                lot.display_name = "%s - %s" % (affaire, ref)
+            elif affaire:
+                lot.display_name = "%s - %s" % (affaire, lot.name)
+            else:
+                lot.display_name = lot.name
+
     _name_company_uniq = models.Constraint(
         "unique(name, company_id)",
         "Le numéro de lot doit être unique par société.",
@@ -1284,21 +1308,36 @@ class FmaLotFabrication(models.Model):
             )
         return picking_type
 
+    #: Les champs ou chercher l'etiquette, dans l'ordre. tag_ids d'abord :
+    #: c'est le champ STANDARD d'Odoo, celui que le formulaire affiche sous
+    #: « Etiquettes » et que les commerciaux remplissent.
+    #:
+    #: x_studio_etiquette_1 est un ancien champ Studio. Il portait encore la
+    #: valeur sur certaines bases et pas sur d'autres — d'ou un debit qui
+    #: partait sur le bon entrepot ici et sur le mauvais la, a code
+    #: rigoureusement identique. On le garde en second, pour les commandes
+    #: anciennes qui n'ont que lui, et le jour ou plus aucune ne l'utilise il
+    #: disparaitra de cette liste.
+    CHAMPS_ETIQUETTE = ("tag_ids", "x_studio_etiquette_1")
+
     def _etiquette_commerciale(self):
         """L'etiquette de la commande : « FMA » ou « F2M ».
 
-        Elle vit dans x_studio_etiquette_1, un many2many de crm.tag porte par
-        la commande. Le champ vient d'un autre module : on verifie qu'il
-        existe plutot que de le supposer.
+        On lit le premier champ present qui porte une etiquette connue. Aucun
+        des deux n'est suppose exister : ils viennent d'ailleurs, et un champ
+        absent ne doit pas faire tomber la generation des ordres.
         """
         self.ensure_one()
         commandes = self.sale_order_ids
-        if not commandes or "x_studio_etiquette_1" not in commandes._fields:
+        if not commandes:
             return ""
-        for tag in commandes.mapped("x_studio_etiquette_1"):
-            nom = (tag.name or "").strip().upper()
-            if nom in ENTREPOT_PAR_ETIQUETTE:
-                return nom
+        for champ in self.CHAMPS_ETIQUETTE:
+            if champ not in commandes._fields:
+                continue
+            for tag in commandes.mapped(champ):
+                nom = (tag.name or "").strip().upper()
+                if nom in ENTREPOT_PAR_ETIQUETTE:
+                    return nom
         return ""
 
     def _picking_type_par_etiquette(self):
