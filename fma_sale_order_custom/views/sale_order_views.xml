@@ -336,6 +336,46 @@ if resultat and resultat is not True:
                 <xpath expr="//group[@name='fma_acces_chantier']" position="move"/>
             </xpath>
 
+
+        </field>
+    </record>
+
+    <!-- ==========================================================
+         RAF HT dans l'onglet Analyse Financiere.
+
+         Vue separee, et surtout fille de custom.view_order_form_custom
+         plutot que de sale.view_order_form : c'est cette vue-la qui cree
+         la page fma_analyse_financiere.
+
+         Deux vues soeurs heritant du meme parent sont appliquees dans
+         l'ordre (priorite, id). L'id depend de la base : sur une staging
+         custom passait avant, sur l'autre apres — et l'xpath ne trouvait
+         plus sa page. Meme code, meme module, une base qui charge et une
+         qui refuse. Heriter de la vue qui pose l'ancrage rend l'ordre
+         certain, au lieu de le laisser au hasard des sequences.
+         ========================================================== -->
+    <record id="view_order_form_facturation_fma" model="ir.ui.view">
+        <field name="name">sale.order.form.facturation.fma</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="custom.view_order_form_custom"/>
+        <field name="arch" type="xml">
+            <!-- RAF HT et sa decomposition, dans l'onglet Analyse
+                 Financiere ou se lisent deja les chiffres devis / BE / reel.
+                 Les trois lignes sont montrees ENSEMBLE a dessein : le RAF
+                 seul ne se verifie pas, alors que « total moins facture »
+                 se lit d'un coup d'oeil. C'est ce qui manquait quand deux
+                 champs de RAF coexistaient sans qu'on puisse les departager.
+                 fma_facture_ht n'est pas stocke : il ne sert qu'a rendre le
+                 calcul lisible, et c'est le RAF, lui stocke, qui alimente
+                 les tableaux croises et Power BI. -->
+            <xpath expr="//page[@name='fma_analyse_financiere']/group"
+                   position="inside">
+                <group string="Facturation" name="fma_facturation">
+                    <field name="amount_untaxed" string="Total HT"/>
+                    <field name="fma_facture_ht"/>
+                    <field name="x_studio_restant_a_facturer_ht_pivot"/>
+                </group>
+            </xpath>
         </field>
     </record>
 

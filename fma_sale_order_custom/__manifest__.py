@@ -28,7 +28,10 @@
     # 1.0.55 : RAF HT devient un calcul stocke — reprise dans
     # migrations/19.0.1.0.55, numerotee pour CETTE branche : un dossier
     # 19.0.1.0.50 ne tournerait jamais sur une base deja en 1.0.54.
-    "version": "19.0.1.0.55",
+    # 1.0.58 : le bloc Facturation devient une vue fille de celle qui
+    # cree l'onglet, au lieu d'une soeur. Entre soeurs l'ordre depend des
+    # id : une base chargeait, l'autre refusait, a code identique.
+    "version": "19.0.1.0.58",
     "depends": [
         "sale_management",
         "custom",
