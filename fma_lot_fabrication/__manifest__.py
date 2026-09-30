@@ -27,7 +27,9 @@
     # 1.43.0 : la designation du lot porte le rang du lot dans la
     # commande — « A26-00-00002 - Lot 3 » — et non plus le nom de la
     # phase LOGIKAL.
-    "version": "19.0.1.43.0",
+    # 1.44.0 : le titre du formulaire porte la designation du lot, le
+    # numero de sequence passant en sous-titre.
+    "version": "19.0.1.44.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
