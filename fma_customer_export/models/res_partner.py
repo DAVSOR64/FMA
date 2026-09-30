@@ -14,10 +14,6 @@ _logger = logging.getLogger(__name__)
 # systeme « fma_customer_export.reprise_depuis ».
 DEFAUT_REPRISE_DEPUIS = "2026-08-01"
 
-# Horodatage du dernier export quotidien abouti. Parametre systeme et non
-# champ : c'est une information sur le traitement, pas sur un client.
-PARAM_DERNIER_EXPORT = "fma_customer_export.dernier_export"
-
 
 class ResPartner(models.Model):
     _inherit = "res.partner"
@@ -213,49 +209,17 @@ class ResPartner(models.Model):
         return file
 
     def cron_generate_generate_customer_files(self):
-        """Les clients nouveaux ET ceux modifies depuis le dernier passage.
-
-        Le drapeau is_included_in_customers_export_file ne dit qu'une chose :
-        ce client est deja parti une fois. S'y limiter faisait qu'un client
-        corrige — nouveau RIB, changement d'adresse, encours revu — ne
-        repartait jamais. La compta gardait indefiniment la premiere version,
-        et personne ne pouvait le voir : le fichier du jour etait bien
-        produit, simplement incomplet.
-
-        Le repere est pose APRES l'export, et la comparaison est stricte.
-        C'est indispensable : l'export ecrit lui-meme le drapeau sur chaque
-        client retenu, ce qui touche leur write_date. Un repere pose avant
-        aurait fait repartir tout le fichier le lendemain, puis chaque jour
-        suivant, indefiniment.
-
-        Au tout premier passage le repere n'existe pas encore : on s'en tient
-        alors aux clients jamais exportes, exactement comme avant. Une mise
-        en service ne doit pas deverser toute la base chez la compta.
-        """
-        Params = self.env["ir.config_parameter"].sudo()
-        dernier = Params.get_param(PARAM_DERNIER_EXPORT)
-
-        domaine = [("is_company", "=", True)]
-        if dernier:
-            domaine += [
-                "|",
+        partners = self.search(
+            [
                 ("is_included_in_customers_export_file", "=", False),
-                ("write_date", ">", dernier),
+                ("is_company", "=", True),
             ]
-        else:
-            domaine.append(
-                ("is_included_in_customers_export_file", "=", False))
-        partners = self.search(domaine)
+        )
 
         try:
             self._creer_fichier_clients(partners)
         except Exception as e:
             _logger.exception("Erreur export clients: %s", e)
-            return
-        # Seulement si l'export a abouti : un echec doit laisser le repere en
-        # place, pour que le passage suivant rattrape la journee manquee.
-        Params.set_param(
-            PARAM_DERNIER_EXPORT, fields.Datetime.to_string(self.env.cr.now()))
 
     def action_generer_fichier_clients_depuis(self):
         """Reprise : les clients crees ou modifies depuis une date donnee.

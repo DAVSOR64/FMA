@@ -536,14 +536,6 @@ class SqliteConnector(models.Model):
                         "purchase_ok": False,
                         "sale_ok": True,
                         "invoice_policy":"delivery",
-                        # Suivi au NUMERO DE SERIE, et c'est ce qui rend
-                        # l'ecran Atelier utilisable. Une ligne de 4
-                        # menuiseries donne un OF de 4 : sans suivi, declarer
-                        # la premiere oblige a creer un reliquat de 3, puis de
-                        # 2, puis de 1. Avec, l'operateur enregistre une
-                        # menuiserie a la fois, l'OF reste ouvert, et chaque
-                        # exemplaire garde son identite jusqu'au SAV.
-                        "tracking": "serial",
                     })
                     zero_delay_products.append(product.product_tmpl_id.id)
                     message = _("Product has been Created: ") + product._get_html_link()

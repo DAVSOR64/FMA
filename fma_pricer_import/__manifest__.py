@@ -40,17 +40,7 @@
     # 1.19.0 : creation des articles et vitrages manquants pour les pricers
     # sans redacteur, a la convention et aux routes de sqlite_connector, et
     # normalisation des libelles d'operations de TechDesign.
-    # 1.37.0 : l'OF de debit ne garde que l'operation Debit. L'usinage sur
-    # banc (CU) se fait sur des barres deja coupees mais appartient a la
-    # menuiserie -- c'est elle qu'on usine, pas le lot : il part sur l'OF
-    # d'assemblage, avec le reste de la gamme.
-    # 1.38.0 : les articles libres sont crees a l'import, sur le
-    # fournisseur « NON DEF » et rattaches a l'affaire ; une activite
-    # previent celui qui a depose le fichier de ce qui reste a traiter.
-    # 1.39.0 : l'import reste possible sur un devis VALIDE. La validation
-    # est une etape interne, pas une vente ; seule la confirmation ferme
-    # la porte.
-    "version": "19.0.1.39.0",
+    "version": "19.0.1.36.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

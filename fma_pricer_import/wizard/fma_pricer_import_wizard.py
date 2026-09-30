@@ -70,10 +70,15 @@ class FmaPricerImportWizard(models.TransientModel):
         self.ensure_one()
         order = self.order_id
 
-        # Meme regle que le menu Action, et au meme endroit : le wizard reste
-        # ouvert pendant qu'on choisit le fichier, la commande a pu etre
-        # confirmee entre-temps.
-        order._pricer_import_autorise()
+        if order.state not in ("draft", "sent"):
+            raise UserError(
+                _(
+                    "Le devis %(name)s est a l'etat %(state)s : l'import "
+                    "Pricer n'est possible que sur un devis non confirme.",
+                    name=order.display_name,
+                    state=order.state,
+                )
+            )
         if not order.partner_id:
             raise UserError(
                 _(

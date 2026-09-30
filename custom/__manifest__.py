@@ -24,12 +24,7 @@
     # 1.0.57 : la colonne Repere de la ligne d'achat suit la meme regle
     # que le PDF (x_studio_posit sinon x_studio_position) ; elle restait
     # vide alors que le PDF portait bien un repere.
-    # 1.0.88 : « Livraison reelle le » lit la date PLANIFIEE du BL et
-    # non sa date effective ; commitment_date suit « Date de livraison
-    # prevue ». Reprise des commandes deja en base en post-migrate.
-    # 1.0.89 : l'onglet Analyse Financiere porte un name, pour qu'un
-    # module dependant puisse s'y ancrer sans passer par @string.
-    "version": "19.0.1.0.89",
+    "version": "19.0.1.0.86",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [

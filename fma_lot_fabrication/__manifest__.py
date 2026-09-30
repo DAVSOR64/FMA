@@ -11,25 +11,7 @@
     # l'approvisionnement standard a la confirmation de la commande ; le lot
     # les scinde selon sa repartition et se les rattache. Le bouton du lot ne
     # cree plus que l'OF de debit, et complete les assemblages manquants.
-    # 1.39.0 : replanifier l'OF de debit entraine les assemblages, et la
-    # date de livraison est controlee SUR EUX. Les bons d'achat ne sont
-    # plus deplaces : c'est une negociation fournisseur, pas une
-    # consequence du planning atelier.
-    # 1.40.0 : la date projetee des assemblages tient compte du report
-    # derriere la fin du debit, et non du seul decalage. Un decalage nul
-    # donnait une projection nulle : des assemblages annonces AVANT le
-    # debit qui les alimente, et declares a l'heure.
-    # 1.41.0 : le type dans le lot (Debit / Assemblage) devient une
-    # colonne et deux filtres sur l'ecran d'ordonnancement.
-    # 1.42.0 : l'etiquette est lue sur tag_ids, le champ standard ;
-    # plafond a 8 menuiseries ; la designation du lot porte l'affaire et
-    # le rang du lot ; la quantite commandee quitte la vue du lot.
-    # 1.43.0 : la designation du lot porte le rang du lot dans la
-    # commande — « A26-00-00002 - Lot 3 » — et non plus le nom de la
-    # phase LOGIKAL.
-    # 1.44.0 : le titre du formulaire porte la designation du lot, le
-    # numero de sequence passant en sous-titre.
-    "version": "19.0.1.44.0",
+    "version": "19.0.1.37.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
@@ -65,8 +47,6 @@ Voir README.md pour le detail du parametrage.
         "custom",
         "fma_atelier",
         "mrp_capacity_planning",
-        # Porte l'ecran d'ordonnancement que la vue ci-dessous etend.
-        "fma_mrp_ordonnancement",
         "base",
         "mail",
         "sale",
@@ -79,7 +59,6 @@ Voir README.md pour le detail du parametrage.
         "purchase_stock",
     ],
     "data": [
-        "views/mrp_production_ordonnancement_views.xml",
         "security/ir.model.access.csv",
         "security/fma_lot_security.xml",
         "data/ir_sequence.xml",
