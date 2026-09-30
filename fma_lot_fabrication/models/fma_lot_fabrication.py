@@ -266,29 +266,49 @@ class FmaLotFabrication(models.Model):
     )
     note = fields.Html(string="Notes")
 
-    @api.depends("name", "logikal_ref", "line_ids.order_id.name")
+    @api.depends("name", "line_ids.order_id.name")
     def _compute_display_name(self):
-        """« A26-09-07805/2 - lot 2 » plutot que « LOT-2026-0021 ».
+        """« A26-00-00002 - Lot 3 » : la commande, puis le rang du lot dedans.
 
-        Le numero de sequence ne dit rien a personne : il ne designe ni
-        l'affaire ni le rang du lot dedans. Les deux informations que l'on
-        cherche quand on lit « lot » sont justement celles-la, et elles
-        existent — l'affaire sur la ligne de devis, le rang dans la reference
-        LOGIKAL, qui est le nom de la phase du pricer.
+        Ni LOT-2026-0025, un numero de sequence global qui ne situe rien, ni
+        « TR1 - lot3 », le nom de la phase LOGIKAL, qui ne parle qu'au
+        chiffreur et change de forme d'un chiffrage a l'autre.
 
-        Le champ name ne bouge pas : il reste l'identifiant technique, cite
-        par les origines d'OF, les messages et la contrainte d'unicite. Seule
-        la designation change, c'est-a-dire ce qui s'affiche.
+        Le rang est la position du lot parmi ceux de la meme commande, dans
+        l'ordre ou ils ont ete crees — donc dans l'ordre des imports. C'est
+        ainsi que l'atelier les designe : le lot 1, le lot 2, le lot 3.
+
+        La reference LOGIKAL ne disparait pas, elle reste dans son champ, ou
+        le chiffreur la retrouve pour rapprocher avec le pricer.
         """
+        # Un seul search pour tout le lot d'enregistrements : ce calcul se
+        # declenche sur chaque liste et chaque many2one, une requete par ligne
+        # se paierait immediatement.
+        commandes = {
+            lot.line_ids.order_id[:1].id
+            for lot in self if lot.line_ids.order_id
+        }
+        rangs = {}
+        if commandes:
+            compteur = {}
+            for frere in self.sudo().search(
+                    [("line_ids.order_id", "in", list(commandes))],
+                    order="id"):
+                cle = frere.line_ids.order_id[:1].id
+                compteur[cle] = compteur.get(cle, 0) + 1
+                rangs[frere.id] = compteur[cle]
+
         for lot in self:
-            affaire = lot.line_ids.order_id[:1].name
-            ref = (lot.logikal_ref or "").strip()
-            if affaire and ref:
-                lot.display_name = "%s - %s" % (affaire, ref)
-            elif affaire:
-                lot.display_name = "%s - %s" % (affaire, lot.name)
+            commande = lot.line_ids.order_id[:1]
+            rang = rangs.get(lot.id)
+            if commande and rang:
+                lot.display_name = "%s - Lot %s" % (commande.name, rang)
+            elif commande:
+                # Lot pas encore enregistre : aucun rang ne peut etre etabli.
+                lot.display_name = "%s - %s" % (commande.name, lot.name)
             else:
                 lot.display_name = lot.name
+
 
     _name_company_uniq = models.Constraint(
         "unique(name, company_id)",
