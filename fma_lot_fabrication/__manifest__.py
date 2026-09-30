@@ -29,7 +29,10 @@
     # phase LOGIKAL.
     # 1.44.0 : le titre du formulaire porte la designation du lot, le
     # numero de sequence passant en sous-titre.
-    "version": "19.0.1.44.0",
+    # 1.45.0 : dans l'entrepot que l'etiquette designe, le debit prend le
+    # type d'operation des assemblages plutot que le manu_type_id de
+    # l'entrepot, qui pointait un autre atelier.
+    "version": "19.0.1.45.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
