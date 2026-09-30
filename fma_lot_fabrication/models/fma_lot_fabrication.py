@@ -266,6 +266,50 @@ class FmaLotFabrication(models.Model):
     )
     note = fields.Html(string="Notes")
 
+    @api.depends("name", "line_ids.order_id.name")
+    def _compute_display_name(self):
+        """« A26-00-00002 - Lot 3 » : la commande, puis le rang du lot dedans.
+
+        Ni LOT-2026-0025, un numero de sequence global qui ne situe rien, ni
+        « TR1 - lot3 », le nom de la phase LOGIKAL, qui ne parle qu'au
+        chiffreur et change de forme d'un chiffrage a l'autre.
+
+        Le rang est la position du lot parmi ceux de la meme commande, dans
+        l'ordre ou ils ont ete crees — donc dans l'ordre des imports. C'est
+        ainsi que l'atelier les designe : le lot 1, le lot 2, le lot 3.
+
+        La reference LOGIKAL ne disparait pas, elle reste dans son champ, ou
+        le chiffreur la retrouve pour rapprocher avec le pricer.
+        """
+        # Un seul search pour tout le lot d'enregistrements : ce calcul se
+        # declenche sur chaque liste et chaque many2one, une requete par ligne
+        # se paierait immediatement.
+        commandes = {
+            lot.line_ids.order_id[:1].id
+            for lot in self if lot.line_ids.order_id
+        }
+        rangs = {}
+        if commandes:
+            compteur = {}
+            for frere in self.sudo().search(
+                    [("line_ids.order_id", "in", list(commandes))],
+                    order="id"):
+                cle = frere.line_ids.order_id[:1].id
+                compteur[cle] = compteur.get(cle, 0) + 1
+                rangs[frere.id] = compteur[cle]
+
+        for lot in self:
+            commande = lot.line_ids.order_id[:1]
+            rang = rangs.get(lot.id)
+            if commande and rang:
+                lot.display_name = "%s - Lot %s" % (commande.name, rang)
+            elif commande:
+                # Lot pas encore enregistre : aucun rang ne peut etre etabli.
+                lot.display_name = "%s - %s" % (commande.name, lot.name)
+            else:
+                lot.display_name = lot.name
+
+
     _name_company_uniq = models.Constraint(
         "unique(name, company_id)",
         "Le numéro de lot doit être unique par société.",
@@ -801,6 +845,18 @@ class FmaLotFabrication(models.Model):
             and p.state not in ("done", "cancel")
         )[:1]
         if not debit:
+            termine = self.production_ids.filtered(
+                lambda p: p.lot_production_type == "debit"
+                and p.state == "done"
+            )[:1]
+            if termine:
+                raise UserError(_(
+                    "L'ordre de debit %(of)s est deja termine : sa fin de fab "
+                    "ne pilote plus rien.\n\n"
+                    "Utilisez « Replanifier », qui recale les assemblages "
+                    "seuls depuis la date de fin de fab du lot.",
+                    of=termine.display_name,
+                ))
             raise UserError(
                 _("Le lot %s n'a pas d'ordre de debit actif.", self.name))
         if not debit.macro_forced_end:
@@ -832,15 +888,15 @@ class FmaLotFabrication(models.Model):
         # On suit la meme regle : rien n'est ecrit tant que le lot entier n'a
         # pas passe le controle. Ecrire puis constater laisserait un lot a
         # moitie deplace.
-        self._controler_livraison(assemblages, decalage)
+        self._controler_livraison(assemblages, decalage, nouvelle.date())
 
         debit.compute_macro_schedule_from_date_fin()
         deplaces = self._decaler_assemblages(assemblages, decalage, debit)
         depart_matiere = self._planifier_sortie_matiere(debit)
-        achats, bloques = self._decaler_achats(decalage)
 
         self._rendre_compte_replanification(
-            debit, decalage, deplaces, depart_matiere, achats, bloques)
+            debit, decalage, deplaces, depart_matiere,
+            self._achats_a_revoir())
         return True
 
     def _decaler_assemblages(self, assemblages, decalage, debit):
@@ -852,56 +908,75 @@ class FmaLotFabrication(models.Model):
         """
         Production = self.env["mrp.production"]
         fin_debit = debit.date_finished or debit.date_start
-        fin_debit = fields.Datetime.to_datetime(fin_debit) if fin_debit else False
+        fin_debit = (fields.Datetime.to_datetime(fin_debit).date()
+                     if fin_debit else False)
         deplaces = Production.browse()
 
         for mo in assemblages:
-            fin = mo.date_finished
-            if not fin:
+            # La MEME projection que celle annoncee dans le popup : le
+            # decalage et le report derriere le debit sont deja dedans.
+            cible = self._fin_projetee(mo, decalage, fin_debit)
+            if not cible:
                 continue
-            cible = fields.Datetime.to_datetime(fin).date() + decalage
             mo._set_date_fin_de_fab(cible)
             mo.compute_macro_schedule_from_date_fin()
             deplaces |= mo
 
-            # Un assemblage qui commencerait avant la fin du debit est
-            # repousse d'autant de jours qu'il en manque. Une seule passe :
-            # le moteur de capacite fait le reste.
+            # Le moteur de capacite peut encore avoir place le debut avant la
+            # fin du debit, en etalant l'assemblage sur une fenetre chargee.
+            # Une passe de rattrapage, et une seule : au-dela, ce n'est plus
+            # un decalage, c'est une replanification a refaire.
             if fin_debit and mo.date_start:
-                debut = fields.Datetime.to_datetime(mo.date_start)
+                debut = fields.Datetime.to_datetime(mo.date_start).date()
                 if debut < fin_debit:
-                    manque = (fin_debit.date() - debut.date()).days + 1
-                    mo._set_date_fin_de_fab(cible + timedelta(days=manque))
+                    mo._set_date_fin_de_fab(
+                        cible + timedelta(days=(fin_debit - debut).days + 1))
                     mo.compute_macro_schedule_from_date_fin()
         return deplaces
 
-    def _decaler_achats(self, decalage):
-        """Decale la date de reception des achats du lot.
+    def _achats_a_revoir(self):
+        """Les bons d'achat du lot, pour information — SANS les deplacer.
 
-        Seuls les bons NON confirmes bougent. Un bon confirme est un
-        engagement pris avec le fournisseur : le decaler dans Odoo ne le
-        decale pas chez lui, et donnerait une date a laquelle personne n'a
-        souscrit. Ceux-la sont nommes dans le compte rendu, a l'acheteur de
-        trancher.
+        Odoo ne recale pas les achats tout seul, et c'est voulu. Une date de
+        reception n'est pas une consequence mecanique du planning atelier :
+        c'est une negociation avec le fournisseur, que lui seul peut
+        accepter. La deplacer dans Odoo ne la deplace pas chez lui — on
+        obtiendrait une base qui affiche une date a laquelle personne n'a
+        souscrit, et un acheteur qui croit l'affaire reglee.
+
+        Le lot les NOMME donc dans son compte rendu, et l'achat tranche.
         """
-        Achat = self.env["purchase.order"]
-        if not decalage:
-            return Achat, Achat
-        commandes = self._lignes_achat_du_lot().order_id
-        modifiables = commandes.filtered(lambda a: a.state in ("draft", "sent"))
-        bloques = commandes - modifiables
-        for achat in modifiables:
-            if not achat.date_planned:
-                continue
-            try:
-                achat.date_planned = fields.Datetime.to_datetime(
-                    achat.date_planned) + decalage
-            except Exception:  # noqa: BLE001 — trace, pas de blocage
-                _logger.exception(
-                    "Decalage de la date de %s", achat.display_name)
-        return modifiables, bloques
+        return self._lignes_achat_du_lot().order_id
 
-    def _controler_livraison(self, assemblages, decalage):
+    def _fin_projetee(self, mo, decalage, fin_debit):
+        """Fin de fab qu'aura CET assemblage apres la replanification.
+
+        Deux termes, et le second est celui qu'on oubliait : le decalage du
+        debit, puis le report de l'assemblage qui commencerait avant que le
+        debit soit fini. Un assemblage consomme l'ensemble debite — il ne
+        peut pas le preceder.
+
+        Sans ce second terme, un decalage nul donnait une projection nulle :
+        le popup annoncait des assemblages au 06/11 derriere un debit fini le
+        16/11, et le controle de livraison les declarait a l'heure. Ils
+        etaient en retard certain, et c'est l'ecriture qui l'aurait decouvert.
+
+        Le calcul se fait a sec, sans rien ecrire, et c'est le meme qui sert a
+        afficher, a controler et a poser la cible : les trois ne peuvent plus
+        se contredire.
+        """
+        fin = mo.date_finished
+        if not fin:
+            return None
+        cible = fields.Datetime.to_datetime(fin).date() + decalage
+        debut = mo.date_start
+        if fin_debit and debut:
+            debut = fields.Datetime.to_datetime(debut).date() + decalage
+            if debut < fin_debit:
+                cible += timedelta(days=(fin_debit - debut).days + 1)
+        return cible
+
+    def _controler_livraison(self, assemblages, decalage, fin_debit=None):
         """Controle a sec : le lot deplace tient-il encore l'engagement ?
 
         Deux blocages, et ce sont ceux que la replanification d'un OF applique
@@ -931,10 +1006,9 @@ class FmaLotFabrication(models.Model):
             if not cible:
                 sans_date.append(mo)
                 continue
-            if not mo.date_finished:
+            projetee = self._fin_projetee(mo, decalage, fin_debit)
+            if not projetee:
                 continue
-            projetee = fields.Datetime.to_datetime(
-                mo.date_finished).date() + decalage
             cible = fields.Datetime.to_datetime(cible).date()
             if projetee > cible:
                 en_retard.append((mo, projetee, cible, (projetee - cible).days))
@@ -968,7 +1042,7 @@ class FmaLotFabrication(models.Model):
             ))
 
     def _rendre_compte_replanification(self, debit, decalage, deplaces,
-                                       depart_matiere, achats, bloques):
+                                       depart_matiere, achats):
         """Ce que la replanification a fait, et ce qu'elle n'a pas pu faire."""
         self.ensure_one()
         jours = decalage.days if decalage else 0
@@ -986,15 +1060,11 @@ class FmaLotFabrication(models.Model):
                 "<br/>Sortie matiere ramenee au %(date)s.", date=depart_matiere))
         if achats:
             corps.append(_(
-                "<br/>%(nb)s bon(s) d'achat decale(s) : %(noms)s.",
+                "<br/><b>%(nb)s bon(s) d'achat a revoir</b> — %(noms)s. "
+                "Leurs dates n'ont PAS ete modifiees : une date de reception "
+                "se negocie avec le fournisseur, elle ne se deduit pas du "
+                "planning atelier. A l'achat de trancher.",
                 nb=len(achats), noms=", ".join(achats.mapped("name")),
-            ))
-        if bloques:
-            corps.append(_(
-                "<br/><b>%(nb)s bon(s) deja confirme(s) n'ont pas ete "
-                "decales</b> — %(noms)s. Un engagement pris avec le "
-                "fournisseur ne se deplace pas depuis Odoo.",
-                nb=len(bloques), noms=", ".join(bloques.mapped("name")),
             ))
         self.message_post(body="".join(corps))
 
@@ -1023,8 +1093,15 @@ class FmaLotFabrication(models.Model):
         assemblages = self.production_assembly_ids.filtered(
             lambda p: p.state not in ("done", "cancel")
         )
-        if not debit or debit.state in ("done", "cancel") or not assemblages:
+        if not assemblages:
             return False
+
+        # UN DEBIT TERMINE N'EMPECHE PLUS DE REPLANIFIER. Il bloquait tout :
+        # une fois le lot debite, plus aucune date d'assemblage ne bougeait,
+        # alors que c'est precisement le moment ou l'atelier a besoin de les
+        # reordonner. On replanifie donc les assemblages seuls, et on ne
+        # touche pas au debit : ce qui est fait est fait.
+        debit_fige = not debit or debit.state in ("done", "cancel")
 
         # mrp_capacity_planning n'est pas une dependance de ce module.
         if not hasattr(debit, "compute_macro_schedule_from_sale"):
@@ -1050,6 +1127,15 @@ class FmaLotFabrication(models.Model):
             debuts = [d for d in assemblages.mapped("date_start") if d]
             if not debuts:
                 return False
+
+            if debit_fige:
+                # Rien a caler en amont : le debit est fait, ou absent.
+                self.message_post(body=_(
+                    "Replanification des assemblages seuls, a partir du "
+                    "%(debut)s : le debit est deja termine.",
+                    debut=min(debuts),
+                ))
+                return True
 
             premier = fields.Datetime.to_datetime(min(debuts)).date()
             poste = debit.workorder_ids[:1].workcenter_id
@@ -1242,21 +1328,36 @@ class FmaLotFabrication(models.Model):
             )
         return picking_type
 
+    #: Les champs ou chercher l'etiquette, dans l'ordre. tag_ids d'abord :
+    #: c'est le champ STANDARD d'Odoo, celui que le formulaire affiche sous
+    #: « Etiquettes » et que les commerciaux remplissent.
+    #:
+    #: x_studio_etiquette_1 est un ancien champ Studio. Il portait encore la
+    #: valeur sur certaines bases et pas sur d'autres — d'ou un debit qui
+    #: partait sur le bon entrepot ici et sur le mauvais la, a code
+    #: rigoureusement identique. On le garde en second, pour les commandes
+    #: anciennes qui n'ont que lui, et le jour ou plus aucune ne l'utilise il
+    #: disparaitra de cette liste.
+    CHAMPS_ETIQUETTE = ("tag_ids", "x_studio_etiquette_1")
+
     def _etiquette_commerciale(self):
         """L'etiquette de la commande : « FMA » ou « F2M ».
 
-        Elle vit dans x_studio_etiquette_1, un many2many de crm.tag porte par
-        la commande. Le champ vient d'un autre module : on verifie qu'il
-        existe plutot que de le supposer.
+        On lit le premier champ present qui porte une etiquette connue. Aucun
+        des deux n'est suppose exister : ils viennent d'ailleurs, et un champ
+        absent ne doit pas faire tomber la generation des ordres.
         """
         self.ensure_one()
         commandes = self.sale_order_ids
-        if not commandes or "x_studio_etiquette_1" not in commandes._fields:
+        if not commandes:
             return ""
-        for tag in commandes.mapped("x_studio_etiquette_1"):
-            nom = (tag.name or "").strip().upper()
-            if nom in ENTREPOT_PAR_ETIQUETTE:
-                return nom
+        for champ in self.CHAMPS_ETIQUETTE:
+            if champ not in commandes._fields:
+                continue
+            for tag in commandes.mapped(champ):
+                nom = (tag.name or "").strip().upper()
+                if nom in ENTREPOT_PAR_ETIQUETTE:
+                    return nom
         return ""
 
     def _picking_type_par_etiquette(self):

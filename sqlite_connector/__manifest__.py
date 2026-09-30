@@ -18,7 +18,13 @@
     # (fma_article_libre) et portent leur designation en reference interne.
     # Leur reference « _LB<n> » suit le rang dans le fichier depose et change
     # d'un export a l'autre : elle ne pouvait pas servir a les reconnaitre.
-    "version": "19.0.1.3.0",
+    # 1.4.0 : les menuiseries sont suivies au NUMERO DE SERIE. Sans cela,
+    # une ligne de 4 menuiseries donne un ordre de 4 et declarer la
+    # premiere oblige a creer un reliquat de 3, puis de 2, puis de 1 :
+    # l'ecran Atelier devient inutilisable alors que le cas d'usage est
+    # justement de declarer menuiserie par menuiserie. Reprise de
+    # l'existant en post-migrate, hors articles deja mouvementes.
+    "version": "19.0.1.4.0",
     "description": """
 
     """,

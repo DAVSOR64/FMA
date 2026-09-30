@@ -7,6 +7,7 @@ regrouper 1 OF Debit + N OF Assemblage dans une seule vue, quel que soit le
 mode de reapprovisionnement.
 """
 import logging
+from datetime import timedelta
 
 from odoo import _, fields, models
 
@@ -186,3 +187,115 @@ class MrpProduction(models.Model):
             "res_id": self.lot_fabrication_id.id,
             "view_mode": "form",
         }
+
+    # ------------------------------------------------------------------
+    # Replanification d'un OF de debit : le lot entier suit
+    # ------------------------------------------------------------------
+    def _lot_contexte_debit(self):
+        """(lot, assemblages, decalage) quand CET OF est le debit d'un lot.
+
+        Le decalage se mesure entre la fin de fab demandee et celle que l'OF
+        porte aujourd'hui. Il vaut zero tant que rien n'a ete saisi.
+        """
+        vide = (self.env["fma.lot.fabrication"],
+                self.env["mrp.production"], timedelta(0))
+        if self.lot_production_type != "debit" or not self.lot_fabrication_id:
+            return vide
+        demandee = self._date_fin_de_fab()
+        if not demandee:
+            return vide
+        decalage = timedelta(0)
+        if self.date_finished:
+            decalage = demandee - fields.Datetime.to_datetime(
+                self.date_finished).date()
+        assemblages = self.lot_fabrication_id.production_ids.filtered(
+            lambda p: p.lot_production_type == "assemblage"
+            and p.state not in ("done", "cancel")
+        )
+        return self.lot_fabrication_id, assemblages, decalage
+
+    def _build_replan_preview_payload(self):
+        """Controle la livraison sur les ASSEMBLAGES, pas sur le debit.
+
+        Le controle natif compare la fin de fab de CET OF a la date de
+        livraison. Sur un debit, c'est sans objet : le debit ne se livre pas.
+        On peut le pousser jusqu'au jour de la livraison et le voir passer au
+        vert, alors que les assemblages qu'il alimente tombent forcement
+        apres — le retard est reel, et personne ne le signale.
+
+        Ce qui compte, c'est la fin de fab des menuiseries. On les controle
+        donc a leur date projetee, avec la meme regle et le meme blocage que
+        partout ailleurs, et on les montre dans le popup pour que la decision
+        se prenne sur des dates, pas sur une intuition.
+        """
+        payload = super()._build_replan_preview_payload()
+        lot, assemblages, decalage = self._lot_contexte_debit()
+        if not lot or not assemblages:
+            return payload
+
+        # Meme controle que la replanification au niveau du lot : une date de
+        # livraison introuvable bloque, un depassement aussi. La fin visee du
+        # debit lui sert a repousser les assemblages qui le precederaient.
+        fin_debit = self._date_fin_de_fab()
+        lot._controler_livraison(assemblages, decalage, fin_debit)
+
+        lignes = []
+        for mo in assemblages.sorted(lambda m: m.name or ""):
+            projetee = lot._fin_projetee(mo, decalage, fin_debit)
+            cible, _commande = mo._get_macro_target_date()
+            lignes.append({
+                "name": mo.display_name or "",
+                "fin": projetee.strftime("%d/%m/%Y") if projetee else "-",
+                "livraison": (
+                    fields.Datetime.to_datetime(cible).strftime("%d/%m/%Y")
+                    if cible else "-"),
+            })
+        payload["fma_assemblages"] = lignes
+        payload["fma_decalage"] = decalage.days
+        payload["fma_fin_debit"] = fin_debit.strftime("%d/%m/%Y")
+        return payload
+
+    def _render_replan_preview_html(self, payload):
+        """Ajoute au popup les assemblages qui vont suivre le debit."""
+        html = super()._render_replan_preview_html(payload)
+        lignes = payload.get("fma_assemblages")
+        if not lignes:
+            return html
+        rangs = "".join(
+            "<tr><td>%s</td><td>%s</td><td>%s</td></tr>"
+            % (l.get("name", ""), l.get("fin", "-"), l.get("livraison", "-"))
+            for l in lignes
+        )
+        return html + """
+            <h4 style="margin-top:12px">Assemblages du lot — debit fini le %s</h4>
+            <table class="table table-sm">
+                <thead><tr>
+                    <th>OF</th><th>Fin de fab projetee</th>
+                    <th>Livraison client</th>
+                </tr></thead>
+                <tbody>%s</tbody>
+            </table>
+            <div style="color:#666;font-size:90%%">
+                Les bons d'achat ne sont pas deplaces : une date de reception
+                se negocie avec le fournisseur.
+            </div>
+        """ % (payload.get("fma_fin_debit", "-"), rangs)
+
+    def action_apply_replan_preview(self, payload=None):
+        """Applique au debit, puis entraine les assemblages et la matiere.
+
+        Le decalage est mesure AVANT que super() n'ecrive : apres, l'ancienne
+        date n'existe plus et on ne saurait plus de combien on a bouge.
+
+        Les achats ne suivent pas, volontairement — cf. _achats_a_revoir.
+        """
+        lot, assemblages, decalage = self._lot_contexte_debit()
+        resultat = super().action_apply_replan_preview(payload=payload)
+        if not lot or not assemblages:
+            return resultat
+
+        deplaces = lot._decaler_assemblages(assemblages, decalage, self)
+        depart_matiere = lot._planifier_sortie_matiere(self)
+        lot._rendre_compte_replanification(
+            self, decalage, deplaces, depart_matiere, lot._achats_a_revoir())
+        return resultat
