@@ -1,0 +1,4 @@
+[submodule "oca_storage"]
+	path = oca_storage
+	url = https://github.com/OCA/storage.git
+	branch = 19.0
