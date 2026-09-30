@@ -21,7 +21,10 @@
     # debit qui les alimente, et declares a l'heure.
     # 1.41.0 : le type dans le lot (Debit / Assemblage) devient une
     # colonne et deux filtres sur l'ecran d'ordonnancement.
-    "version": "19.0.1.41.0",
+    # 1.42.0 : l'etiquette est lue sur tag_ids, le champ standard ;
+    # plafond a 8 menuiseries ; la designation du lot porte l'affaire et
+    # le rang du lot ; la quantite commandee quitte la vue du lot.
+    "version": "19.0.1.42.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
