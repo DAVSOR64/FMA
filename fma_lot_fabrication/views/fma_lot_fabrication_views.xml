@@ -85,8 +85,24 @@
                     <widget name="web_ribbon" title="Annule" bg_color="text-bg-danger"
                             invisible="state != 'cancel'"/>
 
+                    <!-- Le titre porte la DESIGNATION — « A26-00-00002 - Lot
+                         3 » — et non le numero de sequence. C'est elle que le
+                         fil d'ariane affiche deja, et c'est ainsi que l'atelier
+                         nomme un lot.
+
+                         Le numero reste dessous, en sous-titre : il identifie
+                         le lot de facon unique, il est cite par les origines
+                         d'OF et par la contrainte d'unicite, et il reste
+                         saisissable. Le masquer aurait rendu introuvable ce que
+                         les messages du systeme designent. -->
                     <div class="oe_title">
-                        <h1><field name="name" placeholder="LOT-2026-0001"/></h1>
+                        <h1>
+                            <field name="display_name" nolabel="1" readonly="1"/>
+                        </h1>
+                        <h3 class="text-muted">
+                            <field name="name" nolabel="1"
+                                   placeholder="LOT-2026-0001"/>
+                        </h3>
                     </div>
 
                     <group>
