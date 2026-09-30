@@ -42,7 +42,10 @@
     # 1.49.0 : le besoin matiere ne s'imprime qu'apres generation des OF,
     # les casiers portent leur numero de serie, et une liste par article
     # rejoint le document pour la prise en rayon.
-    "version": "19.0.1.49.0",
+    # 1.50.0 : le detail par casier devient un detail par article, avec
+    # le casier servi sur chaque ligne. Meme contenu, un passage en
+    # rayon par article au lieu d'un par casier.
+    "version": "19.0.1.50.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

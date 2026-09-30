@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Sortie matiere du lot, aux trois grains dont l'atelier a besoin :
-         ce qui quitte le stock, ce qui revient a chaque repere, et ce qui
-         entre dans chaque casier. Le magasin travaille par casier, et un
-         casier vaut une menuiserie. -->
+    <!-- Sortie matiere du lot, en deux temps : ce qui quitte le stock,
+         puis le detail article par article avec le casier servi.
+
+         Il y avait auparavant une page par casier. Meme contenu, lu dans
+         l'autre sens — et le magasin faisait un passage par casier la ou il
+         en fait maintenant un par article, ce qui est sa facon de travailler.
+         Le numero de casier reste sur chaque ligne : un casier vaut une
+         menuiserie, et porte son numero de serie. -->
     <record id="action_report_lot_sortie_matiere" model="ir.actions.report">
         <field name="name">Sortie matière du lot</field>
         <field name="model">fma.lot.fabrication</field>
@@ -147,7 +151,7 @@
                     <t t-call="web.internal_layout">
                         <div class="page">
                             <h2>
-                                Liste de quincaillerie
+                                Détail matière par article
                                 <span t-field="lot.display_name"/>
                             </h2>
                             <div class="row mb-3">
@@ -170,6 +174,7 @@
                                     <tr>
                                         <th>Code article</th>
                                         <th>Désignation</th>
+                                        <th>Nature</th>
                                         <th class="text-end">Qté globale</th>
                                         <th>Unité</th>
                                         <th class="text-end">Qté</th>
@@ -187,6 +192,9 @@
                                                 <td t-att-rowspan="poste['nb']">
                                                     <span t-field="poste['article'].name"/>
                                                 </td>
+                                                <td t-att-rowspan="poste['nb']">
+                                                    <span t-esc="poste['nature']"/>
+                                                </td>
                                                 <td t-att-rowspan="poste['nb']" class="text-end">
                                                     <span t-esc="'%.2f' % poste['total']"/>
                                                 </td>
@@ -203,75 +211,14 @@
                                     </t>
                                 </tbody>
                             </table>
-                        </div>
-                    </t>
-                </t>
-
-                <!-- 3. Un casier par menuiserie -->
-                <t t-foreach="casiers" t-as="casier">
-                    <t t-call="web.internal_layout">
-                        <div class="page">
-                            <h2>
-                                Casier
-                                <t t-if="casier.get('serie')">
-                                    <span t-esc="casier['serie']"/>
-                                </t>
-                                <t t-else="">
-                                    <span t-field="casier['ligne'].product_id"/>
-                                </t>
-                                <small class="text-muted">
-                                    — <span t-esc="casier['rang']"/> sur <span t-esc="casier['sur']"/>
-                                </small>
-                            </h2>
-                            <div class="row mb-3">
-                                <div class="col-4">
-                                    <strong>Lot</strong><br/>
-                                    <span t-field="lot.display_name"/>
-                                </div>
-                                <div class="col-4">
-                                    <strong>Commande</strong><br/>
-                                    <span t-field="casier['ligne'].order_id.name"/>
-                                </div>
-                                <div class="col-4">
-                                    <strong>Client</strong><br/>
-                                    <span t-field="lot.partner_id"/>
-                                </div>
-                            </div>
-
-                            <table class="table table-sm o_main_table">
-                                <thead>
-                                    <tr>
-                                        <th>Référence</th>
-                                        <th>Désignation</th>
-                                        <th>Nature</th>
-                                        <th class="text-end">Quantité</th>
-                                        <th>Unité</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr t-if="casier['ligne'].product_debit_id">
-                                        <td><span t-field="casier['ligne'].product_debit_id.default_code"/></td>
-                                        <td><span t-field="casier['ligne'].product_debit_id.name"/></td>
-                                        <td>Ensemble débité</td>
-                                        <td class="text-end">1,00</td>
-                                        <td><span t-field="casier['ligne'].product_debit_id.uom_id.name"/></td>
-                                    </tr>
-                                    <tr t-foreach="casier['contenu']" t-as="poste">
-                                        <td><span t-field="poste[0].default_code"/></td>
-                                        <td><span t-field="poste[0].name"/></td>
-                                        <td><span t-field="poste[0].fma_nature_logikal"/></td>
-                                        <td class="text-end"><span t-esc="'%.2f' % poste[1]"/></td>
-                                        <td><span t-field="poste[2].name"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
                             <p class="text-muted">
-                                L'ensemble débité rejoint le casier après le débit ; la quincaillerie
-                                et le vitrage y sont mis à la préparation.
+                                L'ensemble débité rejoint le casier après le débit ;
+                                la quincaillerie et le vitrage y sont mis à la préparation.
                             </p>
                         </div>
                     </t>
                 </t>
+
             </t>
         </t>
     </template>

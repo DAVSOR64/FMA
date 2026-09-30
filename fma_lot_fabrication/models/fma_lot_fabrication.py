@@ -2068,12 +2068,31 @@ class FmaLotFabrication(models.Model):
             )
             etiquette = casier.get("serie") or "%s/%s" % (
                 casier["rang"], casier["sur"])
+
+            # L'ensemble debite d'abord, puis la quincaillerie et le vitrage.
+            # Il ne se prend pas en rayon — il arrive du debit — mais ce
+            # document remplace le detail par casier : sans lui, plus rien ne
+            # dirait que chaque casier en recoit un.
+            contenu = []
+            if ligne.product_debit_id:
+                contenu.append((
+                    ligne.product_debit_id, 1.0,
+                    ligne.product_debit_id.uom_id, _("Ensemble débité"),
+                ))
             for article, qty, uom in casier["contenu"]:
+                contenu.append((
+                    article, qty, uom,
+                    article.fma_nature_logikal
+                    if "fma_nature_logikal" in article._fields else "",
+                ))
+
+            for article, qty, uom, nature in contenu:
                 if not article or not qty:
                     continue
                 poste = par_article.setdefault(article.id, {
                     "article": article,
                     "uom": uom,
+                    "nature": nature,
                     "total": 0.0,
                     "detail": [],
                 })
