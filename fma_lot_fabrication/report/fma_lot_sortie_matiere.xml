@@ -176,10 +176,10 @@
                             <table class="table table-sm o_main_table">
                                 <thead>
                                     <tr>
+                                        <th>Emplacement</th>
                                         <th>Code article</th>
                                         <th>Désignation</th>
                                         <th class="text-end">Qté globale</th>
-                                        <th>Unité</th>
                                         <th class="text-end">Qté</th>
                                         <th>Casier</th>
                                         <th>Repère</th>
@@ -190,6 +190,9 @@
                                         <tr t-foreach="poste['detail']" t-as="det">
                                             <t t-if="det_index == 0">
                                                 <td t-att-rowspan="poste['nb']">
+                                                    <span t-esc="poste['emplacement'].complete_name if poste['emplacement'] else ''"/>
+                                                </td>
+                                                <td t-att-rowspan="poste['nb']">
                                                     <span t-field="poste['article'].default_code"/>
                                                 </td>
                                                 <td t-att-rowspan="poste['nb']">
@@ -197,9 +200,6 @@
                                                 </td>
                                                 <td t-att-rowspan="poste['nb']" class="text-end">
                                                     <span t-esc="'%.2f' % poste['total']"/>
-                                                </td>
-                                                <td t-att-rowspan="poste['nb']">
-                                                    <span t-field="poste['uom'].name"/>
                                                 </td>
                                             </t>
                                             <td class="text-end">
@@ -214,7 +214,8 @@
                             <p class="text-muted">
                                 Quincaillerie seule. Le vitrage se livre à part et les
                                 profilés passent par le débit ; ni l'un ni l'autre ne se
-                                prend en rayon.
+                                prend en rayon. Les lignes suivent l'ordre des emplacements ;
+                                un emplacement vide signale un article sans stock.
                             </p>
                         </div>
                     </t>

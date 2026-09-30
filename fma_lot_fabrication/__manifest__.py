@@ -46,7 +46,9 @@
     # le casier servi sur chaque ligne. Meme contenu, un passage en
     # rayon par article au lieu d'un par casier.
     # 1.51.0 : le detail du besoin matiere ne porte que la quincaillerie.
-    "version": "19.0.1.51.0",
+    # 1.52.0 : la liste de quincaillerie porte l'emplacement de stock en
+    # premiere colonne et suit l'ordre des rayons ; l'unite disparait.
+    "version": "19.0.1.52.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
