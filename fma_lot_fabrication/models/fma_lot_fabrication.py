@@ -35,7 +35,7 @@ non par le chainage parent/enfant natif d'Odoo.
 import logging
 from datetime import timedelta
 
-from odoo import _, api, fields, models
+from odoo import Command, _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_compare, float_is_zero
 
@@ -839,11 +839,107 @@ class FmaLotFabrication(models.Model):
             lot._rattacher_achats()
             lot._fusionner_achats_du_lot()
 
+            # Apres la confirmation, avant le chainage : la scission cree des
+            # ordres que la planification doit ensuite dater.
+            lot._scinder_assemblages_par_serie()
+
             lot._chainer_debit_et_assemblage()
 
             if lot.state == "confirmed":
                 lot.state = "progress"
         return True
+
+    def _numeros_de_serie(self, product, nombre):
+        """Cree ``nombre`` numeros « <reference article>-001 » pour l'article.
+
+        La reference de l'article porte deja l'affaire et la position —
+        « A26-00-00002_E-MEXT-C1 » —, le rang suffit a designer l'exemplaire.
+        Un numero de sequence generique aurait demande de remonter a l'article
+        pour savoir de quelle menuiserie on parle.
+
+        Le rang repart du nombre d'exemplaires deja crees pour cet article, et
+        les noms deja pris sont sautes : une meme ligne de devis peut etre
+        lotie en plusieurs fois, et deux lots ne doivent pas se disputer le
+        numero 001.
+        """
+        self.ensure_one()
+        Lot = self.env["stock.lot"].sudo()
+        base = (product.default_code or product.name or "SN").strip()
+        existants = set(
+            Lot.search([("product_id", "=", product.id)]).mapped("name"))
+        noms, rang = [], len(existants)
+        while len(noms) < nombre:
+            rang += 1
+            nom = "%s-%03d" % (base, rang)
+            if nom not in existants:
+                noms.append(nom)
+        return Lot.create([
+            {
+                "name": nom,
+                "product_id": product.id,
+                "company_id": self.company_id.id,
+            }
+            for nom in noms
+        ])
+
+    def _scinder_assemblages_par_serie(self):
+        """Un ordre par menuiserie, chacun portant son numero de serie.
+
+        Sans cela, une ligne de 2 menuiseries donne un ordre de 2, et
+        l'operateur doit penser a « Preparer l'OF » plutot qu'a « Appliquer »
+        dans l'ecran des numeros de serie — le bouton a eviter etant le bleu.
+        Un oubli et les deux menuiseries se declarent d'un coup, sans identite
+        propre.
+
+        Surtout, le magasin prepare les casiers AVANT que l'atelier produise.
+        Un casier vaut une menuiserie ; si le numero n'existe qu'au moment de
+        la declaration, le magasin travaille sur des rangs anonymes et rien ne
+        rapproche le casier 2 du numero 2. En posant les numeros ici, le
+        rapprochement est acquis de bout en bout, du casier au SAV.
+
+        On emploie la scission native, celle-la meme que le wizard appelle.
+        Les champs du lot sont en copy=False, mais _get_backorder_mo_vals les
+        reporte : les ordres issus de la scission restent dans le lot.
+        """
+        self.ensure_one()
+        candidats = self.production_assembly_ids.filtered(
+            lambda p: p.state not in ("done", "cancel")
+            and p.product_id.tracking == "serial"
+            and not p.lot_producing_ids
+        )
+        obtenus = self.env["mrp.production"]
+        for mo in candidats:
+            nombre = int(round(mo.product_qty or 0))
+            if nombre < 1:
+                continue
+            numeros = self._numeros_de_serie(mo.product_id, nombre)
+            if nombre == 1:
+                # Rien a scinder : l'ordre porte deja une seule menuiserie, il
+                # lui manquait juste son numero.
+                mo.lot_producing_ids = [Command.link(numeros[0].id)]
+                obtenus |= mo
+                continue
+            try:
+                ordres = mo._split_productions({mo: [1] * nombre})
+            except Exception:  # noqa: BLE001 — trace, pas de blocage
+                _logger.exception(
+                    "Scission par numero de serie de %s", mo.display_name)
+                numeros.unlink()
+                continue
+            for ordre, numero in zip(ordres, numeros):
+                ordre.lot_producing_ids = [Command.link(numero.id)]
+            obtenus |= ordres
+
+        if obtenus:
+            self.message_post(
+                body=_(
+                    "%(nb)s menuiserie(s) numerotee(s) : un ordre et un "
+                    "numero de serie chacune. Les casiers du magasin portent "
+                    "les memes numeros.",
+                    nb=len(obtenus),
+                )
+            )
+        return obtenus
 
     def action_replanifier_lot(self):
         """Replanifie le lot depuis la date de fin de fabrication saisie.

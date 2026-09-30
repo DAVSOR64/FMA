@@ -35,7 +35,10 @@
     # 1.46.0 : « Date planifiee » du lot porte le debut de son OF de
     # debit, et suit donc les replanifications. Reprise des lots deja en
     # base en post-migrate.
-    "version": "19.0.1.46.0",
+    # 1.47.0 : « Generer les OF » scinde les assemblages en un ordre par
+    # menuiserie et pose son numero de serie. Le magasin prepare des
+    # casiers deja numerotes, l'atelier declare une menuiserie a la fois.
+    "version": "19.0.1.47.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
