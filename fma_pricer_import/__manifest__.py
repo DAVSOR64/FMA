@@ -47,7 +47,10 @@
     # 1.38.0 : les articles libres sont crees a l'import, sur le
     # fournisseur « NON DEF » et rattaches a l'affaire ; une activite
     # previent celui qui a depose le fichier de ce qui reste a traiter.
-    "version": "19.0.1.38.0",
+    # 1.39.0 : l'import reste possible sur un devis VALIDE. La validation
+    # est une etape interne, pas une vente ; seule la confirmation ferme
+    # la porte.
+    "version": "19.0.1.39.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
