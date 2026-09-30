@@ -144,12 +144,62 @@ class FmaLotFabrication(models.Model):
             dates = [d for d in actifs.mapped("date_finished") if d]
             lot.date_fin_fab = max(dates) if dates else False
 
+    # La date de DEBUT DU DEBIT, des qu'il existe. C'est le moment ou le lot
+    # entre reellement en fabrication : le debit est le premier travail, tout
+    # le reste en decoule. Avant generation, la valeur saisie a la mise en lot
+    # sert d'amorce aux OF crees.
+    #
+    # Calculee et stockee, comme « Fin de fabrication » juste au-dessus : les
+    # deux suivent alors le debit sans que personne ait a les recopier. Une
+    # replanification qui deplace le debit les deplace avec lui.
     date_planned_start = fields.Datetime(
         string="Date planifiee",
+        compute="_compute_date_planned_start",
+        store=True,
+        readonly=False,
         default=fields.Datetime.now,
         tracking=True,
-        help="Date reprise sur les OF generes.",
+        help="Date de debut de l'OF de debit. Avant generation des ordres, "
+        "la date saisie a la mise en lot.",
     )
+
+    @api.depends(
+        "production_ids.date_start",
+        "production_ids.lot_production_type",
+        "production_ids.state",
+    )
+    def _compute_date_planned_start(self):
+        sans_debit = self.browse()
+        for lot in self:
+            debit = lot.production_ids.filtered(
+                lambda p: p.lot_production_type == "debit"
+                and p.state != "cancel"
+            )[:1]
+            if debit and debit.date_start:
+                lot.date_planned_start = debit.date_start
+            else:
+                sans_debit |= lot
+        if not sans_debit:
+            return
+
+        # Pas encore de debit : on garde la date saisie a la mise en lot.
+        # Elle amorce les ordres a leur creation, et la perdre ici aurait ete
+        # facile — ce calcul se declenche des la confirmation de la commande,
+        # qui rattache les assemblages bien avant que le debit existe.
+        #
+        # La valeur est relue en base et non sur l'enregistrement : le champ
+        # est en cours de calcul, le lire par l'ORM relancerait ce meme calcul.
+        enregistres = [i for i in sans_debit.ids if isinstance(i, int)]
+        stocke = {}
+        if enregistres:
+            self.env.cr.execute(
+                "SELECT id, date_planned_start FROM fma_lot_fabrication"
+                " WHERE id = ANY(%s)", (enregistres,))
+            stocke = dict(self.env.cr.fetchall())
+        for lot in sans_debit:
+            lot.date_planned_start = (
+                stocke.get(lot.id) or lot.create_date or fields.Datetime.now()
+            )
 
     # --- Composition du lot -------------------------------------------------
     line_ids = fields.One2many(
