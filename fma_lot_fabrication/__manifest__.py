@@ -48,7 +48,9 @@
     # 1.51.0 : le detail du besoin matiere ne porte que la quincaillerie.
     # 1.52.0 : la liste de quincaillerie porte l'emplacement de stock en
     # premiere colonne et suit l'ordre des rayons ; l'unite disparait.
-    "version": "19.0.1.52.0",
+    # 1.53.0 : l'emplacement est cherche sous STOCK seulement, jamais en
+    # pre-fabrication, et c'est le premier de la tournee qui est retenu.
+    "version": "19.0.1.53.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

@@ -2115,31 +2115,54 @@ class FmaLotFabrication(models.Model):
             p["article"].name or "",
         ))
 
+    def _racine_stock(self):
+        """L'emplacement Stock de l'entrepot du lot.
+
+        Celui ou le magasin range, par opposition a la pre-fabrication, ou la
+        matiere est deja reservee pour un ordre. Envoyer quelqu'un chercher en
+        pre-fab, c'est l'envoyer prendre ce qui est deja promis a un autre lot.
+        """
+        self.ensure_one()
+        types = self.production_ids.picking_type_id
+        if not types:
+            types = self._picking_type_par_etiquette()
+        return types[:1].warehouse_id.lot_stock_id
+
     def _emplacements_stock(self, articles):
-        """Ou chaque article se trouve reellement, d'apres le stock.
+        """Ou chaque article se range, d'apres le stock reel.
 
         Aucun champ de la base ne porte l'emplacement de rangement d'un
         article : on le deduit des quants. C'est meme plus fiable qu'une
         saisie, qui vieillit des qu'on reorganise un rayon.
 
-        Quand un article est present a plusieurs endroits, on retient celui
-        qui en porte le plus. Le magasin ira la, et le reste est un reliquat
-        qu'un inventaire finira par regrouper.
+        On ne regarde que SOUS STOCK. La pre-fabrication en est exclue : ce
+        qui s'y trouve est deja sorti pour un ordre, et y envoyer le magasin
+        reviendrait a lui faire reprendre la matiere d'un autre lot.
+
+        Quand un article est range a plusieurs endroits sous Stock, on prend
+        le premier dans l'ordre des emplacements — celui que le magasin
+        rencontre en premier dans sa tournee.
         """
         self.ensure_one()
         if not articles:
             return {}
-        retenu = {}
-        for quant in self.env["stock.quant"].sudo().search([
+        domaine = [
             ("product_id", "in", articles.ids),
             ("location_id.usage", "=", "internal"),
             ("company_id", "in", (self.company_id.id, False)),
             ("quantity", ">", 0),
-        ]):
-            cle = quant.product_id.id
-            if cle not in retenu or quant.quantity > retenu[cle][1]:
-                retenu[cle] = (quant.location_id, quant.quantity)
-        return {cle: valeur[0] for cle, valeur in retenu.items()}
+        ]
+        racine = self._racine_stock()
+        if racine:
+            domaine.append(("location_id", "child_of", racine.id))
+
+        retenu = {}
+        for quant in self.env["stock.quant"].sudo().search(
+                domaine, order="location_id, id"):
+            # Le premier rencontre l'emporte : la recherche est deja triee
+            # par emplacement.
+            retenu.setdefault(quant.product_id.id, quant.location_id)
+        return retenu
 
     def action_imprimer_besoin_matiere(self):
         """Edite le besoin matiere du lot.
