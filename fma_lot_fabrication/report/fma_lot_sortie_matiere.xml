@@ -13,7 +13,7 @@
         <field name="report_file">fma_lot_fabrication.report_lot_sortie_matiere</field>
         <field name="binding_model_id" ref="model_fma_lot_fabrication"/>
         <field name="binding_type">report</field>
-        <field name="print_report_name">'Sortie matiere - %s' % object.name</field>
+        <field name="print_report_name">'Sortie matiere - %s' % object.display_name</field>
     </record>
 
     <template id="report_lot_sortie_matiere">
@@ -30,6 +30,8 @@
                 <t t-set="profiles" t-value="besoin[0]"/>
                 <t t-set="prefab" t-value="besoin[1]"/>
                 <t t-set="casiers" t-value="besoin[2]"/>
+                <t t-set="quincaillerie"
+                   t-value="lot._quincaillerie_par_article(casiers)"/>
 
                 <!-- 1. Recapitulatif : ce qui quitte le stock -->
                 <t t-call="web.internal_layout">
@@ -137,13 +139,86 @@
                     </div>
                 </t>
 
-                <!-- 2. Un casier par menuiserie -->
+                <!-- 2. Liste par article : ce que le magasin prend en
+                     rayon, et comment le repartir. Meme contenu que les pages
+                     de casier, lu dans l'autre sens — un passage par article
+                     au lieu d'un passage par casier. -->
+                <t t-if="quincaillerie">
+                    <t t-call="web.internal_layout">
+                        <div class="page">
+                            <h2>
+                                Liste de quincaillerie
+                                <span t-field="lot.display_name"/>
+                            </h2>
+                            <div class="row mb-3">
+                                <div class="col-4">
+                                    <strong>Client</strong><br/>
+                                    <span t-field="lot.partner_id"/>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Référence LOGIKAL</strong><br/>
+                                    <span t-field="lot.logikal_ref"/>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Casiers</strong><br/>
+                                    <span t-esc="len(casiers)"/>
+                                </div>
+                            </div>
+
+                            <table class="table table-sm o_main_table">
+                                <thead>
+                                    <tr>
+                                        <th>Code article</th>
+                                        <th>Désignation</th>
+                                        <th class="text-end">Qté globale</th>
+                                        <th>Unité</th>
+                                        <th class="text-end">Qté</th>
+                                        <th>Casier</th>
+                                        <th>Repère</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="quincaillerie" t-as="poste">
+                                        <tr t-foreach="poste['detail']" t-as="det">
+                                            <t t-if="det_index == 0">
+                                                <td t-att-rowspan="poste['nb']">
+                                                    <span t-field="poste['article'].default_code"/>
+                                                </td>
+                                                <td t-att-rowspan="poste['nb']">
+                                                    <span t-field="poste['article'].name"/>
+                                                </td>
+                                                <td t-att-rowspan="poste['nb']" class="text-end">
+                                                    <span t-esc="'%.2f' % poste['total']"/>
+                                                </td>
+                                                <td t-att-rowspan="poste['nb']">
+                                                    <span t-field="poste['uom'].name"/>
+                                                </td>
+                                            </t>
+                                            <td class="text-end">
+                                                <span t-esc="'%.2f' % det['qty']"/>
+                                            </td>
+                                            <td><span t-esc="det['casier']"/></td>
+                                            <td><span t-esc="det['repere']"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </t>
+                </t>
+
+                <!-- 3. Un casier par menuiserie -->
                 <t t-foreach="casiers" t-as="casier">
                     <t t-call="web.internal_layout">
                         <div class="page">
                             <h2>
                                 Casier
-                                <span t-field="casier['ligne'].product_id"/>
+                                <t t-if="casier.get('serie')">
+                                    <span t-esc="casier['serie']"/>
+                                </t>
+                                <t t-else="">
+                                    <span t-field="casier['ligne'].product_id"/>
+                                </t>
                                 <small class="text-muted">
                                     — <span t-esc="casier['rang']"/> sur <span t-esc="casier['sur']"/>
                                 </small>

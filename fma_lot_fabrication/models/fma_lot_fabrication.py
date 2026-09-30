@@ -2024,15 +2024,74 @@ class FmaLotFabrication(models.Model):
                 cle = (article, uom)
                 agrege[cle] = agrege.get(cle, 0.0) + qty * ligne.product_qty
             nombre = int(ligne.product_qty or 0)
+            # Les numeros de serie de cette ligne, dans l'ordre des ordres :
+            # la generation en cree un par menuiserie, le rang du casier et le
+            # rang de l'ordre se correspondent donc. C'est ce qui permet au
+            # magasin de garnir « le casier 002 » et a l'atelier de declarer
+            # « la menuiserie 002 » en parlant du meme exemplaire.
+            series = [
+                (mo.lot_producing_ids[:1].name or "")
+                for mo in self.env["mrp.production"].search(
+                    [("lot_line_id", "=", ligne.id),
+                     ("state", "!=", "cancel")],
+                    order="id",
+                )
+            ]
             for rang in range(1, nombre + 1):
                 casiers.append({
                     "ligne": ligne,
                     "rang": rang,
                     "sur": nombre,
+                    "serie": series[rang - 1] if rang <= len(series) else "",
                     "contenu": contenu,
                 })
 
         return trier(barres), trier(agrege), casiers
+
+    def _quincaillerie_par_article(self, casiers):
+        """Le besoin regroupe par ARTICLE, avec son detail par casier.
+
+        Le meme contenu que les pages de casier, lu dans l'autre sens. Une
+        page par casier dit ce qu'il faut mettre dedans ; cette liste-ci dit
+        combien prendre en rayon et comment le repartir. Le magasin fait un
+        seul passage par article au lieu d'un passage par casier.
+
+        C'est la forme de la « Liste de quincaillerie » que FMA connait deja :
+        l'article, sa quantite globale, puis une ligne par casier servi.
+        """
+        self.ensure_one()
+        par_article = {}
+        for casier in casiers:
+            ligne = casier["ligne"]
+            repere = (
+                ligne.product_id.default_code or ligne.product_id.name or ""
+            )
+            etiquette = casier.get("serie") or "%s/%s" % (
+                casier["rang"], casier["sur"])
+            for article, qty, uom in casier["contenu"]:
+                if not article or not qty:
+                    continue
+                poste = par_article.setdefault(article.id, {
+                    "article": article,
+                    "uom": uom,
+                    "total": 0.0,
+                    "detail": [],
+                })
+                poste["total"] += qty
+                poste["detail"].append({
+                    "qty": qty,
+                    "casier": etiquette,
+                    "repere": repere,
+                })
+        postes = sorted(
+            par_article.values(),
+            key=lambda p: (p["article"].default_code or "",
+                           p["article"].name or ""),
+        )
+        for poste in postes:
+            # Precalcule pour le rowspan : QWeb n'a pas a compter.
+            poste["nb"] = len(poste["detail"])
+        return postes
 
     def action_imprimer_besoin_matiere(self):
         """Edite le besoin matiere du lot.
