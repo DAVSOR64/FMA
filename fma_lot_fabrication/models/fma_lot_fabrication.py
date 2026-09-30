@@ -1363,10 +1363,26 @@ class FmaLotFabrication(models.Model):
     def _picking_type_par_etiquette(self):
         """Le type de fabrication de l'entrepot que l'etiquette designe.
 
-        On passe par manu_type_id, le type que l'entrepot declare pour la
-        fabrication — le meme que l'appro natif emploie. Un entrepot introuvable
-        ou sans type de fabrication ne bloque pas : on le dit sur le lot et on
-        laisse les autres chemins repondre.
+        L'etiquette designe un ENTREPOT, pas un type d'operation. Reste a
+        choisir, dans cet entrepot, lequel de ses types de fabrication employer
+        — et manu_type_id n'est pas toujours le bon.
+
+        Constate : etiquette FMA, entrepot LRE, assemblages en LRE/LRE et
+        debit en CBMF/LR. L'entrepot declare CBMF comme type de fabrication,
+        alors que l'appro natif place les assemblages sur un autre. Le debit
+        partait donc du bon entrepot mais du mauvais atelier, ce qui revient au
+        meme pour la production : le sous-ensemble debite n'arrive pas la ou on
+        l'assemble.
+
+        On prend donc d'abord le type des ASSEMBLAGES du lot, a condition
+        qu'il releve de l'entrepot que l'etiquette designe. C'est le choix
+        d'Odoo lui-meme pour cette commande, et c'est celui qui garantit que
+        debit et assemblage se retrouvent. manu_type_id ne sert que si les
+        assemblages n'existent pas encore ou relevent d'un autre entrepot —
+        auquel cas c'est l'etiquette qui tranche, comme demande.
+
+        Un entrepot introuvable ou sans type de fabrication ne bloque pas : on
+        le dit sur le lot et on laisse les autres chemins repondre.
         """
         self.ensure_one()
         etiquette = self._etiquette_commerciale()
@@ -1378,8 +1394,17 @@ class FmaLotFabrication(models.Model):
             [("code", "=", code), ("company_id", "=", self.company_id.id)],
             limit=1,
         )
-        if entrepot and "manu_type_id" in entrepot._fields and entrepot.manu_type_id:
-            return entrepot.manu_type_id
+        if entrepot:
+            # Le type des assemblages, s'il releve bien de cet entrepot.
+            assemblages = self.production_ids.filtered(
+                lambda p: p.lot_production_type == "assemblage"
+                and p.state != "cancel"
+                and p.picking_type_id.warehouse_id == entrepot
+            )
+            if assemblages:
+                return assemblages[0].picking_type_id
+            if "manu_type_id" in entrepot._fields and entrepot.manu_type_id:
+                return entrepot.manu_type_id
 
         self.message_post(
             body=_(
