@@ -44,7 +44,10 @@
     # banc (CU) se fait sur des barres deja coupees mais appartient a la
     # menuiserie -- c'est elle qu'on usine, pas le lot : il part sur l'OF
     # d'assemblage, avec le reste de la gamme.
-    "version": "19.0.1.37.0",
+    # 1.38.0 : les articles libres sont crees a l'import, sur le
+    # fournisseur « NON DEF » et rattaches a l'affaire ; une activite
+    # previent celui qui a depose le fichier de ce qui reste a traiter.
+    "version": "19.0.1.38.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
