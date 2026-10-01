@@ -119,6 +119,23 @@ def _operations(con, menuiseries):
         men.operations.sort(key=lambda o: (o.sequence, o.name))
 
 
+def teinte_profile(site, outer, inner, internal, color):
+    """Teinte d'un PROFILE, qui n'obeit pas tout a fait a celle d'un article.
+
+    Chez F2M, sqlite_connector force la teinte a vide sur les profiles — et
+    sur eux seuls, la meme ligne etant commentee dans le bloc des articles.
+    Les profiles y sont donc crees sans teinte.
+
+    Ne pas reproduire cette exception revenait a chercher un profile « en
+    7016 » quand il existe sans teinte : la reference est bonne, la teinte ne
+    l'est pas, et l'import annonce un article introuvable ou le trouve dans
+    une autre teinte.
+    """
+    if (site or "").strip().upper() == "F2M":
+        return ""
+    return color_of(outer, inner, internal, color)
+
+
 def _suppliers(con):
     """Libelles fournisseurs par identifiant.
 
@@ -298,7 +315,7 @@ def _parse(con, source):
                 code_supplier=(code_supplier or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
-                color=color_of(outer, inner, internal, color),
+                color=teinte_profile(quo.site, outer, inner, internal, color),
                 length_mm=length or 0.0,
                 qty=amount or 1.0,
             )
@@ -423,7 +440,7 @@ def _attach_bars(con, quo, lots, suppliers):
                 base_code=(base_code or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
-                color=color_of(outer, inner, internal, color),
+                color=teinte_profile(quo.site, outer, inner, internal, color),
                 length_mm=length or 0.0,
                 used_mm=used or 0.0,
                 qty=amount or 1.0,

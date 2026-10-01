@@ -55,7 +55,9 @@
     # chercher le code brut du fichier, qui n'est jamais ce qui est ecrit.
     # 1.41.0 : le fournisseur du CODE remonte du fichier, et la regle de
     # reference le reconnait meme sous un libelle approchant.
-    "version": "19.0.1.41.0",
+    # 1.42.0 : la teinte des profiles suit l'exception F2M du connecteur —
+    # chez F2M les profiles sont crees sans teinte.
+    "version": "19.0.1.42.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
