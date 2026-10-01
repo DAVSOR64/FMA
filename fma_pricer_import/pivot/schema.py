@@ -26,6 +26,11 @@ class Component:
     #: traite pas specialement ; ``code`` seul ne suffit alors pas a retrouver
     #: l'article.
     ref_fichier: str = ""
+    #: ``ArticleCode_BaseNumber`` : le code SANS suffixe de teinte. C'est
+    #: de lui que sqlite_connector derive la reference LOGIKAL qu'il
+    #: stocke, en la prefixant selon le fournisseur. Sans ce champ, on ne
+    #: pouvait pas reconstituer la cle de recherche.
+    base_code: str = ""
     description: str = ""
     qty: float = 0.0
     uom: str = ""
@@ -49,6 +54,8 @@ class Cut:
     #: traite pas specialement ; ``code`` seul ne suffit alors pas a retrouver
     #: l'article.
     ref_fichier: str = ""
+    #: ``ArticleCode_BaseNumber`` — cf. Component.base_code.
+    base_code: str = ""
     description: str = ""
     supplier: str = ""
     color: str = ""
@@ -138,6 +145,8 @@ class Bar:
     """Barre physique achetee, telle qu'optimisee par le pricer pour ce lot."""
 
     code: str
+    #: ``ArticleCode_BaseNumber`` — cf. Component.base_code.
+    base_code: str = ""
     description: str = ""
     supplier: str = ""
     color: str = ""

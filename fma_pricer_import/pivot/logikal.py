@@ -219,9 +219,11 @@ def _parse(con, source):
     # ``Units`` est la quantite pour UN exemplaire ; la multiplication par
     # ``Elevations.Amount`` reconstitue exactement ``AllArticles.Units``.
     for (
-        eid, code, ref_fichier, desc, units, unit, price, sid, internal, color,
+        eid, code, ref_fichier, base_code, desc, units, unit, price, sid,
+        internal, color,
     ) in con.execute(
         """select i.ElevationId, a.ArticleCode_Number, a.ArticleCode,
+                  a.ArticleCode_BaseNumber,
                   a.Description,
                   a.Units, a.Units_Unit, a.Price, a.LK_SupplierId,
                   a.ColorInfoInternal, a.Color
@@ -236,6 +238,7 @@ def _parse(con, source):
                 kind="article",
                 code=(code or "").strip(),
                 ref_fichier=(ref_fichier or "").strip(),
+                base_code=(base_code or "").strip(),
                 description=(desc or "").strip(),
                 qty=units or 0.0,
                 uom=(unit or "").strip(),
@@ -271,10 +274,11 @@ def _parse(con, source):
 
     # --- debit : les coupes de profiles, par exemplaire ----------------------
     for (
-        eid, code, ref_fichier, desc, length, amount, sid,
+        eid, code, ref_fichier, base_code, desc, length, amount, sid,
         outer, inner, internal, color,
     ) in con.execute(
         """select i.ElevationId, p.ArticleCode_Number, p.ArticleCode,
+                  p.ArticleCode_BaseNumber,
                   p.Description,
                   p.Length_Output, p.Amount, p.LK_SupplierID,
                   p.OuterColorInfoInternal, p.InnerColorInfoInternal,
@@ -289,6 +293,7 @@ def _parse(con, source):
             Cut(
                 code=(code or "").strip(),
                 ref_fichier=(ref_fichier or "").strip(),
+                base_code=(base_code or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
                 color=color_of(outer, inner, internal, color),
@@ -389,10 +394,11 @@ def _attach_bars(con, quo, lots, suppliers):
 
     orphans = 0
     for (
-        bar_id, code, desc, length, used, amount, sid,
+        bar_id, code, base_code, desc, length, used, amount, sid,
         outer, inner, internal, color,
     ) in con.execute(
-        """select ProfileBarID, ArticleCode_Number, Description,
+        """select ProfileBarID, ArticleCode_Number, ArticleCode_BaseNumber,
+                  Description,
                   Length_Output, UsedLength_Output, Amount, SupplierId,
                   OuterColorInfoInternal, InnerColorInfoInternal,
                   ColorInfoInternal, Color
@@ -412,6 +418,7 @@ def _attach_bars(con, quo, lots, suppliers):
         lot.bars.append(
             Bar(
                 code=(code or "").strip(),
+                base_code=(base_code or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
                 color=color_of(outer, inner, internal, color),

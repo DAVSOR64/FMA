@@ -24,6 +24,8 @@ from odoo import Command, _, api, fields, models
 from odoo.exceptions import UserError
 from markupsafe import Markup
 
+from odoo.addons.sqlite_connector.ref_logikal import ref_logikal
+
 from ..pivot import logikal, techdesign, techdesign_order
 
 _logger = logging.getLogger(__name__)
@@ -831,7 +833,9 @@ class FmaPricerEngine(models.AbstractModel):
             elif comp.code:
                 found, problem = self._find_product(
                     comp.code, comp.color,
-                    ref_fichier=getattr(comp, "ref_fichier", ""))
+                    ref_fichier=getattr(comp, "ref_fichier", ""),
+                    base_code=getattr(comp, "base_code", ""),
+                    supplier=getattr(comp, "supplier", ""))
                 if not found and creer:
                     found, problem = self._creer_article(comp), None
             else:
@@ -1058,19 +1062,26 @@ class FmaPricerEngine(models.AbstractModel):
         """
         besoin = {}
         refs = {}
+        origines = {}
         manques = []
         for cut in men.debit:
             cle = ((cut.code or "").strip(), (cut.color or "").strip())
             besoin[cle] = besoin.get(cle, 0.0) + cut.total_mm
             refs.setdefault(cle, getattr(cut, "ref_fichier", ""))
+            # Code de base et fournisseur : de quoi reconstituer la reference
+            # LOGIKAL telle que le connecteur l'a ecrite.
+            origines.setdefault(cle, (
+                getattr(cut, "base_code", ""), getattr(cut, "supplier", "")))
 
         lignes = []
         for (code, couleur), total_mm in besoin.items():
             if total_mm <= 0:
                 continue
+            base, fournisseur = origines.get((code, couleur), ("", ""))
             produit, probleme = self._find_product(
                 code, couleur, _("profile du debit"),
-                ref_fichier=refs.get((code, couleur), ""))
+                ref_fichier=refs.get((code, couleur), ""),
+                base_code=base, supplier=fournisseur)
             if not produit:
                 if probleme and probleme not in manques:
                     manques.append(probleme)
@@ -1675,7 +1686,12 @@ class FmaPricerEngine(models.AbstractModel):
         missing = {}
         for bar in lot_pivot.bars:
             key = (bar.code, bar.color)
-            entry = by_key.setdefault(key, {"qty": 0.0, "length": bar.length_mm})
+            entry = by_key.setdefault(key, {
+                "qty": 0.0,
+                "length": bar.length_mm,
+                "base_code": getattr(bar, "base_code", ""),
+                "supplier": getattr(bar, "supplier", ""),
+            })
             entry["qty"] += bar.qty
 
         by_product = {}
@@ -1684,6 +1700,8 @@ class FmaPricerEngine(models.AbstractModel):
             product, problem = self._find_product(
                 code, color,
                 _("barre du plan de coupe"),
+                base_code=entry.get("base_code", ""),
+                supplier=entry.get("supplier", ""),
             )
             if not product:
                 missing[problem] = missing.get(problem, 0.0) + entry["qty"]
@@ -1830,7 +1848,8 @@ class FmaPricerEngine(models.AbstractModel):
             bouts.append(_("qte %s", "%g" % comp.qty))
         return ", ".join(bouts)
 
-    def _find_product(self, code, color="", contexte="", ref_fichier=""):
+    def _find_product(self, code, color="", contexte="", ref_fichier="",
+                      base_code="", supplier=""):
         """Retrouve un article par sa reference **et sa teinte**.
 
         ``sqlite_connector`` cree un article par couple (reference, teinte) :
@@ -1881,10 +1900,30 @@ class FmaPricerEngine(models.AbstractModel):
             product = Product.search([("default_code", "=", code)], limit=1)
             return product, (absent if not product else None)
 
-        candidates = Product.search([("x_studio_ref_int_logikal", "=", code)])
-        if not candidates and ref_fichier and ref_fichier != code:
+        # Dans l'ordre de ce qui a le plus de chances d'avoir ete ECRIT.
+        #
+        # La reference que porte x_studio_ref_int_logikal n'est pas le code du
+        # fichier : sqlite_connector la construit a partir du code de BASE,
+        # prefixe selon le fournisseur. Chercher le code du fichier revenait a
+        # chercher « 0525371.-- » quand l'article est sous « 0525371 » — d'ou
+        # des dizaines d'« article inexistant » pour des articles presents.
+        #
+        # Les autres formes restent essayees ensuite : un fichier plus ancien,
+        # un article repris a la main, un fournisseur que le connecteur ne
+        # traite pas specialement.
+        pistes = []
+        for piste in (ref_logikal(supplier, base_code), base_code, code,
+                      ref_fichier):
+            piste = (piste or "").strip()
+            if piste and piste not in pistes:
+                pistes.append(piste)
+
+        candidates = Product.browse()
+        for piste in pistes:
             candidates = Product.search(
-                [("x_studio_ref_int_logikal", "=", ref_fichier)])
+                [("x_studio_ref_int_logikal", "=", piste)])
+            if candidates:
+                break
         if not candidates:
             references = [code]
             if ref_fichier and ref_fichier != code:
