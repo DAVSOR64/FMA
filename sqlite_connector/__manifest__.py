@@ -27,7 +27,9 @@
     # 1.5.0 : la regle de construction de la reference LOGIKAL sort de la
     # boucle d'import et devient une fonction, que l'import pricer appelle
     # pour retrouver les articles que ce module a crees.
-    "version": "19.0.1.5.0",
+    # 1.5.1 : la regle de reference reconnait « WICONA FRANCE » comme
+    # « WICONA » — le libelle du fichier n'est pas toujours le code.
+    "version": "19.0.1.5.1",
     "description": """
 
     """,

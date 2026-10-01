@@ -53,7 +53,9 @@
     # 1.40.0 : la recherche d'article applique la regle de reference de
     # sqlite_connector — code de BASE prefixe par fournisseur — au lieu de
     # chercher le code brut du fichier, qui n'est jamais ce qui est ecrit.
-    "version": "19.0.1.40.0",
+    # 1.41.0 : le fournisseur du CODE remonte du fichier, et la regle de
+    # reference le reconnait meme sous un libelle approchant.
+    "version": "19.0.1.41.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
