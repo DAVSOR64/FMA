@@ -835,7 +835,8 @@ class FmaPricerEngine(models.AbstractModel):
                     comp.code, comp.color,
                     ref_fichier=getattr(comp, "ref_fichier", ""),
                     base_code=getattr(comp, "base_code", ""),
-                    supplier=getattr(comp, "supplier", ""))
+                    supplier=getattr(comp, "supplier", ""),
+                    code_supplier=getattr(comp, "code_supplier", ""))
                 if not found and creer:
                     found, problem = self._creer_article(comp), None
             else:
@@ -1071,17 +1072,19 @@ class FmaPricerEngine(models.AbstractModel):
             # Code de base et fournisseur : de quoi reconstituer la reference
             # LOGIKAL telle que le connecteur l'a ecrite.
             origines.setdefault(cle, (
-                getattr(cut, "base_code", ""), getattr(cut, "supplier", "")))
+                getattr(cut, "base_code", ""), getattr(cut, "supplier", ""),
+                getattr(cut, "code_supplier", "")))
 
         lignes = []
         for (code, couleur), total_mm in besoin.items():
             if total_mm <= 0:
                 continue
-            base, fournisseur = origines.get((code, couleur), ("", ""))
+            base, fournisseur, frs_code = origines.get(
+                (code, couleur), ("", "", ""))
             produit, probleme = self._find_product(
                 code, couleur, _("profile du debit"),
                 ref_fichier=refs.get((code, couleur), ""),
-                base_code=base, supplier=fournisseur)
+                base_code=base, supplier=fournisseur, code_supplier=frs_code)
             if not produit:
                 if probleme and probleme not in manques:
                     manques.append(probleme)
@@ -1849,7 +1852,7 @@ class FmaPricerEngine(models.AbstractModel):
         return ", ".join(bouts)
 
     def _find_product(self, code, color="", contexte="", ref_fichier="",
-                      base_code="", supplier=""):
+                      base_code="", supplier="", code_supplier=""):
         """Retrouve un article par sa reference **et sa teinte**.
 
         ``sqlite_connector`` cree un article par couple (reference, teinte) :
@@ -1912,7 +1915,8 @@ class FmaPricerEngine(models.AbstractModel):
         # un article repris a la main, un fournisseur que le connecteur ne
         # traite pas specialement.
         pistes = []
-        for piste in (ref_logikal(supplier, base_code), base_code, code,
+        for piste in (ref_logikal(code_supplier, base_code),
+                      ref_logikal(supplier, base_code), base_code, code,
                       ref_fichier):
             piste = (piste or "").strip()
             if piste and piste not in pistes:

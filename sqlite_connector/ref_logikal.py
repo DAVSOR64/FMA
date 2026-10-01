@@ -41,9 +41,34 @@ def ref_logikal(fournisseur, base_code):
     if base.startswith("X"):
         return base
 
-    prefixe = PREFIXE_PAR_FOURNISSEUR.get((fournisseur or "").strip().upper())
+    prefixe = _prefixe(fournisseur)
     if not prefixe:
         return base
     if prefixe == "W" and len(base) < LONGUEUR_WICONA:
         return prefixe + base.zfill(LONGUEUR_WICONA)
     return prefixe + base
+
+
+def _prefixe(fournisseur):
+    """Le prefixe du fournisseur, reconnu meme sur un libelle approchant.
+
+    Le connecteur lit ``ArticleCode_Supplier`` — « WICONA » tout court. Le
+    pivot, lui, prend le libelle de la table Suppliers, qui peut valoir
+    « WICONA FRANCE » ou porter une raison sociale. Comparer les deux a
+    l'identique faisait echouer la regle pour Wicona alors qu'elle passait
+    pour Technal, ou les deux libelles coincident.
+
+    On reconnait donc le fournisseur par INCLUSION, apres l'egalite. Les trois
+    noms concernes sont assez distinctifs pour qu'une inclusion ne se trompe
+    pas de maison.
+    """
+    frs = (fournisseur or "").strip().upper()
+    if not frs:
+        return ""
+    prefixe = PREFIXE_PAR_FOURNISSEUR.get(frs)
+    if prefixe:
+        return prefixe
+    for nom, prefixe in PREFIXE_PAR_FOURNISSEUR.items():
+        if nom in frs:
+            return prefixe
+    return ""

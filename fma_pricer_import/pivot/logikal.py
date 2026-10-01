@@ -219,11 +219,11 @@ def _parse(con, source):
     # ``Units`` est la quantite pour UN exemplaire ; la multiplication par
     # ``Elevations.Amount`` reconstitue exactement ``AllArticles.Units``.
     for (
-        eid, code, ref_fichier, base_code, desc, units, unit, price, sid,
-        internal, color,
+        eid, code, ref_fichier, base_code, code_supplier, desc, units, unit,
+        price, sid, internal, color,
     ) in con.execute(
         """select i.ElevationId, a.ArticleCode_Number, a.ArticleCode,
-                  a.ArticleCode_BaseNumber,
+                  a.ArticleCode_BaseNumber, a.ArticleCode_Supplier,
                   a.Description,
                   a.Units, a.Units_Unit, a.Price, a.LK_SupplierId,
                   a.ColorInfoInternal, a.Color
@@ -239,6 +239,7 @@ def _parse(con, source):
                 code=(code or "").strip(),
                 ref_fichier=(ref_fichier or "").strip(),
                 base_code=(base_code or "").strip(),
+                code_supplier=(code_supplier or "").strip(),
                 description=(desc or "").strip(),
                 qty=units or 0.0,
                 uom=(unit or "").strip(),
@@ -274,11 +275,11 @@ def _parse(con, source):
 
     # --- debit : les coupes de profiles, par exemplaire ----------------------
     for (
-        eid, code, ref_fichier, base_code, desc, length, amount, sid,
-        outer, inner, internal, color,
+        eid, code, ref_fichier, base_code, code_supplier, desc, length,
+        amount, sid, outer, inner, internal, color,
     ) in con.execute(
         """select i.ElevationId, p.ArticleCode_Number, p.ArticleCode,
-                  p.ArticleCode_BaseNumber,
+                  p.ArticleCode_BaseNumber, p.ArticleCode_Supplier,
                   p.Description,
                   p.Length_Output, p.Amount, p.LK_SupplierID,
                   p.OuterColorInfoInternal, p.InnerColorInfoInternal,
@@ -294,6 +295,7 @@ def _parse(con, source):
                 code=(code or "").strip(),
                 ref_fichier=(ref_fichier or "").strip(),
                 base_code=(base_code or "").strip(),
+                code_supplier=(code_supplier or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
                 color=color_of(outer, inner, internal, color),

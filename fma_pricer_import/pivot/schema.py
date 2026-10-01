@@ -31,6 +31,12 @@ class Component:
     #: stocke, en la prefixant selon le fournisseur. Sans ce champ, on ne
     #: pouvait pas reconstituer la cle de recherche.
     base_code: str = ""
+    #: ``ArticleCode_Supplier`` : le fournisseur tel que le CODE le porte
+    #: (« WICONA »), et non le libelle de la table Suppliers (« WICONA
+    #: FRANCE »). C'est lui que sqlite_connector lit pour construire la
+    #: reference, donc lui qui fait foi. Vide quand le fichier ne le
+    #: donne pas — les barres, notamment.
+    code_supplier: str = ""
     description: str = ""
     qty: float = 0.0
     uom: str = ""
@@ -56,6 +62,12 @@ class Cut:
     ref_fichier: str = ""
     #: ``ArticleCode_BaseNumber`` — cf. Component.base_code.
     base_code: str = ""
+    #: ``ArticleCode_Supplier`` : le fournisseur tel que le CODE le porte
+    #: (« WICONA »), et non le libelle de la table Suppliers (« WICONA
+    #: FRANCE »). C'est lui que sqlite_connector lit pour construire la
+    #: reference, donc lui qui fait foi. Vide quand le fichier ne le
+    #: donne pas — les barres, notamment.
+    code_supplier: str = ""
     description: str = ""
     supplier: str = ""
     color: str = ""
@@ -147,6 +159,12 @@ class Bar:
     code: str
     #: ``ArticleCode_BaseNumber`` — cf. Component.base_code.
     base_code: str = ""
+    #: ``ArticleCode_Supplier`` : le fournisseur tel que le CODE le porte
+    #: (« WICONA »), et non le libelle de la table Suppliers (« WICONA
+    #: FRANCE »). C'est lui que sqlite_connector lit pour construire la
+    #: reference, donc lui qui fait foi. Vide quand le fichier ne le
+    #: donne pas — les barres, notamment.
+    code_supplier: str = ""
     description: str = ""
     supplier: str = ""
     color: str = ""
