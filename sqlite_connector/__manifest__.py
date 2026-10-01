@@ -24,7 +24,10 @@
     # l'ecran Atelier devient inutilisable alors que le cas d'usage est
     # justement de declarer menuiserie par menuiserie. Reprise de
     # l'existant en post-migrate, hors articles deja mouvementes.
-    "version": "19.0.1.4.0",
+    # 1.5.0 : la regle de construction de la reference LOGIKAL sort de la
+    # boucle d'import et devient une fonction, que l'import pricer appelle
+    # pour retrouver les articles que ce module a crees.
+    "version": "19.0.1.5.0",
     "description": """
 
     """,

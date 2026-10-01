@@ -50,7 +50,10 @@
     # 1.39.0 : l'import reste possible sur un devis VALIDE. La validation
     # est une etape interne, pas une vente ; seule la confirmation ferme
     # la porte.
-    "version": "19.0.1.39.0",
+    # 1.40.0 : la recherche d'article applique la regle de reference de
+    # sqlite_connector — code de BASE prefixe par fournisseur — au lieu de
+    # chercher le code brut du fichier, qui n'est jamais ce qui est ecrit.
+    "version": "19.0.1.40.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
