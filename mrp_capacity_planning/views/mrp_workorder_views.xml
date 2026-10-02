@@ -1,14 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="mrp_production_form_inherit_macro_forced_end" model="ir.ui.view">
-        <field name="name">mrp.production.form.inherit.date_de_fin</field>
+        <field name="name">mrp.production.form.inherit.macro_forced_end</field>
         <field name="model">mrp.production</field>
         <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='components_availability']" position="after">
-                <field name="x_studio_date_de_fin"
-                       string="Date de fin"
-                       readonly="state in ('done', 'cancel')"/>
+            <!-- « Fin de fab » : c'est cette date-la que le metier lit et
+                 corrige, pas la fin native calculee. Elle etait affichee en
+                 lecture seule sous le libelle technique « Fin macro forcee »,
+                 et le client ne savait pas ce qu'elle designait.
+                 Renommee et rendue modifiable : la changer puis « Replanifier »
+                 recale tout l'OF depuis cette date. -->
+            <!-- Champ regroupe dans le bloc « Fabrication FMA »
+                 porte par fma_lot_fabrication. -->
+            <!-- La fin native, elle, est calculee : deux dates de fin cote a
+                 cote n'apprennent rien et se contredisent des qu'on replanifie. -->
+            <xpath expr="//field[@name='date_finished']" position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
         </field>
     </record>
@@ -23,6 +31,12 @@
         </field>
     </record>
 
+    <!-- La séquence des opérations disparaissait dès que l'OF sortait du
+         brouillon (comportement standard mrp : poignée de tri masquée hors
+         draft). Le métier veut la voir en permanence, dans l'ordre
+         chronologique -> on garde la poignée en brouillon (réordonnancement)
+         et on affiche la valeur en lecture seule ensuite, au lieu de la
+         masquer complètement. -->
     <record id="mrp_production_workorder_tree_editable_view_mo_form_inherit_sequence" model="ir.ui.view">
         <field name="name">mrp.production.work.order.list.editable.inherit.sequence.visible</field>
         <field name="model">mrp.workorder</field>
