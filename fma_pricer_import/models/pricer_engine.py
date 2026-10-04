@@ -24,6 +24,7 @@ from odoo import Command, _, api, fields, models
 from odoo.exceptions import UserError
 from markupsafe import Markup
 
+from odoo.addons.sqlite_connector import noms_articles
 from odoo.addons.sqlite_connector.ref_logikal import ref_logikal
 
 from ..pivot import logikal, techdesign, techdesign_order
@@ -409,6 +410,9 @@ class FmaPricerEngine(models.AbstractModel):
             if not produit:
                 vals = {
                     "name": (men.description or position).strip(),
+                    # Le nom vient de l'import : il le tiendra a jour tant
+                    # que personne ne renomme l'article (_sync_designation).
+                    "fma_nom_importe": (men.description or position).strip(),
                     "default_code": code,
                     "list_price": men.price,
                     "uom_id": self.env.ref("uom.product_uom_unit").id,
@@ -481,6 +485,7 @@ class FmaPricerEngine(models.AbstractModel):
             # le droit d'ecrire sur les articles.
             template.sudo().pricer_signature = key
             found[key] = line
+            self._sync_designation(line, pivot_line)
             issues = self._sync_manufactured_product(
                 line.product_id, pivot_line, unchanged=unchanged
             )
@@ -488,6 +493,33 @@ class FmaPricerEngine(models.AbstractModel):
                 missing.setdefault(key, []).extend(issues)
 
         return found, missing
+
+    def _sync_designation(self, line, pivot_line):
+        """Nomme l'article de la menuiserie d'apres sa ligne de commande.
+
+        Le connecteur nomme l'article d'apres Elevations.Description, saisie
+        libre que le chiffreur laisse parfois vide : l'article naissait alors
+        sans nom, et sa nomenclature s'affichait en blanc. La designation qui
+        fait foi est celle de la LIGNE DE COMMANDE — c'est elle que le client
+        lit et que le commercial corrige ; a defaut, celle du fichier.
+
+        Un nom saisi a la main n'est jamais ecrase : voir
+        sqlite_connector/noms_articles.py pour la regle.
+        """
+        product = line.product_id
+        men = pivot_line.menuiserie
+        designation = (
+            noms_articles.designation_ligne(line.name, product.default_code)
+            or (men.description or "").strip()
+            or (men.position or pivot_line.ref or "").strip()
+        )
+        resultat = product.product_tmpl_id._fma_poser_designation(designation)
+        if resultat == "manuel":
+            _logger.info(
+                "Import pricer : article %s renomme a la main (« %s »), nom "
+                "laisse ; la ligne de commande dit « %s ».",
+                product.default_code, product.name, designation,
+            )
 
     # ------------------------------------------------------------------
     # Article fabrique et nomenclature
@@ -524,7 +556,7 @@ class FmaPricerEngine(models.AbstractModel):
         de nomenclature — sinon les profiles seraient comptes deux fois, une
         fois en barres entieres et une fois en metres lineaires.
         """
-        return self._semi_fini(product, "DEB", _("%s - debite"), "debit")
+        return self._semi_fini(product, "DEB", "debit")
 
     def _quincaillerie_product(self, product):
         """Kit quincaillerie d'une menuiserie.
@@ -533,14 +565,17 @@ class FmaPricerEngine(models.AbstractModel):
         kit par menuiserie. Il a, lui, une nomenclature — la quincaillerie —
         contrairement a l'ensemble debite, dont les barres sont propres au lot.
         """
-        return self._semi_fini(product, "QUI", _("%s - kit quincaillerie"),
-                               "quincaillerie")
+        return self._semi_fini(product, "QUI", "quincaillerie")
 
-    def _semi_fini(self, product, suffixe, libelle, nature):
+    def _semi_fini(self, product, suffixe, nature):
         """Article intermediaire d'une menuiserie, cree a la premiere demande.
 
         La nature est marquee sur l'article (fma_semi_fini) : c'est elle, et non
         le suffixe de la reference, qui dit au lot quel OF generer.
+
+        Son nom se lit d'apres la menuiserie — « Débit – <designation> »,
+        « Quincaillerie – <designation> » — et la suit d'un import a l'autre,
+        sauf renommage a la main.
         """
         code = "%s-%s" % (product.default_code or product.name, suffixe)
         Product = self.env["product.product"].sudo()
@@ -548,10 +583,14 @@ class FmaPricerEngine(models.AbstractModel):
         if article:
             if article.fma_semi_fini != nature:
                 article.fma_semi_fini = nature
+            noms_articles.poser_semi_fini(article, product, suffixe)
             return article
+        nom = noms_articles.SEMI_FINIS[suffixe][0] % (
+            (product.name or "").strip() or product.default_code or "")
         return Product.create(
             {
-                "name": libelle % product.name,
+                "name": nom,
+                "fma_nom_importe": nom,
                 "default_code": code,
                 "type": "consu",
                 "is_storable": True,
@@ -900,6 +939,10 @@ class FmaPricerEngine(models.AbstractModel):
             men, product, skip=OPERATIONS_DEBIT)
         issues_gamme = list(missing_wc)
         issues_gamme.extend(self._sync_debit_bom(debit, men))
+        # Reference des nomenclatures des semi-finis : posee une fois, meme
+        # quand les composants ne sont pas retouches plus bas.
+        self._code_bom_semi_fini(debit, "DEB", pivot_line.ref)
+        self._code_bom_semi_fini(kit, "QUI", pivot_line.ref)
 
         # Une nomenclature de l'ancienne structure — ensemble debite en
         # composant, pas de kit — doit etre reconstruite meme si le chiffrage
@@ -938,6 +981,7 @@ class FmaPricerEngine(models.AbstractModel):
         # Les composants sont tous resolus : le kit est reconstruit avec la
         # menuiserie, sinon les deux divergeraient d'un import a l'autre.
         self._sync_quincaillerie_bom(kit, quincaillerie)
+        self._code_bom_semi_fini(kit, "QUI", pivot_line.ref)
 
         issues.extend(issues_gamme)
         merged = {}
@@ -969,6 +1013,19 @@ class FmaPricerEngine(models.AbstractModel):
         else:
             Bom.create(vals)
         return issues
+
+    def _code_bom_semi_fini(self, article, suffixe, ref):
+        """Donne une reference lisible a la nomenclature d'un semi-fini.
+
+        La nomenclature de la menuiserie porte son repere ; celles de
+        l'ensemble debite et du kit n'en portaient aucun, et rien ne les
+        distinguait dans la liste. Une reference deja saisie n'est pas touchee.
+        """
+        boms = self.env["mrp.bom"].sudo().search(
+            [("product_tmpl_id", "=", article.product_tmpl_id.id)])
+        vides = boms.filtered(lambda b: not (b.code or "").strip())
+        if vides:
+            vides.write({"code": noms_articles.SEMI_FINIS[suffixe][1] % (ref or "")})
 
     def _sync_debit_bom(self, debit, men):
         """Nomenclature du sous-ensemble debite : les profiles et le temps.

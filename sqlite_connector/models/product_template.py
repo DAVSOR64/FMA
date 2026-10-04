@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from odoo import fields, models
 
+from .. import noms_articles
+
 
 class ProductTemplate(models.Model):
     _inherit = "product.template"
@@ -29,3 +31,22 @@ class ProductTemplate(models.Model):
         "profile et une piece de quincaillerie peuvent porter le meme prefixe "
         "fournisseur, et la categorie d'article se modifie a la main.",
     )
+
+    fma_nom_importe = fields.Char(
+        string="Désignation importée",
+        copy=False,
+        readonly=True,
+        help="Dernier nom que l'import LOGIKAL / pricer a ecrit sur l'article. "
+        "Tant que le nom de l'article lui est egal, ou qu'il est vide, l'import "
+        "le tient a jour d'apres la designation de la ligne de commande. Des "
+        "qu'un utilisateur renomme l'article, les deux different et l'import "
+        "n'y touche plus.",
+    )
+
+    def _fma_poser_designation(self, designation, anciens=()):
+        """Nomme l'article d'apres la designation, sans ecraser un renommage.
+
+        Renvoie 'ecrit', 'inchange', 'manuel' ou 'vide' : voir noms_articles.
+        """
+        self.ensure_one()
+        return noms_articles.poser_designation(self, designation, anciens)

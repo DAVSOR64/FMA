@@ -57,7 +57,12 @@
     # reference le reconnait meme sous un libelle approchant.
     # 1.42.0 : la teinte des profiles suit l'exception F2M du connecteur —
     # chez F2M les profiles sont crees sans teinte.
-    "version": "19.0.1.42.0",
+    # 1.43.0 : l'article d'une menuiserie prend le nom de sa ligne de
+    # commande, et le garde a jour tant que personne ne le renomme ; les
+    # semi-finis se nomment « Débit – ... » et « Quincaillerie – ... », et
+    # leurs nomenclatures recoivent une reference. Reprise de l'existant en
+    # post-migrate (sqlite_connector/noms_articles.py).
+    "version": "19.0.1.43.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
