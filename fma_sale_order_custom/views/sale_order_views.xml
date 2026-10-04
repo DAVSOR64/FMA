@@ -212,15 +212,22 @@ if resultat and resultat is not True:
                          gestion sans rapport avec les taches : tout projet
                          doit pouvoir etre choisi. Le domaine natif est donc
                          remplace, pas complete. -->
-                    <field name="project_id" string="Projet" domain="[]"/>
-                    <!-- Le chantier se cree depuis le devis, comme aujourd'hui :
-                         son numero est celui du devis, il ne reste qu'a taper
-                         le libelle. Pour une deuxieme tranche, on choisit le
-                         chantier existant dans le champ ci-dessus. -->
-                    <button name="action_creer_chantier" type="object"
-                            string="Créer le chantier"
-                            class="btn-link ps-0"
-                            invisible="project_id or not partner_id"/>
+                    <!-- Champ et bouton dans la MEME cellule : un <button>
+                         pose directement dans un <group> occupe une case de
+                         la grille et decale tous les libelles suivants d'une
+                         colonne. Ici le bouton passe sous le champ, dans la
+                         colonne des valeurs, et le reste du bloc reste aligne. -->
+                    <label for="project_id" string="Projet"/>
+                    <div name="fma_projet">
+                        <field name="project_id" nolabel="1" domain="[]"/>
+                        <!-- Le chantier se cree depuis le devis : son numero est
+                             celui du devis, il ne reste qu'a taper le libelle. Pour
+                             une deuxieme tranche, on choisit le chantier existant. -->
+                        <button name="action_creer_chantier" type="object"
+                                string="Créer le chantier"
+                                class="btn-link p-0 d-block"
+                                invisible="project_id or not partner_id"/>
+                    </div>
                     <!-- Saisir la tranche renomme le devis en
                          « <code affaire>/<tranche> ». Masque tant qu'aucun
                          chantier n'est rattache : sans code affaire, il n'y a
