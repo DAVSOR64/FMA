@@ -156,6 +156,25 @@ class SaleOrder(models.Model):
         "consomme, ordre de fabrication sans ligne. Elle est repartie sur "
         "les lignes au prorata de leur cout.",
     )
+    fma_pri_services = fields.Monetary(
+        string="Dont sous-traitance / services",
+        currency_field="currency_id", readonly=True, copy=False,
+        help="Achats de services rattaches a la commande — sous-traitance, "
+        "laquage, pose, transport. Ils sont compris dans « Achat Matière "
+        "(Réel) » : la marge brute et la M.C.V. en tiennent compte.",
+    )
+    fma_cout_mod_odoo = fields.Monetary(
+        string="MOD calculée par Odoo",
+        currency_field="currency_id", readonly=True, copy=False,
+        help="Pointages des ordres de travail des OF de la commande x cout "
+        "horaire actuel de l'employe. Valeur au dernier Calcul PRI.",
+    )
+    fma_cout_mod_ecart = fields.Monetary(
+        string="Écart MOD (saisie − calculée)",
+        currency_field="currency_id", readonly=True, copy=False,
+        help="« Coût MOD (Réel) », qui entre dans la M.C.V., moins la MOD "
+        "calculee par Odoo. Nul tant que personne n'a saisi de valeur.",
+    )
     fma_achats_non_rattaches_nb = fields.Integer(
         string="Achats du projet non rattachés à une commande",
         readonly=True, copy=False,
@@ -315,9 +334,11 @@ class SaleOrder(models.Model):
     # ------------------------------------------------------------------
 
     #: Types d'article dont un achat NON consomme par un OF entre au PRI.
-    #: Les services (transport, pose, sous-traitance) en sont exclus, comme
-    #: ils l'ont toujours ete ; la decision est metier, elle se change ici.
-    PRI_TYPES_ACHAT_HORS_OF = ("consu",)
+    #: Les services en font partie : la sous-traitance, le laquage, la pose
+    #: achetes pour la commande sont un cout de la commande. Le transport
+    #: est traite de meme, faute d'arbitrage ; il s'ecarterait ici ou par
+    #: une categorie d'article.
+    PRI_TYPES_ACHAT_HORS_OF = ("consu", "service")
 
     #: Niveaux de nomenclature / d'OF intermediaires traverses.
     PRI_PROFONDEUR = 4
@@ -555,7 +576,7 @@ class SaleOrder(models.Model):
             if qty <= 0:
                 continue
             a = achats.setdefault(article, {
-                "qty": 0.0, "montant": 0.0, "lignes": [], "par_sol": {}})
+                "qty": 0.0, "montant": 0.0, "lignes": [], "par_sol": {}, "par_of": {}})
             montant = _pol_montant(pol, qty, devise, societe)
             a["qty"] += _vers_unite_article(_line_uom(pol), qty, article)
             a["montant"] += montant
@@ -563,6 +584,12 @@ class SaleOrder(models.Model):
             if pol.fma_sale_line_id in lignes:
                 sid = pol.fma_sale_line_id.id
                 a["par_sol"][sid] = a["par_sol"].get(sid, 0.0) + montant
+            elif ("laquage_production_id" in pol._fields
+                    and pol.laquage_production_id.id in par_id):
+                # Sous-traitance commandee pour UN ordre de fabrication :
+                # elle suit la ligne de commande de cet ordre.
+                oid = pol.laquage_production_id.id
+                a["par_of"][oid] = a["par_of"].get(oid, 0.0) + montant
 
         # ---------------------------------------------------- 3. repartition
         besoin_bom = {}
@@ -624,7 +651,8 @@ class SaleOrder(models.Model):
         par_sol = {sol.id: {"matiere": 0.0, "vitrage": 0.0} for sol in lignes}
         totaux = {"matiere": 0.0, "vitrage": 0.0}
         sans_ligne = {"matiere": 0.0, "vitrage": 0.0}
-        total_affaire = total_stock = 0.0
+        total_affaire = total_stock = total_services = 0.0
+        services = []
         appro = {"total": 0.0, "ndni": 0.0, "dni": 0.0, "di": 0.0}
         detail = []
 
@@ -633,6 +661,9 @@ class SaleOrder(models.Model):
                 repartition = {porteur[1]: 1.0}
             elif porteur:
                 repartition = parts(par_id[porteur[1]], article)
+                if not repartition:
+                    # Ni nomenclature ni consommateur : au nombre d'unites.
+                    repartition = parts(par_id[porteur[1]], article, 0, False)
             else:
                 repartition = {}
             if not repartition:
@@ -657,6 +688,9 @@ class SaleOrder(models.Model):
                 total_affaire += a["montant"]
                 total_stock += excedent
                 source = "achat"
+                if article.type == "service":
+                    total_services += a["montant"]
+                    services.append((article, a["montant"]))
                 for pol, montant in a["lignes"]:
                     appro["total"] += montant
                     recu, facture = pol.qty_received or 0.0, pol.qty_invoiced or 0.0
@@ -683,7 +717,10 @@ class SaleOrder(models.Model):
                 for sid, montant in a["par_sol"].items():
                     par_sol[sid][classe] += montant
                     reste -= montant
-                if reste:
+                for oid, montant in a["par_of"].items():
+                    poser(classe, ("of", oid), montant, article)
+                    reste -= montant
+                if not devise.is_zero(reste):
                     poser(classe, None, reste, article)
 
         for sol, article, cout in forfaits:
@@ -731,6 +768,8 @@ class SaleOrder(models.Model):
             "appro": appro,
             "par_sol": par_sol,
             "non_ventile": devise.round(non_ventile) if lignes else 0.0,
+            "services": devise.round(total_services),
+            "detail_services": services,
             "non_rattachees": non_rattachees,
             "montant_non_rattache": devise.round(montant_non_rattache),
             "detail": detail,
@@ -797,12 +836,20 @@ class SaleOrder(models.Model):
                 "fma_pri_reel": devise.round(resultat["matiere"] + resultat["vitrage"]),
                 "fma_pri_date": fields.Datetime.now(),
                 "fma_pri_non_ventile": resultat["non_ventile"],
+                "fma_pri_services": resultat["services"],
                 "fma_achats_non_rattaches_nb": len(resultat["non_rattachees"].order_id),
                 "fma_achats_non_rattaches_montant": resultat["montant_non_rattache"],
             }
             order.write({c: v for c, v in vals.items() if c in order._fields})
 
             mod = order._pri_recopier_mod()
+            if mod:
+                calcule = order.so_cout_mod_reel_odoo or 0.0
+                order.write({
+                    "fma_cout_mod_odoo": calcule,
+                    "fma_cout_mod_ecart": devise.round(
+                        (order.so_cout_mod_reel or 0.0) - calcule),
+                })
             if self.env.context.get("fma_pri_message"):
                 order._pri_rendre_compte(resultat, mod)
 
@@ -825,6 +872,16 @@ class SaleOrder(models.Model):
             corps.append(escape(_(
                 "Dont %(nv)s sans ligne de commande, répartis au prorata du "
                 "coût des lignes.", nv=m(resultat["non_ventile"]))))
+        if resultat["detail_services"]:
+            corps.append(escape(_(
+                "Dont sous-traitance / services %(total)s, compris dans la "
+                "matière : %(liste)s.",
+                total=m(resultat["services"]),
+                liste=" ; ".join(
+                    "%s [%s] %s" % (
+                        article.display_name,
+                        article.categ_id.display_name or "-", m(montant))
+                    for article, montant in resultat["detail_services"]))))
         achats = resultat["non_rattachees"].order_id
         if achats:
             corps.append(escape(_(

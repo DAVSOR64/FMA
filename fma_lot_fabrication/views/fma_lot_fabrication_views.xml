@@ -50,7 +50,7 @@
                     <button name="action_replanifier_depuis_debit" type="object"
                             string="Replanifier depuis le débit"
                             invisible="state not in ('confirmed', 'progress')"
-                            help="Part de la « Fin de fab » saisie sur l'OF de débit : les assemblages, la sortie matière et les achats non confirmés suivent le même décalage."/>
+                            help="Part de la « Fin de fab » saisie sur l'OF de débit : les assemblages et la sortie matière suivent le même décalage. Les achats ne sont PAS déplacés : le lot liste les bons à revoir, à l'acheteur de trancher avec le fournisseur."/>
                     <button name="action_replanifier_lot" type="object"
                             string="Replanifier"
                             invisible="state not in ('confirmed', 'progress')"

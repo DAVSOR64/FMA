@@ -318,6 +318,12 @@ class PurchaseOrderLine(models.Model):
                 return commandes
             moves = moves.move_dest_ids | ordres.move_finished_ids.move_dest_ids
 
+        # 2 bis. La sous-traitance commandee pour un OF (laquage).
+        if "laquage_production_id" in champs and self.laquage_production_id:
+            commandes = commandes_des_of(self.laquage_production_id)
+            if commandes:
+                return commandes
+
         # 3. La ligne de vente native.
         if "sale_line_id" in champs and self.sale_line_id:
             return self.sale_line_id.order_id
