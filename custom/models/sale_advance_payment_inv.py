@@ -7,7 +7,7 @@ class SaleAdvancePaymentInv(models.TransientModel):
 
     def create_invoices(self):
         for wizard in self:
-            sales = self.env["sale.order"].browse(self._context.get("active_ids", []))
+            sales = self.env["sale.order"].browse(self.env.context.get("active_ids", []))
             for sale in sales:
                 partner = sale.partner_id
 

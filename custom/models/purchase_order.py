@@ -62,12 +62,12 @@ class PurchaseOrder(models.Model):
     # Champs volontairement exclus de ce portage :
     # - 10 champs "related_field_*" (cible "related=" non vérifiable).
     # - x_studio_test : champ non stocké et manifestement de test.
-    x_studio_affaire = fields.Char(string="Affaire", readonly=True)
-    x_studio_affaire_1 = fields.Char(string="Affaire", readonly=True)
+    x_studio_affaire = fields.Char(string="Affaire (texte)", readonly=True)
+    x_studio_affaire_1 = fields.Char(string="Affaire (texte bis)", readonly=True)
     x_studio_boolean_field_qj_1ih5s6309 = fields.Boolean(string="Nouveau Case à cocher")
     x_studio_commentaire_interne_ = fields.Char(string="Commentaire Interne :")
     x_studio_commentaire_livraison_vitrage_ = fields.Char(string="Commentaire Livraison :")
-    x_studio_many2one_field_25XKn = fields.Many2one("x_affaire", string="Affaire")
+    x_studio_many2one_field_25XKn = fields.Many2one("x_affaire", string="Affaire (25XKn)")
     x_studio_many2one_field_8k2_1ilmpvkuh = fields.Many2one("x_affaire", string="Nouveau Many2One")
     x_studio_many2one_field_d15iY = fields.Many2one("res.partner", string="Contact")
     x_studio_many2one_field_LCOZX = fields.Many2one("x_affaire", string="Affaire")

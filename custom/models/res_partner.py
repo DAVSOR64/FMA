@@ -18,15 +18,15 @@ class ResPartner(models.Model):
     #   ("related=") n'a pas pu être vérifiée en base.
     # - x_studio_commercial : marqué "OLD"/déprécié par le métier côté Studio.
     x_studio_adresse_dmat_facturation = fields.Char(string="Adresse Démat Facturation")
-    x_studio_allianz_couverture_euleur = fields.Float(string="ALLIANZ COUVERTURE EULEUR")
+    x_studio_allianz_couverture_euleur = fields.Float(string="ALLIANZ COUVERTURE EULEUR (Studio)")
     x_studio_allianz_eh_decision = fields.Char(string="assurance-crédit")
-    x_studio_allianz_nd_cover = fields.Boolean(string="ALLIANZ ND COVER")
+    x_studio_allianz_nd_cover = fields.Boolean(string="ALLIANZ ND COVER (Studio)")
     x_studio_allianz_nd_cover_1 = fields.Date(string="ALLIANZ ND COVER ")
-    x_studio_bic = fields.Char(string="BIC")
+    x_studio_bic = fields.Char(string="BIC (Studio)")
     x_studio_boolean_field_1lb_1jkvbtk2n = fields.Boolean(string="Nouveau Case à cocher")
     x_studio_cgv_rib = fields.Boolean(string="CGV + RIB")
     x_studio_char_field_G6qIE = fields.Char(string="siren")
-    x_studio_civilit = fields.Char(string="Civilité")
+    x_studio_civilit = fields.Char(string="Civilité (Studio)")
     x_studio_client_bloque = fields.Boolean(string="Client Bloqué")
     x_studio_code = fields.Char(string="Code", readonly=True)
     x_studio_code_diap = fields.Char(string="Code Diap")
@@ -48,7 +48,7 @@ class ResPartner(models.Model):
     x_studio_encours_autoris = fields.Float(string="Encours Autorisé")
     x_studio_etablissement = fields.Char(string="Etablissement")
     x_studio_gneration_n_compte_1 = fields.Boolean(string="Géneration N° compte")
-    x_studio_iban = fields.Char(string="IBAN")
+    x_studio_iban = fields.Char(string="IBAN (Studio)")
     x_studio_iziqo_1 = fields.Boolean(string="Iziqo")
     x_studio_mode_de_rglement = fields.Char(string="Mode de réglement")
     x_studio_mode_de_rglement_dsa = fields.Many2one("x_reglements", string="Mode de règlement")
@@ -78,7 +78,7 @@ class ResPartner(models.Model):
             ("CARTE BANCAIRE", "CARTE BANCAIRE"),
             ("CREDIT DOCUMENTAIRE", "CREDIT DOCUMENTAIRE"),
         ],
-        string="Mode de Règlement",
+        string="Mode de Règlement (Studio)",
         default="VIREMENT BANCAIRE",
     )
 
@@ -147,7 +147,7 @@ class ResPartner(models.Model):
             ("Client Direct", "Client Direct"),
             ("Sans Affectation", "Sans Affectation"),
         ],
-        string="Commercial",
+        string="Commercial (ancienne liste)",
         default="A DEFINIR",
     )
 

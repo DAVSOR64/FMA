@@ -12,6 +12,6 @@ class StockMove(models.Model):
 
     x_studio_emilien = fields.Many2one("product.removal", string="EMILIEN")
     x_studio_many2one_field_45h_1ilm4m7ne = fields.Many2one("product.template", string="Nouveau Many2One")
-    x_studio_many2one_field_4fu_1ilm7522u = fields.Many2one("product.template", string="Nouveau Many2One")
+    x_studio_many2one_field_4fu_1ilm7522u = fields.Many2one("product.template", string="Nouveau Many2One (4fu)")
     x_studio_many2one_field_t3xv7 = fields.Many2one("account.analytic.account", string="Compte analytique")
     x_studio_repere = fields.Char(string="Repere", readonly=True)

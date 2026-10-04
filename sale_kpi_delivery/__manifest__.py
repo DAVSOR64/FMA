@@ -1,7 +1,7 @@
 {
     "name": "KPI Facturation / Appro / Stock",
     "author": "Paxo Consulting",
-    "version": "19.0.2.0.0",
+    "version": "19.0.2.0.1",
     "category": "Sales/Reporting",
     "summary": (
         "KPI par affaire : Vente facturée & RAF, "

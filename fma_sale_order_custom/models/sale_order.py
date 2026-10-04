@@ -9,8 +9,22 @@ _logger = logging.getLogger(__name__)
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
+    # selection_add, et non selection : redefinir la liste entiere ecrase
+    # celle du standard, et Odoo le signale a chaque chargement du registre
+    # (« overrides existing selection; use selection_add instead »).
+    #
+    # Le resultat est strictement le meme : selection_add fusionne dans
+    # l'ordre donne ici, et un libelle fourni pour une valeur deja connue du
+    # standard (draft, sent, sale, cancel) REMPLACE le libelle standard. On
+    # garde donc « Devis envoyé » et « Bon de commande », la ou Odoo 19
+    # dirait « Envoyé » et « Commande client ».
+    #
+    # « validated » et « done » sont les deux valeurs propres a FMA (« done »
+    # a disparu du standard depuis Odoo 17, remplace par le booleen locked).
+    # ondelete ne joue qu'a la desinstallation du module : un devis valide
+    # redevient un devis, une commande verrouillee reste une commande.
     state = fields.Selection(
-        selection=[
+        selection_add=[
             ("draft", "Devis"),
             ("sent", "Devis envoyé"),
             ("validated", "Validé"),
@@ -18,7 +32,7 @@ class SaleOrder(models.Model):
             ("done", "Verrouillé"),
             ("cancel", "Annulé"),
         ],
-        ondelete={"validated": "set default"},
+        ondelete={"validated": "set default", "done": "set sale"},
         default="draft",
         string="Statut",
         tracking=True,
@@ -125,10 +139,10 @@ class SaleOrder(models.Model):
 
     x_studio_ach_matire = fields.Monetary(string="Achat Matière (BE)", currency_field="currency_id")
     x_studio_ach_vitrage = fields.Monetary(string="Achat Vitrage (BE)", currency_field="currency_id")
-    x_studio_achat_mat = fields.Monetary(string="Achat Matière (Réel)", currency_field="currency_id")
-    x_studio_achat_matire = fields.Monetary(string="Achat Matière (Devis)", currency_field="currency_id")
-    x_studio_achat_vit = fields.Monetary(string="Achat Vitrage (Réel)", currency_field="currency_id")
-    x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis)", currency_field="currency_id")
+    x_studio_achat_mat = fields.Monetary(string="Achat Matière (Réel) (Studio)", currency_field="currency_id")
+    x_studio_achat_matire = fields.Monetary(string="Achat Matière (Devis) (Studio)", currency_field="currency_id")
+    x_studio_achat_vit = fields.Monetary(string="Achat Vitrage (Réel) (Studio)", currency_field="currency_id")
+    x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis) (Studio)", currency_field="currency_id")
     x_studio_avancement_crm = fields.Many2one("crm.stage", string="Avancement CRM")
     # Le bureau d'etude est le responsable du projet. Mesure avant bascule :
     # 6 348 devis renseignes, 6 348 identiques au responsable du projet,
@@ -352,7 +366,7 @@ class SaleOrder(models.Model):
     # nouveau champ. Les consommateurs (export PowerBI, mails de retard)
     # lisent commercial_id en priorite et retombent sur celui-ci.
     x_studio_commercial_1 = fields.Char(string="Commercial (historique)", readonly=True)
-    x_studio_date_bpe = fields.Date(string="Date BPE")
+    x_studio_date_bpe = fields.Date(string="Date BPE (Studio)")
     x_studio_date_de_modification = fields.Datetime(string="Date de Modification")
     x_studio_date_de_rception = fields.Date(string="Date de Réception")
     x_studio_date_de_relance_1 = fields.Datetime(string="Date de relance 1")
@@ -373,7 +387,7 @@ class SaleOrder(models.Model):
         relation="x_studio_etiquette_sale_order_rel",
         column1="sale_order_id1",
         column2="sale_order_id2",
-        string="Etiquette",
+        string="Etiquette (ancien)",
     )
     # Relation explicite requise : x_studio_many2many_field_7ae_1jshd7qf2
     # ci-dessous pointe aussi sale.order -> crm.tag sans nom de table
@@ -389,26 +403,26 @@ class SaleOrder(models.Model):
     x_studio_m_brute_en_ = fields.Monetary(string=" Marge Brute en € (BE)", currency_field="currency_id")
     x_studio_m_sur_cots_variables_ = fields.Float(string="M.C.V. en % (BE)")
     x_studio_m_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (BE)", currency_field="currency_id")
-    x_studio_many2many_field_2ee_1jsee0cpo = fields.Many2many("project.tags", string="Nouveau Many2Many")
-    x_studio_many2many_field_495_1jsedj4nk = fields.Many2many("documents.tag", string="Nouveau Many2Many")
+    x_studio_many2many_field_2ee_1jsee0cpo = fields.Many2many("project.tags", string="Nouveau Many2Many (étiquettes projet)")
+    x_studio_many2many_field_495_1jsedj4nk = fields.Many2many("documents.tag", string="Nouveau Many2Many (étiquettes documents)")
     x_studio_many2many_field_7ae_1jshd7qf2 = fields.Many2many(
         "crm.tag",
         relation="x_studio_m2m_7ae_1jshd7qf2_crm_tag_rel",
         string="Nouveau Étiquettes",
     )
-    x_studio_many2many_field_95p_1ilmrb25m = fields.Many2many("x_affaire", string="Nouveau Many2Many")
+    x_studio_many2many_field_95p_1ilmrb25m = fields.Many2many("x_affaire", string="Nouveau Many2Many (affaires)")
     x_studio_marge_b_ = fields.Float(string=" Marge Brute en % (Réel)")
     x_studio_marge_b_en_ = fields.Monetary(string=" Marge Brute en € (Réel)", currency_field="currency_id")
     x_studio_marge_brute_ = fields.Float(string=" Marge Brute en % (Devis)")
     x_studio_marge_brute_en_ = fields.Monetary(string=" Marge Brute en € (Devis)", currency_field="currency_id")
-    x_studio_marge_sur_cots_variables_ = fields.Float(string="M.C.V. en % (Devis)")
-    x_studio_marge_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (Devis)", currency_field="currency_id")
-    x_studio_mcv_ = fields.Float(string="M.C.V. en % (Réel)")
-    x_studio_mcv_en_ = fields.Monetary(string="M.C.V. en € (Réel)", currency_field="currency_id")
+    x_studio_marge_sur_cots_variables_ = fields.Float(string="M.C.V. en % (Devis) (Studio)")
+    x_studio_marge_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (Devis) (Studio)", currency_field="currency_id")
+    x_studio_mcv_ = fields.Float(string="M.C.V. en % (Réel) (Studio)")
+    x_studio_mcv_en_ = fields.Monetary(string="M.C.V. en € (Réel) (Studio)", currency_field="currency_id")
     x_studio_mo = fields.Monetary(string="Coûts MOD (Réel)", currency_field="currency_id")
-    x_studio_mo_vendue = fields.Monetary(string="Coût MOD (Devis)", currency_field="currency_id")
+    x_studio_mo_vendue = fields.Monetary(string="Coût MOD (Devis) (Studio)", currency_field="currency_id")
     x_studio_mo_vendue_1 = fields.Monetary(string="Coût MOD (BE)", currency_field="currency_id")
-    x_studio_mode_de_rglement = fields.Char(string="Mode de Règlement")
+    x_studio_mode_de_rglement = fields.Char(string="Mode de Règlement (ancien texte)")
     x_studio_montant_livr_factur = fields.Monetary(string="Montant livré facturé", currency_field="currency_id")
     x_studio_montant_livr_non_factur = fields.Monetary(string="Montant livré non facturé", currency_field="currency_id")
     x_studio_montant_non_livr_non_factur = fields.Monetary(string="Montant non livré non facturé", currency_field="currency_id")
@@ -445,7 +459,7 @@ class SaleOrder(models.Model):
     fma_facture_ht = fields.Monetary(
         string="Facturé HT",
         currency_field="currency_id",
-        compute="_compute_raf_ht",
+        compute="_compute_fma_facture_ht",
         help="Total hors taxes des factures postées de cette commande, "
         "avoirs postés déduits.",
     )
@@ -490,14 +504,32 @@ class SaleOrder(models.Model):
         regarder, pas ici.
         """
         for order in self:
-            facture = 0.0
-            for move in order.invoice_ids.filtered(
-                    lambda m: m.state == "posted"):
-                signe = -1.0 if move.move_type == "out_refund" else 1.0
-                facture += signe * (move.amount_untaxed or 0.0)
-            order.fma_facture_ht = facture
             order.x_studio_restant_a_facturer_ht_pivot = (
-                order.amount_untaxed or 0.0) - facture
+                order.amount_untaxed or 0.0) - order._fma_total_facture_ht()
+
+    # Deux methodes de calcul et non une seule : le RAF est stocke (donc
+    # calcule en sudo), le facture ne l'est pas. Les faire sortir de la meme
+    # methode faisait dire a Odoo, a chaque chargement, « inconsistent
+    # 'compute_sudo' / 'store' for computed fields » — et afficher le facture
+    # recalculait au passage le RAF stocke. La formule, elle, reste unique :
+    # _fma_total_facture_ht.
+    @api.depends(
+        "invoice_ids.state",
+        "invoice_ids.move_type",
+        "invoice_ids.amount_untaxed",
+    )
+    def _compute_fma_facture_ht(self):
+        for order in self:
+            order.fma_facture_ht = order._fma_total_facture_ht()
+
+    def _fma_total_facture_ht(self):
+        """Total HT des factures postees de la commande, avoirs deduits."""
+        self.ensure_one()
+        facture = 0.0
+        for move in self.invoice_ids.filtered(lambda m: m.state == "posted"):
+            signe = -1.0 if move.move_type == "out_refund" else 1.0
+            facture += signe * (move.amount_untaxed or 0.0)
+        return facture
     x_studio_so_cout_appro_affaire = fields.Monetary(string="Appro Affaire", currency_field="currency_id")
     x_studio_so_cout_appro_stock = fields.Monetary(string="Appro Stock", currency_field="currency_id")
     x_studio_srie = fields.Many2one("x_serie_mtn", string="Série")

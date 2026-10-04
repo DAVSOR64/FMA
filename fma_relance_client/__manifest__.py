@@ -4,7 +4,7 @@
     "author": "FMA",
     "summary": "Vendeur, commercial et projet sur la liste des factures, "
                "et relance du client sur une selection",
-    "version": "19.0.1.2.4",
+    "version": "19.0.1.2.5",
     "depends": [
         # commercial_id, le commercial FMA recopie depuis la commande.
         "custom",

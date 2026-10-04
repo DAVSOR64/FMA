@@ -11,4 +11,4 @@ class StockMoveLine(models.Model):
     _inherit = "stock.move.line"
 
     x_studio_many2one_field_5ai0g = fields.Many2one("x_affaire", string="Affaire")
-    x_studio_many2one_field_SJp6r = fields.Many2one("x_affaire", string="Affaire")
+    x_studio_many2one_field_SJp6r = fields.Many2one("x_affaire", string="Affaire (SJp6r)")

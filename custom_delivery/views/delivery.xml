@@ -1,6 +1,6 @@
 <odoo>
     <template id="report_delivery_document_inherit" inherit_id="stock.report_delivery_document">
-        <xpath expr="//div[contains(@class, 'page')]" position="replace">
+        <xpath expr="//div[hasclass('page')]" position="replace">
             <!-- Structure en deux colonnes avec du flexbox -->
             <div class="header_table" style="display: flex; justify-content: space-between; font-family: 'DejaVu Sans', sans-serif;">
 

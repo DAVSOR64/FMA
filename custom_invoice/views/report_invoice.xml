@@ -7,7 +7,7 @@
                 }
             </style>
         </xpath>
-        <xpath expr="//div[@class='page mb-4']" position="before">
+        <xpath expr="//div[hasclass('page', 'mb-4')]" position="before">
             <div class="header_table">
                 <div style="margin-left: 400px;">
                     <span t-field="o.partner_id" />
@@ -46,7 +46,7 @@
         </xpath>
         <!-- Neutralise plutot que supprime : voir plus bas, une vue Studio
              s'ancre sur les noeuds du gabarit standard. -->
-        <xpath expr="//div[@class='row'][1]" position="attributes">
+        <xpath expr="//div[hasclass('row')][1]" position="attributes">
             <attribute name="t-if">False</attribute>
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->

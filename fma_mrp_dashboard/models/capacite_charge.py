@@ -672,7 +672,7 @@ class CapaciteChargeDetail(models.Model):
 
     date = fields.Date(string='Date', readonly=True)
     atelier_id = fields.Many2one('fma.atelier', string='Atelier', readonly=True)
-    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', readonly=True)
     workcenter_name = fields.Char(string='Poste', readonly=True)
     production_id = fields.Many2one('mrp.production', string='OF', readonly=True)
     production_name = fields.Char(string='N° OF', readonly=True)
@@ -937,9 +937,9 @@ class CapaciteChargeOperateur(models.Model):
     _order = 'date asc, employee_name asc'
 
     date = fields.Date(string='Date', readonly=True)
-    employee_id = fields.Many2one('hr.employee', string='Opérateur', readonly=True)
+    employee_id = fields.Many2one('hr.employee', string='Opérateur (fiche employé)', readonly=True)
     employee_name = fields.Char(string='Opérateur', readonly=True)
-    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste', readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string='Poste de travail', readonly=True)
     workcenter_name = fields.Char(string='Poste', readonly=True)
     nb_operations = fields.Integer(string='Nb opérations', readonly=True)
     charge_heures = fields.Float(string='Charge restante (h)', digits=(10, 2), readonly=True)

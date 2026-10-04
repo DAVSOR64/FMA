@@ -18,7 +18,7 @@ class SaleOrderLine(models.Model):
     x_studio_date_livraison_prvue = fields.Datetime(
         string="Date Livraison prévue", related="order_id.commitment_date", store=True, readonly=True
     )
-    x_studio_many2many_field_w5Rtg = fields.Many2many("sale.order", string="Bon de commande")
+    x_studio_many2many_field_w5Rtg = fields.Many2many("sale.order", string="Bons de commande (multiple)")
     x_studio_many2one_field_COPwF = fields.Many2one("sale.order", string="Bon de commande")
     x_studio_position = fields.Char(
         string="Position", related="product_id.x_studio_position", store=True, readonly=True
@@ -31,22 +31,22 @@ class SaleOrderLine(models.Model):
         string="Hauteur (mm)", related="product_id.x_studio_hauteur_mm", store=False, readonly=True
     )
     x_studio_hauteur_mm_1 = fields.Integer(
-        string="Hauteur (mm)", related="product_id.x_studio_hauteur_mm", store=False, readonly=True
+        string="Hauteur (mm) (bis)", related="product_id.x_studio_hauteur_mm", store=False, readonly=True
     )
     x_studio_largeur_mm = fields.Integer(
         string="Largeur (mm)", related="product_id.x_studio_largeur_mm", store=False, readonly=True
     )
     x_studio_largeur_mm_1 = fields.Integer(
-        string="Largeur (mm)", related="product_id.x_studio_largeur_mm", store=False, readonly=True
+        string="Largeur (mm) (bis)", related="product_id.x_studio_largeur_mm", store=False, readonly=True
     )
     x_studio_related_field_2ji_1ipjatleh = fields.Datetime(
-        string="Nouveau Champ associé",
+        string="Date prévue du bon de commande lié",
         related="x_studio_many2one_field_COPwF.expected_date",
         store=False,
         readonly=True,
     )
     x_studio_related_field_9m_1ipjarf8a = fields.Datetime(
-        string="Nouveau Champ associé",
+        string="Date de livraison du bon de commande lié",
         related="x_studio_many2one_field_COPwF.commitment_date",
         store=True,
         readonly=True,
