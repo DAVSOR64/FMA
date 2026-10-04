@@ -17,12 +17,15 @@
             </xpath>
 
             <!-- C'est ici que le lot se lit et se corrige : une ligne, un lot.
-                 Colonne facultative, affichee par defaut — elle n'a de sens
-                 que sur les achats issus de la fabrication. -->
+                 La colonne n'apparait que si le bon couvre au moins un lot :
+                 sur un achat ne a la confirmation de la commande, les lots ne
+                 sont rattaches qu'a « Generer les OF », et une colonne vide
+                 n'apprend rien d'ici la. -->
             <xpath expr="//field[@name='order_line']/list/field[@name='product_id']"
                    position="after">
                 <field name="lot_fabrication_id"
                        optional="show"
+                       column_invisible="not parent.lot_fabrication_ids"
                        options="{'no_create': True}"/>
             </xpath>
 

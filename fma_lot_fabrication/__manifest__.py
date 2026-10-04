@@ -63,7 +63,7 @@
     # 1.57.0 : libelle du bouton « Replanifier depuis le débit » — il
     # annoncait que les achats suivaient, ce que le code ne fait pas, a
     # dessein. Vue seule : sans montee de version elle n'est pas rejouee.
-    "version": "19.0.1.57.0",
+    "version": "19.0.1.58.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
