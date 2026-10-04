@@ -521,9 +521,28 @@ class SqliteConnector(models.Model):
                 categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
                 if not categ:
                     self.log_request("Unable to find product category.", categorie, 'Elevations data')
-                if row[1] != 'ECO-CONTRIBUTION' and not self.env['product.product'].search([('default_code', '=', refint)]):
+                # Le nom de l'article est la designation de la menuiserie.
+                # Elevations.Description est une saisie libre du chiffreur, et
+                # il arrive qu'elle soit vide : l'article naissait alors SANS
+                # NOM, et Odoo n'affiche rien -- pas meme la reference -- pour
+                # un modele d'article sans nom. D'ou des articles et des
+                # nomenclatures « blancs ». A defaut de saisie, on prend la
+                # designation automatique de LOGIKAL, puis le repere.
+                designation = (
+                    (row[8] or '').strip() or (row[3] or '').strip()
+                    or (row[1] or '').strip()
+                )
+                existant = self.env['product.product'].search(
+                    [('default_code', '=', refint)], limit=1)
+                if (existant and row[3] != 'Position texte'
+                        and row[1] != 'ECO-CONTRIBUTION'):
+                    # Reimport : le nom suit la designation tant que personne
+                    # n'a renomme l'article a la main (fma_nom_importe).
+                    existant.product_tmpl_id._fma_poser_designation(designation)
+                if row[1] != 'ECO-CONTRIBUTION' and not existant:
                     product = self.env['product.product'].create({
-                        "name": refart,
+                        "name": designation,
+                        "fma_nom_importe": designation,
                         "default_code": refint,
                         "list_price": row[7],
                         #"standard_price": row[7],

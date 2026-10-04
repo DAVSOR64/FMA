@@ -29,7 +29,13 @@
     # pour retrouver les articles que ce module a crees.
     # 1.5.1 : la regle de reference reconnait « WICONA FRANCE » comme
     # « WICONA » — le libelle du fichier n'est pas toujours le code.
-    "version": "19.0.1.5.1",
+    # 1.6.0 : une menuiserie dont la designation est vide dans LOGIKAL ne
+    # nait plus sans nom (designation automatique, puis repere), et le nom
+    # suit la designation au reimport tant qu'il n'a pas ete saisi a la main
+    # (nouvelle colonne product_template.fma_nom_importe). Reprise en
+    # post-migrate des articles deja crees sans nom, d'apres leur ligne de
+    # commande.
+    "version": "19.0.1.6.0",
     "description": """
 
     """,
