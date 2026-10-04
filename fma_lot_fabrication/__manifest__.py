@@ -53,7 +53,14 @@
     # 1.54.0 : le document devient « Liste de quincaillerie » : profiles et
     # vitrages quittent aussi le recapitulatif, le repere se reduit a la
     # position et l'emplacement au nom court.
-    "version": "19.0.1.54.0",
+    # 1.56.0 : la liste de quincaillerie se fie au CLASSEMENT de l'article —
+    # categorie, famille, sous-famille : profiles (complementaires compris),
+    # vitrages et panneaux ecartes, le reste est de la quincaillerie — et non
+    # plus a la table LOGIKAL d'origine, qui ne sert plus que pour l'article
+    # que rien ne range. Aucun champ ni valeur ajoutes. Elle lit les
+    # composants reels des ordres d'assemblage des qu'ils existent, et un
+    # composant ajoute sur un ordre rejoint le bon de sortie du lot.
+    "version": "19.0.1.56.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

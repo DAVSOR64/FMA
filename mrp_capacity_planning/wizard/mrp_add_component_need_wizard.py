@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-from odoo import api, fields, models, _
+from markupsafe import Markup
+
+from odoo import Command, api, fields, models, _
 from odoo.exceptions import UserError
 
 
@@ -74,121 +76,60 @@ class MrpAddComponentNeedWizard(models.TransientModel):
         if product.type not in ("product", "consu"):
             raise UserError(_("Seuls les articles stockables ou consommables peuvent être ajoutés comme besoin composant."))
 
-        # On rattache le besoin au même groupe d'approvisionnement que les autres
-        # composants de l'OF (procurement_group_id n'existe plus sur mrp.production
-        # en v19 : on relit le groupe directement sur les mouvements existants).
-        group = production.move_raw_ids[:1].group_id
-        if not group:
-            group = self.env["procurement.group"].create({
-                "name": production.origin or production.name,
-                "move_type": "direct",
-                "company_id": production.company_id.id,
-            })
+        # Le besoin est ajouté EXACTEMENT comme une ligne saisie dans l'onglet
+        # Composants : on écrit sur move_raw_ids, et c'est le standard qui
+        # fait le reste (mrp.production.write -> _autoconfirm_production).
+        #
+        # L'ancienne version construisait le mouvement à la main et lançait
+        # l'approvisionnement par procurement.group. Ce modèle N'EXISTE PLUS
+        # en v19, pas plus que stock.move.group_id : le bouton plantait dès la
+        # première ligne. Les références d'approvisionnement sont désormais
+        # des stock.reference, posées sur le mouvement par l'OF lui-même, et
+        # les règles se lancent par stock.rule — ce que fait la confirmation
+        # du mouvement, sans qu'on ait à le refaire ici.
+        #
+        # Sur un OF confirmé, le standard :
+        #   - arrête la méthode d'appro du composant (_adjust_procure_method) ;
+        #   - le confirme, ce qui crée le prélèvement Stock -> Pré-Fab en
+        #     fabrication à deux étapes, rattaché au bon de l'OF s'il est
+        #     encore ouvert ;
+        #   - déclenche l'achat ou la fabrication si les routes de l'article
+        #     le demandent (à la commande + acheter).
+        # Sur un OF en brouillon, le composant attend la confirmation de l'OF.
+        move_vals = production._get_move_raw_values(
+            product, self.product_qty, self.product_uom_id)
+        if self.date_planned:
+            move_vals["date"] = self.date_planned
+            move_vals["date_deadline"] = self.date_planned
 
-        # Emplacements : on reprend en priorité ceux des composants existants de l'OF.
-        reference_raw_move = production.move_raw_ids[:1]
-        location_src = production.location_src_id
-        location_dest = reference_raw_move.location_dest_id if reference_raw_move else False
-        if not location_dest:
-            location_dest = production.picking_type_id.default_location_dest_id
-        if not location_dest:
-            location_dest = production.location_src_id
-
-        route_ids = []
-        if "route_ids" in product._fields:
-            route_ids += product.route_ids.ids
-        if product.categ_id and "total_route_ids" in product.categ_id._fields:
-            route_ids += product.categ_id.total_route_ids.ids
-
-        move_vals = {
-            "name": "%s - %s" % (production.name, product.display_name),
-            "product_id": product.id,
-            "product_uom_qty": self.product_qty,
-            "product_uom": self.product_uom_id.id,
-            "raw_material_production_id": production.id,
-            "group_id": group.id,
-            "origin": production.origin or production.name,
-            "location_id": location_src.id,
-            "location_dest_id": location_dest.id,
-            "company_id": production.company_id.id,
-            "date": self.date_planned or fields.Datetime.now(),
-        }
-        if route_ids and "route_ids" in self.env["stock.move"]._fields:
-            move_vals["route_ids"] = [(6, 0, list(set(route_ids)))]
-        if "warehouse_id" in self.env["stock.move"]._fields and production.picking_type_id.warehouse_id:
-            move_vals["warehouse_id"] = production.picking_type_id.warehouse_id.id
-
-        move = self.env["stock.move"].create(move_vals)
-
-        # Sur un OF déjà confirmé, créer le composant ne relance pas toujours les approvisionnements.
-        # On confirme le mouvement, puis on lance explicitement procurement.group.run() lorsque
-        # le produit est MTO ou lorsqu'il manque du stock sur l'emplacement source et qu'une route
-        # d'achat/fabrication existe. Le mouvement créé est passé en move_dest_ids afin que le RFQ/PO
-        # généré reste chaîné à l'OF et au SO via le procurement group.
-        try:
-            move._action_confirm(merge=False)
-        except TypeError:
-            move._action_confirm()
-
-        routes = self.env["stock.route"].browse(list(set(route_ids))) if route_ids else self.env["stock.route"]
-        route_rules = routes.mapped("rule_ids")
-        has_mto_route = any(rule.procure_method == "make_to_order" for rule in route_rules)
-        has_supply_route = any(rule.action in ("buy", "manufacture") for rule in route_rules)
-
-        available_qty = 0.0
-        try:
-            available_qty = self.env["stock.quant"]._get_available_quantity(product, location_src)
-        except Exception:
-            available_qty = 0.0
-
-        should_run_procurement = has_mto_route or (has_supply_route and available_qty < self.product_qty)
-
-        if should_run_procurement:
-            warehouse = production.picking_type_id.warehouse_id
-            procurement_values = {
-                "company_id": production.company_id,
-                "group_id": group,
-                "warehouse_id": warehouse,
-                "date_planned": self.date_planned or fields.Datetime.now(),
-                "date_deadline": self.date_planned or fields.Datetime.now(),
-                "move_dest_ids": move,
-                "priority": getattr(production, "priority", "0") or "0",
-            }
-            if routes:
-                procurement_values["route_ids"] = routes
-
-            procurement = self.env["procurement.group"].Procurement(
-                product,
-                self.product_qty,
-                self.product_uom_id,
-                location_src,
-                move.name,
-                production.origin or production.name,
-                production.company_id,
-                procurement_values,
-            )
-            try:
-                self.env["procurement.group"].run([procurement], raise_user_error=False)
-            except TypeError:
-                self.env["procurement.group"].run([procurement])
+        avant = production.move_raw_ids
+        production.write({"move_raw_ids": [Command.create(move_vals)]})
+        # Le mouvement peut avoir été fondu dans un composant identique à la
+        # confirmation : on ne garde que ce qui existe encore.
+        move = (production.move_raw_ids - avant).exists()
 
         # Réservation immédiate si du stock est disponible.
-        try:
-            move._action_assign()
-        except Exception:
-            # La réservation ne doit pas bloquer la création du besoin.
-            pass
+        if move and production.state != "draft":
+            try:
+                with self.env.cr.savepoint():
+                    move._action_assign()
+            except Exception:
+                # La réservation ne doit pas bloquer la création du besoin.
+                pass
 
         # Trace métier dans le chatter de l'OF.
         reason_label = dict(self._fields["reason"].selection).get(self.reason, self.reason)
-        message = _(
+        # Markup : en v19 un corps de message en texte simple est échappé, et
+        # le saut de ligne s'affichait tel quel, « <br/> » compris. Les
+        # valeurs saisies, elles, restent échappées.
+        message = Markup(_(
             "Besoin complémentaire ajouté : %(qty)s %(uom)s de %(product)s.<br/>Motif : %(reason)s%(note)s"
-        ) % {
+        )) % {
             "qty": self.product_qty,
             "uom": self.product_uom_id.display_name,
             "product": product.display_name,
             "reason": reason_label,
-            "note": "<br/>Commentaire : %s" % self.note if self.note else "",
+            "note": Markup("<br/>Commentaire : %s") % self.note if self.note else "",
         }
         production.message_post(body=message)
 

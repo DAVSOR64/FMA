@@ -26,7 +26,11 @@ class ProductCategory(models.Model):
         index=True,
         help="Famille utilisée pour ventiler les dates d'arrivée et les "
              "statuts de réception sur l'ordre de fabrication. Une catégorie "
-             "sans valeur hérite de sa catégorie parente.",
+             "sans valeur hérite de sa catégorie parente.\n"
+             "Elle décide aussi de la liste de quincaillerie du lot de "
+             "fabrication : un article dont la famille est Profilé, "
+             "Complémentaire (un complémentaire est un profilé), Vitrage ou "
+             "Panneaux n'y figure pas ; tout autre article y figure.",
     )
 
     def write(self, vals):

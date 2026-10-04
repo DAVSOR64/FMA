@@ -141,6 +141,36 @@ class MrpProduction(models.Model):
             )
         return moves
 
+    def _autoconfirm_production(self):
+        """Un composant ajoute sur un ordre du lot rejoint la sortie du lot.
+
+        C'est par ici que passe TOUT ajout de composant sur un ordre deja
+        confirme — une ligne dans l'onglet Composants comme le bouton
+        « Ajouter un besoin » : le standard confirme le nouveau mouvement et
+        lance son approvisionnement. On laisse faire, puis on range le
+        prelevement cree dans le bon de sortie du lot.
+
+        On ne se declenche que s'il y a reellement un composant en brouillon
+        a confirmer : la methode est aussi appelee a chaque modification des
+        operations.
+        """
+        # Releve AVANT super() : la confirmation peut fondre un mouvement
+        # dans un autre et le supprimer, on ne pourrait plus le lire apres.
+        par_lot = {}
+        for production in self:
+            lot = production.lot_fabrication_id
+            if not lot or production.state in ("done", "cancel"):
+                continue
+            nouveaux = production.move_raw_ids.filtered(
+                lambda m: m.state == "draft")
+            if nouveaux:
+                par_lot[lot] = par_lot.get(
+                    lot, self.env["stock.move"]) | nouveaux
+        res = super()._autoconfirm_production()
+        for lot, nouveaux in par_lot.items():
+            lot._apres_ajout_composant(nouveaux)
+        return res
+
     # ------------------------------------------------------------------
     # Reliquats
     # ------------------------------------------------------------------

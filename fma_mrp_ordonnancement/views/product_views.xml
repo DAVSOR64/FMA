@@ -69,6 +69,10 @@
             <p>C'est ici que se règle l'essentiel : les articles achetés portent
                leur catégorie sans avoir nécessairement de famille renseignée.
                Une catégorie sans valeur hérite de sa catégorie parente.</p>
+            <p>La famille décide aussi de la liste de quincaillerie du lot de
+               fabrication : Profilé, Complémentaire (un complémentaire est un
+               profilé), Vitrage et Panneaux en écartent l'article ; tout
+               autre article y figure.</p>
         </field>
     </record>
 
