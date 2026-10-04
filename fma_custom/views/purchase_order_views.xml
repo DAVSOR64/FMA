@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Rattachement d'un achat a une commande client.
+
+        L'en-tete porte les deux axes d'imputation : l'affaire (« Projet du
+        SO ») et la commande. Les lignes portent le detail — un bon regroupe
+        parfois deux tranches — et, facultativement, la ligne de commande.
+
+        Priorite 20 : cette vue s'ancre sur un champ que pose la vue du
+        module « custom », elle doit passer apres elle.
+    -->
+    <record id="purchase_order_form_commande_client" model="ir.ui.view">
+        <field name="name">purchase.order.form.fma.commande.client</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='x_studio_projet_du_so']" position="after">
+                <field name="fma_sale_order_domain" invisible="1"/>
+                <field name="fma_sale_order_id"
+                       options="{'no_create': True}"/>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list" position="inside">
+                <field name="fma_sale_order_id"
+                       optional="hide"
+                       options="{'no_create': True}"/>
+                <field name="fma_sale_line_id"
+                       optional="hide"
+                       options="{'no_create': True}"/>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="purchase_order_search_commande_client" model="ir.ui.view">
+        <field name="name">purchase.order.search.fma.commande.client</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.view_purchase_order_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <field name="fma_sale_order_id"/>
+                <filter name="fma_sans_commande_client"
+                        string="Projet sans commande client"
+                        domain="[('x_studio_projet_du_so', '!=', False), ('fma_sale_order_id', '=', False), ('state', 'in', ('purchase', 'done'))]"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

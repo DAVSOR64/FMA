@@ -12,11 +12,17 @@
     """,
     "summary": "Custom delete button",
     "author": "Odoo PS",
-    "version": "19.0.1.0.20",
+    # 1.0.21 : rattachement d'un achat a une commande client (champ
+    # « Commande client » sur l'achat et ses lignes), prix de revient ventile
+    # par ligne de commande, achats du projet non rattaches signales. Champs
+    # stockes nouveaux : la mise a jour du module est obligatoire.
+    "version": "19.0.1.0.21",
     "depends": ["custom", "hr", "sale", "purchase", "mrp", "account", "stock"],
     "data": [
         "views/mail_templates.xml",
         "views/sale_order_actions.xml",
+        "views/sale_order_views.xml",
+        "views/purchase_order_views.xml",
         "views/res_partner_actions.xml",
         "views/hr_employee_actions.xml",
         "views/stock_picking_actions.xml",

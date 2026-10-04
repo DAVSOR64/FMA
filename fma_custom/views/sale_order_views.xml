@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Ventilation du prix de revient par ligne : liste en lecture seule,
+         ouverte depuis l'onglet Analyse Financiere. -->
+    <record id="view_sale_order_line_pri_list" model="ir.ui.view">
+        <field name="name">sale.order.line.fma.pri.list</field>
+        <field name="model">sale.order.line</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Prix de revient par ligne" create="0" edit="0" delete="0">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="product_id"/>
+                <field name="name" optional="hide"/>
+                <field name="product_uom_qty" string="Qté"/>
+                <field name="price_subtotal" sum="Total HT"/>
+                <field name="fma_achat_matiere_reel" sum="Matière"/>
+                <field name="fma_achat_vitrage_reel" sum="Vitrage"/>
+                <field name="fma_pri_reel" sum="PRI"/>
+                <field name="fma_marge_brute_reelle" sum="Marge brute"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_order_form_pri" model="ir.ui.view">
+        <field name="name">sale.order.form.fma.pri</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="custom.view_order_form_custom"/>
+        <field name="arch" type="xml">
+
+            <!-- Ancre sur le name de l'onglet, jamais sur son libelle. -->
+            <xpath expr="//page[@name='fma_analyse_financiere']" position="inside">
+                <group string="Prix de revient réel" name="fma_pri_reel">
+                    <group name="fma_pri_calcul">
+                        <field name="fma_pri_reel"/>
+                        <field name="fma_pri_non_ventile"/>
+                        <field name="fma_pri_date"/>
+                        <button name="action_calcul_pri" type="object"
+                                string="Calcul PRI" class="btn-primary"
+                                colspan="2"
+                                help="Recalcule la colonne Réel : achats rattachés à la commande + consommations des articles non achetés, et la ventilation par ligne."/>
+                        <button name="action_pri_detail_lignes" type="object"
+                                string="Détail par ligne" class="btn-link"
+                                colspan="2"/>
+                    </group>
+                    <group name="fma_pri_achats">
+                        <field name="fma_achats_non_rattaches_nb"
+                               decoration-danger="fma_achats_non_rattaches_nb &gt; 0"/>
+                        <field name="fma_achats_non_rattaches_montant"
+                               invisible="fma_achats_non_rattaches_nb == 0"/>
+                        <button name="action_pri_achats_non_rattaches" type="object"
+                                string="Voir les achats non rattachés" class="btn-link"
+                                colspan="2"
+                                invisible="fma_achats_non_rattaches_nb == 0"/>
+                        <button name="action_pri_achats_rattaches" type="object"
+                                string="Voir les achats rattachés" class="btn-link"
+                                colspan="2"/>
+                    </group>
+                </group>
+            </xpath>
+
+            <xpath expr="//field[@name='order_line']/list" position="inside">
+                <field name="fma_achat_matiere_reel" optional="hide" sum="Matière réel"/>
+                <field name="fma_achat_vitrage_reel" optional="hide" sum="Vitrage réel"/>
+                <field name="fma_pri_reel" optional="hide" sum="PRI réel"/>
+                <field name="fma_marge_brute_reelle" optional="hide" sum="Marge brute réelle"/>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>
