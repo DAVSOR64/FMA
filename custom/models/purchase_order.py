@@ -31,26 +31,49 @@ class PurchaseOrder(models.Model):
         self._sync_projet_du_so_from_sale_order()
         return res
 
+    def _fma_commandes_source(self):
+        """Commande(s) client a l'origine de l'achat.
+
+        Trois chemins, du plus direct au plus large : les lignes de vente
+        liees (achat a la commande), la « Commande client » posee sur l'achat
+        (fma_custom : achats nes d'un OF ou d'un lot, ou rattaches a la main),
+        puis l'origine du bon quand elle cite un numero de commande.
+        """
+        self.ensure_one()
+        commandes = self.env["sale.order"]
+        if self.sale_order_count:
+            commandes = self._get_sale_orders()
+        if not commandes and "fma_sale_order_id" in self._fields:
+            commandes = self.fma_sale_order_id
+        if not commandes and "fma_sale_order_id" in self.order_line._fields:
+            commandes = self.order_line.fma_sale_order_id
+        if not commandes and self.origin:
+            jetons = [j for j in self.origin.replace(",", " ").split() if len(j) > 1]
+            if jetons:
+                commandes = commandes.search([("name", "in", jetons)])
+        return commandes
+
     def _sync_projet_du_so_from_sale_order(self):
-        # "Projet du SO" (x_studio_projet_du_so) n'était alimenté par aucun
-        # mécanisme : ni les automatisations Studio encore actives en base
-        # (base.automation "DSA Reference compute PO"/"...responsable...",
-        # qui le lisent mais ne l'écrivent jamais), ni le portage Python
-        # (fma_custom/models/purchase_order.py). Ne touche jamais une valeur
-        # déjà saisie (manuelle ou future automatisation), et n'agit que si
-        # le devis source a lui-même un projet renseigné (champ
-        # x_studio_projet, module fma_sale_order_custom, non garanti
-        # installé -- vérifié dynamiquement).
+        # Le « Projet » de l'achat (x_studio_projet_du_so) reprend celui de la
+        # commande client. Il ne se remplissait plus : la regle lisait le
+        # champ Studio x_studio_projet du devis, alors que le projet du devis
+        # vit desormais dans project_id (le champ « Projet » du bloc Affaire).
+        # On lit donc project_id d'abord, l'ancien champ ensuite. Et la
+        # commande se cherche par tous les liens connus, pas seulement les
+        # lignes de vente : un achat ne d'un OF ou d'un lot n'en a pas.
+        # Ne touche jamais une valeur deja saisie.
         for po in self:
-            if po.x_studio_projet_du_so or not po.sale_order_count:
+            if po.x_studio_projet_du_so:
                 continue
-            sale_order = po._get_sale_orders()[:1]
-            if (
-                sale_order
-                and "x_studio_projet" in sale_order._fields
-                and sale_order.x_studio_projet
-            ):
-                po.x_studio_projet_du_so = sale_order.x_studio_projet
+            projet = self.env["project.project"]
+            for commande in po._fma_commandes_source():
+                projet = commande.project_id if "project_id" in commande._fields else projet
+                if not projet and "x_studio_projet" in commande._fields:
+                    projet = commande.x_studio_projet
+                if projet:
+                    break
+            if projet:
+                po.x_studio_projet_du_so = projet
 
     # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
@@ -71,7 +94,8 @@ class PurchaseOrder(models.Model):
     x_studio_many2one_field_8k2_1ilmpvkuh = fields.Many2one("x_affaire", string="Nouveau Many2One")
     x_studio_many2one_field_d15iY = fields.Many2one("res.partner", string="Contact")
     x_studio_many2one_field_LCOZX = fields.Many2one("x_affaire", string="Affaire")
-    x_studio_projet_du_so = fields.Many2one("project.project", string="projet du SO")
+    # Libelle « Projet » a l'ecran ; le nom technique reste celui de Studio.
+    x_studio_projet_du_so = fields.Many2one("project.project", string="Projet")
     x_studio_remise = fields.Many2one("x_remises_affaire", string="Remise")
     x_studio_remise_1 = fields.Many2one("x_remise_chantier", string="remise")
     x_studio_rfrence = fields.Char(string="Référence ", readonly=True)
