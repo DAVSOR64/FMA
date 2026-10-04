@@ -1036,11 +1036,10 @@ class FmaLotFabrication(models.Model):
         applique les regles de capacite et le calendrier. Aucune regle metier
         n'est reecrite ici.
 
-        Trois choses suivent le mouvement, et c'est tout l'interet :
-        la sortie matiere, calee a J-3 ouvres du debit ; les achats non
-        confirmes, dont la date de reception se decale d'autant ; et le
-        controle de la date de livraison client, qui dit si le lot tient
-        encore l'engagement.
+        Deux choses suivent le mouvement : la sortie matiere, calee a J-3
+        ouvres du debit, et le controle de la date de livraison client, qui
+        dit si le lot tient encore l'engagement. Les achats, eux, ne bougent
+        PAS : le compte rendu nomme les bons a revoir (cf. _achats_a_revoir).
         """
         self.ensure_one()
         debit = self.production_ids.filtered(

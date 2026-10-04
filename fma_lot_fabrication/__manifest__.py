@@ -60,7 +60,10 @@
     # que rien ne range. Aucun champ ni valeur ajoutes. Elle lit les
     # composants reels des ordres d'assemblage des qu'ils existent, et un
     # composant ajoute sur un ordre rejoint le bon de sortie du lot.
-    "version": "19.0.1.56.0",
+    # 1.57.0 : libelle du bouton « Replanifier depuis le débit » — il
+    # annoncait que les achats suivaient, ce que le code ne fait pas, a
+    # dessein. Vue seule : sans montee de version elle n'est pas rejouee.
+    "version": "19.0.1.57.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
