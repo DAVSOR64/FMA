@@ -45,8 +45,32 @@ def _categ_full_name(categ):
 
 
 def _is_vitrage(product):
+    """Vitrage ou panneau : le remplissage, par opposition a la matiere.
+
+    D'abord par la famille d'approvisionnement de l'article (categorie,
+    famille, sous-famille — module d'ordonnancement, s'il est installe), qui
+    se regle a l'ecran. Le NOM de la categorie reste accepte, comme avant : il
+    ne reconnaissait que deux libelles exacts, et un vitrage range ailleurs
+    passait en matiere sans que rien ne le dise.
+    """
+    modele = product.product_tmpl_id
+    if hasattr(modele, "_fma_famille_appro") and modele:
+        if modele._fma_famille_appro() in ("vitrage", "panneaux"):
+            return True
     categ = product.categ_id
     return _categ_full_name(categ) in VITRAGE_CATEG_NAMES or (categ.name or "") in VITRAGE_CATEG_NAMES
+
+
+def _line_uom(line):
+    """Unite d'une ligne de vente ou d'achat.
+
+    ``product_uom`` y est devenu ``product_uom_id`` en v19 : le calcul du PRI
+    s'arretait sur une AttributeError des la premiere ligne. Le nom est
+    resolu a l'execution ; stock.move, lui, a garde ``product_uom``.
+    """
+    if "product_uom_id" in line._fields:
+        return line.product_uom_id
+    return line.product_uom
 
 
 def _qty_move_consumed(move):
@@ -67,8 +91,8 @@ def _po_unit_in_sale_currency_uom(pol, sale_currency, company, target_uom):
     if pol.currency_id != sale_currency:
         conv_date = pol.order_id.date_order or datetime.date.today()
         unit = pol.currency_id._convert(unit, sale_currency, company, conv_date)
-    if pol.product_uom != target_uom:
-        unit = pol.product_uom._compute_price(unit, target_uom)
+    if _line_uom(pol) != target_uom:
+        unit = _line_uom(pol)._compute_price(unit, target_uom)
     discount = pol.discount or 0.0
     if discount:
         unit = unit * (1.0 - discount / 100.0)
@@ -240,90 +264,136 @@ class SaleOrder(models.Model):
                 lambda l: l.product_id and not l.display_type and l.product_uom_qty > 0
             )
 
-            for sol in lines:
-                product = sol.product_id
-                qty_sol = sol.product_uom_qty
-                uom_sol = sol.product_uom
+            # ----------------------------------------------------------
+            # Lignes FABRIQUEES : les OF de la commande, UNE FOIS chacun.
+            #
+            # La version d'origine parcourait les OF ligne de devis par ligne
+            # de devis, et refaisait pour CHAQUE OF trois choses qui ne
+            # valent qu'une fois par commande :
+            #   - un composant achete en plusieurs lignes d'achat pesait le
+            #     total de ces achats, a chaque OF qui le consommait ;
+            #   - tous les achats de l'affaire que l'OF ne consommait pas lui
+            #     etaient ajoutes — donc autant de fois qu'il y a d'OF ;
+            #   - une ligne sans OF a son article reprenait TOUS les OF.
+            # Avec un OF par commande, cela tombait juste. Avec les lots —
+            # un OF de debit par lot, un OF d'assemblage par menuiserie — les
+            # profiles, que les assemblages ne consomment pas, etaient comptes
+            # une fois par menuiserie, et la quincaillerie achetee en deux
+            # lots autant de fois qu'il y a d'assemblages.
+            #
+            # Meme regle de valorisation qu'avant, appliquee une seule fois
+            # sur la consommation CUMULEE de tous les OF de la commande :
+            #   - composant sans achat sur l'affaire : cout standard x
+            #     quantite consommee (appro sur stock) ;
+            #   - une ligne d'achat : son prix x quantite consommee ;
+            #   - plusieurs lignes d'achat : le total de ces achats ;
+            #   - achat de l'affaire qu'aucun OF ne consomme : compte une
+            #     fois, ligne d'achat par ligne d'achat.
+            #
+            # Un article PRODUIT par un OF de la commande — l'ensemble debite
+            # « <reference>-DEB », un sous-ensemble — n'est pas valorise
+            # comme composant : sa matiere est deja comptee sur l'OF qui le
+            # fabrique. Le compter a son cout de revient doublerait les
+            # barres, et entierement sur le premier repere du lot, les
+            # sous-produits du debit ne portant aucune part de cout.
+            # ----------------------------------------------------------
+            bom_lines = lines.filtered(lambda l: _has_bom(l.product_id, self.env))
+            direct_lines = lines - bom_lines
 
-                if _has_bom(product, self.env):
-                    mo_list = mos_by_finished.get(product.id) or mos
-                    if not mo_list:
-                        cost = product.standard_price * qty_sol
-                        if _is_vitrage(product):
+            if bom_lines and not mos:
+                for sol in bom_lines:
+                    cost = sol.product_id.standard_price * sol.product_uom_qty
+                    if _is_vitrage(sol.product_id):
+                        total_vitrage += cost
+                    else:
+                        total_matiere += cost
+                    total_stock += cost
+            elif bom_lines:
+                fabriques = set(mos.mapped("product_id").ids)
+                fabriques |= set(
+                    mos.move_finished_ids.filtered(
+                        lambda m: m.state != "cancel"
+                    ).mapped("product_id").ids
+                )
+
+                qty_by_product_move = {}
+                uom_by_product_move = {}
+                for move in mos.move_raw_ids:
+                    if move.state == "cancel" or not move.product_id:
+                        continue
+                    pid = move.product_id.id
+                    if pid in fabriques:
+                        continue
+                    qty_comp = _qty_move_consumed(move)
+                    if qty_comp <= 0:
+                        continue
+                    qty_by_product_move[pid] = qty_by_product_move.get(pid, 0.0) + qty_comp
+                    uom_by_product_move[pid] = move.product_uom
+
+                for pid, qty_total in qty_by_product_move.items():
+                    comp = self.env["product.product"].browse(pid)
+                    uom_comp = uom_by_product_move[pid]
+                    candidates = pols_by_product.get(pid) or []
+
+                    if not candidates:
+                        cost = comp.standard_price * qty_total
+                        if _is_vitrage(comp):
                             total_vitrage += cost
                         else:
                             total_matiere += cost
                         total_stock += cost
-                        continue
-
-                    for mo in mo_list:
-                        moves = mo.move_raw_ids.filtered(lambda m: m.state != "cancel" and m.product_id)
-                        qty_by_product_move = {}
-                        uom_by_product_move = {}
-                        for move in moves:
-                            qty_comp = _qty_move_consumed(move)
-                            if qty_comp <= 0:
-                                continue
-                            pid = move.product_id.id
-                            qty_by_product_move[pid] = qty_by_product_move.get(pid, 0.0) + qty_comp
-                            uom_by_product_move[pid] = move.product_uom
-
-                        move_product_ids = set(qty_by_product_move.keys())
-
-                        for pid, qty_total in qty_by_product_move.items():
-                            comp = self.env["product.product"].browse(pid)
-                            uom_comp = uom_by_product_move[pid]
-                            candidates = pols_by_product.get(pid) or []
-
-                            if not candidates:
-                                cost = comp.standard_price * qty_total
-                                if _is_vitrage(comp):
-                                    total_vitrage += cost
-                                else:
-                                    total_matiere += cost
-                                total_stock += cost
-                            else:
-                                cost = _cost_from_pols(
-                                    candidates, order.currency_id, order.company_id, uom_comp, qty_total
-                                )
-                                if _is_vitrage(comp):
-                                    total_vitrage += cost
-                                else:
-                                    total_matiere += cost
-                                total_affaire += cost
-
-                                t, ndni, dni, di = _appro_breakdown(
-                                    candidates, order.currency_id, order.company_id, uom_comp
-                                )
-                                appro_total += t
-                                appro_not_del_not_inv += ndni
-                                appro_del_not_inv += dni
-                                appro_del_inv += di
-
-                        consu_already = set()
-                        for pol in all_pols:
-                            prod = pol.product_id
-                            if not prod or prod.id in move_product_ids or prod.id in consu_already:
-                                continue
-                            if prod.type != "consu":
-                                continue
-                            consu_already.add(prod.id)
-                            uom_pol = pol.product_uom
-                            qty_pol = _pol_qty_received_or_ordered(pol)
-                            cost = _cost_from_pols(
-                                [pol], order.currency_id, order.company_id, uom_pol, qty_pol
-                            )
+                    else:
+                        cost = _cost_from_pols(
+                            candidates, order.currency_id, order.company_id, uom_comp, qty_total
+                        )
+                        if _is_vitrage(comp):
+                            total_vitrage += cost
+                        else:
                             total_matiere += cost
-                            total_affaire += cost
+                        total_affaire += cost
 
-                            t, ndni, dni, di = _appro_breakdown(
-                                [pol], order.currency_id, order.company_id, uom_pol
-                            )
-                            appro_total += t
-                            appro_not_del_not_inv += ndni
-                            appro_del_not_inv += dni
-                            appro_del_inv += di
-                    continue
+                        t, ndni, dni, di = _appro_breakdown(
+                            candidates, order.currency_id, order.company_id, uom_comp
+                        )
+                        appro_total += t
+                        appro_not_del_not_inv += ndni
+                        appro_del_not_inv += dni
+                        appro_del_inv += di
+
+                # Achats de l'affaire qu'aucun OF ne consomme (pas encore, ou
+                # jamais : un achat hors nomenclature). Chaque ligne d'achat
+                # une fois. Les articles revendus tels quels ont leur propre
+                # traitement plus bas : les prendre ici les compterait deux
+                # fois.
+                deja = set(qty_by_product_move) | fabriques | set(
+                    direct_lines.mapped("product_id").ids)
+                for pol in all_pols:
+                    prod = pol.product_id
+                    if not prod or prod.id in deja or prod.type != "consu":
+                        continue
+                    uom_pol = _line_uom(pol)
+                    qty_pol = _pol_qty_received_or_ordered(pol)
+                    cost = _cost_from_pols(
+                        [pol], order.currency_id, order.company_id, uom_pol, qty_pol
+                    )
+                    if _is_vitrage(prod):
+                        total_vitrage += cost
+                    else:
+                        total_matiere += cost
+                    total_affaire += cost
+
+                    t, ndni, dni, di = _appro_breakdown(
+                        [pol], order.currency_id, order.company_id, uom_pol
+                    )
+                    appro_total += t
+                    appro_not_del_not_inv += ndni
+                    appro_del_not_inv += dni
+                    appro_del_inv += di
+
+            for sol in direct_lines:
+                product = sol.product_id
+                qty_sol = sol.product_uom_qty
+                uom_sol = _line_uom(sol)
 
                 candidates = pols_by_product.get(product.id) or []
                 if not candidates:
