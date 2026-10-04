@@ -519,8 +519,34 @@ class SqliteConnector(models.Model):
                     largNum = int(largNumDec)
                 
                 categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
-                if not categ:
-                    self.log_request("Unable to find product category.", categorie, 'Elevations data')
+                # Le message ne concerne que les lignes qui donnent un article :
+                # une « Position texte » ou l'eco-contribution n'ont pas de
+                # modele, et le signaler n'apprenait rien. Il nomme la
+                # menuiserie et dit quoi corriger : l'ancien « Unable to find
+                # data » ne permettait pas de savoir laquelle etait en cause.
+                if (not categ and row[3] != 'Position texte'
+                        and row[1] != 'ECO-CONTRIBUTION'):
+                    categ_defaut = self._get_default_product_category()
+                    if (categorie or '').strip():
+                        cause = (
+                            "le modèle LOGIKAL « %s » ne correspond à aucune "
+                            "catégorie d'article (champ « Logical map » des "
+                            "catégories d'articles)" % categorie
+                        )
+                    else:
+                        cause = "aucun modèle n'est renseigné dans LOGIKAL"
+                    self.log_request(
+                        "Catégorie d'article introuvable",
+                        "Menuiserie « %s » (%s) : %s. L'article est rangé dans "
+                        "la catégorie par défaut « %s ». Pour corriger : "
+                        "renseigner le modèle dans LOGIKAL, ou saisir sa valeur "
+                        "dans le champ « Logical map » de la bonne catégorie, "
+                        "puis réimporter." % (
+                            (row[1] or '').strip() or '?', refint, cause,
+                            categ_defaut.display_name or '',
+                        ),
+                        'Menuiseries du fichier',
+                    )
                 # Le nom de l'article est la designation de la menuiserie.
                 # Elevations.Description est une saisie libre du chiffreur, et
                 # il arrive qu'elle soit vide : l'article naissait alors SANS
