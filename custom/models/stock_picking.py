@@ -25,13 +25,13 @@ class StockPicking(models.Model):
     # à x_affaire, jamais renommés -- signe probable d'essais répétés côté
     # Studio. Portés tels quels (fidélité du schéma) ; lequel est réellement
     # utilisé reste à clarifier.
-    x_studio_affaire = fields.Char(string="Affaire", readonly=True)
-    x_studio_many2many_field_JTFem = fields.Many2many("x_affaire", string="Affaire")
-    x_studio_many2one_field_fQVOa = fields.Many2one("x_affaire", string="Affaire")
-    x_studio_many2one_field_J9w45 = fields.Many2one("x_affaire", string="Affaire")
-    x_studio_many2one_field_Luqxc = fields.Many2one("x_affaire", string="Affaire")
-    x_studio_many2one_field_oYral = fields.Many2one("x_affaire", string="Affaire")
-    x_studio_many2one_field_uBzGv = fields.Many2one("x_affaire", string="Affaire")
+    x_studio_affaire = fields.Char(string="Affaire (texte)", readonly=True)
+    x_studio_many2many_field_JTFem = fields.Many2many("x_affaire", string="Affaires (multiple)")
+    x_studio_many2one_field_fQVOa = fields.Many2one("x_affaire", string="Affaire (fQVOa)")
+    x_studio_many2one_field_J9w45 = fields.Many2one("x_affaire", string="Affaire (J9w45)")
+    x_studio_many2one_field_Luqxc = fields.Many2one("x_affaire", string="Affaire (Luqxc)")
+    x_studio_many2one_field_oYral = fields.Many2one("x_affaire", string="Affaire (oYral)")
+    x_studio_many2one_field_uBzGv = fields.Many2one("x_affaire", string="Affaire (uBzGv)")
     x_studio_many2one_field_Vc214 = fields.Many2one("x_affaire", string="Affaire")
     x_studio_n_bl = fields.Char(string="N° BL")
     # Projet de la vente, le meme que sur l'ordre de fabrication

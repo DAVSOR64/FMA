@@ -130,7 +130,10 @@
                     <group>
                         <field name="x_name"/>
                         <field name="x_studio_libelle"/>
-                        <field name="x_studio_libelle_1"/>
+                        <!-- string explicite : le libelle du champ a recu un
+                             suffixe pour ne plus doubler celui de
+                             x_studio_libelle ; l'ecran, lui, ne change pas. -->
+                        <field name="x_studio_libelle_1" string="libelle"/>
                         <field name="x_studio_many2one_field_2m5_1invkcoub"/>
                         <field name="x_studio_sequence"/>
                         <field name="x_active" invisible="1"/>

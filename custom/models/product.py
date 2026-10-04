@@ -14,12 +14,12 @@ class ProductProduct(models.Model):
     _inherit = "product.product"
 
     x_studio_char_field_5cq_1j6cmccbl = fields.Char(string="Nouveau Texte")
-    x_studio_char_field_7d1_1iv4rm5dn = fields.Char(string="Nouveau Texte")
+    x_studio_char_field_7d1_1iv4rm5dn = fields.Char(string="Nouveau Texte (7d1)")
     x_studio_code_tarifaire = fields.Char(string="Code tarifaire")
     x_studio_color_logikal = fields.Char(string="Color Logikal")
     x_studio_conso_laffaire = fields.Boolean(string="Conso à l'affaire?")
     x_studio_couleur_pb_intext = fields.Char(string="Couleur PB (Int/Ext)")
-    x_studio_couleur_pb_intext_1 = fields.Char(string="Couleur PB (Int/Ext)")
+    x_studio_couleur_pb_intext_1 = fields.Char(string="Couleur PB (Int/Ext) (bis)")
     x_studio_cration_auto = fields.Boolean(string="Création Auto")
     x_studio_longueur_m = fields.Float(string="Longueur (m)")
     x_studio_longueur_pb_horizontal_1 = fields.Char(string="Longueur pb horizontal")

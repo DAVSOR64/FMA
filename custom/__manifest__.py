@@ -29,7 +29,7 @@
     # prevue ». Reprise des commandes deja en base en post-migrate.
     # 1.0.89 : l'onglet Analyse Financiere porte un name, pour qu'un
     # module dependant puisse s'y ancrer sans passer par @string.
-    "version": "19.0.1.0.89",
+    "version": "19.0.1.0.90",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [

@@ -49,7 +49,9 @@
                 <field name="month_start"/>
                 <field name="week_start"/>
                 <field name="atelier_id"/>
-                <field name="workcenter_id"/>
+                <!-- string explicite : le libelle du champ a recu un suffixe
+                     pour ne plus doubler celui de workcenter_name. -->
+                <field name="workcenter_id" string="Poste de travail"/>
                 <filter string="Mois en cours" name="current_month"
                         domain="[('month_start', '&gt;=', context_today().strftime('%%Y-%%m-01')), ('month_start', '&lt;', ((context_today() + relativedelta(months=1)).strftime('%%Y-%%m-01')))]"/>
                 <group>

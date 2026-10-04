@@ -17,7 +17,7 @@ class AccountMove(models.Model):
     #   leur valeur.
     x_studio_affaire_relance = fields.Char(string="Affaire relance")
     x_studio_code_tiers = fields.Char(string="Code (tiers)", readonly=True)
-    x_studio_compte = fields.Char(string="Compte", readonly=True)
+    x_studio_compte = fields.Char(string="Compte (texte)", readonly=True)
     x_studio_compte_1 = fields.Integer(string="Compte", readonly=True)
     x_studio_courriel = fields.Char(string="Courriel", readonly=True)
     x_studio_libelle_1 = fields.Char(string="Libelle", readonly=True)
@@ -30,7 +30,7 @@ class AccountMove(models.Model):
     x_studio_com_delegation_fac = fields.Char(string="Commentaire Délégation :")
     x_studio_mode_de_rglement = fields.Char(string="Mode de réglement")
     x_studio_related_field_m8sZb = fields.Char(string="test")
-    x_studio_mode_de_rglement_1 = fields.Char(string="Mode de réglement")
+    x_studio_mode_de_rglement_1 = fields.Char(string="Mode de réglement (bis)")
 
     inv_mode_de_reglement = fields.Selection(
         related="partner_id.part_mode_de_reglement", string="Mode de Règlement"
@@ -39,7 +39,7 @@ class AccountMove(models.Model):
         related="partner_id.part_code_tiers", string="Code Tiers"
     )
     inv_commercial = fields.Selection(
-        related="partner_id.part_commercial", string="Commercial"
+        related="partner_id.part_commercial", string="Commercial (ancienne liste)"
     )
     # Recopie depuis la commande (cf. sale.order._prepare_invoice) ou, a
     # defaut, depuis le client. Stocke et modifiable : une facture emise ne

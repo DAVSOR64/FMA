@@ -10,11 +10,11 @@ class ResConfigSettings(models.TransientModel):
         help="Exemple : https://n8n.showroom-janneau.com/webhook/fma-f2m",
     )
     hubspot_basic_auth_login = fields.Char(
-        string="Identifiant Basic Auth",
+        string="Identifiant Basic Auth (HubSpot)",
         config_parameter="hubspot_export.basic_auth_login",
     )
     hubspot_basic_auth_password = fields.Char(
-        string="Mot de passe Basic Auth",
+        string="Mot de passe Basic Auth (HubSpot)",
         config_parameter="hubspot_export.basic_auth_password",
     )
     hubspot_export_only_updated = fields.Boolean(

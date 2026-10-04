@@ -19,7 +19,7 @@
     # corps, donc sur la seule premiere page, comme en v17.
     # 1.0.11 : code client et mode de reglement repris des champs lies au
     # client, et fin de l'ecrasement de inv_mode_de_reglement par un Char.
-    "version": "19.0.1.0.12",
+    "version": "19.0.1.0.13",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom", "web"],
