@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Sous Fabrication > Operations, a la suite des lots (sequence 25). -->
+    <menuitem id="menu_fma_poste_scan_declarer"
+              name="Déclaration de fabrication (scan)"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_fma_poste_scan_declarer"
+              groups="mrp.group_mrp_user"
+              sequence="26"/>
+
+    <menuitem id="menu_fma_poste_scan_localiser"
+              name="Localiser une menuiserie"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_fma_poste_scan_localiser"
+              groups="mrp.group_mrp_user,helpdesk.group_helpdesk_user"
+              sequence="27"/>
+
+    <menuitem id="menu_fma_poste_scan_sav"
+              name="SAV par étiquette"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_fma_poste_scan_sav"
+              groups="mrp.group_mrp_user,helpdesk.group_helpdesk_user"
+              sequence="28"/>
+
+    <menuitem id="menu_fma_menuiseries"
+              name="Menuiseries (numéros de série)"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_fma_menuiseries"
+              groups="mrp.group_mrp_user"
+              sequence="29"/>
+
+    <menuitem id="menu_fma_ticket_sav"
+              name="Tickets SAV par menuiserie"
+              parent="mrp.menu_mrp_manufacturing"
+              action="action_fma_ticket_sav"
+              groups="mrp.group_mrp_user,helpdesk.group_helpdesk_user"
+              sequence="30"/>
+
+</odoo>

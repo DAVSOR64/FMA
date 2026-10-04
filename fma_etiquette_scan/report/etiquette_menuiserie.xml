@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Une etiquette par menuiserie. La meme, qu'on l'imprime depuis le
+         lot (tout le paquet), depuis un ordre ou depuis le numero de serie :
+         les trois entrees appellent le meme gabarit.
+
+         Il n'y a pas de variante « casier ». Le casier et la menuiserie
+         portent le meme numero : deux etiquettes differentes auraient fait
+         croire a deux objets. On imprime la meme en deux exemplaires. -->
+    <record id="action_report_etiquette_of" model="ir.actions.report">
+        <field name="name">Étiquette menuiserie / casier</field>
+        <field name="model">mrp.production</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fma_etiquette_scan.report_etiquette_of</field>
+        <field name="report_file">fma_etiquette_scan.report_etiquette_of</field>
+        <field name="paperformat_id" ref="paperformat_etiquette_menuiserie"/>
+        <field name="print_report_name">'Etiquettes - %s' % (object.lot_fabrication_id.display_name or object.name)</field>
+        <field name="binding_model_id" ref="mrp.model_mrp_production"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <record id="action_report_etiquette_serie" model="ir.actions.report">
+        <field name="name">Étiquette menuiserie / casier</field>
+        <field name="model">stock.lot</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fma_etiquette_scan.report_etiquette_serie</field>
+        <field name="report_file">fma_etiquette_scan.report_etiquette_serie</field>
+        <field name="paperformat_id" ref="paperformat_etiquette_menuiserie"/>
+        <field name="print_report_name">'Etiquette - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="etiquette_menuiserie">
+        <div class="page" style="page-break-after: always; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.25;">
+            <table style="width: 100%; border-bottom: 2px solid #000;">
+                <tr>
+                    <td style="vertical-align: top;">
+                        <div style="font-size: 11px;" t-out="etq['societe']"/>
+                        <div style="font-size: 12px;">Repère</div>
+                        <div style="font-size: 30px; font-weight: bold; line-height: 1.05;" t-out="etq['repere'] or '-'"/>
+                    </td>
+                    <td style="vertical-align: top; text-align: right; width: 34%;">
+                        <div style="font-size: 12px;">Casier n°</div>
+                        <div style="font-size: 44px; font-weight: bold; line-height: 1;" t-out="etq['casier'] or '-'"/>
+                    </td>
+                </tr>
+            </table>
+
+            <table style="width: 100%; margin-top: 4px;">
+                <tr t-if="etq['affaire']">
+                    <td style="width: 24%; color: #444;">Affaire</td>
+                    <td style="font-weight: bold;" t-out="etq['affaire']"/>
+                </tr>
+                <tr>
+                    <td style="width: 24%; color: #444;">Commande</td>
+                    <td style="font-weight: bold;" t-out="etq['commande'] or '-'"/>
+                </tr>
+                <tr>
+                    <td style="color: #444;">Client</td>
+                    <td style="font-weight: bold;" t-out="etq['client'] or '-'"/>
+                </tr>
+                <tr t-if="etq['chantier']">
+                    <td style="color: #444;">Chantier</td>
+                    <td style="font-weight: bold;" t-out="etq['chantier']"/>
+                </tr>
+                <tr>
+                    <td style="color: #444;">Lot de fab.</td>
+                    <td style="font-weight: bold;" t-out="etq['lot'] or '-'"/>
+                </tr>
+                <tr>
+                    <td style="color: #444;">OF</td>
+                    <td t-out="etq['of'] or '-'"/>
+                </tr>
+            </table>
+
+            <div style="margin-top: 4px; border-top: 1px solid #000; padding-top: 3px;">
+                <div style="font-size: 13px;" t-out="etq['designation']"/>
+                <div t-if="etq['dimensions']" style="font-size: 16px; font-weight: bold;" t-out="etq['dimensions']"/>
+            </div>
+
+            <div style="text-align: center; margin-top: 6px;">
+                <img t-if="etq['barcode_src']" alt="Code-barres du numéro de série"
+                     style="width: 100%; height: 62px;" t-att-src="etq['barcode_src']"/>
+                <div style="font-size: 15px; font-weight: bold; letter-spacing: 0.5px;" t-out="etq['serie']"/>
+            </div>
+
+            <table t-if="etq['qr_src']" style="width: 100%; margin-top: 4px; border-top: 1px solid #000;">
+                <tr>
+                    <td style="width: 38%; vertical-align: middle;">
+                        <img alt="QR code de déclaration SAV"
+                             style="width: 118px; height: 118px;" t-att-src="etq['qr_src']"/>
+                    </td>
+                    <td style="vertical-align: middle;">
+                        <div style="font-size: 15px; font-weight: bold;">Un problème ?</div>
+                        <div>Scannez ce QR code avec un téléphone pour déclarer un SAV sur cette menuiserie.</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </template>
+
+    <template id="report_etiquette_of">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs._fma_etiquettes()" t-as="etq">
+                <t t-call="fma_etiquette_scan.etiquette_menuiserie"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_etiquette_serie">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs._fma_etiquettes()" t-as="etq">
+                <t t-call="fma_etiquette_scan.etiquette_menuiserie"/>
+            </t>
+        </t>
+    </template>
+
+</odoo>

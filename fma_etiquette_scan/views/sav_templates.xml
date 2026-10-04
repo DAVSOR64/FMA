@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Pages autonomes : ni site web ni portail ne sont requis, et la page
+         est d'abord lue sur un telephone, au pied de la menuiserie. -->
+    <template id="sav_cadre">
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <meta name="robots" content="noindex, nofollow"/>
+                <title>SAV menuiserie</title>
+                <style>
+                    body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; background: #f3f4f6; color: #111827; }
+                    .cadre { max-width: 560px; margin: 0 auto; padding: 16px; }
+                    .carte { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+                    h1 { font-size: 20px; margin: 0 0 4px 0; }
+                    h2 { font-size: 16px; margin: 0 0 10px 0; }
+                    .serie { font-size: 18px; font-weight: 700; word-break: break-all; }
+                    .discret { color: #6b7280; font-size: 13px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+                    td { padding: 3px 0; vertical-align: top; }
+                    td.cle { color: #6b7280; width: 38%; }
+                    label { display: block; font-size: 14px; font-weight: 600; margin: 10px 0 4px 0; }
+                    input[type=text], input[type=email], input[type=tel], textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 8px; }
+                    textarea { min-height: 120px; }
+                    button { margin-top: 14px; width: 100%; padding: 12px; font-size: 16px; font-weight: 700; color: #fff; background: #1f6feb; border: 0; border-radius: 8px; }
+                    .erreur { background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 8px; font-size: 14px; }
+                    .succes { background: #dcfce7; color: #166534; padding: 12px; border-radius: 8px; }
+                    .piege { position: absolute; left: -9999px; }
+                    a { color: #1f6feb; }
+                </style>
+            </head>
+            <body>
+                <div class="cadre">
+                    <t t-out="0"/>
+                </div>
+            </body>
+        </html>
+    </template>
+
+    <template id="sav_page">
+        <t t-call="fma_etiquette_scan.sav_cadre">
+            <div class="carte">
+                <h1>Service après-vente</h1>
+                <div class="discret">Menuiserie</div>
+                <div class="serie" t-out="serie.name"/>
+                <table style="margin-top: 8px;">
+                    <tr>
+                        <td class="cle">Désignation</td>
+                        <td t-out="serie.product_id.name"/>
+                    </tr>
+                    <tr t-if="repere">
+                        <td class="cle">Repère</td>
+                        <td t-out="repere"/>
+                    </tr>
+                    <tr t-if="dimensions">
+                        <td class="cle">Dimensions</td>
+                        <td t-out="dimensions"/>
+                    </tr>
+                    <t t-if="interne">
+                        <tr t-if="serie.fma_affaire">
+                            <td class="cle">Affaire</td>
+                            <td t-out="serie.fma_affaire"/>
+                        </tr>
+                        <tr t-if="serie.fma_sale_order_id">
+                            <td class="cle">Commande</td>
+                            <td t-out="serie.fma_sale_order_id.name"/>
+                        </tr>
+                        <tr t-if="serie.fma_partner_id">
+                            <td class="cle">Client</td>
+                            <td t-out="serie.fma_partner_id.display_name"/>
+                        </tr>
+                        <tr t-if="serie.fma_chantier">
+                            <td class="cle">Chantier</td>
+                            <td t-out="serie.fma_chantier"/>
+                        </tr>
+                        <tr t-if="serie.fma_lot_fabrication_id">
+                            <td class="cle">Lot de fabrication</td>
+                            <td t-out="serie.fma_lot_fabrication_id.display_name"/>
+                        </tr>
+                        <tr t-if="serie.fma_production_id">
+                            <td class="cle">Ordre</td>
+                            <td t-out="serie.fma_production_id.name"/>
+                        </tr>
+                        <tr>
+                            <td class="cle">Livraison</td>
+                            <td t-out="serie.fma_livraison"/>
+                        </tr>
+                    </t>
+                </table>
+            </div>
+
+            <div class="carte" t-if="interne and tickets">
+                <h2>Tickets déjà ouverts sur cette menuiserie</h2>
+                <table>
+                    <tr t-foreach="tickets" t-as="ticket">
+                        <td class="cle" t-out="ticket.create_date.strftime('%d/%m/%Y')"/>
+                        <td>
+                            <a t-attf-href="/odoo/action-#{action_tickets}/#{ticket.id}" t-out="ticket.display_name"/>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="carte" t-if="interne">
+                <h2>Historique</h2>
+                <t t-out="serie.fma_historique"/>
+            </div>
+
+            <div class="carte">
+                <h2>Déclarer un problème</h2>
+                <div class="erreur" t-if="erreur" t-out="erreur"/>
+                <form method="post" t-attf-action="/fma/sav/#{serie.fma_sav_token}/declarer">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <div class="piege" aria-hidden="true">
+                        <input type="text" name="site_web" tabindex="-1" autocomplete="off"/>
+                    </div>
+                    <label for="objet">Objet</label>
+                    <input type="text" id="objet" name="objet" maxlength="200"
+                           placeholder="Vitrage fêlé, poignée, réglage..."
+                           t-att-value="saisie.get('objet', '')"/>
+                    <label for="description">Description du problème</label>
+                    <textarea id="description" name="description" required="required" maxlength="4000"><t t-out="saisie.get('description', '')"/></textarea>
+                    <t t-if="not interne">
+                        <label for="nom">Votre nom</label>
+                        <input type="text" id="nom" name="nom" required="required" maxlength="200"
+                               t-att-value="saisie.get('nom', '')"/>
+                        <label for="email">E-mail</label>
+                        <input type="email" id="email" name="email" maxlength="200"
+                               t-att-value="saisie.get('email', '')"/>
+                        <label for="telephone">Téléphone</label>
+                        <input type="tel" id="telephone" name="telephone" maxlength="40"
+                               t-att-value="saisie.get('telephone', '')"/>
+                    </t>
+                    <button type="submit">Envoyer la demande</button>
+                </form>
+            </div>
+        </t>
+    </template>
+
+    <template id="sav_merci">
+        <t t-call="fma_etiquette_scan.sav_cadre">
+            <div class="carte">
+                <h1>Demande enregistrée</h1>
+                <div class="succes">
+                    Votre demande concernant la menuiserie
+                    <strong t-out="serie.name"/> a bien été transmise au
+                    service après-vente.
+                    <t t-if="reference">
+                        <br/>Référence : <strong t-out="reference"/>
+                    </t>
+                </div>
+                <p t-if="interne and lien">
+                    <a t-att-href="lien">Ouvrir le ticket dans Odoo</a>
+                </p>
+            </div>
+        </t>
+    </template>
+
+    <template id="sav_introuvable">
+        <t t-call="fma_etiquette_scan.sav_cadre">
+            <div class="carte">
+                <h1>Menuiserie introuvable</h1>
+                <p class="discret">
+                    Ce lien ne correspond à aucune menuiserie. Vérifiez
+                    l'étiquette ou contactez le service après-vente.
+                </p>
+            </div>
+        </t>
+    </template>
+
+</odoo>
