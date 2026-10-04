@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_fma_poste_scan_form" model="ir.ui.view">
+        <field name="name">fma.poste.scan.form</field>
+        <field name="model">fma.poste.scan</field>
+        <field name="arch" type="xml">
+            <form string="Poste de scan">
+                <!-- Capte un code scanne meme quand le curseur n'est dans
+                     aucun champ : le service de code-barres standard. -->
+                <field name="_barcode_scanned" widget="barcode_handler"/>
+                <field name="dernier_type" invisible="1"/>
+                <field name="production_state" invisible="1"/>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="mode" widget="radio"/>
+                            <field name="action_auto" widget="radio"
+                                   invisible="mode != 'declarer'"/>
+                            <field name="lot_fabrication_id"
+                                   options="{'no_create': True}"
+                                   invisible="mode != 'declarer'"/>
+                        </group>
+                        <group>
+                            <field name="code" default_focus="1"
+                                   placeholder="Scanner l'étiquette d'une menuiserie..."/>
+                            <div colspan="2">
+                                <button name="action_traiter" type="object"
+                                        string="Traiter" class="btn-primary"/>
+                            </div>
+                            <field name="avancement_texte" readonly="1" force_save="1"
+                                   invisible="not lot_fabrication_id or mode != 'declarer'"/>
+                            <field name="avancement" readonly="1" force_save="1" widget="progressbar"
+                                   invisible="not lot_fabrication_id or mode != 'declarer'"/>
+                        </group>
+                    </group>
+
+                    <div role="status" class="alert alert-success" invisible="dernier_type != 'success'">
+                        <field name="dernier_message" readonly="1" force_save="1"/>
+                    </div>
+                    <div role="status" class="alert alert-info" invisible="dernier_type != 'info'">
+                        <field name="dernier_message" readonly="1" force_save="1"/>
+                    </div>
+                    <div role="alert" class="alert alert-warning" invisible="dernier_type != 'warning'">
+                        <field name="dernier_message" readonly="1" force_save="1"/>
+                    </div>
+                    <div role="alert" class="alert alert-danger" invisible="dernier_type != 'danger'">
+                        <field name="dernier_message" readonly="1" force_save="1"/>
+                    </div>
+
+                    <field name="serial_id" invisible="1"/>
+                    <field name="production_id" invisible="1"/>
+                    <field name="ticket_count" invisible="1"/>
+
+                    <div invisible="not production_id and not serial_id">
+                        <field name="fiche" readonly="1" force_save="1" nolabel="1"/>
+                        <div class="mt-3 mb-3">
+                            <button name="action_pointer_operation" type="object"
+                                    string="Démarrer / terminer l'opération"
+                                    class="btn-secondary me-1"
+                                    invisible="mode != 'declarer' or production_state in ('draft', 'done', 'cancel') or not production_id"
+                                    help="Premier clic : l'opération suivante démarre. Second clic : elle se termine avec son temps réel."/>
+                            <button name="action_terminer" type="object"
+                                    string="Déclarer la menuiserie terminée"
+                                    class="btn-primary me-1"
+                                    invisible="mode != 'declarer' or production_state in ('draft', 'done', 'cancel') or not production_id"
+                                    help="Solde les opérations restantes et clôture l'ordre avec son numéro de série."/>
+                            <button name="action_creer_ticket" type="object"
+                                    string="Créer le ticket SAV"
+                                    class="btn-primary me-1"
+                                    invisible="mode != 'sav' or not serial_id"/>
+                            <button name="action_voir_tickets" type="object"
+                                    string="Voir les tickets SAV"
+                                    class="btn-secondary me-1"
+                                    invisible="ticket_count == 0"/>
+                            <button name="action_ouvrir_of" type="object"
+                                    string="Ouvrir l'ordre" class="btn-link"
+                                    invisible="not production_id"/>
+                            <button name="action_ouvrir_serie" type="object"
+                                    string="Fiche de la menuiserie" class="btn-link"
+                                    invisible="not serial_id"/>
+                            <button name="action_imprimer_etiquette" type="object"
+                                    string="Réimprimer l'étiquette" class="btn-link"/>
+                        </div>
+                        <group invisible="mode != 'localiser' or not serial_id">
+                            <group>
+                                <field name="casier_emplacement"
+                                       placeholder="Travée B, chariot 12, quai..."/>
+                                <div colspan="2">
+                                    <button name="action_ranger" type="object"
+                                            string="Ranger ici" class="btn-secondary"/>
+                                </div>
+                            </group>
+                        </group>
+                        <separator string="Suivi de la menuiserie"
+                                   invisible="not serial_id or mode == 'declarer'"/>
+                        <field name="suivi" readonly="1" force_save="1" nolabel="1"
+                               invisible="not serial_id or mode == 'declarer'"/>
+                    </div>
+
+                    <separator string="Historique des scans"/>
+                    <field name="historique" readonly="1" force_save="1" nolabel="1"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fma_poste_scan_declarer" model="ir.actions.act_window">
+        <field name="name">Déclaration de fabrication (scan)</field>
+        <field name="res_model">fma.poste.scan</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'default_mode': 'declarer'}</field>
+    </record>
+
+    <record id="action_fma_poste_scan_localiser" model="ir.actions.act_window">
+        <field name="name">Localiser une menuiserie</field>
+        <field name="res_model">fma.poste.scan</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'default_mode': 'localiser'}</field>
+    </record>
+
+    <record id="action_fma_poste_scan_sav" model="ir.actions.act_window">
+        <field name="name">SAV par étiquette</field>
+        <field name="res_model">fma.poste.scan</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'default_mode': 'sav'}</field>
+    </record>
+
+</odoo>

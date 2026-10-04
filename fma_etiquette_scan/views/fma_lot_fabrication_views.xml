@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_fma_lot_fabrication_form_etiquette" model="ir.ui.view">
+        <field name="name">fma.lot.fabrication.form.etiquette</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="inherit_id" ref="fma_lot_fabrication.view_fma_lot_fabrication_form"/>
+        <field name="arch" type="xml">
+            <!-- Ancre sur le champ d'etat, pas sur un bouton voisin : les
+                 boutons du lot bougent souvent, l'etat reste. -->
+            <xpath expr="//header/field[@name='state']" position="before">
+                <button name="action_fma_imprimer_etiquettes" type="object"
+                        string="Imprimer les étiquettes"
+                        invisible="production_count == 0 or state == 'cancel'"
+                        help="Une étiquette par menuiserie, dans l'ordre de la liste de quincaillerie : code-barres du numéro de série et QR code SAV."/>
+                <button name="action_fma_poste_scan" type="object"
+                        string="Déclarer au scan"
+                        invisible="production_count == 0 or state in ('cancel', 'done')"
+                        help="Ouvre le poste de scan sur ce lot : chaque étiquette lue déclare une menuiserie."/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_fma_poste_scan" type="object"
+                        class="oe_stat_button" icon="fa-barcode"
+                        invisible="fma_unites_total == 0">
+                    <field name="fma_unites_total" invisible="1"/>
+                    <field name="fma_avancement_texte" widget="statinfo" string="Terminées"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

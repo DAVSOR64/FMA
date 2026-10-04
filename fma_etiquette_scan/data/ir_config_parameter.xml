@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- « 1 » : le QR code de l'etiquette ouvre un formulaire de declaration
+         SAV sans connexion — le poseur ou le client final, sur le chantier,
+         n'a pas de compte Odoo. « 0 » : la page exige une connexion.
+
+         Le lien n'est pas devinable : il porte un jeton aleatoire propre a
+         chaque menuiserie, et non son numero de serie. -->
+    <record id="param_sav_public" model="ir.config_parameter">
+        <field name="key">fma_etiquette_scan.sav_public</field>
+        <field name="value">1</field>
+    </record>
+
+</odoo>
