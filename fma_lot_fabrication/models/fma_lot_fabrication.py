@@ -650,6 +650,63 @@ class FmaLotFabrication(models.Model):
                 vides.unlink()
         return gardes
 
+    def _apres_ajout_composant(self, mouvements):
+        """Range dans le lot ce qu'un composant ajoute sur un ordre a cree.
+
+        Ajouter un composant sur un ordre confirme lance l'approvisionnement
+        standard : un prelevement Stock -> Pre-Fab, et un achat si l'article
+        est a la commande. Odoo rattache ce prelevement au bon de sortie de
+        l'ordre tant qu'il est ouvert et pas imprime ; sinon il en ouvre un
+        autre, un par ordre. On refait donc ici ce que « Generer les OF » fait
+        une fois pour toutes : UN bon ouvert par niveau, et les achats
+        rattaches au lot.
+
+        Un bon deja valide n'est pas rouvert : le complement part sur un
+        nouveau bon, que le lot retrouve par le chainage des mouvements.
+
+        Encadre, avec point de reprise : ranger est un confort, et une erreur
+        ici ne doit ni empecher d'ajouter un composant ni laisser la
+        transaction dans un etat inutilisable.
+        """
+        self.ensure_one()
+        mouvements = mouvements.exists()
+        try:
+            with self.env.cr.savepoint():
+                self._fusionner_sorties_matiere()
+                self._rattacher_achats()
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Rangement apres ajout de composant sur le lot %s", self.name)
+        if not mouvements:
+            return
+        bons = mouvements.move_orig_ids.picking_id
+        # La liste ne change que si une quincaillerie — ou un article que rien
+        # ne classe, et qu'elle garde par prudence — vient d'etre ajoutee.
+        liste = any(
+            article._fma_classe_matiere() in ("quincaillerie", False)
+            for article in mouvements.product_id
+        )
+        self.message_post(
+            body=_(
+                "Composant(s) ajoute(s) sur %(ordres)s : %(articles)s. "
+                "%(suite)s%(liste)s",
+                ordres=", ".join(
+                    mouvements.raw_material_production_id.mapped("name")),
+                articles=", ".join(
+                    "%s × %s" % (m.product_id.display_name, m.product_uom_qty)
+                    for m in mouvements),
+                suite=(
+                    _("Sortie matiere : %s.", ", ".join(bons.mapped("name")))
+                    if bons else
+                    _("Aucun prelevement cree : a prendre sur la Pre-Fab.")
+                ),
+                liste=(
+                    _(" La liste de quincaillerie est a reimprimer si elle "
+                      "l'a deja ete.") if liste else ""
+                ),
+            )
+        )
+
     @api.depends("line_ids.product_qty")
     def _compute_menuiserie_qty(self):
         for lot in self:
@@ -1844,7 +1901,6 @@ class FmaLotFabrication(models.Model):
         rester en rade pour un article mal classe — mais on l'ecrit sur le
         lot, la ou quelqu'un le lira.
         """
-        Template = self.env["product.template"]
         consommes = production.move_raw_ids.product_id
 
         manquants = self.material_line_ids.product_id - consommes
@@ -1859,10 +1915,11 @@ class FmaLotFabrication(models.Model):
                 )
             )
 
-        if "fma_nature_logikal" not in Template._fields:
-            return
+        # Profile ou non : le classement de l'article le dit (categorie,
+        # famille), la table LOGIKAL d'origine en dernier recours. Un article
+        # que rien ne classe n'est pas signale.
         intrus = consommes.filtered(
-            lambda p: p.fma_nature_logikal and p.fma_nature_logikal != "profile"
+            lambda p: p._fma_classe_matiere() in ("quincaillerie", "remplissage")
         )
         if not intrus:
             return
@@ -1975,6 +2032,42 @@ class FmaLotFabrication(models.Model):
             )
         return composants
 
+    def _composants_reels(self, ordre, unites=1):
+        """Ce qu'il faut sortir du stock pour UNE menuiserie de cet ordre.
+
+        Lu sur les composants de l'ordre de fabrication, et non sur la
+        nomenclature : c'est l'ordre qui dit ce qu'on va monter. Un composant
+        ajoute apres coup — dans l'onglet Composants ou par « Ajouter un
+        besoin » — y figure, un composant supprime ou annule n'y figure plus.
+
+        Meme forme que ``_composants_unitaires`` : (article, quantite, unite).
+        Un ordre qui porte plusieurs menuiseries est ramene a l'unite.
+
+        L'ensemble debite est ecarte, pour la meme raison que la-bas : il ne
+        sort pas du stock, il vient de la scie.
+        """
+        self.ensure_one()
+        cumul = {}
+        for mouvement in ordre.move_raw_ids:
+            if mouvement.state == "cancel":
+                continue
+            article = mouvement.product_id
+            if not article or article.fma_semi_fini == "debit":
+                continue
+            qty = mouvement.product_uom_qty
+            if not qty and mouvement.state == "done":
+                # Composant declare a l'atelier sans besoin initial : il a
+                # bien ete pris, autant qu'il soit ecrit.
+                qty = mouvement.quantity
+            if not qty:
+                continue
+            cle = (article, mouvement.product_uom)
+            cumul[cle] = cumul.get(cle, 0.0) + qty
+        return [
+            (article, qty / (unites or 1), uom)
+            for (article, uom), qty in cumul.items()
+        ]
+
     def _besoin_matiere(self):
         """Le besoin du lot, dans l'ordre ou il quitte le stock.
 
@@ -1992,6 +2085,12 @@ class FmaLotFabrication(models.Model):
         menuiserie, puisque c'est ainsi que le magasin travaille. Chaque
         casier porte son rang dans la ligne ; le jour ou les menuiseries
         seront suivies au numero de serie, ce rang deviendra ce numero.
+
+        D'ou vient le contenu d'un casier : des COMPOSANTS REELS de l'ordre
+        d'assemblage des que celui-ci existe, de la nomenclature avant. Un
+        composant ajoute sur un ordre — une quincaillerie oubliee, une casse
+        — sort donc sur la liste, et un composant retire en disparait. La
+        nomenclature, elle, dit ce qui etait prevu, pas ce qu'on va monter.
         """
         self.ensure_one()
 
@@ -2017,32 +2116,47 @@ class FmaLotFabrication(models.Model):
         for ligne in self.line_ids:
             if not ligne.product_id:
                 continue
-            contenu = self._composants_unitaires(ligne.product_id)
-            for article, qty, uom in contenu:
-                if not article or not qty:
-                    continue
-                cle = (article, uom)
-                agrege[cle] = agrege.get(cle, 0.0) + qty * ligne.product_qty
-            nombre = int(ligne.product_qty or 0)
-            # Les numeros de serie de cette ligne, dans l'ordre des ordres :
-            # la generation en cree un par menuiserie, le rang du casier et le
-            # rang de l'ordre se correspondent donc. C'est ce qui permet au
-            # magasin de garnir « le casier 002 » et a l'atelier de declarer
-            # « la menuiserie 002 » en parlant du meme exemplaire.
-            series = [
-                (mo.lot_producing_ids[:1].name or "")
-                for mo in self.env["mrp.production"].search(
-                    [("lot_line_id", "=", ligne.id),
-                     ("state", "!=", "cancel")],
-                    order="id",
-                )
-            ]
-            for rang in range(1, nombre + 1):
+            # Les ordres d'assemblage de cette ligne, dans l'ordre de leur
+            # creation : la generation en cree un par menuiserie, avec son
+            # numero de serie. Le rang du casier et le rang de l'ordre se
+            # correspondent donc — c'est ce qui permet au magasin de garnir
+            # « le casier 002 » et a l'atelier de declarer « la menuiserie
+            # 002 » en parlant du meme exemplaire.
+            ordres = self.env["mrp.production"].search(
+                [("lot_line_id", "=", ligne.id),
+                 ("state", "!=", "cancel"),
+                 ("lot_production_type", "in", ("assemblage", False))],
+                order="id",
+            )
+            du_lot = []
+            for ordre in ordres:
+                unites = max(int(round(ordre.product_qty or 0)), 1)
+                contenu = self._composants_reels(ordre, unites)
+                serie = ordre.lot_producing_ids[:1].name or ""
+                for _unite in range(unites):
+                    # Le numero de serie ne designe qu'UNE menuiserie : un
+                    # ordre qui en porte plusieurs retombe sur le rang.
+                    du_lot.append((serie if unites == 1 else "", contenu))
+
+            # Ce que les ordres ne couvrent pas — avant leur generation, ou
+            # pour une menuiserie ajoutee au lot depuis — vient de la
+            # nomenclature : ce qui est prevu, faute de savoir ce qui est.
+            nombre = max(int(ligne.product_qty or 0), len(du_lot))
+            if len(du_lot) < nombre:
+                prevu = self._composants_unitaires(ligne.product_id)
+                du_lot += [("", prevu)] * (nombre - len(du_lot))
+
+            for rang, (serie, contenu) in enumerate(du_lot, start=1):
+                for article, qty, uom in contenu:
+                    if not article or not qty:
+                        continue
+                    cle = (article, uom)
+                    agrege[cle] = agrege.get(cle, 0.0) + qty
                 casiers.append({
                     "ligne": ligne,
                     "rang": rang,
                     "sur": nombre,
-                    "serie": series[rang - 1] if rang <= len(series) else "",
+                    "serie": serie,
                     "contenu": contenu,
                 })
 
@@ -2061,6 +2175,9 @@ class FmaLotFabrication(models.Model):
         """
         self.ensure_one()
         par_article = {}
+        # Une menuiserie se repete d'un casier a l'autre : on ne remonte les
+        # categories qu'une fois par article.
+        classes = {}
         for casier in casiers:
             ligne = casier["ligne"]
             # La POSITION seule, pas la reference complete. Celle-ci vaut
@@ -2081,18 +2198,22 @@ class FmaLotFabrication(models.Model):
             for article, qty, uom in casier["contenu"]:
                 if not article or not qty:
                     continue
-                # QUINCAILLERIE seule — la table AllArticles du pricer. Ni
-                # vitrage ni profile : le vitrage se commande et se livre a
-                # part, les profiles passent par le debit. Ce document sert la
-                # prise en rayon, et on ne prend en rayon que cela.
+                # QUINCAILLERIE seule. Ni vitrage ni profile : le vitrage se
+                # commande et se livre a part, les profiles — complementaires
+                # compris — passent par le debit. Ce document sert la prise en
+                # rayon, et on ne prend en rayon que cela.
                 #
-                # Une nature absente n'exclut pas : mieux vaut une ligne de
-                # trop, qu'on voit, qu'une ligne qui disparait en silence.
-                nature = (
-                    article.fma_nature_logikal
-                    if "fma_nature_logikal" in article._fields else False
-                )
-                if nature in ("glass", "profile"):
+                # C'est le CLASSEMENT de l'article qui le dit — categorie,
+                # famille, sous-famille — et la table LOGIKAL d'origine
+                # seulement pour l'article que rien ne range.
+                # cf. product.product._fma_classe_matiere.
+                #
+                # Un article que rien ne classe n'est pas exclu : mieux vaut
+                # une ligne de trop, qu'on voit, qu'une ligne qui disparait
+                # en silence.
+                if article.id not in classes:
+                    classes[article.id] = article._fma_classe_matiere()
+                if classes[article.id] in ("profile", "remplissage"):
                     continue
                 poste = par_article.setdefault(article.id, {
                     "article": article,

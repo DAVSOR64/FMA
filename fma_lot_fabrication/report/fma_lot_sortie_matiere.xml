@@ -12,7 +12,13 @@
 
          Le detail ne porte que la QUINCAILLERIE. Le vitrage se livre a part,
          les profiles passent par le debit : ni l'un ni l'autre ne se prend en
-         rayon. Le recapitulatif, lui, continue de tout montrer. -->
+         rayon. C'est le classement EXISTANT de l'article qui tranche
+         — categorie, famille, sous-famille : profiles (complementaires
+         compris), vitrages et panneaux sont ecartes, tout le reste est de la
+         quincaillerie. cf. product.product._fma_classe_matiere.
+
+         Le contenu est lu sur les composants REELS des ordres d'assemblage
+         des qu'ils existent : un composant ajoute sur un ordre sort ici. -->
     <record id="action_report_lot_sortie_matiere" model="ir.actions.report">
         <field name="name">Liste de quincaillerie</field>
         <field name="model">fma.lot.fabrication</field>
@@ -96,8 +102,9 @@
                             </tbody>
                         </table>
                         <p t-if="not quincaillerie_totaux" class="text-muted">
-                            Aucune quincaillerie : les menuiseries du lot n'ont pas de
-                            nomenclature exploitable.
+                            Aucune quincaillerie : ni les ordres de fabrication ni les
+                            nomenclatures du lot ne portent d'article autre que des
+                            profilés, des vitrages ou des panneaux.
                         </p>
 
                         <h4 class="mt-4">2 — Détail par repère</h4>
@@ -187,10 +194,13 @@
                                 </tbody>
                             </table>
                             <p class="text-muted">
-                                Quincaillerie seule. Le vitrage se livre à part et les
-                                profilés passent par le débit ; ni l'un ni l'autre ne se
-                                prend en rayon. Les lignes suivent l'ordre des emplacements ;
-                                un emplacement vide signale un article sans stock.
+                                Quincaillerie seule : les composants des ordres de
+                                fabrication, hors articles que leur catégorie range
+                                parmi les profilés (complémentaires compris), les
+                                vitrages ou les panneaux. Le vitrage se livre à part et
+                                les profilés passent par le débit. Les lignes suivent
+                                l'ordre des emplacements ; un emplacement vide signale
+                                un article sans stock.
                             </p>
                         </div>
                     </t>
