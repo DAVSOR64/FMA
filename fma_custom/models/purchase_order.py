@@ -12,22 +12,128 @@ Origin (Studio):
 - base.automation "DSA : Mise à jour du responsable PO par le responsable
   PROJECT".
 See STUDIO_AUDIT.md at the repo root for the full inventory.
+
+Ce fichier porte aussi le RATTACHEMENT D'UN ACHAT A UNE COMMANDE CLIENT
+(champ « Commande client »), dont depend le calcul du prix de revient : voir
+la classe PurchaseOrderLine en fin de fichier.
 """
-from odoo import models
+import re
+
+from odoo import api, fields, models
+
+#: Separateurs d'un champ « origine » : Odoo y cumule les documents sources
+#: avec des virgules, le lot y ecrit « <lot> - <commande> ».
+ORIGINE_SEPARATEURS = re.compile(r"[,;\s]+")
+
+#: Champs dont l'ecriture peut reveler la commande d'un achat.
+DECLENCHEURS_EN_TETE = {"order_line", "origin", "x_studio_projet_du_so", "state"}
+DECLENCHEURS_LIGNE = {"fma_sale_line_id", "lot_fabrication_id", "move_dest_ids"}
+
+
+def commandes_des_of(ordres):
+    """Commandes client servies par des ordres de fabrication.
+
+    Par tous les liens connus, chacun n'etant suivi que si son champ existe :
+    ce module charge avant ceux qui en declarent plusieurs (lots, custom).
+    """
+    commandes = ordres.env["sale.order"]
+    if not ordres:
+        return commandes
+    champs = ordres._fields
+    if "lot_sale_order_id" in champs:
+        commandes |= ordres.lot_sale_order_id
+    if "sale_line_id" in champs:
+        commandes |= ordres.sale_line_id.order_id
+    if "x_studio_mtn_mrp_sale_order" in champs:
+        commandes |= ordres.x_studio_mtn_mrp_sale_order
+    if not commandes and "lot_fabrication_id" in champs:
+        # L'OF de debit : il sert le lot entier, donc ses commandes.
+        commandes |= ordres.lot_fabrication_id.sale_order_ids
+    if not commandes:
+        # Dernier recours : l'origine de l'OF cite le numero de la commande.
+        jetons = set()
+        for ordre in ordres:
+            jetons.update(
+                j for j in ORIGINE_SEPARATEURS.split(ordre.origin or "") if len(j) > 1)
+        if jetons:
+            commandes = commandes.search([("name", "in", list(jetons))])
+    return commandes
 
 
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
+    # « Commande client » de l'achat. Avec « Projet du SO » (l'affaire), c'est
+    # le second axe d'imputation : une affaire a tranches porte plusieurs
+    # commandes, et le projet seul ne dit pas laquelle paie l'achat. Les deux
+    # champs d'en-tete — Affaire, Commande — sont ceux que les plans
+    # analytiques a venir reprendront.
+    #
+    # Champ ordinaire, et non calcul stocke : le lien se revele en plusieurs
+    # temps (la ligne nait avant que l'OF ne rejoigne son lot), et un calcul
+    # stocke fige ce qu'il a vu a la naissance. Il est donc POSE par
+    # _fma_rattacher_commande, rejoue aux moments utiles, et ne remplace
+    # jamais une saisie.
+    fma_sale_order_id = fields.Many2one(
+        "sale.order",
+        string="Commande client",
+        index="btree_not_null",
+        ondelete="set null",
+        copy=False,
+        tracking=True,
+        domain="fma_sale_order_domain",
+        help="Commande client a laquelle cet achat est impute dans le calcul "
+        "du prix de revient. Remplie automatiquement quand l'achat vient "
+        "d'un lot ou d'un ordre de fabrication de la commande, ou quand le "
+        "projet n'a qu'une commande confirmee. A saisir sur une affaire a "
+        "tranches pour un achat fait a la main. S'applique a toutes les "
+        "lignes, sauf celles qui designent une ligne de commande.",
+    )
+    fma_sale_order_domain = fields.Binary(
+        compute="_compute_fma_sale_order_domain",
+        help="Commandes proposees : celles du projet de l'achat s'il en a un.",
+    )
+
+    @api.depends("x_studio_projet_du_so")
+    def _compute_fma_sale_order_domain(self):
+        Commande = self.env["sale.order"]
+        for achat in self:
+            domaine = [("state", "in", ("sale", "done"))]
+            if achat.x_studio_projet_du_so:
+                domaine += Commande._fma_domaine_projet(achat.x_studio_projet_du_so)
+            achat.fma_sale_order_domain = domaine
+
+    def _fma_appliquer_commande_aux_lignes(self):
+        """L'en-tete fait foi pour ses lignes.
+
+        Saisir la commande en en-tete l'applique a toutes les lignes — y
+        compris celles qu'un rattachement automatique avait deja servies :
+        c'est une correction, elle doit porter. Seule une ligne qui designe
+        une LIGNE DE COMMANDE garde la sienne, ce choix etant plus precis.
+        """
+        for achat in self:
+            lignes = achat.order_line.filtered(
+                lambda l: not l.display_type and not l.fma_sale_line_id
+                and l.fma_sale_order_id != achat.fma_sale_order_id)
+            if lignes:
+                lignes.with_context(fma_rattachement_auto=True).write(
+                    {"fma_sale_order_id": achat.fma_sale_order_id.id})
+
     def create(self, vals_list):
         orders = super().create(vals_list)
         orders.with_context(skip_studio_sync=True)._apply_studio_automations()
+        orders.order_line._fma_rattacher_commande()
         return orders
 
     def write(self, vals):
         res = super().write(vals)
         if not self.env.context.get("skip_studio_sync"):
             self.with_context(skip_studio_sync=True)._apply_studio_automations(vals)
+        if not self.env.context.get("fma_rattachement_auto"):
+            if "fma_sale_order_id" in vals:
+                self._fma_appliquer_commande_aux_lignes()
+            elif DECLENCHEURS_EN_TETE & set(vals):
+                self.order_line._fma_rattacher_commande()
         return res
 
     def _apply_studio_automations(self, vals=None):
@@ -92,3 +198,183 @@ class PurchaseOrder(models.Model):
         for po in self:
             projet = po.x_studio_projet_du_so
             po.user_id = projet.user_id if projet and projet.user_id else False
+
+
+class PurchaseOrderLine(models.Model):
+    """Rattachement d'une ligne d'achat a une commande client.
+
+    Le lien vit sur la LIGNE, comme celui du lot : un bon de commande regroupe
+    les besoins d'un fournisseur pour un projet, donc eventuellement ceux de
+    deux tranches. L'en-tete porte la commande quand toutes ses lignes en ont
+    une seule, et sert de saisie rapide.
+
+    Ordre de resolution d'une ligne sans commande :
+
+    1. le lot de fabrication de la ligne ;
+    2. la chaine d'approvisionnement : ce que l'achat alimente — un composant
+       d'OF, une livraison — jusqu'a rencontrer une commande ;
+    3. la ligne de vente native (achat ne d'une vente de service) ;
+    4. l'origine du bon : numero de commande, d'OF ou de lot ;
+    5. la commande saisie en en-tete ;
+    6. le projet, s'il ne porte qu'UNE commande confirmee.
+
+    Des que deux commandes sont possibles, rien n'est pose : le calcul du prix
+    de revient signale l'achat comme « non rattache » et c'est a
+    l'utilisateur de trancher. Ajouter d'office un achat a toutes les tranches
+    d'une affaire est exactement ce qu'on veut eviter.
+    """
+
+    _inherit = "purchase.order.line"
+
+    #: Nombre de maillons remontes le long des mouvements de stock.
+    FMA_PROFONDEUR_CHAINE = 6
+
+    fma_sale_order_id = fields.Many2one(
+        "sale.order",
+        string="Commande client",
+        index="btree_not_null",
+        ondelete="set null",
+        copy=False,
+        help="Commande client qui porte le cout de cette ligne. Vide : "
+        "l'achat n'est compte dans aucun prix de revient.",
+    )
+    fma_sale_line_id = fields.Many2one(
+        "sale.order.line",
+        string="Ligne de commande",
+        index="btree_not_null",
+        ondelete="set null",
+        copy=False,
+        domain="[('order_id', '=?', fma_sale_order_id), ('display_type', '=', False)]",
+        help="Facultatif. Ligne de commande qui porte cet achat quand aucun "
+        "ordre de fabrication ne le consomme (achat hors nomenclature). Un "
+        "article consomme par les ordres de fabrication est reparti selon "
+        "leur consommation, quoi que dise ce champ.",
+    )
+
+    @api.onchange("fma_sale_line_id")
+    def _onchange_fma_sale_line_id(self):
+        for ligne in self:
+            if ligne.fma_sale_line_id:
+                ligne.fma_sale_order_id = ligne.fma_sale_line_id.order_id
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lignes = super().create(vals_list)
+        if not self.env.context.get("fma_rattachement_auto"):
+            lignes._fma_rattacher_commande()
+        return lignes
+
+    def write(self, vals):
+        res = super().write(vals)
+        if (DECLENCHEURS_LIGNE & set(vals)
+                and not self.env.context.get("fma_rattachement_auto")):
+            self._fma_rattacher_commande()
+        return res
+
+    def _fma_commandes_fortes(self):
+        """Commandes que la ligne sert, par un lien materiel (etapes 1 a 4)."""
+        self.ensure_one()
+        Commande = self.env["sale.order"]
+        champs = self._fields
+
+        # 1. Le lot.
+        if "lot_fabrication_id" in champs and self.lot_fabrication_id:
+            commandes = self.lot_fabrication_id.sale_order_ids
+            if commandes:
+                return commandes
+
+        # 2. La chaine : reception -> collecte des composants -> composant
+        #    d'OF, ou reception -> livraison. On descend sans presumer du
+        #    nombre d'etapes de l'entrepot.
+        Move = self.env["stock.move"]
+        moves = Move
+        if "move_dest_ids" in champs:
+            moves |= self.move_dest_ids
+        if "move_ids" in champs:
+            moves |= self.move_ids.move_dest_ids
+        vus = set()
+        for _niveau in range(self.FMA_PROFONDEUR_CHAINE):
+            moves = moves.filtered(lambda m: m.id not in vus)
+            if not moves:
+                break
+            vus |= set(moves.ids)
+            commandes = Commande
+            if "sale_line_id" in Move._fields:
+                commandes |= moves.sale_line_id.order_id
+            ordres = moves.raw_material_production_id
+            commandes |= commandes_des_of(ordres)
+            if commandes:
+                return commandes
+            moves = moves.move_dest_ids | ordres.move_finished_ids.move_dest_ids
+
+        # 3. La ligne de vente native.
+        if "sale_line_id" in champs and self.sale_line_id:
+            return self.sale_line_id.order_id
+
+        # 4. L'origine du bon. Comparaison par JETON entier : « A26-01 » ne
+        #    doit pas reconnaitre « A26-01/2 », la tranche suivante.
+        jetons = [j for j in ORIGINE_SEPARATEURS.split(self.order_id.origin or "")
+                  if len(j) > 1]
+        if jetons:
+            societe = self.order_id.company_id.id
+            commandes = Commande.search(
+                [("name", "in", jetons), ("company_id", "=", societe)])
+            if not commandes:
+                ordres = self.env["mrp.production"].search(
+                    [("name", "in", jetons), ("company_id", "=", societe)])
+                commandes = commandes_des_of(ordres)
+            if not commandes and "fma.lot.fabrication" in self.env:
+                lots = self.env["fma.lot.fabrication"].search(
+                    [("name", "in", jetons), ("company_id", "=", societe)])
+                commandes = lots.sale_order_ids
+            if commandes:
+                return commandes
+        return Commande
+
+    def _fma_rattacher_commande(self):
+        """Pose la commande client sur les lignes qui n'en ont pas.
+
+        Ne remplace jamais une valeur presente. Rejouee a la creation, a
+        certaines ecritures, et par le calcul du prix de revient — c'est lui
+        qui rattrape les achats nes avant ce champ.
+        """
+        Commande = self.env["sale.order"]
+        lignes = self.sudo().with_context(
+            fma_rattachement_auto=True, skip_studio_sync=True)
+        par_projet = {}
+        for ligne in lignes:
+            if ligne.display_type or not ligne.product_id:
+                continue
+            if ligne.fma_sale_line_id:
+                if ligne.fma_sale_order_id != ligne.fma_sale_line_id.order_id:
+                    ligne.fma_sale_order_id = ligne.fma_sale_line_id.order_id
+                continue
+            if ligne.fma_sale_order_id:
+                continue
+            commandes = ligne._fma_commandes_fortes()
+            if not commandes:
+                # 5. L'en-tete.
+                commandes = ligne.order_id.fma_sale_order_id
+            if not commandes:
+                # 6. Le projet a une seule commande confirmee.
+                projet = ligne.order_id.x_studio_projet_du_so
+                if projet:
+                    if projet.id not in par_projet:
+                        par_projet[projet.id] = Commande.search(
+                            [("state", "in", ("sale", "done"))]
+                            + Commande._fma_domaine_projet(projet))
+                    commandes = par_projet[projet.id]
+            if len(commandes) == 1:
+                ligne.fma_sale_order_id = commandes.id
+
+        # L'en-tete suit quand toutes les lignes s'accordent.
+        for achat in lignes.order_id:
+            if achat.fma_sale_order_id:
+                continue
+            articles = achat.order_line.filtered(
+                lambda l: not l.display_type and l.product_id)
+            commandes = articles.fma_sale_order_id
+            if (articles and len(commandes) == 1
+                    and all(l.fma_sale_order_id for l in articles)):
+                achat.fma_sale_order_id = commandes.id
+        return True
