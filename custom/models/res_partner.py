@@ -172,6 +172,11 @@ class ResPartner(models.Model):
         default="SARL",
     )
 
+    # --- Identite legale : SIRET et SIREN ---
+    # Le champ standard company_registry porte chez FMA le SIRET (14
+    # chiffres) : c'est ce que lisent Iziqo, Power BI, les exports et les PDF.
+    # Le SIREN est part_siren. Aucun controle de forme sur l'un ni l'autre.
+    company_registry = fields.Char(string="SIRET")
     part_siren = fields.Char(string="SIREN")
     part_bic = fields.Char(string="BIC")
     part_iban = fields.Char(string="IBAN")
@@ -189,6 +194,28 @@ class ResPartner(models.Model):
         "attachment_id",
         string="Attachments",
     )
+
+    def init(self):
+        super().init()
+        # Le string="SIRET" ci-dessus ne remplace que le libelle anglais : la
+        # traduction posee par base (« ID de la société ») lui survit, et
+        # c'est elle que montrent les listes, filtres et exports. Odoo
+        # n'ecrase pas une traduction existante ; on aligne donc les langues
+        # deja presentes, a chaque mise a jour du module.
+        self.env.cr.execute(
+            """
+            UPDATE ir_model_fields f
+               SET field_description = (
+                       SELECT jsonb_object_agg(langue, 'SIRET')
+                         FROM jsonb_object_keys(f.field_description) AS langue)
+             WHERE f.model = 'res.partner'
+               AND f.name = 'company_registry'
+               AND EXISTS (
+                       SELECT 1
+                         FROM jsonb_each_text(f.field_description) AS t
+                        WHERE t.value <> 'SIRET')
+            """
+        )
 
     @api.model_create_multi
     def create(self, vals_list):

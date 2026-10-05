@@ -33,6 +33,14 @@
                 <field name="fma_remise_acier"/>
             </xpath>
 
+            <!-- Le vendeur natif (user_id, un utilisateur Odoo) ne s'affiche
+                 plus sur la fiche : chez FMA, c'est le « Commercial » qui
+                 fait foi. Masque et non retire, pour que les vues qui
+                 s'ancrent dessus continuent de se charger. -->
+            <xpath expr="//page[@name='sales_purchases']//field[@name='user_id']"
+                   position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
             <xpath expr="//page[@name='sales_purchases']/group" position="inside">
                 <group>
                     <field name="part_siren" string="SIREN"/>
