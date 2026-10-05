@@ -21,6 +21,8 @@ la classe PurchaseOrderLine en fin de fichier.
 """
 import re
 
+from lxml import etree
+
 from odoo import api, fields, models
 
 #: Separateurs d'un champ « origine » : Odoo y cumule les documents sources
@@ -64,6 +66,25 @@ def commandes_des_of(ordres):
 
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
+
+    @api.model
+    def _get_view(self, view_id=None, view_type="form", **options):
+        """Affiche « Projet » sur le formulaire quand aucune vue ne le fait.
+
+        Le champ x_studio_projet_du_so n'est pose a l'ecran que par une vue
+        Studio de la base. La ou elle existe, on n'y touche pas ; la ou elle
+        manque, le projet de l'achat etait invisible. On l'insere alors juste
+        avant « Commande client » : les deux axes d'imputation cote a cote.
+        """
+        arch, view = super()._get_view(view_id, view_type, **options)
+        if view_type == "form" and "x_studio_projet_du_so" in self._fields:
+            hors_lignes = "[not(ancestor::field)]"
+            deja = arch.xpath("//field[@name='x_studio_projet_du_so']" + hors_lignes)
+            commande = arch.xpath("//field[@name='fma_sale_order_id']" + hors_lignes)
+            if not deja and commande:
+                commande[0].addprevious(
+                    etree.Element("field", name="x_studio_projet_du_so"))
+        return arch, view
 
     # « Commande client » de l'achat. Avec « Projet du SO » (l'affaire), c'est
     # le second axe d'imputation : une affaire a tranches porte plusieurs

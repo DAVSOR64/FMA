@@ -19,7 +19,7 @@
     # 1.0.22 : les achats de services rattaches (sous-traitance, laquage,
     # pose) entrent au PRI, dans la matiere, et sont affiches a part ; MOD
     # saisie et MOD calculee par Odoo cote a cote, avec leur ecart.
-    "version": "19.0.1.0.23",
+    "version": "19.0.1.0.24",
     "depends": ["custom", "hr", "sale", "purchase", "mrp", "account", "stock"],
     "data": [
         "views/mail_templates.xml",
