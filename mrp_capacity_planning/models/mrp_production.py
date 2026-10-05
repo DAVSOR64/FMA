@@ -408,7 +408,9 @@ class MrpProduction(models.Model):
             # Bloc de required_days se terminant à current_end_day
             last_day = self._previous_or_same_working_day(current_end_day, wc)
             first_day = last_day
-            for _ in range(required_days - 1):
+            # « _jour » et non « _ » : boucler sur « _ » en fait une variable locale
+            # de la methode et casse les messages _(...) (UnboundLocalError).
+            for _jour in range(required_days - 1):
                 first_day = self._previous_working_day(first_day, wc)
 
             # macro_planned_start = début du bloc (matin)
@@ -523,7 +525,7 @@ class MrpProduction(models.Model):
 
             last_day = self._previous_or_same_working_day(current_end_day, wc)
             first_day = last_day
-            for _ in range(required_days - 1):
+            for _jour in range(required_days - 1):
                 first_day = self._previous_working_day(first_day, wc)
 
             macro_dt = self._morning_dt(first_day, wc)
@@ -697,7 +699,7 @@ class MrpProduction(models.Model):
 
             start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
             last_day = start_day
-            for _ in range(required_days - 1):
+            for _jour in range(required_days - 1):
                 last_day = self._next_working_day(last_day, wc)
 
             start_dt = self._morning_dt(start_day, wc)
@@ -762,7 +764,7 @@ class MrpProduction(models.Model):
     
                 start_day = fields.Datetime.to_datetime(wo.macro_planned_start).date()
                 last_day = start_day
-                for _ in range(required_days - 1):
+                for _jour in range(required_days - 1):
                     last_day = self._next_working_day(last_day, wc)
     
                 end_candidates.append(self._evening_dt(last_day, wc))
@@ -881,7 +883,7 @@ class MrpProduction(models.Model):
 
         # Reculer de 4 jours ouvrés depuis le début de fabrication
         transfer_day = start_day
-        for _ in range(4):
+        for _jour in range(4):
             transfer_day = self._previous_working_day(transfer_day, first_wc)
 
         scheduled_dt = datetime.combine(transfer_day, time(7, 30))
@@ -1012,7 +1014,7 @@ class MrpProduction(models.Model):
                 d -= timedelta(days=1)
             return d
 
-        for _ in range(365):
+        for _jour in range(365):
             start_dt = self._to_aware(datetime.combine(d, time.min))
             end_dt = self._to_aware(datetime.combine(d, time.max))
             intervals = cal._work_intervals_batch(start_dt, end_dt)
@@ -1036,7 +1038,7 @@ class MrpProduction(models.Model):
                 d -= timedelta(days=1)
             return d
 
-        for _ in range(365):
+        for _jour in range(365):
             start_dt = self._to_aware(datetime.combine(d, time.min))
             end_dt = self._to_aware(datetime.combine(d, time.max))
             intervals = cal._work_intervals_batch(start_dt, end_dt)
@@ -1060,7 +1062,7 @@ class MrpProduction(models.Model):
                 d += timedelta(days=1)
             return d
 
-        for _ in range(365):
+        for _jour in range(365):
             start_dt = self._to_aware(datetime.combine(d, time.min))
             end_dt = self._to_aware(datetime.combine(d, time.max))
             intervals = cal._work_intervals_batch(start_dt, end_dt)
