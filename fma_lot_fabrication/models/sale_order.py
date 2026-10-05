@@ -128,8 +128,13 @@ class SaleOrder(models.Model):
                 vals["x_studio_projet_de_la_vente"] = projet.id
             split.write(vals)
             alloc.production_id = split
+            # L'ensemble debite de CETTE menuiserie, comme le fait le lot
+            # quand il cree lui-meme l'assemblage : l'article du lot n'est
+            # qu'un repli. Sans effet quand la nomenclature porte deja le
+            # sien — le cas courant.
             split._add_debit_component(
-                alloc.lot_id._get_product_debit(), alloc.product_qty
+                alloc.product_debit_id or alloc.lot_id._get_product_debit(),
+                alloc.product_qty,
             )
 
     def action_view_mrp_production(self):

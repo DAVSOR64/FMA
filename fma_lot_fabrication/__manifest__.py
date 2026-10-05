@@ -63,7 +63,14 @@
     # 1.57.0 : libelle du bouton « Replanifier depuis le débit » — il
     # annoncait que les achats suivaient, ce que le code ne fait pas, a
     # dessein. Vue seule : sans montee de version elle n'est pas rejouee.
-    "version": "19.0.1.59.0",
+    # 1.60.0 : l'OF de debit porte l'article « Debit du lot », pour le
+    # nombre de menuiseries du lot, et non plus l'ensemble debite du premier
+    # repere pour sa seule quantite — un lot de 10 affichait « 8 ». Tous les
+    # ensembles debites sortent en sous-produits, et se partagent le cout de
+    # l'ordre au prorata de leurs metres de profile. « Debit du lot » n'est
+    # plus suivi en stock (migration). Les ordres deja generes ne sont pas
+    # repris : les deux formes cohabitent.
+    "version": "19.0.1.60.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

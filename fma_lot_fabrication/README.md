@@ -62,14 +62,29 @@ lot — et non par le chaînage parent/enfant natif d'Odoo. Un OF porte en plus
 
 ## Traçabilité matière débit → assemblage
 
-L'OF Débit produit un article intermédiaire (**Ensemble débité**, `DEB-LOT`)
-que chaque OF Assemblage consomme, en plus des composants de sa nomenclature.
-C'est ce qui matérialise le lien entre le débit — mutualisé sur le lot — et
-l'assemblage, fait menuiserie par menuiserie.
+L'OF Débit porte l'article générique **Débit du lot** (`DEB-LOT`), pour une
+quantité égale au **nombre de menuiseries du lot**. Cet article n'est pas
+suivi en stock : il désigne la séance de débit, rien de plus.
 
-L'article est paramétrable :
-* par défaut sur la société (`Fabrication > Configuration > Paramètres`) ;
-* surchargeable lot par lot via le champ *Article débité*.
+Ce que le débit sort réellement, ce sont les **ensembles débités** des
+menuiseries (`<référence>-DEB`), posés en **sous-produits** de l'ordre, un par
+repère, à la quantité de sa ligne. Ce sont eux qui entrent en stock, et chaque
+OF Assemblage consomme le sien. C'est ce qui matérialise le lien entre le
+débit — mutualisé sur le lot — et l'assemblage, fait menuiserie par
+menuiserie.
+
+Le coût de l'ordre — les barres — va en totalité aux ensembles débités, au
+prorata des mètres de profilé que chacun demande (mètres par exemplaire selon
+sa nomenclature × quantité) ; au prorata des quantités quand une nomenclature
+ne se laisse pas mesurer. `Débit du lot` porte 0 %.
+
+Les ordres générés avant la 1.60 gardent l'ancienne forme (article = ensemble
+débité du premier repère, les autres en sous-produits) : ils ne sont pas
+repris et se terminent normalement.
+
+Un lot saisi à la main, dont les lignes ne portent pas leur ensemble débité,
+retombe sur l'*Article débité* du lot (par défaut celui de la société), sans
+sous-produit.
 
 ## Paramétrage
 
@@ -77,7 +92,8 @@ L'article est paramétrable :
 
 * **Menuiseries max par lot** — défaut 10, contrainte de l'optimisation du
   débit. `0` désactive le plafond.
-* **Article débité par défaut** — pré-rempli avec `DEB-LOT`.
+* **Article débité par défaut** — pré-rempli avec `DEB-LOT` (« Débit du lot »,
+  non suivi en stock).
 
 À faire à l'installation :
 
