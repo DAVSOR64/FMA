@@ -9,7 +9,7 @@ mode de reapprovisionnement.
 import logging
 from datetime import timedelta
 
-from odoo import _, fields, models
+from odoo import _, api, fields, models
 
 _logger = logging.getLogger(__name__)
 
@@ -38,6 +38,42 @@ class MrpProduction(models.Model):
         "Quincaillerie : 1 par ligne, produit le kit, sans operation. "
         "Assemblage : 1 par ligne, point de declaration de fabrication.",
     )
+
+    # Ce que l'OF de debit fabrique, en clair. Un OF ne porte qu'UN article
+    # principal : sur un debit c'est l'ensemble debite du premier repere du
+    # lot, avec sa quantite (« 8 » pour 8 chassis A TG), et les autres reperes
+    # sortent en sous-produits. La quantite affichee n'est donc ni un nombre
+    # de barres ni le nombre de menuiseries du lot — d'ou cette ligne.
+    fma_contenu_debit = fields.Char(
+        string="Contenu du débit",
+        compute="_compute_fma_contenu_debit",
+        help="Les menuiseries debitees par cet ordre : le lot entier. La "
+        "quantite a produire de l'ordre n'est que celle du premier repere ; "
+        "les autres figurent dans les sous-produits.",
+    )
+
+    @api.depends("lot_production_type", "lot_fabrication_id.line_ids.product_qty",
+                 "lot_fabrication_id.line_ids.product_id")
+    def _compute_fma_contenu_debit(self):
+        for of in self:
+            lignes = of.lot_fabrication_id.line_ids
+            if of.lot_production_type != "debit" or not lignes:
+                of.fma_contenu_debit = False
+                continue
+            morceaux = []
+            for ligne in lignes:
+                reference = ligne.product_id.default_code or ligne.product_id.name or "?"
+                # Le repere est la fin de la reference : « <affaire>_<repere> ».
+                repere = reference.split("_", 1)[1] if "_" in reference else reference
+                quantite = ligne.product_qty or 0.0
+                morceaux.append("%s × %s" % (
+                    repere.strip(),
+                    int(quantite) if float(quantite).is_integer() else quantite))
+            total = sum(lignes.mapped("product_qty"))
+            of.fma_contenu_debit = "Lot de %s menuiserie%s : %s" % (
+                int(total) if float(total).is_integer() else total,
+                "s" if total > 1 else "",
+                ", ".join(morceaux))
     lot_line_id = fields.Many2one(
         "fma.lot.fabrication.line",
         string="Ligne de lot",
