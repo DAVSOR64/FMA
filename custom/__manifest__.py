@@ -6,11 +6,15 @@
     # prevue ». Reprise des commandes deja en base en post-migrate.
     # 1.0.77 : l'onglet Analyse Financiere porte un name, pour qu'un
     # module dependant puisse s'y ancrer sans passer par @string.
-    "version": "19.0.1.0.77",
+    # 1.0.78 : fiche client — le champ standard company_registry est libelle
+    # SIRET et affiche une seule fois (celui que l10n_fr pose sous la TVA,
+    # d'ou la dependance) ; le SIREN (part_siren) redevient visible ; le
+    # vendeur natif est masque, le commercial remonte dans le bloc du haut.
+    "version": "19.0.1.0.78",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [
-        "base", "sale", "account", "contacts", "sale_stock", "mrp", "hr",
+        "base", "l10n_fr", "sale", "account", "contacts", "sale_stock", "mrp", "hr",
         "fma_studio_models", "project", "purchase", "purchase_requisition", "helpdesk",
         "stock_barcode",
     ],

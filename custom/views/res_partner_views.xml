@@ -12,8 +12,8 @@
         CHAMPS VOLONTAIREMENT NON AFFICHES. Ils restent en base et dans les
         exports ; seule la saisie est allegee.
 
-            part_siren, x_studio_char_field_G6qIE  la valeur se deduit de
-                                                   company_registry
+            x_studio_char_field_G6qIE              doublon du SIREN ; le SIREN
+                                                   affiche est part_siren
             part_mode_de_reglement                 remplace par le referentiel
                                                    x_reglements
             x_studio_compte                        compte comptable, technique
@@ -23,7 +23,8 @@
             x_studio_civilit                       remplace par part_civilite
             x_studio_mode_de_rglement              Char mort, jamais alimente
 
-        ANCRAGES. Seuls des points verifies sont utilises : le champ vat, le
+        ANCRAGES. Seuls des points des vues standard sont utilises : le champ
+        company_registry que l10n_fr pose sous la TVA, celui du groupe misc, le
         notebook, et le groupe de l'onglet Ventes & Achats. Les noms de page
         natifs varient d'une version a l'autre ; s'y accrocher ferait echouer
         l'installation.
@@ -43,77 +44,75 @@
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
 
-            <!-- Identite legale, sous le numero de TVA -->
-            <xpath expr="//field[@name='vat']" position="after">
-                <field name="company_registry" string="Siren / Siret"/>
+            <!--
+                Identite legale, sous le numero de TVA.
+
+                POURQUOI PAS « apres le champ vat ». base_vat (standard,
+                priorite 15, donc avant cette vue) deplace le champ vat dans
+                un <div name="vat_vies_container">. S'accrocher a vat posait
+                donc tout ce bloc DANS ce div, hors de la grille du groupe :
+                plus de libelle pour le SIRET ni la forme juridique, des
+                libelles de cases a cocher passes au-dessus d'elles, et un
+                trou a la place des champs vides. Le bloc s'accroche
+                desormais a un enfant direct du groupe.
+
+                LE SIRET EST LE CHAMP DEJA POSE PAR l10n_fr (standard,
+                priorite 14) : company_registry, juste apres la TVA. On
+                s'en sert au lieu d'en poser un second — c'etait le numero
+                affiche deux fois. C'est le seul company_registry du groupe
+                du haut ; celui de l'onglet Ventes & Achats est masque plus
+                bas. Il est affiche pour toutes les fiches, y compris sans
+                pays renseigne.
+
+                LE SIREN EST part_siren, juste dessous. Les deux numeros
+                sont saisis librement : ni controle, ni recopie de l'un
+                vers l'autre.
+            -->
+            <xpath expr="//sheet/group//field[@name='company_registry']"
+                   position="attributes">
+                <attribute name="string">SIRET</attribute>
+                <attribute name="placeholder">14 chiffres</attribute>
+                <attribute name="invisible">0</attribute>
+            </xpath>
+            <xpath expr="//sheet/group//field[@name='company_registry']"
+                   position="after">
+                <field name="part_siren" string="SIREN" placeholder="9 chiffres"/>
                 <field name="part_civilite" string="Forme juridique"/>
                 <field name="x_studio_code_naf" string="Code NAF"/>
                 <field name="x_studio_etablissement" string="Établissement"/>
                 <!--
-                    « Commercial » (x_studio_commercial_1) sort de la vue : le
-                    vendeur natif fait le meme travail et sert deja aux filtres,
-                    aux rapports et aux droits. En garder deux obligeait a
-                    choisir lequel renseigner, sans qu'aucun ne fasse autorite.
-                    Le champ reste en base et dans les exports.
+                    Le commercial FMA.
 
-                    Le vendeur natif n'est PAS deplace ici. Un premier essai
-                    utilisait position="move" sur user_id : sans precedent dans
-                    ce depot, il a fait echouer l'installation. Le vendeur reste
-                    donc a sa place native, dans l'onglet Ventes & Achats, ou il
-                    est de toute facon attendu.
+                    Il en avait ete retire au profit du seul vendeur natif ; le
+                    metier le veut a l'ecran, et il n'est pas redondant : le
+                    vendeur est un utilisateur Odoo, le commercial un EMPLOYE du
+                    departement Commerce, sans licence. C'est lui que
+                    sale.order.commercial_id recopie a la selection du client,
+                    puis _prepare_invoice sur la facture, et c'est lui que
+                    fma_iziqo_sync transmet a Iziqo.
                 -->
+                <field name="x_studio_commercial_1" string="Commercial"/>
                 <!--
-                    Libelle pose explicitement. Ces deux cases arrivaient sans,
-                    a la difference des champs texte voisins : une case a cocher
-                    seule dans un formulaire ne dit pas ce qu'elle coche, et
-                    « Client bloque » est precisement l'information qu'on ne
-                    peut pas se permettre de deviner.
+                    Enfants directs du groupe, ces deux cases recoivent leur
+                    libelle a gauche comme les autres champs. Le montage
+                    <label/> + <div> qui les entourait ne servait qu'a
+                    compenser leur place dans le div de la TVA.
                 -->
-                <label for="x_studio_client_bloque" string="Client bloqué"/>
-                <div><field name="x_studio_client_bloque" nolabel="1"/></div>
-                <label for="x_studio_cgv_rib" string="CGV + RIB"/>
-                <div><field name="x_studio_cgv_rib" nolabel="1"/></div>
-                <!--
-                    part_siren est CONSERVE, masque.
-
-                    L'ancienne version de cette vue le posait. Une vue Studio
-                    peut donc s'y accrocher, et son retrait rendrait la fiche
-                    impossible a ouvrir — c'est ce qui est arrive aux commandes
-                    d'achat avec x_studio_posit : « L'element ne peut etre
-                    localise dans la vue parente ».
-
-                    Un champ pose par une vue n'est pas seulement une donnee
-                    affichee : c'est aussi un point d'ancrage pour d'autres
-                    personnalisations, invisibles depuis le code. On ne le
-                    retire donc pas de l'arbre, on cesse seulement de
-                    l'afficher. Il pourra disparaitre une fois les vues
-                    Studio de res.partner reprises.
-
-                    x_studio_commercial_1 n'est plus ici : il est redevenu
-                    visible, aupres du vendeur — voir plus bas.
-                -->
-                <field name="part_siren" invisible="1"/>
+                <field name="x_studio_client_bloque" string="Client bloqué"/>
+                <field name="x_studio_cgv_rib" string="CGV + RIB"/>
+            </xpath>
+            <!-- Le vendeur natif (user_id, un utilisateur Odoo) ne s'affiche
+                 plus sur la fiche : chez FMA, c'est le « Commercial » qui
+                 fait foi. Masque et non retire, pour que les vues qui
+                 s'ancrent dessus continuent de se charger. -->
+            <xpath expr="//field[@name='user_id']" position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
 
-            <!--
-                Le commercial FMA, aupres du vendeur natif.
-
-                Il en avait ete retire : le vendeur natif sert deja aux
-                filtres, aux rapports et aux droits, et en garder deux
-                obligeait a choisir lequel renseigner. Le metier le veut
-                cependant a l'ecran, et il n'est pas redondant : le vendeur
-                est un utilisateur Odoo, le commercial un EMPLOYE du
-                departement Commerce, sans licence. C'est lui que
-                sale.order.commercial_id recopie a la selection du client,
-                puis _prepare_invoice sur la facture, et c'est lui que
-                fma_iziqo_sync transmet a Iziqo.
-
-                Pose apres le vendeur plutot qu'a sa place : le champ natif
-                reste utilise par Odoo pour ses propres mecanismes.
-            -->
-            <xpath expr="//page[@name='sales_purchases']//field[@name='user_id']"
-                   position="after">
-                <field name="x_studio_commercial_1" string="Commercial"/>
+            <!-- Le SIRET n'est affiche qu'une fois, en haut. -->
+            <xpath expr="//group[@name='misc']/field[@name='company_registry']"
+                   position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
 
             <!-- Comptabilite et reglement, la ou l'onglet Ventes & Achats les

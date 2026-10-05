@@ -197,6 +197,14 @@ class ExportSFTPScheduler(models.Model):
                 return float(value or 0.0)
             except (TypeError, ValueError):
                 return 0.0
+        def _siren(partner):
+            societe = partner.commercial_partner_id or partner
+            siren = getattr(societe, "part_siren", "") or ""
+            if siren:
+                return siren
+            siret = re.sub(r"\s", "", societe.company_registry or "")
+            return siret[:9] if re.fullmatch(r"\d{14}", siret) else ""
+
         def create_attachment(filepath, name):
             """Crée/remplace une pièce jointe CSV Power BI.
 
@@ -276,7 +284,12 @@ class ExportSFTPScheduler(models.Model):
                         getattr(p, "html2plaintext(comment).strip()", "") or "",
                         # SIRET : company_registry depuis la v19.
                         p.commercial_partner_id.company_registry or "",
-                        getattr(p, "part_siren", "") or "",
+                        # SIREN : lu sur la societe, comme le SIRET. Lu sur
+                        # la fiche elle-meme, il sortait vide pour tous les
+                        # contacts et adresses, dont la colonne Siret etait
+                        # pourtant remplie. Sans SIREN saisi, les 9 premiers
+                        # chiffres d'un SIRET a 14 chiffres.
+                        _siren(p),
                         getattr(p, "part_date_couverture", "") or "",
                         to_float(getattr(p, "part_montant_couverture", "") or ""),
                         to_float(getattr(p, "part_decision", "") or ""),
