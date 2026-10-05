@@ -6,7 +6,7 @@
         <field name="inherit_id" ref="purchase.purchase_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='partner_ref']" position="after">
-                <field name="x_studio_projet_du_so" string="Projet du SO"/>
+                <field name="x_studio_projet_du_so" string="Projet"/>
                 <field name="x_studio_rfrence" string="Référence"/>
                 <field name="x_is_glazing_order" invisible="1"/>
                 <field name="x_studio_remise_1" string="Remise"/>

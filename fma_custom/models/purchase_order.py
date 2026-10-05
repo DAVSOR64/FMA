@@ -81,9 +81,13 @@ class PurchaseOrder(models.Model):
             hors_lignes = "[not(ancestor::field)]"
             deja = arch.xpath("//field[@name='x_studio_projet_du_so']" + hors_lignes)
             commande = arch.xpath("//field[@name='fma_sale_order_id']" + hors_lignes)
-            if not deja and commande:
+            if commande and not deja:
                 commande[0].addprevious(
                     etree.Element("field", name="x_studio_projet_du_so"))
+            elif commande and deja:
+                # Le Projet est deja a l'ecran : « Commande client » se range
+                # juste dessous, ou qu'une autre vue ait pose le Projet.
+                deja[0].addnext(commande[0])
         return arch, view
 
     # « Commande client » de l'achat. Avec « Projet du SO » (l'affaire), c'est
