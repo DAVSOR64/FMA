@@ -12,8 +12,8 @@
         CHAMPS VOLONTAIREMENT NON AFFICHES. Ils restent en base et dans les
         exports ; seule la saisie est allegee.
 
-            part_siren, x_studio_char_field_G6qIE  la valeur se deduit de
-                                                   company_registry
+            part_siren, x_studio_char_field_G6qIE  anciens champs SIREN ; le
+                                                   SIREN est company_registry
             part_mode_de_reglement                 remplace par le referentiel
                                                    x_reglements
             x_studio_compte                        compte comptable, technique
@@ -23,7 +23,8 @@
             x_studio_civilit                       remplace par part_civilite
             x_studio_mode_de_rglement              Char mort, jamais alimente
 
-        ANCRAGES. Seuls des points verifies sont utilises : le champ vat, le
+        ANCRAGES. Seuls des points des vues standard sont utilises : le champ
+        company_registry que l10n_fr pose sous la TVA, celui du groupe misc, le
         notebook, et le groupe de l'onglet Ventes & Achats. Les noms de page
         natifs varient d'une version a l'autre ; s'y accrocher ferait echouer
         l'installation.
@@ -43,9 +44,35 @@
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
 
-            <!-- Identite legale, sous le numero de TVA -->
-            <xpath expr="//field[@name='vat']" position="after">
-                <field name="company_registry" string="Siren / Siret"/>
+            <!--
+                Identite legale, sous le numero de TVA.
+
+                POURQUOI PAS « apres le champ vat ». base_vat (standard,
+                priorite 15, donc avant cette vue) deplace le champ vat dans
+                un <div name="vat_vies_container">. S'accrocher a vat posait
+                donc tout ce bloc DANS ce div, hors de la grille du groupe :
+                plus de libelle pour le SIREN ni la forme juridique, des
+                libelles de cases a cocher passes au-dessus d'elles, et un
+                trou a la place des champs vides. Le bloc s'accroche
+                desormais a un enfant direct du groupe.
+
+                LE SIREN EST LE CHAMP DEJA POSE PAR l10n_fr (standard,
+                priorite 14) : company_registry, juste apres la TVA, libelle
+                « Siret ». On le relibelle au lieu d'en poser un second —
+                c'etait le numero affiche deux fois. C'est le seul
+                company_registry du groupe du haut ; celui de l'onglet Ventes
+                & Achats est masque plus bas. Il est affiche pour toutes les
+                fiches, y compris sans pays renseigne.
+            -->
+            <xpath expr="//sheet/group//field[@name='company_registry']"
+                   position="attributes">
+                <attribute name="string">SIREN</attribute>
+                <attribute name="placeholder">9 chiffres</attribute>
+                <attribute name="invisible">0</attribute>
+            </xpath>
+            <xpath expr="//sheet/group//field[@name='company_registry']"
+                   position="after">
+                <field name="fma_siret" placeholder="14 chiffres"/>
                 <field name="part_civilite" string="Forme juridique"/>
                 <field name="x_studio_code_naf" string="Code NAF"/>
                 <field name="x_studio_etablissement" string="Établissement"/>
@@ -67,16 +94,13 @@
                 -->
                 <field name="x_studio_commercial_1" string="Commercial"/>
                 <!--
-                    Libelle pose explicitement. Ces deux cases arrivaient sans,
-                    a la difference des champs texte voisins : une case a cocher
-                    seule dans un formulaire ne dit pas ce qu'elle coche, et
-                    « Client bloque » est precisement l'information qu'on ne
-                    peut pas se permettre de deviner.
+                    Enfants directs du groupe, ces deux cases recoivent leur
+                    libelle a gauche comme les autres champs. Le montage
+                    <label/> + <div> qui les entourait ne servait qu'a
+                    compenser leur place dans le div de la TVA.
                 -->
-                <label for="x_studio_client_bloque" string="Client bloqué"/>
-                <div><field name="x_studio_client_bloque" nolabel="1"/></div>
-                <label for="x_studio_cgv_rib" string="CGV + RIB"/>
-                <div><field name="x_studio_cgv_rib" nolabel="1"/></div>
+                <field name="x_studio_client_bloque" string="Client bloqué"/>
+                <field name="x_studio_cgv_rib" string="CGV + RIB"/>
                 <!--
                     part_siren est CONSERVE, masque.
 
@@ -94,6 +118,11 @@
                     Studio de res.partner reprises.
                 -->
                 <field name="part_siren" invisible="1"/>
+            </xpath>
+            <!-- Le SIREN n'est affiche qu'une fois, en haut. -->
+            <xpath expr="//group[@name='misc']/field[@name='company_registry']"
+                   position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
 
             <!-- Comptabilite et reglement, la ou l'onglet Ventes & Achats les

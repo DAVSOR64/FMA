@@ -25,7 +25,9 @@
     # La file d'attente devient polymorphe (res_model, res_id) -- migration
     # dans migrations/19.0.1.1.0/pre-migrate.py.
     # 1.1.1 : les remises ALU et ACIER du client partent dans le payload.
-    "version": "19.0.1.1.1",
+    # 1.1.2 : la cle `siret` porte le SIRET (fma_siret) s'il est renseigne,
+    # le SIREN (company_registry) sinon ; le SIRET est suivi.
+    "version": "19.0.1.1.2",
     "category": "Sales/CRM",
     "license": "LGPL-3",
     "depends": ["base", "contacts", "account", "hr", "custom"],

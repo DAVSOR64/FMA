@@ -19,7 +19,9 @@
     # corps, donc sur la seule premiere page, comme en v17.
     # 1.0.11 : code client et mode de reglement repris des champs lies au
     # client, et fin de l'ecrasement de inv_mode_de_reglement par un Char.
-    "version": "19.0.1.0.13",
+    # 1.0.14 : SIRET du client (fma_siret) s'il existe, SIREN sinon, chacun
+    # sous son nom ; company_registry est desormais le SIREN.
+    "version": "19.0.1.0.14",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom", "web"],

@@ -470,9 +470,11 @@ class HubspotWebhookExport(models.AbstractModel):
     @api.model
     def _get_siret(self, partner):
         return (
-            # company_registry en tete : c'est la ou vit le SIRET depuis
-            # la v19. Les deux suivants restent pour les bases anterieures.
-            self._safe_get(partner.commercial_partner_id, "company_registry")
+            # fma_siret en tete : le SIRET a son champ. A defaut,
+            # company_registry (le SIREN), qui partait seul jusqu'ici. Les
+            # deux suivants restent pour les bases anterieures.
+            self._safe_get(partner.commercial_partner_id, "fma_siret")
+            or self._safe_get(partner.commercial_partner_id, "company_registry")
             or self._safe_get(partner, "siret")
             or self._safe_get(partner, "x_studio_siret")
             or ""

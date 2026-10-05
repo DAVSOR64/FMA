@@ -52,11 +52,10 @@ class ResPartner(models.Model):
                 "                             ",
                 "FRA",
                 str(partner.phone or "").ljust(64),
-                # SIRET : res.partner.siret n'existe plus en v19. Le numero vit
-                # dans company_registry, porte par la societe — donc par le
-                # partenaire commercial, pas par le contact. Meme lecture que
-                # le gabarit de facture, deja en production.
-                str(partner.commercial_partner_id.company_registry or "").ljust(14),
+                # SIRET de la societe (fma_siret) s'il est renseigne, son
+                # SIREN (company_registry) sinon : le meme numero qu'avant la
+                # separation des deux champs, sur 14 caracteres.
+                str(partner._fma_siret_ou_siren()).ljust(14),
                 "      ",
                 str(partner.vat or "").ljust(14),
                 "                                                  ",

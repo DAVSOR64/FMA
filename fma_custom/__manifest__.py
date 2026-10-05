@@ -19,7 +19,9 @@
     # 1.0.22 : les achats de services rattaches (sous-traitance, laquage,
     # pose) entrent au PRI, dans la matiere, et sont affiches a part ; MOD
     # saisie et MOD calculee par Odoo cote a cote, avec leur ecart.
-    "version": "19.0.1.0.24",
+    # 1.0.25 : la colonne SIRET du fichier clients lit le SIRET (fma_siret)
+    # et se replie sur le SIREN.
+    "version": "19.0.1.0.25",
     "depends": ["custom", "hr", "sale", "purchase", "mrp", "account", "stock"],
     "data": [
         "views/mail_templates.xml",

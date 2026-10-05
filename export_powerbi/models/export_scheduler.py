@@ -274,8 +274,10 @@ class ExportSFTPScheduler(models.Model):
                         p.x_studio_mode_de_rglement_dsa.x_studio_libelle or "",
                         # bool(getattr(p, 'active', True)),
                         getattr(p, "html2plaintext(comment).strip()", "") or "",
-                        # SIRET : company_registry depuis la v19.
-                        p.commercial_partner_id.company_registry or "",
+                        # Colonne « Siret » : le SIRET de la societe s'il est
+                        # renseigne, son SIREN sinon — le meme numero qu'avant
+                        # la separation des deux champs.
+                        p._fma_siret_ou_siren(),
                         getattr(p, "part_siren", "") or "",
                         getattr(p, "part_date_couverture", "") or "",
                         to_float(getattr(p, "part_montant_couverture", "") or ""),

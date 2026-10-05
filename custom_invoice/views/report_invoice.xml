@@ -35,10 +35,14 @@
                     <br></br>
                     <br>TVA : <span t-field="o.partner_id.vat" />
                     </br>
-                    <!-- res.partner.siret a disparu avec l10n_fr en v19, le SIRET
-                         est porte par le champ standard company_registry. On lit
-                         le partenaire commercial, comme le fait l10n_fr_account. -->
-                    <br>SIRET : <span t-field="o.partner_id.commercial_partner_id.company_registry" /></br>
+                    <!-- company_registry est le SIREN, fma_siret le SIRET, tous
+                         deux portes par la societe (partenaire commercial). On
+                         imprime le SIRET s'il est renseigne, le SIREN sinon,
+                         sous son vrai nom : la ligne annoncait « SIRET » meme
+                         devant un SIREN. -->
+                    <t t-set="fma_societe" t-value="o.partner_id.commercial_partner_id"/>
+                    <br t-if="fma_societe.fma_siret">SIRET : <span t-out="fma_societe.fma_siret"/></br>
+                    <br t-elif="fma_societe.company_registry">SIREN : <span t-out="fma_societe.company_registry"/></br>
                 </div>
                 <!-- Reprise de la ligne TVA societe que l'entete n'imprime plus :
                      ici elle est dans le corps du document, donc rendue une seule

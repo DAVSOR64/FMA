@@ -172,7 +172,21 @@ class ResPartner(models.Model):
         default="SARL",
     )
 
-    part_siren = fields.Char(string="SIREN")
+    # --- Identite legale : SIREN et SIRET ---
+    # Le champ standard company_registry (« N° d'entreprise », que l10n_fr
+    # affiche « Siret » sous la TVA) porte chez FMA le SIREN : c'est ce que la
+    # base contient, 9 chiffres. Il est donc libelle SIREN, partout.
+    company_registry = fields.Char(string="SIREN")
+    # Le SIRET est un champ a part, facultatif. Aucun controle de forme ni de
+    # coherence avec le SIREN : une valeur saisie n'est jamais refusee, seuls
+    # les espaces sont retires (voir _fma_nettoie_siret).
+    fma_siret = fields.Char(
+        string="SIRET",
+        copy=False,
+        help="SIRET de l'établissement (14 chiffres). Facultatif.",
+    )
+
+    part_siren = fields.Char(string="SIREN (ancien champ)")
     part_bic = fields.Char(string="BIC")
     part_iban = fields.Char(string="IBAN")
     part_affacturage = fields.Boolean(string="Affacturage")
@@ -190,9 +204,64 @@ class ResPartner(models.Model):
         string="Attachments",
     )
 
+    def init(self):
+        super().init()
+        # Le string="SIREN" ci-dessus ne remplace que le libelle anglais :
+        # la traduction francaise posee par base (« ID de la société ») lui
+        # survit, et c'est elle que montrent les listes, filtres et exports.
+        # Une traduction livree par custom ne la remplacerait pas non plus
+        # (Odoo n'ecrase pas une traduction existante). On aligne donc toutes
+        # les langues deja presentes, a chaque mise a jour du module.
+        self.env.cr.execute(
+            """
+            UPDATE ir_model_fields f
+               SET field_description = (
+                       SELECT jsonb_object_agg(langue, 'SIREN')
+                         FROM jsonb_object_keys(f.field_description) AS langue)
+             WHERE f.model = 'res.partner'
+               AND f.name = 'company_registry'
+               AND EXISTS (
+                       SELECT 1
+                         FROM jsonb_each_text(f.field_description) AS t
+                        WHERE t.value <> 'SIREN')
+            """
+        )
+
+    @api.model
+    def _commercial_fields(self):
+        # Comme le SIREN (company_registry), le SIRET appartient a la societe :
+        # ses contacts le recoivent d'elle et ne le saisissent pas.
+        return super()._commercial_fields() + ["fma_siret"]
+
+    def _get_company_registry_labels(self):
+        # Libelle du message « meme numero qu'une autre fiche ».
+        labels = dict(super()._get_company_registry_labels())
+        labels["FR"] = "SIREN"
+        return labels
+
+    @api.model
+    def _fma_nettoie_siret(self, vals):
+        """Retire les espaces du SIRET saisi (« 810 958 298 00012 »). Rien
+        d'autre : la valeur n'est ni controlee ni refusee."""
+        valeur = vals.get("fma_siret")
+        if isinstance(valeur, str):
+            vals["fma_siret"] = "".join(valeur.split()) or False
+
+    def _fma_siret_ou_siren(self):
+        """Le numero d'identification a communiquer : le SIRET de la societe
+        s'il est renseigne, son SIREN sinon.
+
+        C'est ce que lisent les exports, Iziqo et les PDF, qui envoyaient
+        jusqu'ici company_registry tel quel, SIREN ou SIRET selon la fiche.
+        """
+        self.ensure_one()
+        societe = self.commercial_partner_id or self
+        return societe.fma_siret or societe.company_registry or ""
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            self._fma_nettoie_siret(vals)
             # Remise par defaut des societes : 47 %, le taux applique a tous
             # les clients societe. Une valeur fournie a la creation l'emporte.
             if vals.get("is_company"):
@@ -210,6 +279,7 @@ class ResPartner(models.Model):
         return super(ResPartner, self).create(vals_list)
 
     def write(self, vals):
+        self._fma_nettoie_siret(vals)
         for partner in self:
             # Si la case est cochée, génère le numéro uniquement si pas déjà défini
             if (
