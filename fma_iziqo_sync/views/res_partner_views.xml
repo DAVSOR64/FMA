@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_iziqo_sync" model="ir.ui.view">
+        <field name="name">res.partner.form.iziqo.sync</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <!-- Bouton de synchronisation manuelle : indispensable pour les
+                 clients historiques, jamais passés par le déclenchement auto. -->
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_iziqo_sync_now" type="object"
+                            string="Synchroniser avec Iziqo"
+                            invisible="not is_company or iziqo_sync_excluded"
+                            help="Envoie la fiche à Iziqo immédiatement. Nécessite un SIRET."/>
+                </header>
+            </xpath>
+            <xpath expr="//page[@name='sales_purchases']/group" position="inside">
+                <group name="iziqo_sync" string="Synchronisation Iziqo"
+                       invisible="not is_company">
+                    <field name="iziqo_sync_excluded"/>
+                    <field name="iziqo_last_sync_date"/>
+                    <field name="iziqo_last_sync_status"/>
+                    <field name="iziqo_last_sync_error"
+                           invisible="iziqo_last_sync_status != 'error'"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

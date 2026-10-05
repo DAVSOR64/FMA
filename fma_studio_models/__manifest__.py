@@ -12,6 +12,7 @@
 
         Technical names (x_*) are kept identical to the Studio-generated
         ones on purpose, so that:
+
         - existing data (same tables) keeps working with no migration,
         - other modules already doing env['x_affaire'] / env['x_capacite_par_poste']
           (mrp_capacity_planning, sqlite_connector) keep working unchanged.

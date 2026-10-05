@@ -14,6 +14,7 @@ en pivot. Les onglets import_odoo / of 26 stock / ORDRE_TRAVAIL / PO,
 qui étaient des exports Odoo collés à la main, disparaissent.
 
 Apports :
+
 - Typage métier des postes de charge (Débit, CU banc, Usinage, Montage,
   Vitrage, Emballage) pour ne plus dépendre du libellé exact.
 - Heures prévues par poste sur l'OF, issues des ordres de travail.
