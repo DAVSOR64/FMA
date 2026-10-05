@@ -8,8 +8,7 @@
         SO ») et la commande. Les lignes portent le detail — un bon regroupe
         parfois deux tranches — et, facultativement, la ligne de commande.
 
-        Priorite 20 : cette vue s'ancre sur un champ que pose la vue du
-        module « custom », elle doit passer apres elle.
+        Elle ne depend d'aucune vue Studio : voir l'ancrage ci-dessous.
     -->
     <record id="purchase_order_form_commande_client" model="ir.ui.view">
         <field name="name">purchase.order.form.fma.commande.client</field>
@@ -18,7 +17,14 @@
         <field name="priority">20</field>
         <field name="arch" type="xml">
 
-            <xpath expr="//field[@name='x_studio_projet_du_so']" position="after">
+            <!-- Ancrage sur « Reference fournisseur », champ du formulaire
+                 standard. L'ancrage precedent visait « Projet » de l'achat
+                 (x_studio_projet_du_so), que seule une vue Studio de la base
+                 affiche : sur une base ou cette vue manque, la mise a jour du
+                 module echouait (« cannot be located in parent view »). Le
+                 champ Projet, lui, est ajoute par purchase.order._get_view
+                 quand aucune vue ne l'affiche. -->
+            <xpath expr="//field[@name='partner_ref']" position="after">
                 <field name="fma_sale_order_domain" invisible="1"/>
                 <field name="fma_sale_order_id"
                        options="{'no_create': True}"/>
