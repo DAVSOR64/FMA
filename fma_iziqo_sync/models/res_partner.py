@@ -31,7 +31,6 @@ class ResPartner(models.Model):
         "email",
         "fma_remise_acier",
         "fma_remise_alu",
-        "fma_siret",
         "is_company",
         "iziqo_sync_excluded",
         "name",
@@ -174,17 +173,12 @@ class ResPartner(models.Model):
         return delivery or self
 
     def _iziqo_siret(self):
-        """Numero transmis a Iziqo sous la cle `siret`.
-
-        Le SIRET (`fma_siret`) s'il est renseigne, sinon le SIREN
-        (`company_registry`) : c'est ce champ-la qui partait jusqu'ici, qu'il
-        contienne un SIREN ou un SIRET. Les anciens champs (`siret` de l10n_fr,
-        `x_studio_siret`) restent lus en premier sur les bases qui les ont."""
+        """SIRET : `company_registry` en v19, avec repli sur les anciens champs
+        (`siret` de l10n_fr, `x_studio_siret`) selon la base."""
         self.ensure_one()
         return (
             self._iziqo_get("siret")
             or self._iziqo_get("x_studio_siret")
-            or self._iziqo_get("fma_siret")
             or self.company_registry
             or ""
         )

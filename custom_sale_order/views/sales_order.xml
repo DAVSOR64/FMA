@@ -26,13 +26,9 @@
                     <br>
                         TVA : <span t-field="doc.partner_id.vat" />
                     </br>
-                    <!-- res.partner.siret n'existe plus en v19 : la ligne
-                         lisait un champ disparu. Meme lecture que la
-                         facture : SIRET de la societe s'il est renseigne,
-                         SIREN sinon. -->
-                    <t t-set="fma_societe" t-value="doc.partner_id.commercial_partner_id"/>
-                    <br t-if="fma_societe.fma_siret">SIRET : <span t-out="fma_societe.fma_siret"/></br>
-                    <br t-elif="fma_societe.company_registry">SIREN : <span t-out="fma_societe.company_registry"/></br>
+                    <!-- res.partner.siret n'existe plus en v19 : meme lecture
+                         que la facture, le champ standard de la societe. -->
+                    <br>SIRET : <span t-field="doc.partner_id.commercial_partner_id.company_registry" /></br>
                 </div>
                 <div style="text-align: right;">
                     <br>

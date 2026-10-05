@@ -27,7 +27,7 @@
     # 1.1.1 : les remises ALU et ACIER du client partent dans le payload.
     # 1.1.2 : la cle `siret` porte le SIRET (fma_siret) s'il est renseigne,
     # le SIREN (company_registry) sinon ; le SIRET est suivi.
-    "version": "19.0.1.1.2",
+    "version": "19.0.1.1.3",
     "category": "Sales/CRM",
     "license": "LGPL-3",
     "depends": ["base", "contacts", "account", "hr", "custom"],

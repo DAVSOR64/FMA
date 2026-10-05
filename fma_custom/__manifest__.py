@@ -21,7 +21,8 @@
     # saisie et MOD calculee par Odoo cote a cote, avec leur ecart.
     # 1.0.25 : la colonne SIRET du fichier clients lit le SIRET (fma_siret)
     # et se replie sur le SIREN.
-    "version": "19.0.1.0.25",
+    # 1.0.26 : la colonne SIRET relit company_registry, comme en production.
+    "version": "19.0.1.0.26",
     "depends": ["custom", "hr", "sale", "purchase", "mrp", "account", "stock"],
     "data": [
         "views/mail_templates.xml",

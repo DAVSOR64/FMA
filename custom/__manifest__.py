@@ -33,7 +33,12 @@
     # SIREN, un champ SIRET (fma_siret) est cree, et le bloc sous la TVA
     # retrouve ses libelles. Depend de l10n_fr, dont la vue pose le champ
     # relibelle. Reprise des numeros a 14 chiffres en post-migrate.
-    "version": "19.0.1.0.94",
+    # 1.0.95 : la separation de la 1.0.93 est abandonnee. Le champ standard
+    # company_registry reste le SIRET (c'est ce que la base contient : 14
+    # chiffres), affiche une seule fois ; le SIREN est part_siren, de nouveau
+    # visible. Le champ fma_siret disparait ; un pre-migrate remet les numeros
+    # a leur place sur les bases ou la 1.0.93 avait tourne.
+    "version": "19.0.1.0.95",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [

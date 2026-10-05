@@ -21,7 +21,9 @@
     # client, et fin de l'ecrasement de inv_mode_de_reglement par un Char.
     # 1.0.14 : SIRET du client (fma_siret) s'il existe, SIREN sinon, chacun
     # sous son nom ; company_registry est desormais le SIREN.
-    "version": "19.0.1.0.14",
+    # 1.0.15 : retour a la lecture de la production — le SIRET du client est
+    # le champ standard company_registry de sa societe.
+    "version": "19.0.1.0.15",
     "summary": "Show text block on invoice based on contact boolean field",
     "author": "Your Name",
     "depends": ["account", "custom", "web"],

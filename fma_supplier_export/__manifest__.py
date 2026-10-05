@@ -10,7 +10,7 @@
             Task: 4061463
         """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.3",
+    "version": "19.0.1.0.4",
     "depends": ["base_setup", "contacts", "custom"],
     "data": [
         "data/ir_cron.xml",
