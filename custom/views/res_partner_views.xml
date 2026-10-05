@@ -77,12 +77,7 @@
                 <field name="x_studio_code_naf" string="Code NAF"/>
                 <field name="x_studio_etablissement" string="Établissement"/>
                 <!--
-                    Le vendeur est DEPLACE ici plutot que redeclare : le
-                    redeclarer le poserait deux fois dans la meme vue.
-                -->
-                <xpath expr="//field[@name='user_id']" position="move"/>
-                <!--
-                    Le commercial FMA, aupres du vendeur.
+                    Le commercial FMA.
 
                     Il en avait ete retire au profit du seul vendeur natif ; le
                     metier le veut a l'ecran, et il n'est pas redondant : le
@@ -120,6 +115,14 @@
                 <field name="part_siren" invisible="1"/>
             </xpath>
             <!-- Le SIREN n'est affiche qu'une fois, en haut. -->
+            <!-- Le vendeur natif (user_id, un utilisateur Odoo) ne s'affiche
+                 plus sur la fiche : chez FMA, c'est le « Commercial » qui
+                 fait foi. Masque et non retire, pour que les vues qui
+                 s'ancrent dessus continuent de se charger. -->
+            <xpath expr="//field[@name='user_id']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
             <xpath expr="//group[@name='misc']/field[@name='company_registry']"
                    position="attributes">
                 <attribute name="invisible">1</attribute>
