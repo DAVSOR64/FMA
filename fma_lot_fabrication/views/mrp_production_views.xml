@@ -28,6 +28,10 @@
                         <field name="x_studio_mtn_mrp_sale_order"
                                string="Commande" readonly="1"
                                invisible="lot_production_type != 'debit'"/>
+                        <!-- La quantite de l'ordre n'est que celle du premier
+                             repere : on dit ici ce que le debit couvre. -->
+                        <field name="fma_contenu_debit"
+                               invisible="lot_production_type != 'debit'"/>
                     </group>
                     <group string="Planification FMA" name="fma_of_planification">
                         <field name="macro_forced_end" string="Fin de fab"/>
