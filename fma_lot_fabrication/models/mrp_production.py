@@ -340,8 +340,24 @@ class MrpProduction(models.Model):
     def _lot_contexte_debit(self):
         """(lot, assemblages, decalage) quand CET OF est le debit d'un lot.
 
-        Le decalage se mesure entre la fin de fab demandee et celle que l'OF
-        porte aujourd'hui. Il vaut zero tant que rien n'a ete saisi.
+        Le decalage ne se mesure PAS entre la fin de fab demandee et
+        ``date_finished`` : poser la fin de fab recale l'OF immediatement, si
+        bien que les deux sont deja egales quand on arrive ici. Le decalage
+        valait donc toujours zero et aucun assemblage ne suivait jamais le
+        debit — constate sur LRE/LRE/04950, avance du 13 au 11 novembre, dont
+        l'assemblage etait reste au 20.
+
+        On le mesure sur l'ecart a la regle de chainage du lot, la seule qui
+        ne depende d'aucun etat perdu : **le debit finit la veille ouvree du
+        premier assemblage** (cf. _chainer_debit_et_assemblage). La veille
+        ouvree du premier assemblage tel qu'il est place aujourd'hui dit ou le
+        debit devrait finir ; l'ecart avec la ou il finit vraiment est ce dont
+        les assemblages doivent bouger. Avancer le debit les avance, le
+        retarder les retarde, et un lot deja chaine donne zero.
+
+        Le repli sur l'ancienne mesure sert aux lots dont aucun assemblage
+        n'est encore place : sans date de debut, il n'y a pas de veille a
+        comparer.
         """
         vide = (self.env["fma.lot.fabrication"],
                 self.env["mrp.production"], timedelta(0))
@@ -350,15 +366,29 @@ class MrpProduction(models.Model):
         demandee = self._date_fin_de_fab()
         if not demandee:
             return vide
-        decalage = timedelta(0)
-        if self.date_finished:
-            decalage = demandee - fields.Datetime.to_datetime(
-                self.date_finished).date()
         assemblages = self.lot_fabrication_id.production_ids.filtered(
             lambda p: p.lot_production_type == "assemblage"
             and p.state not in ("done", "cancel")
         )
-        return self.lot_fabrication_id, assemblages, decalage
+        return self.lot_fabrication_id, assemblages, self._decalage_du_debit(
+            demandee, assemblages)
+
+    def _decalage_du_debit(self, demandee, assemblages):
+        """De combien les assemblages doivent suivre la fin de fab du debit."""
+        self.ensure_one()
+        debuts = [d for d in assemblages.mapped("date_start") if d]
+        # mrp_capacity_planning n'est pas une dependance declaree de ce
+        # module : sans lui, pas de calendrier de poste, donc pas de veille
+        # ouvree a comparer.
+        if debuts and hasattr(self, "_previous_working_day"):
+            premier = fields.Datetime.to_datetime(min(debuts)).date()
+            poste = self.workorder_ids[:1].workcenter_id
+            veille = self._previous_working_day(premier, poste)
+            return demandee - veille
+        if self.date_finished:
+            return demandee - fields.Datetime.to_datetime(
+                self.date_finished).date()
+        return timedelta(0)
 
     def _build_replan_preview_payload(self):
         """Controle la livraison sur les ASSEMBLAGES, pas sur le debit.
