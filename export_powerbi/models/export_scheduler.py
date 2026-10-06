@@ -1304,27 +1304,6 @@ class ExportSFTPScheduler(models.Model):
                     feuilles = [(champ, "!=", False) for champ in rattachements]
                     if "sale_id" in self.env["stock.picking"]._fields:
                         feuilles.append(("picking_id.sale_id", "!=", False))
-                    # La collecte des composants. En fabrication a deux
-                    # etapes, un bon « Collecter les composants » amene la
-                    # matiere du stock vers la pre-fabrication AVANT que l'OF
-                    # ne la consomme. Ce mouvement-la n'est rattache a rien :
-                    # ni raw_material_production_id, ni production_id, ni
-                    # vente — il ALIMENTE le composant de l'OF au lieu d'en
-                    # etre un.
-                    #
-                    # Or c'est exactement l'en-cours qu'on cherche a mesurer :
-                    # de la matiere sortie du stock, pas encore consommee.
-                    # 7 648 mouvements vers REM/Pre-fabrication tombaient hors
-                    # perimetre sur la production, et l'en-cours atelier etait
-                    # donc sous-evalue d'autant.
-                    #
-                    # Le rattachement existe un cran plus loin : move_dest_ids
-                    # mene au mouvement de composant de l'OF, donc a l'OF,
-                    # donc a la commande.
-                    if "move_dest_ids" in Move._fields:
-                        feuilles.append(
-                            ("move_dest_ids.raw_material_production_id",
-                             "!=", False))
                     if feuilles:
                         domaine += ["|"] * (len(feuilles) - 1) + feuilles
 
@@ -1401,16 +1380,6 @@ class ExportSFTPScheduler(models.Model):
                                 "composant" if consommation
                                 else ("produit fini" if production else "")
                             )
-                            if not mo:
-                                # Collecte des composants : l'OF se lit sur le
-                                # mouvement aval, celui que cette collecte
-                                # alimente. On le distingue d'un composant
-                                # reellement consomme — l'un est de l'en-cours,
-                                # l'autre de la matiere passee en production.
-                                aval = getattr(move, "move_dest_ids", False)
-                                mo = aval.raw_material_production_id[:1] if aval else False
-                                if mo:
-                                    type_of = "collecte composant"
 
                             commande, projet = _of_contexte(mo)
                             if not commande:
