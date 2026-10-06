@@ -19,6 +19,10 @@ class ResCompany(models.Model):
         "product.product",
         string="Article debite par defaut",
         domain="[('type', '=', 'consu')]",
-        help="Article intermediaire produit par l'OF Debit et consomme par "
-        "les OF Assemblage.",
+        help="« Debit du lot » : l'article que porte l'OF de debit, pour le "
+        "nombre de menuiseries du lot. Generique et NON suivi en stock — les "
+        "ensembles debites des menuiseries sortent en sous-produits de "
+        "l'ordre, ce sont eux que les OF d'assemblage consomment. Il ne sert "
+        "d'article debite qu'aux lots saisis a la main, dont les lignes ne "
+        "portent pas leur ensemble debite.",
     )

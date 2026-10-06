@@ -53,8 +53,6 @@
     # 1.54.0 : le document devient « Liste de quincaillerie » : profiles et
     # vitrages quittent aussi le recapitulatif, le repere se reduit a la
     # position et l'emplacement au nom court.
-    # 1.55.0 : « Fin de fab » n'est plus qu'une date, posee par
-    # _set_date_fin_de_fab sur les deux champs d'un seul geste.
     # 1.56.0 : la liste de quincaillerie se fie au CLASSEMENT de l'article —
     # categorie, famille, sous-famille : profiles (complementaires compris),
     # vitrages et panneaux ecartes, le reste est de la quincaillerie — et non
@@ -65,13 +63,19 @@
     # 1.57.0 : libelle du bouton « Replanifier depuis le débit » — il
     # annoncait que les achats suivaient, ce que le code ne fait pas, a
     # dessein. Vue seule : sans montee de version elle n'est pas rejouee.
-    # 1.60.0 : le type de fabrication du debit se choisit sur le PREFIXE
-    # de sequence de l'entrepot, et non plus sur manu_type_id.
-    # 1.61.0 : colonne Lot sur l'ecran d'ordonnancement, et regroupements
-    # par projet puis par lot.
-    # 1.62.0 : quand replanifier le debit n'entraine aucun assemblage, le
-    # lot et l'ordre disent pourquoi au lieu de ne rien faire en silence.
-    "version": "19.0.1.62.0",
+    # 1.60.0 : l'OF de debit porte l'article « Debit du lot », pour le
+    # nombre de menuiseries du lot, et non plus l'ensemble debite du premier
+    # repere pour sa seule quantite — un lot de 10 affichait « 8 ». Tous les
+    # ensembles debites sortent en sous-produits, et se partagent le cout de
+    # l'ordre au prorata de leurs metres de profile. « Debit du lot » n'est
+    # plus suivi en stock (migration). Les ordres deja generes ne sont pas
+    # repris : les deux formes cohabitent.
+    # 1.61.0 : le type de fabrication du debit se choisit sur le PREFIXE
+    # de sequence de l'entrepot, et non plus sur manu_type_id, qui peut
+    # designer un type numerotant pour un autre atelier.
+    # 1.62.0 : colonne Lot et regroupements projet / lot sur
+    # l'ordonnancement ; la replanification dit quand elle ne decale rien.
+    "version": "19.0.1.63.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

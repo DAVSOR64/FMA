@@ -35,7 +35,7 @@
     # (nouvelle colonne product_template.fma_nom_importe). Reprise en
     # post-migrate des articles deja crees sans nom, d'apres leur ligne de
     # commande.
-    "version": "19.0.1.6.1",
+    "version": "19.0.1.6.2",
     "description": """
 
     """,

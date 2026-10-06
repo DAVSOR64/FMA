@@ -39,17 +39,24 @@ class MrpProduction(models.Model):
         "Assemblage : 1 par ligne, point de declaration de fabrication.",
     )
 
-    # Ce que l'OF de debit fabrique, en clair. Un OF ne porte qu'UN article
-    # principal : sur un debit c'est l'ensemble debite du premier repere du
-    # lot, avec sa quantite (« 8 » pour 8 chassis A TG), et les autres reperes
-    # sortent en sous-produits. La quantite affichee n'est donc ni un nombre
-    # de barres ni le nombre de menuiseries du lot — d'ou cette ligne.
+    # Ce que l'OF de debit fabrique, en clair. Un OF ne porte qu'UN article :
+    # sur un debit c'est « Debit du lot », generique, et sa quantite est le
+    # nombre de menuiseries du lot ; les ensembles debites, un par repere,
+    # sortent en sous-produits. Cette ligne donne le detail sans avoir a
+    # ouvrir l'onglet.
+    #
+    # Les ordres generes avant la 1.60 gardent l'ancienne forme : l'article
+    # est l'ensemble debite du PREMIER repere et la quantite la sienne (« 8 »
+    # pour 8 chassis A TG d'un lot de 10), les autres reperes en
+    # sous-produits. La ligne y est d'autant plus utile.
     fma_contenu_debit = fields.Char(
         string="Contenu du débit",
         compute="_compute_fma_contenu_debit",
-        help="Les menuiseries debitees par cet ordre : le lot entier. La "
-        "quantite a produire de l'ordre n'est que celle du premier repere ; "
-        "les autres figurent dans les sous-produits.",
+        help="Les menuiseries debitees par cet ordre : le lot entier, repere "
+        "par repere. La quantite a produire de l'ordre est le nombre de "
+        "menuiseries du lot ; chaque repere sort en sous-produit. Sur un "
+        "ordre genere avant ce fonctionnement, elle n'est que celle du "
+        "premier repere.",
     )
 
     @api.depends("lot_production_type", "lot_fabrication_id.line_ids.product_qty",
@@ -136,30 +143,103 @@ class MrpProduction(models.Model):
             self._lot_move_vals(product_debit, qty)
         )
 
-    def _add_debit_byproduct(self, product, qty):
+    def _add_debit_byproduct(self, product, qty, cost_share=0.0):
         """Ajoute un ensemble debite en SOUS-PRODUIT de l'OF de debit.
 
         Un ordre de fabrication ne produit qu'un article, or une seance de
         debit en sort autant qu'il y a de reperes dans le lot : les barres
-        sont mutualisees, les coupes ne le sont pas. Le premier repere est
-        l'article produit, les autres sont des sous-produits. C'est
+        sont mutualisees, les coupes ne le sont pas. L'article de l'ordre est
+        « Debit du lot », et chaque repere est un sous-produit. C'est
         exactement ce que le mecanisme natif decrit — plusieurs sorties pour
         une meme consommation.
+
+        ``cost_share`` : la part, en pourcent, du cout de l'ordre — les
+        barres — que ce sous-produit emporte. Le lot la calcule au prorata
+        des metres de profile (cf. _parts_de_cout_debit).
+
+        Un sous-produit deja present est rendu tel quel : ni sa quantite ni
+        sa part ne sont reecrites.
         """
         self.ensure_one()
         if not product or not qty:
             return self.env["stock.move"]
         deja = self.move_finished_ids.filtered(
-            lambda m: m.product_id == product
+            lambda m: m.product_id == product and m.state != "cancel"
         )
         if deja:
             return deja
         vals = self._get_move_finished_values(
             product.id, qty, product.uom_id.id
         )
+        vals["cost_share"] = cost_share or 0.0
+        # Un sous-produit ne reprend pas la destination de l'article de
+        # l'ordre : il va au stock, pas a ce qui attendrait « Debit du lot ».
+        vals["move_dest_ids"] = []
         if self.origin:
             vals["origin"] = self.origin
         return self.env["stock.move"].create(vals)
+
+    def _cal_price(self, consumed_moves):
+        """Le cout de l'OF de debit va a ses sous-produits, quoi qu'il arrive.
+
+        Odoo repartit le cout d'un ordre entre ses sous-produits selon leur
+        part (``cost_share``) — mais seulement quand l'article de l'ordre est
+        valorise au cout moyen ou en FIFO. Sinon il s'arrete avant : l'article
+        de l'ordre prend son cout standard et les sous-produits ne recoivent
+        rien.
+
+        Or l'article d'un OF de debit est « Debit du lot », une etiquette sans
+        categorie de valorisation particuliere : sur une base au cout
+        standard par defaut, les barres consommees ne seraient portees par
+        aucun ensemble debite, et les menuiseries sortiraient sans leur
+        profile. On applique donc ici la meme repartition que le natif, avec
+        le meme cout — composants, postes de charge, cout additionnel.
+
+        Sans effet si le natif a deja reparti, sur un ordre qui n'est pas un
+        debit, ou sans la valorisation de stock.
+        """
+        res = super()._cal_price(consumed_moves)
+        try:
+            self._fma_valoriser_sous_produits_debit(consumed_moves)
+        except Exception:  # noqa: BLE001 — la cloture de l'ordre prime
+            _logger.exception(
+                "Valorisation des sous-produits de %s", self.display_name)
+        return res
+
+    def _fma_valoriser_sous_produits_debit(self, consumed_moves):
+        self.ensure_one()
+        Move = self.env["stock.move"]
+        if (self.lot_production_type != "debit"
+                or "cost_method" not in self.product_id._fields
+                or "value" not in Move._fields
+                or "price_unit" not in Move._fields):
+            return
+        if self.product_id.cost_method in ("fifo", "average"):
+            return  # le natif vient de le faire
+        sous_produits = self.move_byproduct_ids.filtered(
+            lambda m: m.state not in ("done", "cancel")
+            and m.quantity > 0 and m.cost_share > 0
+        )
+        if not sous_produits:
+            return
+        principal = self.move_finished_ids.filtered(
+            lambda m: m.product_id == self.product_id
+            and m.state not in ("done", "cancel") and m.quantity > 0
+        )[:1]
+        cout = sum(move.value for move in consumed_moves)
+        for operation in self.workorder_ids:
+            if hasattr(operation, "_cal_cost"):
+                cout += operation._cal_cost()
+        if principal and "extra_cost" in self._fields:
+            cout += self.extra_cost * principal.product_uom._compute_quantity(
+                principal.quantity, principal.product_id.uom_id)
+        for move in sous_produits:
+            if move.product_id.cost_method not in ("fifo", "average"):
+                continue
+            quantite = move.product_uom._compute_quantity(
+                move.quantity, move.product_id.uom_id)
+            if quantite:
+                move.price_unit = cout * move.cost_share / 100.0 / quantite
 
     def _add_lot_material_moves(self, material_lines):
         """Alimente les composants de l'OF Debit depuis le besoin matiere."""

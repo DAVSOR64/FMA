@@ -62,7 +62,7 @@
     # semi-finis se nomment « Débit – ... » et « Quincaillerie – ... », et
     # leurs nomenclatures recoivent une reference. Reprise de l'existant en
     # post-migrate (sqlite_connector/noms_articles.py).
-    "version": "19.0.1.43.0",
+    "version": "19.0.1.44.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

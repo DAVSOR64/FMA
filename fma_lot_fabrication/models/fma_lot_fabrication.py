@@ -870,7 +870,9 @@ class FmaLotFabrication(models.Model):
             if lot.state == "draft":
                 lot.action_confirm()
 
+            deja = lot.production_ids
             productions = lot._generate_debit_order()
+            debit_cree = productions - deja
             productions |= lot._generate_assembly_orders()
 
             # Un OF cree reste en brouillon : il ne reserve rien, n'entre pas
@@ -889,6 +891,11 @@ class FmaLotFabrication(models.Model):
             )[:1]
             if debit:
                 lot._verifier_appro_debit(debit)
+            # Les sous-produits de l'OF de debit qu'on vient de creer : une
+            # reconstruction des produits finis, tant qu'il etait en
+            # brouillon, a pu les emporter. Confirme, il ne les perd plus.
+            if debit_cree:
+                lot._poser_sous_produits_debit(debit_cree)
 
             # Prelevements et achats n'existent qu'une fois les ordres
             # confirmes : c'est ici, et pas avant, qu'on peut les regrouper.
@@ -1715,24 +1722,24 @@ class FmaLotFabrication(models.Model):
 
         # Un OF ne produit qu'un article, or une seance de debit sort un
         # ensemble debite PAR REPERE : les barres sont mutualisees, les coupes
-        # ne le sont pas. Le premier repere est l'article produit, les autres
-        # suivent en sous-produits.
+        # ne le sont pas.
         #
-        # Repli sur l'ensemble debite generique de la societe quand aucune
-        # ligne ne porte le sien — lot saisi a la main, ou importe avant que
-        # le lien n'existe.
-        lignes = self.line_ids.filtered(
-            lambda l: l.product_debit_id and not float_is_zero(
-                l.product_qty, precision_digits=2)
-        )
-        if lignes:
-            principale, autres = lignes[0], lignes[1:]
-            product = principale.product_debit_id
-            qty = principale.product_qty
+        # L'article de l'ordre est donc celui du LOT — « Debit du lot »,
+        # generique, non suivi en stock — et sa quantite le nombre de
+        # menuiseries du lot : c'est ce que l'atelier lit sur l'ordre. Les
+        # ensembles debites sortent TOUS en sous-produits, au meme rang. Avant
+        # la 1.60, le premier repere etait l'article de l'ordre : un lot de 10
+        # menuiseries affichait « 8 », la quantite de son premier repere.
+        #
+        # Repli quand aucune ligne ne porte son ensemble debite — lot saisi a
+        # la main, ou importe avant que le lien n'existe : l'article debite
+        # du lot, sans sous-produit, comme avant.
+        sorties = self._sous_produits_debit()
+        if sorties:
+            product = self._get_product_debit_lot()
         else:
-            principale = autres = self.env["fma.lot.fabrication.line"]
             product = self._get_product_debit()
-            qty = self.menuiserie_qty or 1.0
+        qty = self.menuiserie_qty or 1.0
 
         vals = self._common_production_vals(picking_type)
         vals.update(
@@ -1740,7 +1747,7 @@ class FmaLotFabrication(models.Model):
                 "product_id": product.id,
                 "product_qty": qty,
                 uom_fname(Production): product.uom_id.id,
-                # Pas de nomenclature, volontairement : celle de l'ensemble
+                # Pas de nomenclature, volontairement : celle d'un ensemble
                 # debite ne porte la gamme que d'UN repere, et pour un
                 # exemplaire. Le temps de debit du lot est la somme de ses
                 # reperes, et c'est nous qui la posons — cf. _operations_debit.
@@ -1749,31 +1756,227 @@ class FmaLotFabrication(models.Model):
             }
         )
         production = Production.create(vals)
-        # Encadre : les sous-produits et la gamme sont de l'information. Une
-        # signature native qui aurait bouge d'une version a l'autre ne doit
-        # pas empecher le lot de sortir son OF de debit.
-        try:
-            for ligne in autres:
-                production._add_debit_byproduct(
-                    ligne.product_debit_id, ligne.product_qty)
-        except Exception:  # noqa: BLE001 — trace, pas de blocage
-            _logger.exception(
-                "Sous-produits de l'OF de debit du lot %s", self.name)
         # Les barres viennent du besoin matiere du lot et non d'une
         # nomenclature : elles varient d'un lot a l'autre.
         production._add_lot_material_moves(self.material_line_ids)
+        # Encadre : la gamme est de l'information. Une signature native qui
+        # aurait bouge d'une version a l'autre ne doit pas empecher le lot de
+        # sortir son OF de debit.
         try:
             self._poser_operations_debit(production)
         except Exception:  # noqa: BLE001 — trace, pas de blocage
             _logger.exception(
                 "Gamme de debit du lot %s", self.name)
+        # En DERNIER : tant que l'ordre est en brouillon, Odoo reconstruit ses
+        # produits finis des qu'une date, une quantite ou l'article bouge, et
+        # il ne recree alors que l'article principal. Poser la gamme deplace
+        # la date de fin. action_generate_orders repasse derriere la
+        # confirmation, ou plus rien ne les efface.
+        self._poser_sous_produits_debit(production)
 
         self.production_debit_id = production
         self._verifier_debit_profiles(production)
+        if sorties and product.is_storable:
+            self.message_post(
+                body=_(
+                    "OF de debit : l'article « %(article)s » est suivi en "
+                    "stock. Il ne represente que la seance de debit et "
+                    "s'accumulera en stock a chaque lot : decochez « Suivre "
+                    "l'inventaire » sur sa fiche.",
+                    article=product.display_name,
+                )
+            )
         self.message_post(
             body=_("OF de debit %s genere.", production.display_name)
         )
         return production
+
+    # ------------------------------------------------------------------
+    # Ce que l'OF de debit sort : un ensemble debite par repere
+    # ------------------------------------------------------------------
+    def _get_product_debit_lot(self):
+        """L'article que porte l'OF de debit : « Debit du lot », generique.
+
+        Ce n'est pas ``_get_product_debit`` : celui-la rend l'article debite
+        DU LOT, qui est l'ensemble debite de la menuiserie quand le lot n'en
+        fabrique qu'une (cf. l'import LOGIKAL). Ici on veut l'article qui
+        designe la seance de debit elle-meme, jamais un ensemble debite de
+        repere — celui-ci sort en sous-produit, et un article ne peut pas
+        etre a la fois le produit et le sous-produit d'un ordre.
+        """
+        self.ensure_one()
+        reperes = self.line_ids.product_debit_id
+        candidats = self.company_id.fma_lot_product_debit_id
+        defaut = self.env.ref(
+            "fma_lot_fabrication.product_ensemble_debite",
+            raise_if_not_found=False,
+        )
+        if defaut:
+            candidats |= defaut
+        for candidat in candidats:
+            if candidat not in reperes and candidat.fma_semi_fini != "debit":
+                return candidat
+        raise UserError(
+            _(
+                "Aucun article « Debit du lot » n'est parametre : l'OF de "
+                "debit n'a pas d'article a porter.\n"
+                "Renseignez « Article debite par defaut » dans Fabrication > "
+                "Configuration > Parametres > Lots de fabrication, avec un "
+                "article generique qui n'est l'ensemble debite d'aucune "
+                "menuiserie."
+            )
+        )
+
+    def _sous_produits_debit(self):
+        """{ensemble debite: quantite} des reperes du lot, dans l'ordre.
+
+        Deux lignes du lot peuvent porter le meme ensemble debite — la meme
+        menuiserie sur deux lignes de commande : leurs quantites se cumulent,
+        un ordre ne porte pas deux sorties du meme article.
+        """
+        self.ensure_one()
+        sorties = {}
+        for ligne in self.line_ids:
+            article = ligne.product_debit_id
+            if not article or float_is_zero(
+                    ligne.product_qty, precision_digits=2):
+                continue
+            sorties[article] = sorties.get(article, 0.0) + ligne.product_qty
+        return sorties
+
+    def _metres_de_profile(self, product):
+        """Longueur de profile qu'UN ensemble debite demande, en metres.
+
+        Lue sur sa nomenclature, que l'import ecrit en longueur : en metres
+        (« ML », l'unite fine a laquelle la barre se rattache, ou le metre
+        d'Odoo), a defaut en fraction de barre — ramenee en metres par la
+        longueur de barre de la fiche article.
+
+        ``0.0`` des qu'UNE ligne ne se laisse pas mesurer, ou sans
+        nomenclature : une longueur partielle fausserait la repartition, mieux
+        vaut alors s'en remettre aux quantites.
+        """
+        self.ensure_one()
+        bom = self.env["mrp.bom"]._bom_find(
+            product, company_id=self.company_id.id, bom_type="normal"
+        ).get(product)
+        if not bom or not bom.bom_line_ids:
+            return 0.0
+        Uom = self.env["uom.uom"]
+        metre = self.env.ref("uom.product_uom_meter", raise_if_not_found=False)
+        piece = self.env.ref("uom.product_uom_unit", raise_if_not_found=False)
+
+        def racine(uom):
+            tete = (uom.parent_path or "").split("/")[0]
+            return Uom.browse(int(tete)) if tete.isdigit() else uom
+
+        total = 0.0
+        for ligne in bom.bom_line_ids:
+            uom, qty, article = (
+                ligne.product_uom_id, ligne.product_qty, ligne.product_id)
+            if not uom or qty <= 0:
+                continue
+            base = racine(uom)
+            if metre and base == racine(metre):
+                total += uom._compute_quantity(qty, metre, round=False)
+            elif piece and base == racine(piece):
+                # Compte a la piece — une fraction de barre : il faut la
+                # longueur de la barre pour en faire des metres.
+                longueur = (
+                    article.x_studio_longueur_m
+                    if "x_studio_longueur_m" in article._fields else 0.0
+                ) or 0.0
+                if not longueur or uom != article.uom_id:
+                    return 0.0
+                total += qty * longueur
+            else:
+                # Une unite propre a la base, « ML » et les barres qui s'y
+                # rattachent : son unite de reference est le metre lineaire.
+                total += uom._compute_quantity(qty, base, round=False)
+        return total / (bom.product_qty or 1.0)
+
+    def _parts_de_cout_debit(self, sorties):
+        """{ensemble debite: part du cout de l'OF de debit, en %}.
+
+        Les barres consommees sont le cout de l'ordre. Il va en totalite aux
+        ensembles debites — l'article de l'ordre, « Debit du lot », n'est
+        qu'une etiquette et ne porte rien — au prorata des metres de profile
+        que chacun demande : metres par exemplaire, selon sa nomenclature,
+        fois la quantite. Si un seul des ensembles ne se laisse pas mesurer,
+        tout le lot est reparti au prorata des quantites : on ne melange pas
+        des metres et des pieces.
+
+        La somme fait 100, au centieme : l'arrondi va au plus gros, et Odoo
+        refuse un total superieur a 100.
+        """
+        self.ensure_one()
+        if not sorties:
+            return {}
+        poids = {
+            article: self._metres_de_profile(article) * qty
+            for article, qty in sorties.items()
+        }
+        if any(p <= 0 for p in poids.values()):
+            poids = dict(sorties)
+        total = sum(poids.values())
+        if total <= 0:
+            return {}
+        centiemes = {
+            article: int(round(10000.0 * p / total))
+            for article, p in poids.items()
+        }
+        plus_gros = max(poids, key=lambda a: poids[a])
+        centiemes[plus_gros] += 10000 - sum(centiemes.values())
+        parts = {article: c / 100.0 for article, c in centiemes.items()}
+        # La somme flottante peut depasser 100 d'un cheveu, et la contrainte
+        # d'Odoo est stricte.
+        while sum(parts.values()) > 100.0 and parts[plus_gros] >= 0.01:
+            parts[plus_gros] = round(parts[plus_gros] - 0.01, 2)
+        return parts
+
+    def _poser_sous_produits_debit(self, production):
+        """Pose sur l'OF de debit un sous-produit par ensemble debite.
+
+        Sans effet sur un ordre de l'ancienne forme — celui dont l'article
+        est l'ensemble debite du premier repere : il garde ses sous-produits
+        et ses quantites tels qu'ils ont ete generes. Sans effet non plus sur
+        un sous-produit deja present : on complete, on ne reecrit pas.
+
+        Encadre : un sous-produit qui ne se pose pas ne doit pas empecher le
+        lot de sortir son OF de debit — mais il le dit.
+        """
+        self.ensure_one()
+        sorties = self._sous_produits_debit()
+        if (not sorties or not production
+                or production.state in ("done", "cancel")
+                or production.product_id in sorties):
+            return self.env["stock.move"]
+        poses = self.env["stock.move"]
+        try:
+            with self.env.cr.savepoint():
+                parts = self._parts_de_cout_debit(sorties)
+                for article, qty in sorties.items():
+                    poses |= production._add_debit_byproduct(
+                        article, qty, parts.get(article, 0.0))
+                # Sur un ordre deja confirme, un mouvement cree a la main
+                # reste en brouillon : on le confirme, comme le fait Odoo
+                # pour un sous-produit ajoute depuis l'ecran.
+                if production.state != "draft":
+                    poses.filtered(
+                        lambda m: m.state == "draft")._action_confirm()
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Sous-produits de l'OF de debit du lot %s", self.name)
+            self.message_post(
+                body=_(
+                    "OF de debit %(of)s : les ensembles debites n'ont pas pu "
+                    "etre poses en sous-produits. Les assemblages ne "
+                    "recevront pas leur debit — a reprendre avant de lancer.",
+                    of=production.display_name,
+                )
+            )
+            return self.env["stock.move"]
+        return poses
 
     def _poser_operations_debit(self, production):
         """Le temps de debit du lot : la somme de ses reperes.

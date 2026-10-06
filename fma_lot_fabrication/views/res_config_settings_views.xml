@@ -18,7 +18,7 @@
                     </setting>
                     <setting id="fma_lot_product_setting"
                              string="Article debite par defaut"
-                             help="Article intermediaire produit par l'OF de debit et consomme par les OF d'assemblage.">
+                             help="« Debit du lot » : l'article que porte l'OF de debit, pour le nombre de menuiseries du lot. Generique, non suivi en stock ; les ensembles debites sortent en sous-produits.">
                         <field name="fma_lot_product_debit_id"
                                options="{'no_create': True}"/>
                     </setting>

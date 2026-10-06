@@ -2,24 +2,40 @@
 <odoo>
     <data noupdate="1">
         <!--
-            Article intermediaire produit par l'OF Debit et consomme par les
-            OF Assemblage. C'est lui qui materialise le lien matiere entre le
-            debit (mutualise sur le lot) et l'assemblage (par menuiserie).
-            Sert de valeur par defaut ; chaque lot peut porter le sien.
+            « Debit du lot » : l'article que porte l'OF de debit. Il designe
+            la seance de debit du lot entier, et sa quantite est le nombre de
+            menuiseries du lot. Ce que le debit sort REELLEMENT, ce sont les
+            ensembles debites des menuiseries (« <reference>-DEB »), poses en
+            sous-produits de l'ordre : ce sont eux qui entrent en stock et que
+            les OF d'assemblage consomment.
+
+            D'ou « Suivre l'inventaire » decoche : cet article n'est qu'une
+            etiquette, il ne doit ni entrer en stock ni s'y accumuler lot
+            apres lot. Odoo cloture un ordre dont l'article n'est pas suivi
+            sans creer de quantite en stock.
+
+            Il reste l'article debite par defaut d'un lot saisi a la main,
+            dont les lignes ne portent pas leur ensemble debite : l'OF de
+            debit le produit alors seul, et les assemblages le consomment —
+            sans controle de disponibilite, puisqu'il n'est pas suivi.
+
+            noupdate : une base existante garde sa fiche. C'est la migration
+            19.0.1.60.0 qui la passe en non suivi et la renomme.
 
             On declare le variant seul : product.product _inherits de
             product.template, donc Odoo cree le modele sous-jacent. Declarer
             les deux enregistrements produirait un second variant en double.
         -->
         <record id="product_ensemble_debite" model="product.product">
-            <field name="name">Ensemble debite - lot</field>
+            <field name="name">Débit du lot</field>
             <field name="default_code">DEB-LOT</field>
             <field name="type">consu</field>
-            <field name="is_storable" eval="True"/>
+            <field name="is_storable" eval="False"/>
             <field name="purchase_ok" eval="False"/>
             <field name="sale_ok" eval="False"/>
-            <field name="description">Ensemble des composants debites d'un lot de fabrication.
-Produit par l'OF Debit, consomme par les OF Assemblage du meme lot.</field>
+            <field name="description">La seance de debit d'un lot de fabrication.
+Article de l'OF de debit ; sa quantite est le nombre de menuiseries du lot.
+Les ensembles debites des menuiseries sortent en sous-produits de l'ordre.</field>
         </record>
     </data>
 </odoo>
