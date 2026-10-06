@@ -1127,6 +1127,12 @@ class FmaLotFabrication(models.Model):
             cible = self._fin_projetee(mo, decalage, fin_debit)
             if not cible:
                 continue
+            # Une cible egale a la date du jour n'est pas un deplacement : ne
+            # pas la reecrire, et surtout ne pas la compter. Le compte rendu
+            # annoncait « 1 assemblage suivent » apres un decalage nul, et
+            # l'atelier en concluait que la replanification ne marchait pas.
+            if cible == mo._date_fin_de_fab():
+                continue
             mo._set_date_fin_de_fab(cible)
             mo.compute_macro_schedule_from_date_fin()
             deplaces |= mo
@@ -1255,14 +1261,25 @@ class FmaLotFabrication(models.Model):
         """Ce que la replanification a fait, et ce qu'elle n'a pas pu faire."""
         self.ensure_one()
         jours = decalage.days if decalage else 0
+        if deplaces:
+            suite = _("%(nb)s assemblage(s) suivent : %(noms)s.",
+                      nb=len(deplaces),
+                      noms=", ".join(deplaces.mapped("display_name")))
+        else:
+            # Dire pourquoi rien n'a bouge. Sans cette phrase, l'ecran est
+            # identique avant et apres : on ne distingue pas « il n'y avait
+            # rien a faire » d'une replanification qui echoue en silence.
+            suite = _(
+                "Aucun assemblage deplace : le decalage est de %(jours)s "
+                "jour(s) et ils commencent deja apres la fin du debit.",
+                jours=jours)
         corps = [_(
             "Replanification depuis le debit %(of)s : fin de fab au "
-            "%(fin)s, soit %(jours)s jour(s) de decalage. "
-            "%(nb)s assemblage(s) suivent.",
+            "%(fin)s, soit %(jours)s jour(s) de decalage. %(suite)s",
             of=debit.display_name,
             fin=debit.macro_forced_end,
             jours=jours,
-            nb=len(deplaces),
+            suite=suite,
         )]
         if depart_matiere:
             corps.append(_(

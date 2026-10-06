@@ -137,6 +137,26 @@ class SaleOrder(models.Model):
                 alloc.product_qty,
             )
 
+    def _of_deja_dans_action(self, action):
+        """Les OF que l'action native remonte deja — SANS tout ramasser.
+
+        Un domaine vide ne veut pas dire « tous les ordres » : quand la
+        commande n'a qu'un seul OF, l'action native ouvre un formulaire, donc
+        un ``res_id`` et aucun domaine. Le ``or []`` precedent transformait ce
+        cas en recherche sans filtre et l'ecran affichait les 4 000 OF de la
+        base au lieu des deux de l'affaire.
+
+        On ne cherche donc que lorsqu'il y a vraiment un domaine, et on se
+        rabat sur le ``res_id`` sinon.
+        """
+        Production = self.env["mrp.production"]
+        domaine = action.get("domain")
+        if domaine:
+            return Production.search(domaine)
+        if action.get("res_id"):
+            return Production.browse(action["res_id"])
+        return Production.browse()
+
     def action_view_mrp_production(self):
         """Ajoute les OF des lots a la liste ouverte depuis la commande.
 
@@ -167,7 +187,7 @@ class SaleOrder(models.Model):
         if not des_lots:
             return action
 
-        deja = self.env["mrp.production"].search(action.get("domain") or [])
+        deja = self._of_deja_dans_action(action)
         toutes = deja | des_lots
         action["domain"] = [("id", "in", toutes.ids)]
         # La liste comptant desormais plusieurs OF, on ne peut plus ouvrir
