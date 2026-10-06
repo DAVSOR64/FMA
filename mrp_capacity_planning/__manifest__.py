@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'FMA - Planning & Capacité',
-    'version': '19.0.1.0.14',
+    'version': '19.0.1.0.15',
     'category': 'Manufacturing',
     'summary': 'Planification macro, capacité ressources et réordonnancement FMA',
     'author': 'Paxo Consulting',
