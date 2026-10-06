@@ -374,7 +374,14 @@ class MrpProduction(models.Model):
             demandee, assemblages)
 
     def _decalage_du_debit(self, demandee, assemblages):
-        """De combien les assemblages doivent suivre la fin de fab du debit."""
+        """De combien les assemblages doivent suivre la fin de fab du debit.
+
+        Les deux bornes sont ramenees au calendrier du poste avant d'etre
+        soustraites. « Fin de fab » peut tomber un jour chome — c'etait le cas
+        du 11 novembre sur LRE/LRE/04950 — et l'atelier debite alors la veille
+        ouvree. Comparer la date saisie plutot que le jour reellement travaille
+        donnerait un decalage faux d'un jour.
+        """
         self.ensure_one()
         debuts = [d for d in assemblages.mapped("date_start") if d]
         # mrp_capacity_planning n'est pas une dependance declaree de ce
@@ -382,9 +389,10 @@ class MrpProduction(models.Model):
         # ouvree a comparer.
         if debuts and hasattr(self, "_previous_working_day"):
             premier = fields.Datetime.to_datetime(min(debuts)).date()
-            poste = self.workorder_ids[:1].workcenter_id
+            poste = self.workorder_ids[-1:].workcenter_id
             veille = self._previous_working_day(premier, poste)
-            return demandee - veille
+            reelle = self._previous_or_same_working_day(demandee, poste)
+            return (reelle or demandee) - veille
         if self.date_finished:
             return demandee - fields.Datetime.to_datetime(
                 self.date_finished).date()
