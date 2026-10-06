@@ -462,6 +462,14 @@ class StockLot(models.Model):
             "sav_url": url,
             "barcode_src": self._fma_image(
                 "Code128", self.name, width=900, height=140, quiet=1),
+            # Le numero d'ORDRE, en code-barres lui aussi. L'etiquette ne
+            # portait que le numero de serie : il designe la menuiserie, mais
+            # l'ecran Atelier s'ouvre sur un ordre. L'operateur lisait donc le
+            # numero d'OF en clair et le tapait. Les deux codes coexistent —
+            # le serie pour la tracabilite et le SAV, l'ordre pour l'atelier.
+            "of_barcode_src": self._fma_image(
+                "Code128", ordre.name, width=900, height=100, quiet=1
+            ) if ordre.name else "",
             "qr_src": self._fma_image(
                 "QR", url, width=300, height=300, barLevel="M"),
         }
