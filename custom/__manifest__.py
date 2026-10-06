@@ -38,7 +38,7 @@
     # chiffres), affiche une seule fois ; le SIREN est part_siren, de nouveau
     # visible. Le champ fma_siret disparait ; un pre-migrate remet les numeros
     # a leur place sur les bases ou la 1.0.93 avait tourne.
-    "version": "19.0.1.0.95",
+    "version": "19.0.1.0.96",
     "summary": "Created and Transfer custom field from contact and sale order to invoice",
     "author": "Your Name",
     "depends": [

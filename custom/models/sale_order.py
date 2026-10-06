@@ -328,8 +328,15 @@ class SaleOrder(models.Model):
     # calcule : un calcul stocke qui ne trouve rien ecrit du vide, et un
     # recalcul de masse efface l'historique. C'est deja arrive ici.
     so_date_debut_fab = fields.Date(string="Début de fab", copy=False)
-    so_date_de_livraison = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison', store=True)
-    so_date_de_livraison_prevu = fields.Date(string="Date livraison saisie")
+    # Deux dates de livraison, et deux seulement -- ce sont les libelles de
+    # la prod :
+    #  - « Date de livraison prévue » : la date promise au client, BPE +
+    #    delai confirme. C'est elle qui alimente commitment_date (cf.
+    #    _compute_so_date_de_livraison), inutile d'afficher les deux.
+    #  - « Date de livraison » : celle du bon de livraison client, recopiee
+    #    depuis son scheduled_date (custom_delivery).
+    so_date_de_livraison = fields.Date(string="Date de livraison prévue", compute='_compute_so_date_de_livraison', store=True)
+    so_date_de_livraison_prevu = fields.Date(string="Date de livraison")
     # Livraison REELLE : la date effective des bons de livraison. A ne pas
     # confondre avec so_date_de_livraison_prevu juste au-dessus, qui porte la
     # date REVISEE recopiee de la date planifiee du BL — et sur laquelle le
