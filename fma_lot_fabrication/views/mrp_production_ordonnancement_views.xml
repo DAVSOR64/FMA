@@ -23,6 +23,11 @@
                ref="fma_mrp_ordonnancement.view_mrp_production_ordonnancement_list"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='product_id']" position="after">
+                <!-- Le lot, puis le role de l'OF dedans. Dans cet ordre : on
+                     cherche d'abord a quel lot un ordre appartient, le type
+                     ne se lit qu'ensuite. -->
+                <field name="lot_fabrication_id" string="Lot"
+                       readonly="1" optional="show"/>
                 <field name="lot_production_type" string="Type OF"
                        readonly="1" optional="show"/>
             </xpath>
@@ -45,6 +50,22 @@
                         domain="[('lot_production_type', '=', 'debit')]"/>
                 <filter name="fma_lot_hors_debit" string="Hors débit"
                         domain="[('lot_production_type', '!=', 'debit')]"/>
+            </xpath>
+
+            <!-- Les regroupements, dans l'ordre ou le metier descend :
+                 le chantier, puis le lot. L'ordre de fabrication est la
+                 ligne elle-meme — un regroupement de plus n'ajouterait
+                 qu'un niveau a un seul enregistrement.
+
+                 Ils rejoignent le groupe existant plutot que d'en ouvrir un
+                 second : deux blocs de regroupement cote a cote se lisent
+                 comme deux listes exclusives, alors qu'on veut pouvoir les
+                 empiler. -->
+            <xpath expr="//filter[@name='group_atelier']" position="before">
+                <filter name="group_projet" string="Projet"
+                        context="{'group_by': 'x_studio_projet_de_la_vente'}"/>
+                <filter name="group_lot" string="Lot de fabrication"
+                        context="{'group_by': 'lot_fabrication_id'}"/>
             </xpath>
         </field>
     </record>

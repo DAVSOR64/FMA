@@ -65,7 +65,13 @@
     # 1.57.0 : libelle du bouton « Replanifier depuis le débit » — il
     # annoncait que les achats suivaient, ce que le code ne fait pas, a
     # dessein. Vue seule : sans montee de version elle n'est pas rejouee.
-    "version": "19.0.1.59.0",
+    # 1.60.0 : le type de fabrication du debit se choisit sur le PREFIXE
+    # de sequence de l'entrepot, et non plus sur manu_type_id.
+    # 1.61.0 : colonne Lot sur l'ecran d'ordonnancement, et regroupements
+    # par projet puis par lot.
+    # 1.62.0 : quand replanifier le debit n'entraine aucun assemblage, le
+    # lot et l'ordre disent pourquoi au lieu de ne rien faire en silence.
+    "version": "19.0.1.62.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
