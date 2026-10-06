@@ -531,6 +531,17 @@ class FmaLotFabrication(models.Model):
                 autres.invalidate_recordset(["order_line"])
                 vides = autres.filtered(lambda a: not a.order_line)
                 if vides:
+                    # ANNULER AVANT DE SUPPRIMER. Odoo refuse de supprimer un
+                    # bon d'achat qui n'est pas annule — « In order to delete
+                    # a purchase order, you must cancel it first ». Le
+                    # unlink() direct levait donc une UserError, avalee par le
+                    # except de cette methode : les lignes etaient bien
+                    # deplacees, mais les bons vides restaient en brouillon et
+                    # l'origine n'etait jamais absorbee. Constate sur
+                    # A26-10-07832, ou P28593 et P28594 ont survecu vides a
+                    # TECHNAL apres que leurs lignes soient passees sur
+                    # P28592.
+                    vides.button_cancel()
                     vides.unlink()
                 # L'origine du bon absorbe garde sa trace : sans cela, on
                 # perdrait le lien vers l'OF de debit.
@@ -544,9 +555,20 @@ class FmaLotFabrication(models.Model):
                     cible.origin = ", ".join(retenues)
             self._rendre_compte_achats(lignes, commandes, gardes)
             return gardes
-        except Exception:  # noqa: BLE001 — trace, pas de blocage
+        except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
+            # DIRE L'ECHEC SUR LE LOT, pas seulement dans le log serveur. Ce
+            # except a masque pendant des semaines un unlink() impossible : le
+            # regroupement s'arretait au milieu et l'ecran n'en montrait rien.
+            # Un rapprochement a moitie fait se voit — deux bons pour un
+            # fournisseur — mais sa cause, elle, ne se lisait nulle part.
             _logger.exception(
                 "Regroupement des achats du lot %s", self.name)
+            self.message_post(body=_(
+                "Regroupement des achats interrompu : %(erreur)s<br/>"
+                "Les bons d'achat existent, seul leur rapprochement reste a "
+                "faire — a verifier avant d'envoyer au fournisseur.",
+                erreur=erreur,
+            ))
             return Achat
 
     def _rendre_compte_achats(self, lignes, avant, apres):
