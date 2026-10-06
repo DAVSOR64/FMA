@@ -1604,7 +1604,9 @@ class FmaLotFabrication(models.Model):
             limit=1,
         )
         if entrepot:
-            # Le type des assemblages, s'il releve bien de cet entrepot.
+            # 1. Le type des assemblages, s'il releve bien de cet entrepot :
+            #    c'est le choix d'Odoo pour cette commande, et celui qui
+            #    garantit que debit et assemblage se retrouvent.
             assemblages = self.production_ids.filtered(
                 lambda p: p.lot_production_type == "assemblage"
                 and p.state != "cancel"
@@ -1612,6 +1614,36 @@ class FmaLotFabrication(models.Model):
             )
             if assemblages:
                 return assemblages[0].picking_type_id
+
+            # 2. A defaut, le type de l'entrepot dont la SEQUENCE porte le
+            #    code de l'entrepot.
+            #
+            #    LA REGRIPPIERE en a deux : « Production », numerotant en
+            #    CBMF/LRE/, et « LA REGRIPIERRE : Production », numerotant en
+            #    LRE/LRE/. Le premier est un reliquat d'une ancienne
+            #    configuration — et c'est lui que manu_type_id designe. Un
+            #    debit genere avant que les assemblages soient rattaches
+            #    sortait donc sous un numero CBMF, dans le bon entrepot mais
+            #    sous le nom d'un autre atelier, et le metier lisait le nom.
+            #
+            #    On choisit donc sur la sequence et non sur le champ de
+            #    l'entrepot : le prefixe dit ou l'ordre sera lu, et c'est ce
+            #    que l'etiquette promet.
+            types = self.env["stock.picking.type"].search([
+                ("code", "=", "mrp_operation"),
+                ("warehouse_id", "=", entrepot.id),
+                ("company_id", "in", (self.company_id.id, False)),
+            ])
+            attendu = "%s/" % code
+            coherents = types.filtered(
+                lambda t: (t.sequence_id.prefix or "").upper().startswith(
+                    attendu)
+            )
+            if coherents:
+                return coherents[0]
+
+            # 3. En dernier ressort seulement, le type que l'entrepot
+            #    declare. Il peut designer n'importe lequel des siens.
             if "manu_type_id" in entrepot._fields and entrepot.manu_type_id:
                 return entrepot.manu_type_id
 

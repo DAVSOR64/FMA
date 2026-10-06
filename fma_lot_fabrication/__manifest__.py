@@ -70,7 +70,10 @@
     # l'ordre au prorata de leurs metres de profile. « Debit du lot » n'est
     # plus suivi en stock (migration). Les ordres deja generes ne sont pas
     # repris : les deux formes cohabitent.
-    "version": "19.0.1.60.0",
+    # 1.61.0 : le type de fabrication du debit se choisit sur le PREFIXE
+    # de sequence de l'entrepot, et non plus sur manu_type_id, qui peut
+    # designer un type numerotant pour un autre atelier.
+    "version": "19.0.1.61.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
