@@ -73,7 +73,9 @@
     # 1.61.0 : le type de fabrication du debit se choisit sur le PREFIXE
     # de sequence de l'entrepot, et non plus sur manu_type_id, qui peut
     # designer un type numerotant pour un autre atelier.
-    "version": "19.0.1.61.0",
+    # 1.62.0 : colonne Lot et regroupements projet / lot sur
+    # l'ordonnancement ; la replanification dit quand elle ne decale rien.
+    "version": "19.0.1.62.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

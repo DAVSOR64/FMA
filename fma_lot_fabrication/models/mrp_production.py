@@ -427,6 +427,36 @@ class MrpProduction(models.Model):
             </div>
         """ % (payload.get("fma_fin_debit", "-"), rangs)
 
+    def _dire_pourquoi_rien_a_decaler(self, lot):
+        """Trace la raison pour laquelle aucun assemblage n'a suivi le debit.
+
+        Trois cas, et ils n'appellent pas la meme suite : l'ordre n'est pas un
+        debit, il n'appartient a aucun lot, ou le lot n'a pas d'assemblage
+        actif rattache. Le dernier est le plus courant et le moins visible —
+        les assemblages existent, mais sans lot_fabrication_id, donc le lot ne
+        les voit pas.
+        """
+        self.ensure_one()
+        if self.lot_production_type != "debit":
+            raison = _("cet ordre n'est pas un debit de lot")
+        elif not self.lot_fabrication_id:
+            raison = _("cet ordre n'est rattache a aucun lot")
+        elif not lot:
+            raison = _("la fin de fab n'est pas renseignee sur le debit")
+        else:
+            total = len(lot.production_ids.filtered(
+                lambda p: p.lot_production_type == "assemblage"))
+            raison = _(
+                "le lot %(lot)s ne porte aucun assemblage actif "
+                "(%(total)s rattache(s), tous termines ou annules)",
+                lot=lot.display_name, total=total,
+            )
+        corps = _("Replanification : aucun assemblage decale — %(raison)s.",
+                  raison=raison)
+        self.message_post(body=corps)
+        if lot:
+            lot.message_post(body=corps)
+
     def action_apply_replan_preview(self, payload=None):
         """Applique au debit, puis entraine les assemblages et la matiere.
 
@@ -438,6 +468,11 @@ class MrpProduction(models.Model):
         lot, assemblages, decalage = self._lot_contexte_debit()
         resultat = super().action_apply_replan_preview(payload=payload)
         if not lot or not assemblages:
+            # Silence jusqu'ici : replanifier le debit n'entrainait rien et
+            # rien ne disait pourquoi. On le dit, sur l'ordre et sur le lot,
+            # avec ce qui a ete regarde — c'est la seule facon de distinguer
+            # « il n'y avait rien a decaler » d'un defaut.
+            self._dire_pourquoi_rien_a_decaler(lot)
             return resultat
 
         deplaces = lot._decaler_assemblages(assemblages, decalage, self)
