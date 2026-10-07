@@ -15,6 +15,13 @@
                   decoration-danger="ordo_statut == 'retard'"
                   decoration-warning="ordo_statut == 'attention'"
                   decoration-muted="ordo_statut == 'non_planifie'">
+                <!-- En premiere colonne : c'est celle que l'ordonnanceur
+                     coche en parcourant la liste. Modifiable par le seul
+                     groupe « Modif Ordo » — le champ reste VISIBLE pour les
+                     autres, un `groups` l'aurait masque au lieu de le
+                     verrouiller. -->
+                <field name="ordo_planifie" widget="boolean_toggle"
+                       readonly="not ordo_peut_modifier"/>
                 <field name="ordo_statut" widget="badge"
                        decoration-danger="ordo_statut == 'retard'"
                        decoration-warning="ordo_statut == 'attention'"
@@ -46,6 +53,8 @@
                 <field name="ordo_matiere_le"/>
 
                 <field name="ordo_livraison"/>
+                <field name="ordo_commentaire" optional="show"
+                       readonly="not ordo_peut_modifier"/>
                 <field name="ordo_marge_jours"
                        decoration-danger="ordo_marge_jours &lt; 0"/>
 
@@ -68,13 +77,6 @@
                 <field name="ordo_score_usinage" optional="hide"/>
                 <field name="ordo_score_montage" optional="hide"/>
 
-                <!-- La saisie de l'ordonnanceur. Modifiable par le groupe
-                     « Modif Ordo » seulement : le champ reste VISIBLE pour
-                     les autres, un `groups` l'aurait masque. -->
-                <field name="ordo_planifie" widget="boolean_toggle"
-                       readonly="not ordo_peut_modifier"/>
-                <field name="ordo_commentaire" optional="show"
-                       readonly="not ordo_peut_modifier"/>
                 <field name="ordo_peut_modifier" column_invisible="1"/>
 
                 <!-- Les raccourcis. Un bouton et non un lien : depuis une
