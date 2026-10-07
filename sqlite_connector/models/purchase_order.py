@@ -82,7 +82,7 @@ class PurchaseOrder(models.Model):
                 ))
         return nouveaux
 
-    def _fma_vals_bon_jumeau(self):
+    def _fma_vals_bon_vitrage(self):
         """L'en-tete du bon d'accueil, recopie champ par champ.
 
         Et non un copy() : copier un bon de commande duplique ses lignes, et
@@ -121,7 +121,7 @@ class PurchaseOrder(models.Model):
         if not palettes or not autres:
             return self.browse()
 
-        cible = self.create(self._fma_vals_bon_jumeau())
+        cible = self.create(self._fma_vals_bon_vitrage())
         palettes.write({"order_id": cible.id})
         self.invalidate_recordset(["order_line"])
         cible.message_post(body=_(

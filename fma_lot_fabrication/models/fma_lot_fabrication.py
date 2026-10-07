@@ -42,6 +42,13 @@ from odoo.tools import float_compare, float_is_zero
 
 _logger = logging.getLogger(__name__)
 
+#: Familles d'appro qui ne se regroupent PAS par lot. Le vitrage est
+#: commande pour la commande client, pas pour le lot : il arrive deja
+#: decoupe a la menuiserie, et ses deux destinations — chariot pour
+#: l'atelier, palette pour le chantier — commandent son bon bien avant le
+#: lot. Les panneaux suivent la meme logique d'achat.
+FAMILLES_HORS_LOT = ("vitrage",)
+
 
 #: Etiquette commerciale de la commande -> code de l'entrepot qui fabrique.
 #:
@@ -477,38 +484,61 @@ class FmaLotFabrication(models.Model):
             lignes.write({"lot_fabrication_id": self.id})
         return lignes
 
-    @api.model
-    def _destination_achat(self, achat):
-        """Destination du vitrage d'un bon, ou '' quand la notion n'existe pas.
+    def _bon_du_lot(self, lignes):
+        """Le bon qui doit porter ces lignes — un bon PAR LOT.
 
-        Elle vient de LOGIKAL et vit dans sqlite_connector, qui n'est pas une
-        dependance : on lit le champ s'il est la, sans le supposer.
+        Le metier veut une commande d'achat par lot et par fournisseur. Or le
+        bon ne de la confirmation du devis couvre toute la commande client :
+        une affaire de trois lots le partage. Il ne peut donc pas servir de
+        bon d'accueil tel quel.
+
+        On retient le bon qui ne porte QUE des lignes de ce lot — il y en a
+        un des que le lot a deja ete regroupe une fois. A defaut on en ouvre
+        un neuf, et le bon partage se vide de la part qui revient au lot.
+
+        Le plus ancien d'abord : c'est celui ne de la confirmation, il porte
+        deja la reference du devis dans son origine.
         """
-        if "fma_destination_vitrage" not in achat.order_line._fields:
-            return ""
-        destinations = set(
-            achat.order_line.mapped("fma_destination_vitrage")) - {False}
-        return destinations.pop() if len(destinations) == 1 else ""
+        self.ensure_one()
+        candidats = lignes.order_id.filtered(
+            lambda a: a.state in ("draft", "sent")).sorted("id")
+        for achat in candidats:
+            # « Les lignes de ce bon sont toutes a nous » : rien a scinder,
+            # ce bon est deja le bon du lot pour ce fournisseur.
+            reelles = achat.order_line.filtered(
+                lambda l: not l.display_type and l.product_id)
+            if reelles and not (reelles - lignes):
+                return achat
+        return self.env["purchase.order"].create(
+            candidats[0]._fma_vals_bon_lot())
 
     def _fusionner_achats_du_lot(self):
-        """Ramene les achats du lot a un bon de commande par fournisseur.
+        """Un bon de commande par lot ET par fournisseur.
 
-        Un lot fait naitre ses achats en deux temps : la quincaillerie et le
-        vitrage a la confirmation de la commande, les profiles a la generation
-        de l'OF de debit. Odoo ne les rapproche pas — les besoins ne viennent
-        ni du meme ordre ni du meme moment — et le fournisseur recevait deux
-        bons pour la meme affaire. Technal en recevait un pour les barres et
-        un pour la quincaillerie.
+        C'est la regle du metier, et elle n'est pas celle d'Odoo : l'appro
+        natif groupe par fournisseur et par type d'operation, sans rien
+        savoir des lots. Un lot se retrouvait donc eclate sur plusieurs bons
+        — la quincaillerie nee de la confirmation du devis, les profiles nes
+        de la generation de l'OF de debit — et, a l'inverse, un meme bon
+        portait les lots d'une affaire entiere.
 
-        On garde le bon le plus ancien : c'est celui ne de la confirmation de
-        la commande, donc celui qui porte deja la reference du devis dans son
-        origine. Les achats de profiles le rejoignent, et deviennent visibles
-        depuis la commande — ce qu'ils n'etaient pas, l'OF de debit n'ayant
-        pas de ligne de vente.
+        Les deux travers se corrigent du meme geste, en raisonnant LIGNE A
+        LIGNE plutot que bon a bon : on rassemble les lignes du lot par
+        fournisseur, puis on les pose sur un bon qui n'appartient qu'a ce
+        lot. Celui qui est deja dans ce cas sert d'accueil ; sinon on en
+        ouvre un, et le bon partage se vide de la part qui revient au lot.
+
+        LE VITRAGE EST HORS DE CE JEU. Il s'achete pour la commande client,
+        pas pour le lot : il arrive deja decoupe a la menuiserie, et sa
+        destination — chariot pour l'atelier, palette pour le chantier —
+        commande son bon bien avant le lot. Le melanger aux profiles
+        obligerait a le rouvrir a chaque nouveau lot.
 
         Ne sont rapproches que les bons de MEME fournisseur, meme societe,
         meme devise et meme type d'operation : on ne melange pas deux
-        receptions ni deux monnaies.
+        receptions ni deux monnaies. Et seulement les bons en brouillon : une
+        fois envoye au fournisseur, un bon ne se recompose pas dans le dos de
+        l'acheteur.
 
         Encadre : au pire le fournisseur recoit deux bons, ce qui est genant,
         pas bloquant.
@@ -516,52 +546,48 @@ class FmaLotFabrication(models.Model):
         self.ensure_one()
         Achat = self.env["purchase.order"]
         try:
-            lignes = self._lignes_achat_du_lot()
-            commandes = lignes.order_id.filtered(
-                lambda o: o.state in ("draft", "sent"))
-            if len(commandes) < 2:
+            lignes = self._lignes_achat_du_lot().filtered(
+                lambda l: not l.display_type and l.product_id
+                and l.order_id.state in ("draft", "sent")
+                and l.fma_famille_appro not in FAMILLES_HORS_LOT
+            )
+            commandes = lignes.order_id
+            if not lignes:
+                self._rendre_compte_achats(lignes, commandes, Achat)
                 return commandes
 
             par_flux = {}
-            for achat in commandes:
+            for ligne in lignes:
+                achat = ligne.order_id
                 cle = (
                     achat.partner_id.id,
                     achat.company_id.id,
                     achat.currency_id.id,
                     achat.picking_type_id.id,
-                    # LA DESTINATION DU VITRAGE FAIT PARTIE DU FLUX. Le
-                    # vitrage de chantier est sorti sur un bon a lui par
-                    # sqlite_connector ; sans ce terme, ce regroupement le
-                    # recollerait aussitot a celui de l'atelier — meme
-                    # fournisseur, meme type d'operation. Lu avec precaution :
-                    # sqlite_connector n'est pas une dependance de ce module.
-                    self._destination_achat(achat),
                 )
-                par_flux[cle] = par_flux.get(cle, Achat) | achat
+                par_flux.setdefault(cle, self.env["purchase.order.line"])
+                par_flux[cle] |= ligne
 
             gardes = Achat
             for du_flux in par_flux.values():
-                du_flux = du_flux.sorted("id")
-                cible, autres = du_flux[0], du_flux[1:]
+                cible = self._bon_du_lot(du_flux)
                 gardes |= cible
-                if not autres:
-                    continue
-                origines = [cible.origin or ""]
-                origines += [a.origin or "" for a in autres]
-                autres.order_line.write({"order_id": cible.id})
-                autres.invalidate_recordset(["order_line"])
-                vides = autres.filtered(lambda a: not a.order_line)
+                a_deplacer = du_flux - cible.order_line
+                anciens = a_deplacer.order_id
+                origines = [cible.origin or ""] + [
+                    a.origin or "" for a in anciens]
+                if a_deplacer:
+                    a_deplacer.write({"order_id": cible.id})
+                    anciens.invalidate_recordset(["order_line"])
+                vides = anciens.filtered(
+                    lambda a: not a.order_line and a.state in ("draft", "sent"))
                 if vides:
                     # ANNULER AVANT DE SUPPRIMER. Odoo refuse de supprimer un
                     # bon d'achat qui n'est pas annule — « In order to delete
                     # a purchase order, you must cancel it first ». Le
-                    # unlink() direct levait donc une UserError, avalee par le
+                    # unlink() direct levait une UserError, avalee par le
                     # except de cette methode : les lignes etaient bien
-                    # deplacees, mais les bons vides restaient en brouillon et
-                    # l'origine n'etait jamais absorbee. Constate sur
-                    # A26-10-07832, ou P28593 et P28594 ont survecu vides a
-                    # TECHNAL apres que leurs lignes soient passees sur
-                    # P28592.
+                    # deplacees, mais les bons vides restaient en brouillon.
                     vides.button_cancel()
                     vides.unlink()
                 # L'origine du bon absorbe garde sa trace : sans cela, on
@@ -574,6 +600,7 @@ class FmaLotFabrication(models.Model):
                             retenues.append(jeton)
                 if retenues:
                     cible.origin = ", ".join(retenues)
+                cible.lot_fabrication_id = self.id
             self._rendre_compte_achats(lignes, commandes, gardes)
             return gardes
         except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage

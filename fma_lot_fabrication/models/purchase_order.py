@@ -127,6 +127,37 @@ class PurchaseOrder(models.Model):
         ondelete="set null",
     )
 
+    def _fma_vals_bon_lot(self):
+        """L'en-tete d'un bon jumeau, pour accueillir les lignes d'un lot.
+
+        Champ par champ, et non un copy() : copier un bon de commande
+        duplique ses lignes, or on veut precisement un bon VIDE ou deplacer
+        les lignes existantes. Les champs nommes sont ceux qui engagent le
+        fournisseur et ceux qui pilotent la reception.
+        """
+        self.ensure_one()
+        vals = {
+            "partner_id": self.partner_id.id,
+            "company_id": self.company_id.id,
+            "currency_id": self.currency_id.id,
+            "date_order": self.date_order,
+            "origin": self.origin,
+            "partner_ref": self.partner_ref,
+            "user_id": self.user_id.id,
+            "picking_type_id": self.picking_type_id.id,
+            "payment_term_id": self.payment_term_id.id,
+            "fiscal_position_id": self.fiscal_position_id.id,
+            "dest_address_id": self.dest_address_id.id,
+        }
+        # Les champs de rattachement FMA, sans lesquels l'achat sortirait des
+        # ecrans de suivi de l'affaire. Lus avec precaution : ils viennent de
+        # modules qui ne sont pas tous installes partout.
+        for nom in ("x_studio_projet_du_so", "fma_sale_order_id"):
+            valeur = self[nom] if nom in self._fields else False
+            if valeur:
+                vals[nom] = valeur.id if hasattr(valeur, "id") else valeur
+        return vals
+
     def action_view_lot_fabrication(self):
         self.ensure_one()
         lots = self.lot_fabrication_ids
