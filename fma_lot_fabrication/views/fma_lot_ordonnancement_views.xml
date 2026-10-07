@@ -131,15 +131,17 @@
               groups="mrp.group_mrp_user"
               sequence="15"/>
 
+    <!-- « numbercall » n'existe plus sur ir.cron en Odoo 19 : un cron tourne
+         desormais sans compteur d'appels. Les champs retenus sont ceux du
+         cron d'ordonnancement existant, qui lui passe. -->
     <record id="cron_fma_lot_ordonnancement" model="ir.cron">
-        <field name="name">FMA : recalcul de l'ordonnancement des lots</field>
+        <field name="name">FMA - Recalcul de l'ordonnancement des lots</field>
         <field name="model_id" ref="fma_lot_fabrication.model_fma_lot_fabrication"/>
         <field name="state">code</field>
         <field name="code">model.cron_ordonnancement()</field>
         <field name="interval_number">1</field>
         <field name="interval_type">hours</field>
-        <field name="numbercall">-1</field>
-        <field name="active" eval="True"/>
+        <field name="active">True</field>
     </record>
 
 </odoo>

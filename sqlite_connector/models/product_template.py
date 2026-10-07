@@ -2,6 +2,7 @@
 from odoo import fields, models
 
 from .. import noms_articles
+from ..ref_logikal import DESTINATIONS_VITRAGE
 
 
 class ProductTemplate(models.Model):
@@ -15,6 +16,18 @@ class ProductTemplate(models.Model):
         "l'a saisi a la main dans LOGIKAL (ligne « manuelle »). Il n'a donc "
         "pas de reference article, et le connecteur lui en fabrique une, du "
         "type « ABC A26-00-00002_LB1 ».",
+    )
+
+    fma_destination_vitrage = fields.Selection(
+        DESTINATIONS_VITRAGE,
+        string="Destination du vitrage",
+        copy=False,
+        index="btree_not_null",
+        help="Lue dans Glass.Info2 du fichier LOGIKAL. « Chariot » reste a "
+        "l'atelier, « Palette » part chez le client en transitant par FMA. "
+        "Elle decide de la commande d'achat : les deux destinations ne "
+        "peuvent pas voyager sur le meme bon, elles ne se dechargent pas au "
+        "meme endroit.",
     )
 
     fma_nature_logikal = fields.Selection(

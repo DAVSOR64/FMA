@@ -13,6 +13,8 @@ from odoo import Command, models, fields, SUPERUSER_ID, api, _
 from odoo.modules.registry import Registry as registry
 from datetime import datetime, timedelta
 
+from ..ref_logikal import destination_vitrage
+
 _logger = logging.getLogger(__name__)
 
 # Suffixe de lot ajoute par LOGIKAL quand une position est repartie en lots :
@@ -1394,7 +1396,24 @@ class SqliteConnector(models.Model):
                         message = _("Product has been Created: ") + product._get_html_link()
                         self.message_post(body=message)
                         self.env.cr.commit()
-                   
+
+                    # DESTINATION DU VITRAGE, a chaque import et pas seulement
+                    # a la creation : le deviseur peut corriger Info2 sur une
+                    # affaire deja importee, et c'est meme le cas le plus
+                    # frequent une fois la consigne CHARIOT / PALETTE diffusee.
+                    article = self.env['product.product'].search(
+                        [('default_code', '=', refinterne)], limit=1)
+                    if article:
+                        destination, anomalie = destination_vitrage(info_livraison)
+                        if article.fma_destination_vitrage != destination:
+                            article.fma_destination_vitrage = destination
+                        if anomalie:
+                            self.log_request(
+                                "Destination du vitrage non conforme : %s — "
+                                "attendu CHARIOT ou PALETTE, traite comme "
+                                "CHARIOT" % anomalie,
+                                refinterne, 'Glass Data')
+
                 fournisseur = ligne[0]
                 info_livraison = ligne[1]
                 vitrage = (str(ligne [2]) + " " + str(ligne[3]) + " " + str(ligne[4]) + " " + str(ligne[5]))

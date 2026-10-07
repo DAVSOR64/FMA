@@ -477,6 +477,19 @@ class FmaLotFabrication(models.Model):
             lignes.write({"lot_fabrication_id": self.id})
         return lignes
 
+    @api.model
+    def _destination_achat(self, achat):
+        """Destination du vitrage d'un bon, ou '' quand la notion n'existe pas.
+
+        Elle vient de LOGIKAL et vit dans sqlite_connector, qui n'est pas une
+        dependance : on lit le champ s'il est la, sans le supposer.
+        """
+        if "fma_destination_vitrage" not in achat.order_line._fields:
+            return ""
+        destinations = set(
+            achat.order_line.mapped("fma_destination_vitrage")) - {False}
+        return destinations.pop() if len(destinations) == 1 else ""
+
     def _fusionner_achats_du_lot(self):
         """Ramene les achats du lot a un bon de commande par fournisseur.
 
@@ -516,6 +529,13 @@ class FmaLotFabrication(models.Model):
                     achat.company_id.id,
                     achat.currency_id.id,
                     achat.picking_type_id.id,
+                    # LA DESTINATION DU VITRAGE FAIT PARTIE DU FLUX. Le
+                    # vitrage de chantier est sorti sur un bon a lui par
+                    # sqlite_connector ; sans ce terme, ce regroupement le
+                    # recollerait aussitot a celui de l'atelier — meme
+                    # fournisseur, meme type d'operation. Lu avec precaution :
+                    # sqlite_connector n'est pas une dependance de ce module.
+                    self._destination_achat(achat),
                 )
                 par_flux[cle] = par_flux.get(cle, Achat) | achat
 

@@ -35,11 +35,13 @@
     # (nouvelle colonne product_template.fma_nom_importe). Reprise en
     # post-migrate des articles deja crees sans nom, d'apres leur ligne de
     # commande.
-    "version": "19.0.1.6.2",
+    "version": "19.0.1.7.0",
     "description": """
 
     """,
-    "depends": ["mail", "sale", "product"],
+    # « purchase » : la destination du vitrage lue dans LOGIKAL decide
+    # de la commande d'achat, voir models/purchase_order.py.
+    "depends": ["mail", "sale", "product", "purchase", "stock"],
     "data": [
         "views/sqlite_connector.xml",
         "views/product_views.xml",

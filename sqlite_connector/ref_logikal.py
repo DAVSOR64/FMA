@@ -72,3 +72,53 @@ def _prefixe(fournisseur):
         if nom in frs:
             return prefixe
     return ""
+
+
+# ----------------------------------------------------------------------
+# Destination du vitrage
+# ----------------------------------------------------------------------
+#
+# LOGIKAL porte l'information dans Glass.Info2, en TEXTE LIBRE. Releve sur
+# dix-neuf affaires reelles : « SUR CHARIOT », « Sur chariot », « Sur
+# chariot chantier », et du vide. La consigne donnee aux deviseurs est
+# desormais deux mots, CHARIOT ou PALETTE, mais la base porte l'ancien et
+# un deviseur se trompera : la lecture reste tolerante, et signale.
+#
+# Chariot = le vitrage reste a l'atelier. Palette = il part chez le client,
+# en transitant par FMA. La distinction decide de la commande d'achat, donc
+# du quai de reception : elle ne peut pas rester implicite.
+
+DESTINATION_CHARIOT = "chariot"
+DESTINATION_PALETTE = "palette"
+
+#: Destinations possibles, pour les champs Selection.
+DESTINATIONS_VITRAGE = [
+    (DESTINATION_CHARIOT, "Chariot — atelier"),
+    (DESTINATION_PALETTE, "Palette — chantier"),
+]
+
+_ACCENTS = str.maketrans("ÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÇ", "AAAAAAEEEEIIIIOOOOOUUUUC")
+
+
+def destination_vitrage(info2):
+    """(destination, anomalie) pour un Glass.Info2 de LOGIKAL.
+
+    ``anomalie`` vaut la valeur brute quand elle n'est pas conforme a la
+    consigne — vide, ancienne formulation, faute de frappe. Elle n'est pas
+    une erreur bloquante : on retombe sur CHARIOT, et l'appelant signale.
+
+    LE REPLI EST CHARIOT, ET C'EST VOLONTAIRE. Un vitrage de chantier traite
+    comme un chariot arrive a l'atelier, ou il passe de toute facon : on le
+    recharge. L'inverse — une palette expediee au chantier alors qu'elle
+    devait rester — ne se rattrape qu'au dechargement.
+    """
+    texte = (info2 or "").strip().upper().translate(_ACCENTS)
+    if not texte:
+        return DESTINATION_CHARIOT, "(vide)"
+    if "PALETTE" in texte:
+        return DESTINATION_PALETTE, ""
+    if texte == "CHARIOT" or texte == "SUR CHARIOT":
+        return DESTINATION_CHARIOT, ""
+    # « SUR CHARIOT CHANTIER » et consorts : l'intention est lisible, la
+    # saisie ne l'est pas. On ne devine pas a la place du deviseur.
+    return DESTINATION_CHARIOT, info2
