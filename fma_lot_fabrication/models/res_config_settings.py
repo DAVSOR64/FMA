@@ -10,6 +10,11 @@ class ResConfigSettings(models.TransientModel):
         string="Menuiseries max par lot",
         readonly=False,
     )
+    fma_lot_jours_avance_matiere = fields.Integer(
+        related="company_id.fma_lot_jours_avance_matiere",
+        string="Jours avant le débit : sortie quincaillerie et vitrage",
+        readonly=False,
+    )
     fma_lot_product_debit_id = fields.Many2one(
         related="company_id.fma_lot_product_debit_id",
         string="Article debite par defaut",

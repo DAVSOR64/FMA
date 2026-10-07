@@ -15,6 +15,16 @@ class ResCompany(models.Model):
         help="Plafond du nombre de menuiseries dans un lot de fabrication, "
         "impose par l'optimisation du debit. 0 = pas de limite.",
     )
+    fma_lot_jours_avance_matiere = fields.Integer(
+        string="Jours avant le débit : sortie quincaillerie et vitrage",
+        # 6 et non 3 : le magasin garnit un casier par menuiserie, et trois
+        # jours ne suffisaient pas sur un lot de huit. Le delai a deja change
+        # deux fois — il vit dans les reglages, plus dans le code.
+        default=6,
+        help="Jours OUVRES entre la sortie de la quincaillerie et du vitrage "
+        "et le debut de l'OF de debit. Les profiles ne sont pas concernes : "
+        "ils suivent l'OF de debit, qui les consomme.",
+    )
     fma_lot_product_debit_id = fields.Many2one(
         "product.product",
         string="Article debite par defaut",

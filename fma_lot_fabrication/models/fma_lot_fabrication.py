@@ -18,7 +18,8 @@ nomenclature phantom, eclatee dans l'OF d'assemblage.
 La matiere sort en DEUX temps, et donc en deux documents : les prelevements
 de composants sont regroupes par niveau, jamais entre les deux.
 
-* la quincaillerie et le vitrage partent en Pre-Fab a J-3 ouvres, le temps
+* la quincaillerie et le vitrage partent en Pre-Fab quelques jours ouvres
+  avant le debit (reglage de societe), le temps
   pour le magasin de garnir un casier par menuiserie ;
 * les profiles partent au banc de debit avec l'OF de debit, qui les consomme
   TOUS — c'est le lot entier qui est optimise, pas une menuiserie.
@@ -1065,7 +1066,7 @@ class FmaLotFabrication(models.Model):
         applique les regles de capacite et le calendrier. Aucune regle metier
         n'est reecrite ici.
 
-        Deux choses suivent le mouvement : la sortie matiere, calee a J-3
+        Deux choses suivent le mouvement : la sortie matiere, calee quelques jours
         ouvres du debit, et le controle de la date de livraison client, qui
         dit si le lot tient encore l'engagement. Les achats, eux, ne bougent
         PAS : le compte rendu nomme les bons a revoir (cf. _achats_a_revoir).
@@ -1397,7 +1398,7 @@ class FmaLotFabrication(models.Model):
             debit._set_date_fin_de_fab(veille)
             debit.compute_macro_schedule_from_date_fin()
 
-            # 4. La quincaillerie et le vitrage sortent a J-3 ouvres avant le
+            # 4. La quincaillerie et le vitrage sortent quelques jours ouvres avant le
             #    debit : c'est le temps qu'il faut au magasin pour garnir un
             #    casier par menuiserie. On date le bon de sortie lui-meme, la
             #    ou on datait l'OF de quincaillerie qui ne servait qu'a cela.
@@ -1434,11 +1435,23 @@ class FmaLotFabrication(models.Model):
         self.message_post(body=corps)
         return True
 
-    #: Jours ouvres entre la sortie de la matiere et le debut du debit.
-    JOURS_AVANCE_QUINCAILLERIE = 3
+    #: Repli quand la societe ne porte pas le reglage — un lot ne doit pas
+    #: rester sans date de sortie parce qu'un champ est vide.
+    JOURS_AVANCE_QUINCAILLERIE = 6
+
+    def _jours_avance_matiere(self):
+        """Jours ouvres entre la sortie matiere et le debut du debit."""
+        self.ensure_one()
+        reglage = self.company_id.fma_lot_jours_avance_matiere
+        return reglage if reglage and reglage > 0 else self.JOURS_AVANCE_QUINCAILLERIE
 
     def _planifier_sortie_matiere(self, debit):
-        """Cale la sortie matiere a J-3 ouvres avant le debut du debit.
+        """Cale la sortie matiere avant le debut du debit, delai reglable.
+
+        Le delai etait fige a trois jours dans le code. Il est passe a six, et
+        il rechangera : le magasin garnit un casier par menuiserie, et le
+        nombre de menuiseries par lot bouge lui aussi. Il vit donc dans les
+        reglages de la societe, ou le metier peut le corriger sans build.
 
         Jours OUVRES, sur le calendrier de la societe : trois jours calendaires
         avant un lundi tomberaient un vendredi soir, et le magasin garnirait
@@ -1471,16 +1484,16 @@ class FmaLotFabrication(models.Model):
             return False
 
         depart = fields.Datetime.to_datetime(debit.date_start)
+        jours = self._jours_avance_matiere()
         calendrier = self.company_id.resource_calendar_id
         cible = False
         if calendrier:
-            cible = calendrier.plan_days(
-                -self.JOURS_AVANCE_QUINCAILLERIE, depart, compute_leaves=True
-            )
+            cible = calendrier.plan_days(-jours, depart, compute_leaves=True)
         if not cible:
-            # Sans calendrier exploitable, trois jours calendaires valent mieux
-            # qu'une sortie non datee, qui ne serait jamais preparee.
-            cible = depart - timedelta(days=self.JOURS_AVANCE_QUINCAILLERIE)
+            # Sans calendrier exploitable, le meme nombre de jours calendaires
+            # vaut mieux qu'une sortie non datee, qui ne serait jamais
+            # preparee.
+            cible = depart - timedelta(days=jours)
 
         if sorties:
             sorties.write({"scheduled_date": cible})
@@ -2351,7 +2364,7 @@ class FmaLotFabrication(models.Model):
         barre sert plusieurs menuiseries, on ne peut pas en sortir la moitie.
 
         ``prefab`` : la quincaillerie et le vitrage, agreges. Ils partent en
-        Pre-Fab a J-3, et c'est ce document que le magasin suit pour garnir
+        Pre-Fab avant le debit, et c'est ce document que le magasin suit pour garnir
         les casiers.
 
         ``casiers`` : le meme contenu, mais a l'unite — un casier par

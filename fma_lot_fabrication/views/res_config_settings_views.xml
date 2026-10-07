@@ -16,6 +16,11 @@
                              help="Plafond impose par l'optimisation du debit. 0 = pas de limite.">
                         <field name="fma_lot_max_menuiserie"/>
                     </setting>
+                    <setting id="fma_lot_avance_matiere_setting"
+                             string="Jours avant le débit : sortie quincaillerie et vitrage"
+                             help="Jours OUVRÉS entre la sortie de la quincaillerie et du vitrage vers la Pré-Fab et le début de l'OF de débit. Les profilés ne sont pas concernés : ils suivent l'OF de débit.">
+                        <field name="fma_lot_jours_avance_matiere"/>
+                    </setting>
                     <setting id="fma_lot_product_setting"
                              string="Article debite par defaut"
                              help="« Debit du lot » : l'article que porte l'OF de debit, pour le nombre de menuiseries du lot. Generique, non suivi en stock ; les ensembles debites sortent en sous-produits.">
