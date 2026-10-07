@@ -21,9 +21,25 @@ import logging
 
 from odoo import _, api, fields, models
 
-from ..ref_logikal import DESTINATION_PALETTE, DESTINATIONS_VITRAGE
+from ..ref_logikal import (
+    DESTINATION_CHARIOT,
+    DESTINATION_PALETTE,
+    DESTINATIONS_VITRAGE,
+)
 
 _logger = logging.getLogger(__name__)
+
+#: Le commentaire de livraison du bon d'achat. Il est IMPRIME sur le bon
+#: envoye au fournisseur et repris dans l'export XML sous <Remarks> : ce
+#: qu'on y ecrit part chez le verrier.
+CHAMP_COMMENTAIRE = "x_studio_commentaire_livraison_vitrage_"
+
+#: La mention portee sur le bon, en toutes lettres et en majuscules — elle
+#: se lit sur un document imprime, pas dans une base.
+MENTION_PAR_DESTINATION = {
+    DESTINATION_CHARIOT: "CHARIOT",
+    DESTINATION_PALETTE: "PALETTE",
+}
 
 
 class PurchaseOrderLine(models.Model):
@@ -55,6 +71,38 @@ class PurchaseOrder(models.Model):
             destinations = set(
                 achat.order_line.mapped("fma_destination_vitrage")) - {False}
             achat.fma_vitrage_palette = destinations == {DESTINATION_PALETTE}
+
+    def _fma_noter_destination(self):
+        """Porte CHARIOT ou PALETTE sur le commentaire de livraison du bon.
+
+        Le verrier a besoin de le lire sur le document, pas de le deduire :
+        c'est lui qui charge, et un chariot n'est pas une palette.
+
+        ON N'ECRASE JAMAIS UN COMMENTAIRE SAISI. Le champ est libre et sert
+        deja a l'acheteur — une adresse de chantier, une consigne d'horaire.
+        On n'ecrit que s'il est vide, ou s'il porte deja l'une de nos deux
+        mentions, de sorte qu'une correction de destination se propage sans
+        jamais effacer le travail de quelqu'un.
+
+        Le champ vient du module « custom », qui n'est pas une dependance
+        d'ici : on verifie sa presence plutot que de la supposer.
+        """
+        mentions = set(MENTION_PAR_DESTINATION.values())
+        for achat in self:
+            if CHAMP_COMMENTAIRE not in achat._fields:
+                return
+            destinations = set(
+                achat.order_line.mapped("fma_destination_vitrage")) - {False}
+            if len(destinations) != 1:
+                # Pas de vitrage, ou les deux destinations encore melangees :
+                # rien a affirmer au fournisseur.
+                continue
+            mention = MENTION_PAR_DESTINATION[destinations.pop()]
+            actuel = (achat[CHAMP_COMMENTAIRE] or "").strip()
+            if actuel and actuel.upper() not in mentions:
+                continue
+            if actuel != mention:
+                achat[CHAMP_COMMENTAIRE] = mention
 
     # ------------------------------------------------------------------
     def _fma_scinder_vitrage(self):
@@ -104,6 +152,10 @@ class PurchaseOrder(models.Model):
             "fiscal_position_id": self.fiscal_position_id.id,
             "dest_address_id": self.dest_address_id.id,
         }
+        # Volontairement SANS le commentaire de livraison : le bon d'accueil
+        # porte l'autre destination, recopier celui du bon d'origine
+        # annoncerait l'inverse de ce qu'il contient. _fma_noter_destination
+        # le pose juste apres, a partir de ses lignes.
         # Les champs Studio du referentiel FMA — le projet notamment, sans
         # lequel l'achat sortirait des ecrans de suivi de l'affaire.
         for nom in ("x_studio_projet_du_so", "fma_sale_order_id"):
@@ -158,6 +210,10 @@ class SaleOrder(models.Model):
             ])
             achats = achats.filtered(
                 lambda a: any(a.order_line.mapped("fma_destination_vitrage")))
-            if achats:
-                achats._fma_scinder_vitrage()
+            if not achats:
+                continue
+            nouveaux = achats._fma_scinder_vitrage()
+            # Apres la scission seulement : avant, un bon melangeant les deux
+            # destinations n'aurait rien eu a dire au fournisseur.
+            (achats | nouveaux)._fma_noter_destination()
         return resultat
