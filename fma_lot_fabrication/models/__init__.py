@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from . import fma_lot_fabrication
 from . import fma_lot_fabrication_line
+from . import fma_lot_ordonnancement
 from . import fma_lot_material_line
 from . import sale_order
 from . import sale_order_line
