@@ -49,15 +49,16 @@
                 <field name="ordo_marge_jours"
                        decoration-danger="ordo_marge_jours &lt; 0"/>
 
-                <!-- La charge. Repliees par defaut : elles servent a arbitrer,
-                     pas a lire l'etat d'une affaire. -->
+                <!-- La charge, poste par poste. Affichee : c'est ce que
+                     l'ordonnanceur arbitre. Les colonnes se replient d'un
+                     clic pour qui ne veut que l'etat de l'affaire. -->
                 <field name="ordo_nb_reperes" optional="hide" sum="Repères"/>
-                <field name="ordo_heure_debit" optional="hide" sum="H. Débit"/>
-                <field name="ordo_heure_banc" optional="hide" sum="H. CU"/>
-                <field name="ordo_heure_usinage" optional="hide" sum="H. Usinage"/>
-                <field name="ordo_heure_montage" optional="hide" sum="H. Montage"/>
-                <field name="ordo_heure_vitrage" optional="hide" sum="H. Vitrage"/>
-                <field name="ordo_heure_emballage" optional="hide" sum="H. Emballage"/>
+                <field name="ordo_heure_debit" optional="show" sum="H. Débit"/>
+                <field name="ordo_heure_banc" optional="show" sum="H. CU"/>
+                <field name="ordo_heure_usinage" optional="show" sum="H. Usinage"/>
+                <field name="ordo_heure_montage" optional="show" sum="H. Montage"/>
+                <field name="ordo_heure_vitrage" optional="show" sum="H. Vitrage"/>
+                <field name="ordo_heure_emballage" optional="show" sum="H. Emballage"/>
                 <field name="ordo_heure_totale" optional="show" sum="Heures"/>
                 <field name="ordo_score_complexite" optional="hide" sum="Complexité"/>
                 <!-- PAS de `sum` sur les scores : une note ne s'additionne
@@ -126,6 +127,31 @@
                 <filter name="group_livraison" string="Livraison client"
                         context="{'group_by': 'ordo_livraison:month'}"/>
             </search>
+        </field>
+    </record>
+
+    <!-- Le detail des lignes d'achat d'un lot.
+         La liste standard des bons affiche « Arrivee prevue » au niveau de
+         l'EN-TETE, qui vaut la date de la ligne la PLUS PROCHE. Le tableau
+         d'ordonnancement, lui, retient la plus TARDIVE : c'est elle qui
+         contraint le lancement. Les deux chiffres different donc
+         legitimement, et sans cette liste on ne peut pas le verifier. -->
+    <record id="view_fma_lot_lignes_achat_list" model="ir.ui.view">
+        <field name="name">purchase.order.line.lot.list</field>
+        <field name="model">purchase.order.line</field>
+        <field name="arch" type="xml">
+            <list string="Lignes d'achat du lot" create="false" edit="false"
+                  default_order="date_planned desc">
+                <field name="order_id"/>
+                <field name="partner_id" string="Fournisseur"/>
+                <field name="product_id"/>
+                <field name="fma_famille_appro" string="Famille"/>
+                <field name="date_planned" string="Arrivée de CETTE ligne"/>
+                <field name="product_qty" string="Commandé"/>
+                <field name="qty_received" string="Reçu"/>
+                <field name="price_subtotal" sum="Total"/>
+                <field name="state" widget="badge"/>
+            </list>
         </field>
     </record>
 

@@ -502,6 +502,15 @@ class FmaLotFabrication(models.Model):
             "name": _("Lignes d'achat — %s", self.display_name),
             "res_model": "purchase.order.line",
             "view_mode": "list,form",
+            # Notre liste, et pas celle d'Odoo : c'est la date de CHAQUE
+            # ligne qu'il faut voir. L'en-tete du bon n'affiche que la plus
+            # proche, alors que le tableau retient la plus tardive.
+            "views": [
+                (self.env.ref(
+                    "fma_lot_fabrication.view_fma_lot_lignes_achat_list").id,
+                 "list"),
+                (False, "form"),
+            ],
             "domain": [("id", "in", lignes.ids)],
             "context": {"create": False},
         }
