@@ -3,7 +3,7 @@
     "name": "FMA Etiquettes, scan atelier et SAV",
     # 1.0.0 : etiquette par menuiserie (Code128 + QR), poste de scan pour la
     # declaration de fabrication, localisation et SAV au numero de serie.
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.2.0",
     "category": "Manufacturing",
     "summary": "Une etiquette par menuiserie : declaration de fabrication au "
                "scan, localisation et SAV au numero de serie",

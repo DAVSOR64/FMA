@@ -460,8 +460,19 @@ class StockLot(models.Model):
             "societe": (self.company_id or ordre.company_id
                         or self.env.company).name,
             "sav_url": url,
+            # CODE128 NE SAIT PAS ECRIRE UN ACCENT. Il ne couvre que l'ASCII,
+            # et les numeros de serie reprennent le nom de la ligne de
+            # commande : « A26-10-07831_Repère A - Entrée-001 » le faisait
+            # echouer. L'echec etait avale par _fma_image et le t-if du
+            # modele masquait simplement le code — l'etiquette sortait sans
+            # code-barres de serie, sans rien dire. Le QR, lui, accepte
+            # l'UTF-8 : il prend le relais plutot que de laisser un trou.
             "barcode_src": self._fma_image(
                 "Code128", self.name, width=900, height=140, quiet=1),
+            "serie_qr_src": "" if self._fma_image(
+                "Code128", self.name, width=900, height=140, quiet=1
+            ) else self._fma_image(
+                "QR", self.name, width=260, height=260, barLevel="M"),
             # Le numero d'ORDRE, en code-barres lui aussi. L'etiquette ne
             # portait que le numero de serie : il designe la menuiserie, mais
             # l'ecran Atelier s'ouvre sur un ordre. L'operateur lisait donc le

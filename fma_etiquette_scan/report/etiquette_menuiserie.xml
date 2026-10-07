@@ -83,6 +83,8 @@
             <div style="text-align: center; margin-top: 6px;">
                 <img t-if="etq['barcode_src']" alt="Code-barres du numéro de série"
                      style="width: 100%; height: 62px;" t-att-src="etq['barcode_src']"/>
+                <img t-if="etq['serie_qr_src']" alt="QR code du numéro de série"
+                     style="width: 62px; height: 62px;" t-att-src="etq['serie_qr_src']"/>
                 <div style="font-size: 15px; font-weight: bold; letter-spacing: 0.5px;" t-out="etq['serie']"/>
             </div>
 
