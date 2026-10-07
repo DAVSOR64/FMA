@@ -32,6 +32,8 @@ import logging
 from odoo import _, api, fields, models
 
 from odoo.addons.fma_mrp_ordonnancement.models.constants import (
+    FMA_POSTE_KEYS,
+    FMA_POSTES_SCORES,
     FMA_STATUT_RECEPTION,
 )
 
@@ -124,6 +126,89 @@ class FmaLotFabrication(models.Model):
         "le lancement du débit, pas la première.",
     )
 
+    # --- Charge : heures, reperes, complexite, scores -----------------------
+    #
+    # Ce sont les colonnes du tableau d'ordonnancement des OF, portees au lot.
+    # Trois regles d'agregation differentes, et les confondre donnerait des
+    # chiffres faux :
+    #
+    # * LES HEURES S'ADDITIONNENT. Elles viennent des ordres de travail de
+    #   chaque OF : la charge du lot est bien la somme de celle de ses ordres.
+    #
+    # * LES REPERES NE S'ADDITIONNENT PAS. Sur l'OF, ils se comptent sur la
+    #   COMMANDE DE VENTE — les sommer sur les huit OF d'un lot de huit
+    #   menuiseries multiplierait le resultat par huit. Au lot, un repere est
+    #   une menuiserie.
+    #
+    # * LES SCORES NE S'ADDITIONNENT PAS NON PLUS, et c'est moins visible : un
+    #   score est une NOTE, lue dans un bareme a partir du ratio heures /
+    #   reperes. Additionner des notes ne veut rien dire. Le score du lot se
+    #   relit donc dans le meme bareme, a partir du ratio du lot.
+    #
+    # La complexite, elle, s'additionne : elle est saisie par menuiserie.
+    ordo_heure_debit = fields.Float(
+        string="H. Débit", digits=(10, 2), compute="_compute_ordo", store=True)
+    ordo_heure_banc = fields.Float(
+        string="H. CU (banc)", digits=(10, 2), compute="_compute_ordo", store=True)
+    ordo_heure_usinage = fields.Float(
+        string="H. Usinage", digits=(10, 2), compute="_compute_ordo", store=True)
+    ordo_heure_montage = fields.Float(
+        string="H. Montage", digits=(10, 2), compute="_compute_ordo", store=True)
+    ordo_heure_vitrage = fields.Float(
+        string="H. Vitrage", digits=(10, 2), compute="_compute_ordo", store=True)
+    ordo_heure_emballage = fields.Float(
+        string="H. Emballage", digits=(10, 2), compute="_compute_ordo", store=True)
+    ordo_heure_totale = fields.Float(
+        string="Heures totales", digits=(10, 2),
+        compute="_compute_ordo", store=True)
+
+    ordo_nb_reperes = fields.Integer(
+        string="Nb repères", compute="_compute_ordo", store=True,
+        help="Au lot, un repère est une menuiserie : un ordre d'assemblage. "
+        "Sur l'OF, les repères se comptent sur la commande de vente — les "
+        "sommer sur les ordres d'un lot les multiplierait.",
+    )
+    ordo_score_complexite = fields.Integer(
+        string="Score complexité", compute="_compute_ordo", store=True,
+        help="Somme des scores de complexité des ordres du lot : la "
+        "complexité est saisie menuiserie par menuiserie, elle s'additionne.",
+    )
+    ordo_score_debit = fields.Integer(
+        string="Score Débit", compute="_compute_ordo", store=True)
+    ordo_score_banc = fields.Integer(
+        string="Score CU (banc)", compute="_compute_ordo", store=True)
+    ordo_score_usinage = fields.Integer(
+        string="Score Usinage", compute="_compute_ordo", store=True)
+    ordo_score_montage = fields.Integer(
+        string="Score Montage", compute="_compute_ordo", store=True)
+
+    # --- Saisie de l'ordonnanceur -------------------------------------------
+    #
+    # Mêmes regles que sur le tableau des OF : saisissables par le groupe
+    # « Modif Ordo » seulement, et suivis dans le fil pour qu'on sache qui a
+    # coche et quand.
+    ordo_planifie = fields.Boolean(
+        string="Planifié", tracking=True,
+        help="Marqueur de l'ordonnanceur, équivalent du « P » du classeur. "
+        "Modifiable par les membres du groupe « Modif Ordo ».",
+    )
+    ordo_commentaire = fields.Text(
+        string="Commentaires ordonnancement", tracking=True)
+    ordo_peut_modifier = fields.Boolean(
+        string="Peut modifier l'ordonnancement",
+        compute="_compute_ordo_peut_modifier",
+        help="Vrai pour les membres du groupe « Modif Ordo ». Rend la saisie "
+        "possible pour eux seuls sans la masquer aux autres : un droit "
+        "d'ecriture par champ n'existe pas nativement, et poser `groups` sur "
+        "le champ le rendrait invisible.",
+    )
+
+    def _compute_ordo_peut_modifier(self):
+        autorise = self.env["mrp.production"]._fma_utilisateur_peut_modifier()
+        for lot in self:
+            lot.ordo_peut_modifier = autorise
+
+    # --- Engagement ---------------------------------------------------------
     # --- Engagement ---------------------------------------------------------
     ordo_livraison = fields.Date(
         string="Livraison client",
@@ -148,6 +233,8 @@ class FmaLotFabrication(models.Model):
         "production_ids.date_finished",
         "production_ids.macro_forced_end",
         "production_ids.lot_production_type",
+        "production_ids.fma_heure_totale",
+        "production_ids.fma_score_complexite",
         "sale_order_ids.commitment_date",
     )
     def _compute_ordo(self):
@@ -174,6 +261,13 @@ class FmaLotFabrication(models.Model):
             self["ordo_statut_%s" % colonne] = "none"
             self["ordo_arrivee_%s" % colonne] = False
         self.ordo_matiere_le = False
+        for poste in FMA_POSTE_KEYS:
+            self["ordo_heure_%s" % poste] = 0.0
+        self.ordo_heure_totale = 0.0
+        self.ordo_nb_reperes = 0
+        self.ordo_score_complexite = 0
+        for poste in FMA_POSTES_SCORES:
+            self["ordo_score_%s" % poste] = 0
         self.ordo_livraison = False
         self.ordo_marge_jours = 0
         self.ordo_statut = "non_planifie"
@@ -186,6 +280,7 @@ class FmaLotFabrication(models.Model):
         commandes = self.sale_order_ids.sorted("id")
         self.ordo_commande_id = commandes[:1]
         self._calculer_ordo_planification()
+        self._calculer_ordo_charge()
         # LE LOT TERMINE NE COUTE RIEN. Remonter la chaine des achats est une
         # suite de recherches, et un upgrade qui la joue sur tout l'historique
         # prendrait des minutes pour un resultat que personne ne lit : la
@@ -231,6 +326,37 @@ class FmaLotFabrication(models.Model):
             if p.state != "cancel" and p._date_fin_de_fab()
         ]
         self.ordo_date_sortie = max(fins) if fins else False
+
+    def _calculer_ordo_charge(self):
+        """Heures, reperes, complexite et scores du lot."""
+        self.ensure_one()
+        ordres = self.production_ids.filtered(lambda p: p.state != "cancel")
+
+        for poste in FMA_POSTE_KEYS:
+            self["ordo_heure_%s" % poste] = sum(
+                ordres.mapped("fma_heure_%s" % poste))
+        self.ordo_heure_totale = sum(ordres.mapped("fma_heure_totale"))
+
+        # Un repere = une menuiserie = un ordre d'assemblage. Le repli sur
+        # menuiserie_qty couvre le lot pas encore eclate en ordres.
+        assemblages = self.production_assembly_ids.filtered(
+            lambda p: p.state != "cancel")
+        self.ordo_nb_reperes = len(assemblages) or int(self.menuiserie_qty or 0)
+
+        self.ordo_score_complexite = sum(ordres.mapped("fma_score_complexite"))
+
+        # LE SCORE SE RELIT, IL NE S'ADDITIONNE PAS. C'est une note tiree d'un
+        # bareme a partir du ratio heures / reperes : la moyenne de deux notes
+        # n'est pas leur somme, et leur somme n'a aucun sens.
+        bareme = self.env["fma.bareme.score"]
+        par_poste = bareme._bareme_par_poste()
+        for poste in FMA_POSTES_SCORES:
+            if not self.ordo_nb_reperes:
+                self["ordo_score_%s" % poste] = 0
+                continue
+            ratio = self["ordo_heure_%s" % poste] / self.ordo_nb_reperes
+            self["ordo_score_%s" % poste] = bareme._score_pour(
+                par_poste.get(poste, []), ratio)
 
     def _calculer_ordo_matiere(self):
         self.ensure_one()

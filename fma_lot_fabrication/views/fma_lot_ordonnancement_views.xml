@@ -10,6 +10,7 @@
         <field name="arch" type="xml">
             <list string="Ordonnancement des lots"
                   create="false"
+                  editable="bottom"
                   default_order="ordo_livraison asc, id asc"
                   decoration-danger="ordo_statut == 'retard'"
                   decoration-warning="ordo_statut == 'attention'"
@@ -48,6 +49,33 @@
                 <field name="ordo_marge_jours"
                        decoration-danger="ordo_marge_jours &lt; 0"/>
 
+                <!-- La charge. Repliees par defaut : elles servent a arbitrer,
+                     pas a lire l'etat d'une affaire. -->
+                <field name="ordo_nb_reperes" optional="hide" sum="Repères"/>
+                <field name="ordo_heure_debit" optional="hide" sum="H. Débit"/>
+                <field name="ordo_heure_banc" optional="hide" sum="H. CU"/>
+                <field name="ordo_heure_usinage" optional="hide" sum="H. Usinage"/>
+                <field name="ordo_heure_montage" optional="hide" sum="H. Montage"/>
+                <field name="ordo_heure_vitrage" optional="hide" sum="H. Vitrage"/>
+                <field name="ordo_heure_emballage" optional="hide" sum="H. Emballage"/>
+                <field name="ordo_heure_totale" optional="show" sum="Heures"/>
+                <field name="ordo_score_complexite" optional="hide" sum="Complexité"/>
+                <!-- PAS de `sum` sur les scores : une note ne s'additionne
+                     pas, un total de notes n'aurait aucun sens. -->
+                <field name="ordo_score_debit" optional="hide"/>
+                <field name="ordo_score_banc" optional="hide"/>
+                <field name="ordo_score_usinage" optional="hide"/>
+                <field name="ordo_score_montage" optional="hide"/>
+
+                <!-- La saisie de l'ordonnanceur. Modifiable par le groupe
+                     « Modif Ordo » seulement : le champ reste VISIBLE pour
+                     les autres, un `groups` l'aurait masque. -->
+                <field name="ordo_planifie" widget="boolean_toggle"
+                       readonly="not ordo_peut_modifier"/>
+                <field name="ordo_commentaire" optional="show"
+                       readonly="not ordo_peut_modifier"/>
+                <field name="ordo_peut_modifier" column_invisible="1"/>
+
                 <!-- Les raccourcis. Un bouton et non un lien : depuis une
                      liste, on veut la liste des OF du lot, pas le premier. -->
                 <button name="action_ordo_voir_of" type="object"
@@ -79,6 +107,8 @@
                         domain="[('ordo_statut', '=', 'attention')]"/>
                 <filter name="ordo_non_planifie" string="Non planifiés"
                         domain="[('ordo_tout_planifie', '=', False)]"/>
+                <filter name="ordo_pas_marque" string="Non marqués « Planifié »"
+                        domain="[('ordo_planifie', '=', False)]"/>
                 <separator/>
                 <filter name="ordo_sans_profil" string="Profilés non commandés"
                         domain="[('ordo_statut_profil', '=', 'none')]"/>
