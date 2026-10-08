@@ -890,6 +890,13 @@ class SqliteConnector(models.Model):
                     # quand l'import pricer rattache une ligne manuelle.
                     'fma_article_libre' : bool(ligne[8]),
                     'fma_nature_logikal' : CATEGORIE_NATURE.get(ligne[3]),
+                    # LE CONDITIONNEMENT DU FOURNISSEUR (PUSize). L'import
+                    # arrondit deja les quantites a l'achat avec cette valeur,
+                    # mais elle n'existait nulle part dans Odoo : l'acheteur
+                    # voyait « 100 » sans savoir pourquoi, et un reappro
+                    # declenche hors import commandait a la piece un article
+                    # que le fournisseur ne vend que par paquet.
+                    'fma_conditionnement': float(ligne[7] or 0.0),
                     # 'x_studio_positionn': ''
                     }
                 if idfrs:
@@ -904,6 +911,17 @@ class SqliteConnector(models.Model):
                 self.env.cr.commit()
                 # created nomenclature
                 creation_nomenclature(Nomenclature, refart, idun, Qte)
+
+            # SUR UN ARTICLE DEJA CONNU AUSSI. Un conditionnement change avec
+            # le catalogue du fournisseur, et les articles de FMA sont pour la
+            # plupart deja crees : ne le poser qu'a la creation le laisserait
+            # vide sur presque tout le referentiel.
+            connu = self.env['product.product'].search(
+                [('default_code', '=', refart)], limit=1)
+            conditionnement = float(ligne[7] or 0.0)
+            if connu and conditionnement and (
+                    connu.fma_conditionnement != conditionnement):
+                connu.fma_conditionnement = conditionnement
                
         for ligne in Commande :
             idfrs = ''

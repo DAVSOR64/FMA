@@ -39,4 +39,22 @@
         </field>
     </record>
 
+    <!-- ANCRE SUR UN CHAMP STANDARD, et c'est deliberé. Le groupe « Logikal »
+         ou la valeur serait le mieux placee est pose par une vue du module
+         « custom » : s'y accrocher ferait dependre ce module d'une vue SŒUR,
+         appliquee selon (priorite, id) — l'instabilite exacte qui a casse la
+         production le mois dernier. categ_id appartient a la vue standard et
+         ne bougera pas. -->
+    <record id="view_product_template_form_conditionnement" model="ir.ui.view">
+        <field name="name">product.template.form.fma.conditionnement</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='categ_id']" position="after">
+                <field name="fma_conditionnement"
+                       invisible="not fma_conditionnement"/>
+            </xpath>
+        </field>
+    </record>
+
 </odoo>

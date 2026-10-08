@@ -30,6 +30,17 @@ class ProductTemplate(models.Model):
         "meme endroit.",
     )
 
+    fma_conditionnement = fields.Float(
+        string="Conditionnement d'achat",
+        digits="Product Unit of Measure",
+        copy=False,
+        help="Nombre de pieces par unite de vente du fournisseur, lu dans "
+        "PUSize du fichier LOGIKAL. Un article dont le conditionnement vaut "
+        "100 ne s'achete que par centaines : l'import arrondit deja les "
+        "quantites a l'achat, mais sans ce champ la regle n'existe nulle part "
+        "dans Odoo et un reappro declenche autrement l'ignore.",
+    )
+
     fma_nature_logikal = fields.Selection(
         [
             ("profile", "Profilé"),
