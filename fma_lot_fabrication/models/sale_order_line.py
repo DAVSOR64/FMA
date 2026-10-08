@@ -57,14 +57,52 @@ class SaleOrderLine(models.Model):
             line.qty_lot = sum(active.mapped("product_qty"))
             line.qty_to_lot = max(line.product_uom_qty - line.qty_lot, 0.0)
 
-    @api.depends("product_id", "product_id.type", "display_type")
+    @api.depends(
+        "product_id", "product_id.type", "display_type",
+        "order_id.order_line.x_studio_position",
+    )
     def _compute_is_lotable(self):
+        """Une ligne a lotir est une MENUISERIE, pas n'importe quel bien.
+
+        Le critere « article consommable » retenait tout : sur A26-10-07833,
+        la ligne « Fourniture de cales de vitrage » — 100 pieces, aucune
+        gamme — devenait une menuiserie du lot, avec son ordre d'assemblage,
+        son numero de serie et son casier. Elle ne se planifiait pas comme
+        les autres et son ordre ne portait que deux composants : c'est une
+        fourniture, pas une ouverture.
+
+        Le critere est donc la POSITION du repere, celui que l'ordonnancement
+        emploie deja pour compter les reperes d'une affaire : les lignes
+        menuiserie la portent (« Repère A - Entrée »), l'eco-contribution,
+        la remise et les fournitures ne la portent pas. On ne s'invente pas
+        une seconde definition de la menuiserie.
+
+        Repli sur l'ancien critere quand AUCUNE ligne de la commande ne porte
+        de position : sur ces commandes-la — anciennes, ou saisies a la main
+        — refuser tout lotissement serait pire que d'en trop proposer.
+        """
         for line in self:
+            if line.display_type or not line.product_id:
+                line.is_lotable = False
+                continue
             # En v19 les articles stockables et consommables partagent le
             # type 'consu' (le stockage est porte par is_storable) ; seuls
             # les services et les combos sont a exclure.
-            line.is_lotable = bool(
-                not line.display_type
-                and line.product_id
-                and line.product_id.type == "consu"
+            if line.product_id.type != "consu":
+                line.is_lotable = False
+                continue
+            if "fma_exclu_reperes" in line.product_id._fields and (
+                    line.product_id.fma_exclu_reperes):
+                line.is_lotable = False
+                continue
+            if "x_studio_position" not in line._fields:
+                line.is_lotable = True
+                continue
+            porteuses = line.order_id.order_line.filtered(
+                lambda l: not l.display_type and l.product_id
+                and (l.x_studio_position or "").strip()
+            )
+            line.is_lotable = (
+                bool((line.x_studio_position or "").strip())
+                if porteuses else True
             )
