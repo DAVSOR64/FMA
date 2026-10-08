@@ -20,14 +20,14 @@
          Le contenu est lu sur les composants REELS des ordres d'assemblage
          des qu'ils existent : un composant ajoute sur un ordre sort ici. -->
     <record id="action_report_lot_sortie_matiere" model="ir.actions.report">
-        <field name="name">Liste de quincaillerie</field>
+        <field name="name">Besoin matière</field>
         <field name="model">fma.lot.fabrication</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">fma_lot_fabrication.report_lot_sortie_matiere</field>
         <field name="report_file">fma_lot_fabrication.report_lot_sortie_matiere</field>
         <field name="binding_model_id" ref="model_fma_lot_fabrication"/>
         <field name="binding_type">report</field>
-        <field name="print_report_name">'Liste de quincaillerie - %s' % object.display_name</field>
+        <field name="print_report_name">'Besoin matiere - %s' % object.display_name</field>
     </record>
 
     <template id="report_lot_sortie_matiere">
@@ -46,15 +46,20 @@
                 <t t-set="casiers" t-value="besoin[2]"/>
                 <t t-set="quincaillerie"
                    t-value="lot._quincaillerie_par_article(casiers)"/>
-                <t t-set="quincaillerie_totaux"
-                   t-value="[{'product': p['article'], 'qty': p['total'],
-                              'uom': p['uom']} for p in quincaillerie]"/>
+                <t t-set="besoin_complet"
+                   t-value="lot._besoin_matiere_complet(profiles, prefab)"/>
+                <t t-set="par_repere"
+                   t-value="lot._quincaillerie_par_repere(casiers)"/>
 
-                <!-- 1. Recapitulatif : ce qui quitte le stock -->
+                <!-- 1. Le besoin du lot, en entier : profiles, vitrages et
+                     quincaillerie. Tout vient des ORDRES du lot, pas du
+                     fichier LOGIKAL : une quincaillerie ajoutee a la main sur
+                     une nomenclature ou sur un ordre doit sortir ici, et le
+                     document se construit a l'impression, jamais d'avance. -->
                 <t t-call="web.internal_layout">
                     <div class="page">
                         <h2>
-                            Liste de quincaillerie
+                            Besoin matière
                             <!-- La designation, celle de l'ecran : le numero
                                  de sequence seul ne situe ni l'affaire ni le
                                  rang du lot dedans. Le magasin et
@@ -62,70 +67,95 @@
                             <span t-field="lot.display_name"/>
                         </h2>
                         <div class="row mb-3">
-                            <div class="col-4">
+                            <div class="col-3">
                                 <strong>Client</strong><br/>
                                 <span t-field="lot.partner_id"/>
                             </div>
-                            <div class="col-4">
+                            <div class="col-3">
                                 <strong>Référence LOGIKAL</strong><br/>
                                 <span t-field="lot.logikal_ref"/>
                             </div>
-                            <div class="col-4">
+                            <div class="col-3">
                                 <strong>Menuiseries</strong><br/>
                                 <span t-field="lot.menuiserie_qty"/>
                                 en <span t-esc="len(lot.line_ids)"/> repère(s)
                             </div>
+                            <div class="col-3">
+                                <strong>Casiers</strong><br/>
+                                <span t-esc="len(casiers)"/>
+                            </div>
                         </div>
 
-                        <h4>1 — Quincaillerie du lot</h4>
+                        <h4>1 — Besoin matière du lot</h4>
                         <p class="text-muted">
-                            À sortir trois jours ouvrés avant le débit, pour garnir les casiers.
-                            Les profilés partent avec l'OF de débit et le vitrage se livre à
-                            part : ni l'un ni l'autre ne se prend en rayon.
+                            Tout ce que le lot consomme : profilés, vitrages et
+                            quincaillerie. Lu sur les composants réels des ordres de
+                            fabrication du lot — un article ajouté à la main sur une
+                            nomenclature ou sur un ordre y figure donc.
                         </p>
                         <table class="table table-sm o_main_table">
                             <thead>
                                 <tr>
-                                    <th>Référence</th>
-                                    <th>Désignation</th>
-                                    <th class="text-end">Quantité</th>
-                                    <th>Unité</th>
+                                    <th style="width:16%">Type</th>
+                                    <th style="width:20%">Référence</th>
+                                    <th style="width:44%">Désignation</th>
+                                    <th class="text-end" style="width:10%">Quantité</th>
+                                    <th style="width:10%">Unité</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr t-foreach="quincaillerie_totaux" t-as="poste">
-                                    <td><span t-field="poste['product'].default_code"/></td>
+                                <tr t-foreach="besoin_complet" t-as="poste">
+                                    <td style="white-space:nowrap"><span t-esc="poste['libelle']"/></td>
+                                    <td style="white-space:nowrap"><span t-field="poste['product'].default_code"/></td>
                                     <td><span t-field="poste['product'].name"/></td>
                                     <td class="text-end"><span t-esc="'%.2f' % poste['qty']"/></td>
                                     <td><span t-field="poste['uom'].name"/></td>
                                 </tr>
                             </tbody>
                         </table>
-                        <p t-if="not quincaillerie_totaux" class="text-muted">
-                            Aucune quincaillerie : ni les ordres de fabrication ni les
-                            nomenclatures du lot ne portent d'article autre que des
-                            profilés, des vitrages ou des panneaux.
+                        <p t-if="not besoin_complet" class="text-muted">
+                            Aucun besoin : les ordres de fabrication du lot ne portent
+                            aucun composant.
                         </p>
 
-                        <h4 class="mt-4">2 — Détail par repère</h4>
-                        <table class="table table-sm o_main_table">
-                            <thead>
-                                <tr>
-                                    <th>Repère</th>
-                                    <th>Commande</th>
-                                    <th class="text-end">Menuiseries</th>
-                                    <th>Ensemble débité</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr t-foreach="lot.line_ids" t-as="ligne">
-                                    <td><span t-field="ligne.product_id"/></td>
-                                    <td><span t-field="ligne.order_id.name"/></td>
-                                    <td class="text-end"><span t-field="ligne.product_qty"/></td>
-                                    <td><span t-field="ligne.product_debit_id.default_code"/></td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <h4 class="mt-4">2 — Quincaillerie par repère</h4>
+                        <p class="text-muted">
+                            Un bloc par casier, dans l'ordre où le magasin les garnit.
+                            Les profilés et les vitrages n'y figurent pas : ils ne
+                            passent pas par le casier.
+                        </p>
+                        <t t-foreach="par_repere" t-as="bloc">
+                            <table class="table table-sm o_main_table mb-3"
+                                   style="page-break-inside:avoid">
+                                <thead>
+                                    <tr>
+                                        <th colspan="3" class="table-active">
+                                            Repère <span style="white-space:nowrap" t-esc="bloc['repere']"/>
+                                            — casier <span style="white-space:nowrap" t-esc="bloc['casier']"/>
+                                            <span class="float-end">
+                                                <span t-esc="bloc['rang']"/> / <span t-esc="bloc['sur']"/>
+                                            </span>
+                                        </th>
+                                    </tr>
+                                    <tr>
+                                        <th style="width:24%">Code article</th>
+                                        <th style="width:56%">Désignation</th>
+                                        <th class="text-end" style="width:20%">Qté</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="bloc['lignes']" t-as="l">
+                                        <td style="white-space:nowrap"><span t-field="l['product'].default_code"/></td>
+                                        <td><span t-field="l['product'].name"/></td>
+                                        <td class="text-end"><span t-esc="'%.2f' % l['qty']"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+                        <p t-if="not par_repere" class="text-muted">
+                            Aucune quincaillerie : les ordres du lot ne portent que des
+                            profilés, des vitrages ou des panneaux.
+                        </p>
                     </div>
                 </t>
 
@@ -137,7 +167,7 @@
                     <t t-call="web.internal_layout">
                         <div class="page">
                             <h2>
-                                Détail par article et casier
+                                3 — Quincaillerie par article
                                 <span t-field="lot.display_name"/>
                             </h2>
                             <div class="row mb-3">

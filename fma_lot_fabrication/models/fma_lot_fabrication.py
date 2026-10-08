@@ -2529,6 +2529,103 @@ class FmaLotFabrication(models.Model):
 
         return trier(barres), trier(agrege), casiers
 
+    #: Libelle de chaque classe sur le document. L'ordre est celui du
+    #: magasin : les barres partent au debit, le reste garnit les casiers.
+    LIBELLE_CLASSE = {
+        "profile": "Profilé",
+        "remplissage": "Vitrage / panneau",
+        "quincaillerie": "Quincaillerie",
+    }
+    ORDRE_CLASSE = {"profile": 0, "remplissage": 1, "quincaillerie": 2}
+
+    def _besoin_matiere_complet(self, profiles, prefab):
+        """TOUT le besoin du lot : profiles, vitrages et quincaillerie.
+
+        Le recapitulatif ne portait que la quincaillerie. Le magasin a besoin
+        de la totalite de ce que le lot consomme — c'est la premiere page du
+        besoin matiere, celle qui dit ce qui doit etre sorti.
+
+        Les deux sources ne se recouvrent pas : ``profiles`` vient des barres
+        du lot, dimensionnees pour l'optimisation du debit, et ``prefab`` des
+        COMPOSANTS REELS des ordres d'assemblage. Une quincaillerie ajoutee a
+        la main sur une nomenclature ou sur un ordre y figure donc, et c'est
+        tout l'interet de partir des ordres plutot que du fichier LOGIKAL.
+
+        Chaque poste porte sa classe, pour que le document regroupe sans
+        qu'on ait a la relire a l'impression.
+        """
+        self.ensure_one()
+        postes = []
+        classes = {}
+        for source, classe_forcee in ((profiles, "profile"), (prefab, None)):
+            for poste in source:
+                article = poste["product"]
+                if article.id not in classes:
+                    classes[article.id] = article._fma_classe_matiere()
+                classe = classe_forcee or classes[article.id] or "quincaillerie"
+                postes.append({
+                    "product": article,
+                    "qty": poste["qty"],
+                    "uom": poste["uom"],
+                    "classe": classe,
+                    "libelle": self.LIBELLE_CLASSE.get(classe, "Quincaillerie"),
+                })
+        postes.sort(key=lambda d: (
+            self.ORDRE_CLASSE.get(d["classe"], 9),
+            d["product"].default_code or d["product"].name or ""))
+        return postes
+
+    def _quincaillerie_par_repere(self, casiers):
+        """La quincaillerie d'un lot, repere par repere.
+
+        Le detail par ARTICLE sert la prise en rayon — un passage par
+        article. Celui-ci sert le garnissage — un casier a la fois, avec sous
+        les yeux ce qu'il doit contenir. Les deux lisent le meme contenu, qui
+        vient des composants reels des ordres.
+
+        Les profiles et les remplissages en sont exclus : ils ne passent pas
+        par le casier. Un article que rien ne classe y reste — mieux vaut une
+        ligne de trop, qu'on voit, qu'une ligne qui disparait en silence.
+        """
+        self.ensure_one()
+        classes = {}
+        blocs = []
+        for casier in casiers:
+            lignes = []
+            for article, qty, uom in casier["contenu"]:
+                if not article or not qty:
+                    continue
+                if article.id not in classes:
+                    classes[article.id] = article._fma_classe_matiere()
+                if classes[article.id] in ("profile", "remplissage"):
+                    continue
+                lignes.append({"product": article, "qty": qty, "uom": uom})
+            if not lignes:
+                continue
+            lignes.sort(key=lambda d: (
+                d["product"].default_code or d["product"].name or ""))
+            blocs.append({
+                "repere": self._repere_du_casier(casier),
+                "casier": casier["serie"] or "%03d" % casier["rang"],
+                "rang": casier["rang"],
+                "sur": casier["sur"],
+                "lignes": lignes,
+            })
+        return blocs
+
+    def _repere_du_casier(self, casier):
+        """La POSITION du repere, pas sa reference complete.
+
+        Celle-ci vaut « A26-00-00002_E-MEXT-C3 » : le prefixe est l'affaire,
+        identique sur tout le document, et il faisait deborder la colonne.
+        """
+        produit = casier["ligne"].product_id
+        if ("x_studio_position" in produit._fields
+                and produit.x_studio_position):
+            return produit.x_studio_position
+        code = produit.default_code or produit.name or ""
+        return code.split("_")[-1] if "_" in code else code
+
     def _quincaillerie_par_article(self, casiers):
         """Le besoin regroupe par ARTICLE, avec son detail par casier.
 

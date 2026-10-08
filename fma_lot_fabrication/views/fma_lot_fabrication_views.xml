@@ -44,9 +44,9 @@
                          par rang, que rien ne rapprocherait ensuite des
                          menuiseries declarees a l'atelier. -->
                     <button name="action_imprimer_besoin_matiere" type="object"
-                            string="Imprimer la liste de quincaillerie"
+                            string="Imprimer le besoin matière"
                             invisible="not line_ids or production_count == 0"
-                            help="Quincaillerie du lot : les totaux, puis le détail article par article avec le casier servi et le repère."/>
+                            help="Besoin matière du lot : profilés, vitrages et quincaillerie, puis la quincaillerie repère par repère et le détail par article. Lu sur les composants réels des ordres de fabrication, donc construit à l'impression et jamais d'avance."/>
                     <button name="action_replanifier_depuis_debit" type="object"
                             string="Replanifier depuis le débit"
                             invisible="state not in ('confirmed', 'progress')"
