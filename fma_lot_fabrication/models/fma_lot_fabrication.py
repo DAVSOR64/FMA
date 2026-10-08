@@ -484,6 +484,40 @@ class FmaLotFabrication(models.Model):
             lignes.write({"lot_fabrication_id": self.id})
         return lignes
 
+    def _rattacher_bon_au_lot(self, achat):
+        """Pose sur le bon le lot, la commande et le projet de l'affaire.
+
+        UN BON NE DE L'APPROVISIONNEMENT NE PORTE RIEN DE TOUT CELA. Les
+        champs de rattachement FMA — commande client, projet — sont poses a
+        la confirmation du devis par du code qui ne s'execute pas quand Odoo
+        cree un bon pour un besoin d'OF, ni quand nous en ouvrons un pour un
+        lot. Les achats du deuxieme lot d'une affaire sortaient donc des
+        ecrans de suivi : ils existaient, mais rattaches a rien.
+
+        On les renseigne depuis le lot, qui connait sa commande. Une valeur
+        deja posee n'est pas touchee : elle peut venir d'une affectation
+        manuelle de l'acheteur sur une affaire a tranches.
+        """
+        self.ensure_one()
+        vals = {}
+        if achat.lot_fabrication_id != self:
+            vals["lot_fabrication_id"] = self.id
+
+        commande = self.sale_order_ids.sorted("id")[:1]
+        if commande:
+            if "fma_sale_order_id" in achat._fields and not achat.fma_sale_order_id:
+                vals["fma_sale_order_id"] = commande.id
+            projet = (
+                commande.x_studio_projet_de_la_vente
+                if "x_studio_projet_de_la_vente" in commande._fields
+                else False
+            )
+            if (projet and "x_studio_projet_du_so" in achat._fields
+                    and not achat.x_studio_projet_du_so):
+                vals["x_studio_projet_du_so"] = projet.id
+        if vals:
+            achat.write(vals)
+
     def _bon_du_lot(self, lignes):
         """Le bon qui doit porter ces lignes — un bon PAR LOT.
 
@@ -600,7 +634,7 @@ class FmaLotFabrication(models.Model):
                             retenues.append(jeton)
                 if retenues:
                     cible.origin = ", ".join(retenues)
-                cible.lot_fabrication_id = self.id
+                self._rattacher_bon_au_lot(cible)
             self._rendre_compte_achats(lignes, commandes, gardes)
             return gardes
         except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
