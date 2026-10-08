@@ -115,7 +115,11 @@ def destination_vitrage(info2):
     texte = (info2 or "").strip().upper().translate(_ACCENTS)
     if not texte:
         return DESTINATION_CHARIOT, "(vide)"
-    if "PALETTE" in texte:
+    # LE CHEVALET BOIS EST UNE PALETTE. C'est un cadre de transport, pas un
+    # support d'atelier : le vitrage qu'il porte part chez le client. Releve
+    # sur KIT5 Lot 2, ou LOGIKAL ecrit « SUR CHEVALLET BOIS » — avec deux L,
+    # d'ou les deux orthographes acceptees.
+    if any(mot in texte for mot in ("PALETTE", "CHEVALET", "CHEVALLET")):
         return DESTINATION_PALETTE, ""
     if texte == "CHARIOT" or texte == "SUR CHARIOT":
         return DESTINATION_CHARIOT, ""
