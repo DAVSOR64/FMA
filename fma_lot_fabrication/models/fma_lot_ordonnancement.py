@@ -235,7 +235,16 @@ class FmaLotFabrication(models.Model):
         "production_ids.lot_production_type",
         "production_ids.fma_heure_totale",
         "production_ids.fma_score_complexite",
-        "sale_order_ids.commitment_date",
+        # PAS « sale_order_ids » : ce champ est calcule NON STOCKE. Odoo
+        # propage un recalcul en cherchant les lots dont il contiendrait la
+        # commande modifiee — et une recherche SQL sur un champ non stocke
+        # leve « Cannot convert ... to SQL because it is not stored ». Le
+        # symptome n'apparait pas sur le lot mais a la CREATION D'UNE
+        # COMMANDE, qui devenait impossible.
+        #
+        # On passe donc par les lignes du lot, dont order_id est un related
+        # STOCKE et indexe. Meme commande au bout, chemin cherchable.
+        "line_ids.order_id.commitment_date",
     )
     def _compute_ordo(self):
         """Les achats ne sont pas dans les dependances — voir l'en-tete."""
