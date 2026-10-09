@@ -2027,7 +2027,14 @@ class FmaLotFabrication(models.Model):
             # — type, categorie, unite, routes. Les recopier evite d'inventer
             # une configuration a cote de celle que le metier a reglee.
             "type": modele.type,
-            "is_storable": modele.is_storable,
+            # NON STOCKABLE, et c'est tout l'interet d'un article par
+            # affaire. Celui-ci n'est qu'une etiquette : Odoo exige qu'un
+            # ordre produise un article, une seance de debit n'en produit pas
+            # un mais autant qu'il y a de reperes — ils sortent en
+            # sous-produits et emportent la totalite du cout. Le laisser
+            # stockable creait une quantite fantome, valorisee a zero, que
+            # personne ne consomme jamais.
+            "is_storable": False,
             "categ_id": modele.categ_id.id,
             "uom_id": modele.uom_id.id,
             "purchase_ok": False,
