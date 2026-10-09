@@ -42,12 +42,18 @@ from odoo.tools import float_compare, float_is_zero
 
 _logger = logging.getLogger(__name__)
 
-#: Familles d'appro qui ne se regroupent PAS par lot. Le vitrage est
-#: commande pour la commande client, pas pour le lot : il arrive deja
-#: decoupe a la menuiserie, et ses deux destinations — chariot pour
-#: l'atelier, palette pour le chantier — commandent son bon bien avant le
-#: lot. Les panneaux suivent la meme logique d'achat.
-FAMILLES_HORS_LOT = ("vitrage",)
+#: Ce qui ne se regroupe PAS par lot. Le REMPLISSAGE — vitrages ET
+#: panneaux, « All / Remplissage » — se commande pour la commande client et
+#: non pour le lot : il arrive deja decoupe a la menuiserie, et sa
+#: destination (chariot pour l'atelier, palette pour le chantier) commande
+#: son bon bien avant le lot.
+#:
+#: Le test porte sur le CLASSEMENT de l'article et non sur sa famille
+#: d'appro : tous les articles de FMA n'ont pas de famille renseignee, mais
+#: tous ont une categorie, et _fma_classe_matiere remonte l'une puis
+#: l'autre. C'est deja la regle du besoin matiere — on n'en invente pas une
+#: seconde.
+CLASSES_HORS_LOT = ("remplissage",)
 
 
 #: Etiquette commerciale de la commande -> code de l'entrepot qui fabrique.
@@ -580,11 +586,19 @@ class FmaLotFabrication(models.Model):
         self.ensure_one()
         Achat = self.env["purchase.order"]
         try:
-            lignes = self._lignes_achat_du_lot().filtered(
-                lambda l: not l.display_type and l.product_id
-                and l.order_id.state in ("draft", "sent")
-                and l.fma_famille_appro not in FAMILLES_HORS_LOT
-            )
+            classes = {}
+
+            def dans_le_lot(ligne):
+                if ligne.display_type or not ligne.product_id:
+                    return False
+                if ligne.order_id.state not in ("draft", "sent"):
+                    return False
+                article = ligne.product_id
+                if article.id not in classes:
+                    classes[article.id] = article._fma_classe_matiere()
+                return classes[article.id] not in CLASSES_HORS_LOT
+
+            lignes = self._lignes_achat_du_lot().filtered(dans_le_lot)
             commandes = lignes.order_id
             if not lignes:
                 self._rendre_compte_achats(lignes, commandes, Achat)

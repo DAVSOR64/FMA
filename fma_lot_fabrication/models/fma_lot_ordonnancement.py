@@ -45,6 +45,8 @@ _logger = logging.getLogger(__name__)
 COLONNE_PAR_FAMILLE = {
     "profil": "profil",
     "complementaire": "profil",
+    # Vitrages ET panneaux : « All / Remplissage » cote referentiel. Ils
+    # s'achetent de la meme facon et se lisent dans la meme colonne.
     "vitrage": "vitrage",
     "panneaux": "vitrage",
 }
