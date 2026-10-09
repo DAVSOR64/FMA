@@ -453,7 +453,27 @@ class FmaLotFabrication(models.Model):
             vus_ordres |= set(ordres.ids)
             a_voir = amont | ordres.move_raw_ids
 
-        # Deuxieme filet, independant du chainage : l'ORIGINE. Odoo y recopie
+        # DEUXIEME CHEMIN, ET LE SEUL QUI MARCHE AVANT CONFIRMATION. Un bon
+        # en brouillon n'a aucun mouvement de reception : le chainage
+        # ci-dessus ne peut donc rien trouver, et c'est l'etat dans lequel
+        # vivent les achats tant que l'acheteur ne les a pas envoyes. Le
+        # lien, a ce stade, est « move_dest_ids » pose par
+        # l'approvisionnement SUR LA LIGNE D'ACHAT : les mouvements que
+        # cette ligne est censee servir.
+        #
+        # Constate sur A26-10-07853 : quatre quincailleries TECHNAL et les
+        # deux panneaux SIPO restaient sur un bon « de commande » que plus
+        # aucun lot ne revendiquait, alors qu'ils servent chacun un repere
+        # precis.
+        if "move_dest_ids" in Ligne._fields:
+            # Les mouvements du lot, a tous les niveaux : composants des
+            # ordres, et transferts de matiere. En fabrication a deux etapes
+            # l'appro vise la COLLECTE, pas le composant de l'ordre.
+            cibles = self.production_ids.move_raw_ids | self.picking_matiere_ids.move_ids
+            if cibles:
+                lignes |= Ligne.search([("move_dest_ids", "in", cibles.ids)])
+
+        # Troisieme filet, independant du chainage : l'ORIGINE. Odoo y recopie
         # le nom du document qui a declenche le besoin — le lot, l'ordre de
         # fabrication, la commande. Le chainage des mouvements m'a menti trois
         # fois de suite ; un rapprochement par le texte ne depend d'aucune
