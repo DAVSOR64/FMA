@@ -941,6 +941,49 @@ class SaleOrder(models.Model):
             _("Achats du projet non rattachés à une commande"),
             [("id", "in", lignes.order_id.ids)])
 
+    fma_achats_rattaches_nb = fields.Integer(
+        string="Achats rattachés",
+        compute="_compute_fma_achats_rattaches_nb",
+        help="Bons d'achat imputes a cette commande. Non stocke : il ne sert "
+        "qu'a remplir un bouton, jamais a filtrer ni a trier.",
+    )
+
+    def _compute_fma_achats_rattaches_nb(self):
+        Ligne = self.env["purchase.order.line"]
+        for order in self:
+            order.fma_achats_rattaches_nb = len(
+                Ligne.search([("fma_sale_order_id", "=", order.id)]).order_id
+            ) if order.id else 0
+
+    #: Le bouton natif « Achats » du devis. Il remonte depuis les MOUVEMENTS
+    #: des lignes de commande vers les lignes d'achat : il ne voit donc ni un
+    #: bon encore en brouillon, ni un bon qui sert les composants d'un ordre
+    #: de fabrication plutot qu'une ligne de vente. Sur A26-10-07853 il en
+    #: montrait deux sur quatre — et les deux manquants etaient justement
+    #: ceux des lots.
+    #:
+    #: On le masque au profit de « Achats rattaches », bati sur
+    #: fma_sale_order_id, qui repond a la question que le metier pose : que
+    #: faut-il imputer a cette commande.
+    PREFIXE_BOUTON_ACHAT_NATIF = "action_view_purchase"
+
+    @api.model
+    def _get_view(self, view_id=None, view_type="form", **options):
+        """Masque le bouton d'achat natif du devis.
+
+        Par le code et non par un xpath : le nom exact du bouton change
+        d'une version d'Odoo a l'autre, et un xpath qui ne trouve pas sa
+        cible fait echouer l'installation du module. Ici, ne rien trouver ne
+        coute rien.
+        """
+        arch, view = super()._get_view(view_id, view_type, **options)
+        if view_type != "form":
+            return arch, view
+        for bouton in arch.xpath("//div[hasclass('oe_button_box')]//button[@name]"):
+            if bouton.get("name", "").startswith(self.PREFIXE_BOUTON_ACHAT_NATIF):
+                bouton.set("invisible", "1")
+        return arch, view
+
     def action_pri_achats_rattaches(self):
         self.ensure_one()
         lignes = self.env["purchase.order.line"].search(

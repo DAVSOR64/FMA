@@ -29,6 +29,21 @@
         <field name="arch" type="xml">
 
             <!-- Ancre sur le name de l'onglet, jamais sur son libelle. -->
+            <!-- Le bouton d'achat du devis. Celui d'Odoo est masque par
+                 le code (cf. SaleOrder._get_view) : il remonte par les
+                 mouvements et ne voit ni un bon en brouillon, ni un bon qui
+                 sert les composants d'un ordre de fabrication. Celui-ci est
+                 bati sur fma_sale_order_id et repond a la question du
+                 metier : que faut-il imputer a cette commande. -->
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button name="action_pri_achats_rattaches" type="object"
+                        class="oe_stat_button" icon="fa-shopping-cart"
+                        invisible="fma_achats_rattaches_nb == 0">
+                    <field name="fma_achats_rattaches_nb" widget="statinfo"
+                           string="Achats"/>
+                </button>
+            </xpath>
+
             <xpath expr="//page[@name='fma_analyse_financiere']" position="inside">
                 <group string="Prix de revient réel" name="fma_pri_reel">
                     <group name="fma_pri_calcul">

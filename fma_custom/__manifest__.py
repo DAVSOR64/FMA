@@ -22,7 +22,7 @@
     # 1.0.25 : la colonne SIRET du fichier clients lit le SIRET (fma_siret)
     # et se replie sur le SIREN.
     # 1.0.26 : la colonne SIRET relit company_registry, comme en production.
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.2.0",
     "depends": ["custom", "hr", "sale", "purchase", "mrp", "account", "stock"],
     "data": [
         "views/mail_templates.xml",
