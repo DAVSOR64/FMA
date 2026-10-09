@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Le prix de revient rejoint l'onglet du cout MOD reel.
+         Les deux repondaient a la meme question — ce que l'affaire a
+         reellement coute — dans deux onglets differents : les heures
+         d'atelier d'un cote, les achats de l'autre. Ils sont desormais sous
+         les yeux ensemble.
+
+         ON HERITE DE LA VUE QUI CREE L'ONGLET, et non de la vue standard.
+         custom_sale_order pose cette page ; s'y accrocher depuis une vue
+         SŒUR la ferait dependre de l'ordre d'application (priorite, id) —
+         l'instabilite exacte qui a casse la production en septembre. -->
+    <record id="view_order_form_pri_dans_mod" model="ir.ui.view">
+        <field name="name">sale.order.form.fma.pri.dans.mod</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="custom_sale_order.view_order_form_mod_real_cost"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='analyse_financiere_mod_odoo']" position="attributes">
+                <attribute name="string">Prix de revient</attribute>
+            </xpath>
+
+            <xpath expr="//page[@name='analyse_financiere_mod_odoo']" position="inside">
+                    <group string="Prix de revient réel" name="fma_pri_reel">
+                        <group name="fma_pri_calcul">
+                            <field name="fma_pri_reel"/>
+                            <field name="fma_pri_services"/>
+                            <field name="fma_pri_non_ventile"/>
+                            <field name="fma_pri_date"/>
+                            <button name="action_calcul_pri" type="object"
+                                    string="Calcul PRI" class="btn-primary"
+                                    colspan="2"
+                                    help="Recalcule la colonne Réel : achats rattachés à la commande + consommations des articles non achetés, et la ventilation par ligne."/>
+                            <button name="action_pri_detail_lignes" type="object"
+                                    string="Détail par ligne" class="btn-link"
+                                    colspan="2"/>
+                        </group>
+                        <group name="fma_pri_mod" string="Main-d'œuvre directe">
+                            <field name="so_cout_mod_reel" string="MOD saisie (entre dans la M.C.V.)" readonly="1"/>
+                            <field name="fma_cout_mod_odoo"/>
+                            <field name="fma_cout_mod_ecart"
+                                   decoration-warning="fma_cout_mod_ecart != 0"/>
+                        </group>
+                        <group name="fma_pri_achats">
+                            <field name="fma_achats_non_rattaches_nb"
+                                   decoration-danger="fma_achats_non_rattaches_nb &gt; 0"/>
+                            <field name="fma_achats_non_rattaches_montant"
+                                   invisible="fma_achats_non_rattaches_nb == 0"/>
+                            <button name="action_pri_achats_non_rattaches" type="object"
+                                    string="Voir les achats non rattachés" class="btn-link"
+                                    colspan="2"
+                                    invisible="fma_achats_non_rattaches_nb == 0"/>
+                        </group>
+                    </group>            </xpath>
+        </field>
+    </record>
+
+</odoo>

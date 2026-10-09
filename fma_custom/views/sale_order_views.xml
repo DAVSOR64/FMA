@@ -28,7 +28,6 @@
         <field name="inherit_id" ref="custom.view_order_form_custom"/>
         <field name="arch" type="xml">
 
-            <!-- Ancre sur le name de l'onglet, jamais sur son libelle. -->
             <!-- Le bouton d'achat du devis. Celui d'Odoo est masque par
                  le code (cf. SaleOrder._get_view) : il remonte par les
                  mouvements et ne voit ni un bon en brouillon, ni un bon qui
@@ -44,42 +43,6 @@
                 </button>
             </xpath>
 
-            <xpath expr="//page[@name='fma_analyse_financiere']" position="inside">
-                <group string="Prix de revient réel" name="fma_pri_reel">
-                    <group name="fma_pri_calcul">
-                        <field name="fma_pri_reel"/>
-                        <field name="fma_pri_services"/>
-                        <field name="fma_pri_non_ventile"/>
-                        <field name="fma_pri_date"/>
-                        <button name="action_calcul_pri" type="object"
-                                string="Calcul PRI" class="btn-primary"
-                                colspan="2"
-                                help="Recalcule la colonne Réel : achats rattachés à la commande + consommations des articles non achetés, et la ventilation par ligne."/>
-                        <button name="action_pri_detail_lignes" type="object"
-                                string="Détail par ligne" class="btn-link"
-                                colspan="2"/>
-                    </group>
-                    <group name="fma_pri_mod" string="Main-d'œuvre directe">
-                        <field name="so_cout_mod_reel" string="MOD saisie (entre dans la M.C.V.)" readonly="1"/>
-                        <field name="fma_cout_mod_odoo"/>
-                        <field name="fma_cout_mod_ecart"
-                               decoration-warning="fma_cout_mod_ecart != 0"/>
-                    </group>
-                    <group name="fma_pri_achats">
-                        <field name="fma_achats_non_rattaches_nb"
-                               decoration-danger="fma_achats_non_rattaches_nb &gt; 0"/>
-                        <field name="fma_achats_non_rattaches_montant"
-                               invisible="fma_achats_non_rattaches_nb == 0"/>
-                        <button name="action_pri_achats_non_rattaches" type="object"
-                                string="Voir les achats non rattachés" class="btn-link"
-                                colspan="2"
-                                invisible="fma_achats_non_rattaches_nb == 0"/>
-                        <button name="action_pri_achats_rattaches" type="object"
-                                string="Voir les achats rattachés" class="btn-link"
-                                colspan="2"/>
-                    </group>
-                </group>
-            </xpath>
 
             <xpath expr="//field[@name='order_line']/list" position="inside">
                 <field name="fma_achat_matiere_reel" optional="hide" sum="Matière réel"/>
