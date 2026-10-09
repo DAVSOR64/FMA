@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Le prix de revient rejoint l'onglet du cout MOD reel.
-         Les deux repondaient a la meme question — ce que l'affaire a
-         reellement coute — dans deux onglets differents : les heures
-         d'atelier d'un cote, les achats de l'autre. Ils sont desormais sous
-         les yeux ensemble.
+    <!-- L'onglet du cout reel de l'affaire.
+         Il s'appelait « Analyse financiere MOD » et ne portait que les
+         heures d'atelier ; le prix de revient vivait dans un autre onglet.
+         Les deux repondent a la meme question — ce que l'affaire a vraiment
+         coute — et il fallait faire l'aller-retour pour les confronter.
 
          ON HERITE DE LA VUE QUI CREE L'ONGLET, et non de la vue standard.
          custom_sale_order pose cette page ; s'y accrocher depuis une vue
@@ -20,38 +20,73 @@
                 <attribute name="string">Prix de revient</attribute>
             </xpath>
 
-            <xpath expr="//page[@name='analyse_financiere_mod_odoo']" position="inside">
-                    <group string="Prix de revient réel" name="fma_pri_reel">
-                        <group name="fma_pri_calcul">
-                            <field name="fma_pri_reel"/>
-                            <field name="fma_pri_services"/>
-                            <field name="fma_pri_non_ventile"/>
-                            <field name="fma_pri_date"/>
-                            <button name="action_calcul_pri" type="object"
-                                    string="Calcul PRI" class="btn-primary"
-                                    colspan="2"
-                                    help="Recalcule la colonne Réel : achats rattachés à la commande + consommations des articles non achetés, et la ventilation par ligne."/>
-                            <button name="action_pri_detail_lignes" type="object"
-                                    string="Détail par ligne" class="btn-link"
-                                    colspan="2"/>
-                        </group>
-                        <group name="fma_pri_mod" string="Main-d'œuvre directe">
-                            <field name="so_cout_mod_reel" string="MOD saisie (entre dans la M.C.V.)" readonly="1"/>
-                            <field name="fma_cout_mod_odoo"/>
-                            <field name="fma_cout_mod_ecart"
-                                   decoration-warning="fma_cout_mod_ecart != 0"/>
-                        </group>
-                        <group name="fma_pri_achats">
-                            <field name="fma_achats_non_rattaches_nb"
-                                   decoration-danger="fma_achats_non_rattaches_nb &gt; 0"/>
-                            <field name="fma_achats_non_rattaches_montant"
-                                   invisible="fma_achats_non_rattaches_nb == 0"/>
-                            <button name="action_pri_achats_non_rattaches" type="object"
-                                    string="Voir les achats non rattachés" class="btn-link"
-                                    colspan="2"
-                                    invisible="fma_achats_non_rattaches_nb == 0"/>
-                        </group>
-                    </group>            </xpath>
+            <!-- Le groupe d'origine est REMPLACE, pas complete : ses deux
+                 champs reviennent ci-dessous dans la colonne main-d'oeuvre.
+                 Les laisser en place donnait deux blocs de cout MOD dans le
+                 meme onglet. -->
+            <xpath expr="//page[@name='analyse_financiere_mod_odoo']/group[@name='mod_odoo']"
+                   position="replace">
+                <group name="fma_cout_reel">
+                    <group string="Coût réel matière" name="fma_cout_matiere">
+                        <field name="fma_pri_reel"/>
+                        <field name="fma_pri_services"/>
+                        <field name="fma_pri_non_ventile"/>
+                        <field name="fma_pri_date"/>
+                        <field name="fma_achats_non_rattaches_nb"
+                               decoration-danger="fma_achats_non_rattaches_nb &gt; 0"/>
+                        <field name="fma_achats_non_rattaches_montant"
+                               invisible="fma_achats_non_rattaches_nb == 0"/>
+                        <button name="action_calcul_pri" type="object"
+                                string="Calcul PRI" class="btn-primary"
+                                colspan="2"
+                                help="Recalcule la colonne Réel : achats rattachés à la commande + consommations des articles non achetés, et la ventilation par ligne."/>
+                        <button name="action_pri_detail_lignes" type="object"
+                                string="Détail par ligne" class="btn-link"
+                                colspan="2"/>
+                        <button name="action_pri_achats_non_rattaches" type="object"
+                                string="Voir les achats non rattachés" class="btn-link"
+                                colspan="2"
+                                invisible="fma_achats_non_rattaches_nb == 0"/>
+                    </group>
+
+                    <!-- En face de la matiere, et non en dessous : les deux
+                         moities du cout reel se lisent ensemble ou pas du
+                         tout. « MOD saisie » est la valeur que le metier
+                         porte, « Cout MOD reel Odoo » celle que les
+                         pointages donnent, et l'ecart dit s'il faut aller
+                         voir. -->
+                    <group string="Coût réel main d'œuvre" name="fma_cout_mod">
+                        <field name="so_heures_mod_reelles_odoo"
+                               widget="float_time" readonly="1"/>
+                        <field name="so_cout_mod_reel_odoo" readonly="1"/>
+                        <field name="so_cout_mod_reel"
+                               string="MOD saisie (entre dans la M.C.V.)"
+                               readonly="1"/>
+                        <field name="fma_cout_mod_ecart"
+                               decoration-warning="fma_cout_mod_ecart != 0"/>
+                    </group>
+                </group>
+
+                <!-- Ce que l'affaire rapporte, sous ce qu'elle coute.
+                     La facturation vient de l'onglet Analyse Financiere, ou
+                     elle cohabitait avec les chiffres devis et B.E. : elle
+                     n'y comparait rien, elle constatait. Sa place est ici,
+                     en regard du cout. -->
+                <group name="fma_resultat_reel">
+                    <group string="Facturation" name="fma_facturation">
+                        <field name="amount_untaxed" string="Total HT"/>
+                        <field name="fma_facture_ht"/>
+                        <field name="x_studio_restant_a_facturer_ht_pivot"/>
+                    </group>
+                    <group string="Résultat réel" name="fma_marge_reelle">
+                        <field name="so_mtt_facturer_reel"/>
+                        <field name="so_marge_brute_reel"/>
+                        <field name="so_prc_marge_brute_reel_display"/>
+                        <field name="so_mcv_reel"/>
+                        <field name="so_prc_mcv_reel_display"/>
+                    </group>
+                </group>
+            </xpath>
         </field>
     </record>
 

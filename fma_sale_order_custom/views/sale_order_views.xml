@@ -366,23 +366,17 @@ if resultat and resultat is not True:
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="custom.view_order_form_custom"/>
         <field name="arch" type="xml">
-            <!-- RAF HT et sa decomposition, dans l'onglet Analyse
-                 Financiere ou se lisent deja les chiffres devis / BE / reel.
-                 Les trois lignes sont montrees ENSEMBLE a dessein : le RAF
-                 seul ne se verifie pas, alors que « total moins facture »
-                 se lit d'un coup d'oeil. C'est ce qui manquait quand deux
-                 champs de RAF coexistaient sans qu'on puisse les departager.
-                 fma_facture_ht n'est pas stocke : il ne sert qu'a rendre le
-                 calcul lisible, et c'est le RAF, lui stocke, qui alimente
+            <!-- LA FACTURATION A DEMENAGE dans l'onglet « Prix de revient »
+                 (fma_custom), en regard du cout reel. Elle vivait ici parmi
+                 les chiffres devis / B.E. / reel, ou elle ne comparait rien :
+                 elle constatait. En face du cout, elle dit ce que l'affaire
+                 rapporte — c'est la que le metier la lit.
+
+                 Les trois lignes restent montrees ENSEMBLE a dessein : le
+                 RAF seul ne se verifie pas, alors que « total moins
+                 facture » se lit d'un coup d'oeil. fma_facture_ht n'est
+                 toujours pas stocke ; c'est le RAF, lui stocke, qui alimente
                  les tableaux croises et Power BI. -->
-            <xpath expr="//page[@name='fma_analyse_financiere']/group"
-                   position="inside">
-                <group string="Facturation" name="fma_facturation">
-                    <field name="amount_untaxed" string="Total HT"/>
-                    <field name="fma_facture_ht"/>
-                    <field name="x_studio_restant_a_facturer_ht_pivot"/>
-                </group>
-            </xpath>
         </field>
     </record>
 
