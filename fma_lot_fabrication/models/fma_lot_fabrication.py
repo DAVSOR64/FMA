@@ -458,9 +458,17 @@ class FmaLotFabrication(models.Model):
         # fabrication, la commande. Le chainage des mouvements m'a menti trois
         # fois de suite ; un rapprochement par le texte ne depend d'aucune
         # topologie et attrape ce qu'il laisse passer.
+        # PAS LE NOM DE LA COMMANDE DE VENTE. Deux lots d'une meme affaire le
+        # partagent : ce nom ne peut, par construction, distinguer personne.
+        # Chaque lot ramassait donc TOUTES les lignes d'achat de l'affaire.
+        # Constate sur A26-10-07853 : seize lignes revendiquees par les deux
+        # lots, dont les panneaux du repere 001 et ceux du repere 002, qui
+        # appartiennent pourtant chacun a un lot et un seul.
+        #
+        # Ne restent que des noms propres au lot : le sien et ceux de ses
+        # ordres de fabrication.
         noms = [self.name]
         noms += self.production_ids.mapped("name")
-        noms += self.sale_order_ids.mapped("name")
         noms = [n for n in noms if n]
         if noms:
             Achat = self.env["purchase.order"]
@@ -733,6 +741,50 @@ class FmaLotFabrication(models.Model):
             _logger.exception(
                 "Regroupement des sorties matiere du lot %s", self.name)
         return garde
+
+    def _sortir_les_debits_du_transfert(self):
+        """Retire du transfert matiere les ensembles debites.
+
+        Ils n'ont rien a y faire : le debit les produit DIRECTEMENT en
+        Pre-Fab, la ou l'assemblage vient les chercher. Les laisser dans le
+        bon de sortie revenait a demander au magasin de les prelever en stock
+        six jours avant que le debit existe — la ligne sortait « Pas
+        disponible », et l'assemblage creusait du negatif en Pre-Fab pendant
+        que la quantite produite dormait au stock.
+
+        C'est l'autre moitie du correctif, et elle est indissociable de la
+        premiere : deposer en Pre-Fab sans retirer le prelevement laisserait
+        un mouvement qui ne peut pas se servir.
+
+        Les mouvements sont annules plutot que supprimes : un mouvement
+        confirme ne se supprime pas sans laisser Odoo incoherent, et une
+        ligne annulee se voit — on saura pourquoi elle n'est pas la.
+
+        Encadre : au pire le transfert garde une ligne de trop, ce qui est
+        genant et visible. Une exception empecherait de generer les ordres.
+        """
+        self.ensure_one()
+        try:
+            transferts = self.picking_matiere_ids - self.picking_profile_ids
+            mouvements = transferts.move_ids.filtered(
+                lambda m: m.state not in ("done", "cancel")
+                and m.product_id.fma_semi_fini == "debit"
+            )
+            if not mouvements:
+                return self.env["stock.move"]
+            noms = mouvements.mapped("product_id.default_code")
+            mouvements._action_cancel()
+            self.message_post(body=_(
+                "Sortie matière : %(nb)s ensemble(s) débité(s) retiré(s) du "
+                "bon — %(noms)s. Le débit les produit directement en "
+                "Pré-Fab, il n'y a rien à prélever en stock.",
+                nb=len(mouvements), noms=", ".join(n for n in noms if n),
+            ))
+            return mouvements
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Retrait des ensembles debites du lot %s", self.name)
+            return self.env["stock.move"]
 
     def _fusionner(self, pickings):
         """Fond des transferts de meme flux en un seul.
@@ -1018,6 +1070,7 @@ class FmaLotFabrication(models.Model):
             # Prelevements et achats n'existent qu'une fois les ordres
             # confirmes : c'est ici, et pas avant, qu'on peut les regrouper.
             lot._fusionner_sorties_matiere()
+            lot._sortir_les_debits_du_transfert()
             lot._rattacher_achats()
             lot._fusionner_achats_du_lot()
 
@@ -1942,14 +1995,54 @@ class FmaLotFabrication(models.Model):
     # Ce que l'OF de debit sort : un ensemble debite par repere
     # ------------------------------------------------------------------
     def _get_product_debit_lot(self):
-        """L'article que porte l'OF de debit : « Debit du lot », generique.
+        """L'article que porte l'OF de debit, PROPRE A L'AFFAIRE.
 
-        Ce n'est pas ``_get_product_debit`` : celui-la rend l'article debite
-        DU LOT, qui est l'ensemble debite de la menuiserie quand le lot n'en
-        fabrique qu'une (cf. l'import LOGIKAL). Ici on veut l'article qui
-        designe la seance de debit elle-meme, jamais un ensemble debite de
-        repere — celui-ci sort en sous-produit, et un article ne peut pas
-        etre a la fois le produit et le sous-produit d'un ordre.
+        Il s'appelait « [DEB-LOT] Debit du lot », generique et partage par
+        toutes les affaires : sur un ecran de stock ou de valorisation, les
+        debits de dix chantiers se confondaient en une seule ligne. Il porte
+        desormais la reference de la commande — « A26-10-07853_DEB ».
+
+        L'article est cree a la demande et reutilise ensuite : deux lots
+        d'une meme affaire partagent le leur, ce qui est voulu — c'est la
+        meme seance de debit vue deux fois.
+
+        Repli sur l'article generique quand le lot n'a pas de commande : un
+        lot saisi a la main doit pouvoir se generer.
+        """
+        self.ensure_one()
+        commande = self.sale_order_ids.sorted("id")[:1]
+        if not commande or not commande.name:
+            return self._get_product_debit_lot_generique()
+        reference = "%s_DEB" % commande.name
+        Article = self.env["product.product"]
+        article = Article.search(
+            [("default_code", "=", reference)], limit=1)
+        if article:
+            return article
+        modele = self._get_product_debit_lot_generique()
+        return Article.create({
+            "name": "Débit du lot — %s" % commande.name,
+            "default_code": reference,
+            # Copies du generique : c'est lui qui porte le parametrage juste
+            # — type, categorie, unite, routes. Les recopier evite d'inventer
+            # une configuration a cote de celle que le metier a reglee.
+            "type": modele.type,
+            "is_storable": modele.is_storable,
+            "categ_id": modele.categ_id.id,
+            "uom_id": modele.uom_id.id,
+            "purchase_ok": False,
+            "sale_ok": False,
+            "fma_semi_fini": modele.fma_semi_fini,
+            "company_id": False,
+        })
+
+    def _get_product_debit_lot_generique(self):
+        """L'article generique « Debit du lot », repli et modele.
+
+        Il reste le parametrage de reference — type, categorie, unite — dont
+        l'article d'affaire est une copie. Ce n'est jamais un ensemble debite
+        de repere : un article ne peut pas etre a la fois le produit et le
+        sous-produit d'un meme ordre.
         """
         self.ensure_one()
         reperes = self.line_ids.product_debit_id

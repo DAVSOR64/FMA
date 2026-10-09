@@ -173,11 +173,39 @@ class MrpProduction(models.Model):
         )
         vals["cost_share"] = cost_share or 0.0
         # Un sous-produit ne reprend pas la destination de l'article de
-        # l'ordre : il va au stock, pas a ce qui attendrait « Debit du lot ».
+        # l'ordre : il ne va pas a ce qui attendrait « Debit du lot ».
         vals["move_dest_ids"] = []
+        # IL VA EN PRE-FAB, PAS AU STOCK. Les barres coupees ne repartent
+        # jamais en magasin : elles restent au pied du banc jusqu'a
+        # l'assemblage. Les deposer au stock obligeait a les en ressortir par
+        # un transfert date SIX JOURS AVANT que le debit les produise — d'ou
+        # une ligne « Pas disponible » sur le bon de sortie matiere, puis du
+        # negatif en Pre-Fab a l'assemblage pendant que la quantite restait
+        # en stock. On les depose la ou l'assemblage viendra les chercher.
+        prefab = self._emplacement_assemblage()
+        if prefab:
+            vals["location_dest_id"] = prefab.id
         if self.origin:
             vals["origin"] = self.origin
         return self.env["stock.move"].create(vals)
+
+    def _emplacement_assemblage(self):
+        """La ou les ordres d'assemblage du lot prennent leurs composants.
+
+        On la lit sur les ordres eux-memes plutot que de la nommer : le lot
+        peut vivre dans n'importe quel entrepot — LRE, REM — et chacun a sa
+        propre Pre-Fab. Sans ordre d'assemblage encore cree, on ne devine
+        rien et l'appelant garde la destination par defaut.
+        """
+        self.ensure_one()
+        lot = self.lot_fabrication_id
+        if not lot:
+            return self.env["stock.location"]
+        assemblages = lot.production_ids.filtered(
+            lambda p: p.lot_production_type == "assemblage"
+            and p.state != "cancel"
+        )
+        return assemblages[:1].location_src_id
 
     def _cal_price(self, consumed_moves):
         """Le cout de l'OF de debit va a ses sous-produits, quoi qu'il arrive.
