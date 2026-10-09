@@ -121,6 +121,23 @@ class PurchaseOrder(models.Model):
         help="Commandes proposees : celles du projet de l'achat s'il en a un.",
     )
 
+    @api.model
+    def default_get(self, fields_list):
+        """L'acheteur par defaut de la societe, quand Odoo n'en met pas.
+
+        Odoo propose l'utilisateur qui saisit. Sur un bon ne d'un
+        approvisionnement, personne ne saisit : le champ reste vide, le bon
+        n'apparait dans la liste « Mes commandes » d'aucun acheteur et il
+        attend que quelqu'un tombe dessus. On pose donc le responsable que
+        la societe designe.
+        """
+        valeurs = super().default_get(fields_list)
+        defaut = self.env.company.fma_acheteur_defaut_id
+        if "user_id" in fields_list and defaut:
+            valeurs["user_id"] = defaut.id
+        return valeurs
+
+
     @api.depends("x_studio_projet_du_so")
     def _compute_fma_sale_order_domain(self):
         Commande = self.env["sale.order"]
@@ -147,6 +164,15 @@ class PurchaseOrder(models.Model):
                     {"fma_sale_order_id": achat.fma_sale_order_id.id})
 
     def create(self, vals_list):
+        # L'ACHETEUR PAR DEFAUT, ICI AUSSI. default_get ne passe que par
+        # l'interface ; l'approvisionnement appelle create() avec ses propres
+        # valeurs — et c'est precisement le cas qui laissait les bons sans
+        # responsable, donc dans la liste « Mes commandes » de personne.
+        defaut = self.env.company.fma_acheteur_defaut_id
+        if defaut:
+            for vals in vals_list:
+                if not vals.get("user_id"):
+                    vals["user_id"] = defaut.id
         orders = super().create(vals_list)
         orders.with_context(skip_studio_sync=True)._apply_studio_automations()
         orders.order_line._fma_rattacher_commande()
