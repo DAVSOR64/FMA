@@ -347,37 +347,22 @@ if resultat and resultat is not True:
         </field>
     </record>
 
-    <!-- ==========================================================
-         RAF HT dans l'onglet Analyse Financiere.
+    <!-- LA FACTURATION A DEMENAGE dans l'onglet « Prix de revient », porte
+         par fma_custom, en regard du cout reel. Elle vivait ici parmi les
+         chiffres devis / B.E. / reel, ou elle ne comparait rien : elle
+         constatait. En face du cout, elle dit ce que l'affaire rapporte.
 
-         Vue separee, et surtout fille de custom.view_order_form_custom
-         plutot que de sale.view_order_form : c'est cette vue-la qui cree
-         la page fma_analyse_financiere.
+         Le record qui la posait est SUPPRIME, et non vide de son contenu :
+         un <field name="arch"> sans aucun element est refuse par la
+         grammaire d'Odoo — « Element odoo has extra content: record » — et
+         le registre ne se charge plus. Un enregistrement de vue sans arch
+         n'a de toute facon plus d'objet.
 
-         Deux vues soeurs heritant du meme parent sont appliquees dans
-         l'ordre (priorite, id). L'id depend de la base : sur une staging
-         custom passait avant, sur l'autre apres — et l'xpath ne trouvait
-         plus sa page. Meme code, meme module, une base qui charge et une
-         qui refuse. Heriter de la vue qui pose l'ancrage rend l'ordre
-         certain, au lieu de le laisser au hasard des sequences.
-         ========================================================== -->
-    <record id="view_order_form_facturation_fma" model="ir.ui.view">
-        <field name="name">sale.order.form.facturation.fma</field>
-        <field name="model">sale.order</field>
-        <field name="inherit_id" ref="custom.view_order_form_custom"/>
-        <field name="arch" type="xml">
-            <!-- LA FACTURATION A DEMENAGE dans l'onglet « Prix de revient »
-                 (fma_custom), en regard du cout reel. Elle vivait ici parmi
-                 les chiffres devis / B.E. / reel, ou elle ne comparait rien :
-                 elle constatait. En face du cout, elle dit ce que l'affaire
-                 rapporte — c'est la que le metier la lit.
+         Les trois lignes restent montrees ENSEMBLE a dessein, dans leur
+         nouvel onglet : le RAF seul ne se verifie pas, alors que « total
+         moins facture » se lit d'un coup d'oeil. fma_facture_ht n'est
+         toujours pas stocke ; c'est le RAF, lui stocke, qui alimente les
+         tableaux croises et Power BI. -->
 
-                 Les trois lignes restent montrees ENSEMBLE a dessein : le
-                 RAF seul ne se verifie pas, alors que « total moins
-                 facture » se lit d'un coup d'oeil. fma_facture_ht n'est
-                 toujours pas stocke ; c'est le RAF, lui stocke, qui alimente
-                 les tableaux croises et Power BI. -->
-        </field>
-    </record>
 
 </odoo>
