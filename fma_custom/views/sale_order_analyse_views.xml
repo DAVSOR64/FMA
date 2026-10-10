@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- L'analyse de l'affaire : ce qu'elle a coute, ce qu'elle rapporte.
+         Toutes les mesures sont deja STOCKEES — Odoo les croise donc
+         nativement, sans vue SQL ni champ nouveau. Les axes sont ceux que
+         le metier emploie : le chantier, la tranche, le client, le mois.
+
+         Ce n'est pas un tableau de pilotage : Odoo n'affiche qu'un
+         graphique a la fois. C'est l'outil du quotidien — « combien m'a
+         coute ce chantier » — le pilotage reste dans Power BI. -->
+    <record id="view_sale_order_analyse_pivot" model="ir.ui.view">
+        <field name="name">sale.order.fma.analyse.pivot</field>
+        <field name="model">sale.order</field>
+        <field name="arch" type="xml">
+            <pivot string="Analyse des affaires" sample="1">
+                <field name="project_id" type="row"/>
+                <field name="date_order" interval="month" type="col"/>
+                <field name="amount_untaxed" type="measure"/>
+                <field name="so_achat_matiere_reel" type="measure"/>
+                <field name="so_achat_vitrage_reel" type="measure"/>
+                <field name="so_cout_mod_reel" type="measure"/>
+                <field name="so_marge_brute_reel" type="measure"/>
+                <field name="so_mcv_reel" type="measure"/>
+                <field name="x_studio_restant_a_facturer_ht_pivot" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_sale_order_analyse_graph" model="ir.ui.view">
+        <field name="name">sale.order.fma.analyse.graph</field>
+        <field name="model">sale.order</field>
+        <field name="arch" type="xml">
+            <graph string="Analyse des affaires" type="bar" sample="1">
+                <field name="date_order" interval="month"/>
+                <field name="so_mcv_reel" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_sale_order_analyse_search" model="ir.ui.view">
+        <field name="name">sale.order.fma.analyse.search</field>
+        <field name="model">sale.order</field>
+        <field name="arch" type="xml">
+            <search string="Analyse des affaires">
+                <field name="name" string="Affaire"/>
+                <field name="project_id" string="Chantier"/>
+                <field name="partner_id"/>
+                <filter name="ana_confirme" string="Commandes"
+                        domain="[('state', 'in', ('sale', 'done'))]"/>
+                <filter name="ana_devis" string="Devis en cours"
+                        domain="[('state', 'in', ('draft', 'sent', 'validated'))]"/>
+                <filter name="ana_a_facturer" string="Reste à facturer"
+                        domain="[('x_studio_restant_a_facturer_ht_pivot', '&gt;', 0)]"/>
+                <separator/>
+                <filter name="ana_grp_chantier" string="Chantier"
+                        context="{'group_by': 'project_id'}"/>
+                <!-- La tranche est un entier sur le devis : « A24-04-01435/2 »
+                     la porte dans son numero, mais seul ce champ se groupe. -->
+                <filter name="ana_grp_tranche" string="Tranche"
+                        context="{'group_by': 'x_tranche'}"/>
+                <filter name="ana_grp_client" string="Client"
+                        context="{'group_by': 'partner_id'}"/>
+                <filter name="ana_grp_mois" string="Mois de commande"
+                        context="{'group_by': 'date_order:month'}"/>
+                <filter name="ana_grp_livraison" string="Mois de livraison"
+                        context="{'group_by': 'commitment_date:month'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_sale_order_analyse" model="ir.actions.act_window">
+        <field name="name">Analyse des affaires</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">pivot,graph,list,form</field>
+        <field name="search_view_id" ref="view_sale_order_analyse_search"/>
+        <field name="context">{'search_default_ana_confirme': 1,
+                               'search_default_ana_grp_chantier': 1}</field>
+    </record>
+
+    <record id="action_sale_order_analyse_pivot" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">pivot</field>
+        <field name="view_id" ref="view_sale_order_analyse_pivot"/>
+        <field name="act_window_id" ref="action_sale_order_analyse"/>
+    </record>
+
+    <record id="action_sale_order_analyse_graph" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">graph</field>
+        <field name="view_id" ref="view_sale_order_analyse_graph"/>
+        <field name="act_window_id" ref="action_sale_order_analyse"/>
+    </record>
+
+    <menuitem id="menu_sale_order_analyse"
+              name="Analyse des affaires"
+              parent="sale.sale_menu_root"
+              action="action_sale_order_analyse"
+              groups="sales_team.group_sale_salesman"
+              sequence="45"/>
+
+</odoo>

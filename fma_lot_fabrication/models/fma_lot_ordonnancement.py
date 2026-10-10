@@ -210,7 +210,32 @@ class FmaLotFabrication(models.Model):
         for lot in self:
             lot.ordo_peut_modifier = autorise
 
-    # --- Engagement ---------------------------------------------------------
+    # --- Cout achete, par famille -------------------------------------------
+    #
+    # Le montant COMMANDE, pas le montant recu : c'est l'engagement du lot,
+    # et c'est lui qui se compare au chiffrage. Le decoupage est celui des
+    # colonnes du tableau — meme regle, pas une seconde.
+    currency_id = fields.Many2one(
+        "res.currency",
+        string="Devise",
+        compute="_compute_ordo", store=True,
+        help="Celle de la societe du lot. Indispensable aux montants : un "
+        "champ Monetary sans devise ne s'affiche pas.",
+    )
+    ordo_cout_profil = fields.Monetary(
+        string="Achat profilés", currency_field="currency_id",
+        compute="_compute_ordo", store=True)
+    ordo_cout_vitrage = fields.Monetary(
+        string="Achat vitrage", currency_field="currency_id",
+        compute="_compute_ordo", store=True)
+    ordo_cout_quincaillerie = fields.Monetary(
+        string="Achat quincaillerie", currency_field="currency_id",
+        compute="_compute_ordo", store=True)
+    ordo_cout_total = fields.Monetary(
+        string="Achat total", currency_field="currency_id",
+        compute="_compute_ordo", store=True,
+        help="Somme des trois familles. Montant commandé, pas reçu.")
+
     # --- Engagement ---------------------------------------------------------
     ordo_livraison = fields.Date(
         string="Livraison client",
@@ -264,6 +289,10 @@ class FmaLotFabrication(models.Model):
         """Valeurs neutres : un champ calcule stocke doit etre affecte."""
         self.ensure_one()
         self.ordo_commande_id = False
+        self.currency_id = self.env.company.currency_id
+        for colonne in COLONNES_MATIERE:
+            self["ordo_cout_%s" % colonne] = 0.0
+        self.ordo_cout_total = 0.0
         self.ordo_date_debit = False
         self.ordo_date_sortie = False
         self.ordo_assemblages_planifies = "-"
@@ -290,6 +319,8 @@ class FmaLotFabrication(models.Model):
         self.ensure_one()
         commandes = self.sale_order_ids.sorted("id")
         self.ordo_commande_id = commandes[:1]
+        self.currency_id = (
+            self.company_id.currency_id or self.env.company.currency_id)
         self._calculer_ordo_planification()
         self._calculer_ordo_charge()
         # LE LOT TERMINE NE COUTE RIEN. Remonter la chaine des achats est une
@@ -387,9 +418,13 @@ class FmaLotFabrication(models.Model):
             self["ordo_arrivee_%s" % colonne] = arrivee
             self["ordo_statut_%s" % colonne] = Production._fma_statut_reception(
                 lignes)
+            montant = sum(ligne.price_subtotal for ligne in lignes)
+            self["ordo_cout_%s" % colonne] = montant
             if arrivee:
                 arrivees.append(arrivee)
         self.ordo_matiere_le = max(arrivees) if arrivees else False
+        self.ordo_cout_total = sum(
+            self["ordo_cout_%s" % colonne] for colonne in COLONNES_MATIERE)
 
     def _calculer_ordo_engagement(self):
         self.ensure_one()
