@@ -169,7 +169,14 @@ class SaleOrder(models.Model):
 
     # Depuis project_id et non x_studio_projet : le projet du devis est
     # desormais porte par le champ natif. Voir la migration 19.0.1.0.26.
-    @api.depends("project_id")
+    #
+    # LA DEPENDANCE PORTE SUR LE RESPONSABLE, PAS SEULEMENT SUR LE PROJET.
+    # Avec « project_id » seul, le bureau d'etudes n'etait repris qu'au
+    # moment ou l'on rattachait le devis a un chantier : changer ensuite le
+    # responsable du projet ne remontait nulle part, et le devis gardait un
+    # nom perime — ou restait vide quand le projet n'avait pas encore de
+    # responsable au rattachement, ce qui est le cas courant.
+    @api.depends("project_id", "project_id.user_id")
     def _compute_x_studio_bureau_dtude(self):
         for order in self:
             order.x_studio_bureau_dtude = order.project_id.user_id

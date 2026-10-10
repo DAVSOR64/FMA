@@ -798,11 +798,23 @@ class FmaLotFabrication(models.Model):
         deplace pas dans son dos.
         """
         self.ensure_one()
-        transferts = self.picking_matiere_ids.filtered(
-            lambda p: not p.lot_fabrication_id)
-        if transferts:
-            transferts.lot_fabrication_id = self.id
-        return transferts
+        transferts = self.picking_matiere_ids
+        a_marquer = transferts.filtered(lambda p: not p.lot_fabrication_id)
+        if a_marquer:
+            a_marquer.lot_fabrication_id = self.id
+
+        # LE PROJET AUSSI. Le transfert des profiles le portait — il nait de
+        # l'OF de debit, qui le porte — mais pas celui de la quincaillerie :
+        # il nait de l'approvisionnement des assemblages, et le champ Studio
+        # n'y est alimente par personne. Le magasin voyait donc un de ses
+        # deux bons sans chantier.
+        projet = self.sale_order_ids.project_id[:1]
+        champ = "x_studio_projet_de_la_vente"
+        if projet and champ in transferts._fields:
+            orphelins = transferts.filtered(lambda p: not p[champ])
+            if orphelins:
+                orphelins.write({champ: projet.id})
+        return a_marquer
 
     def _sortir_les_debits_du_transfert(self):
         """Retire du transfert matiere les ensembles debites.
@@ -2809,6 +2821,16 @@ class FmaLotFabrication(models.Model):
         self.ensure_one()
         classes = {}
         blocs = []
+        # L'emplacement est resolu UNE FOIS pour tous les casiers : le meme
+        # article revient d'un casier a l'autre, et la remontee des rayons
+        # coute une recherche par article.
+        articles = self.env["product.product"].browse()
+        for casier in casiers:
+            for article, qty, _uom in casier["contenu"]:
+                if article and qty:
+                    articles |= article
+        emplacements = self._emplacements_stock(articles) if articles else {}
+
         for casier in casiers:
             lignes = []
             for article, qty, uom in casier["contenu"]:
@@ -2818,7 +2840,10 @@ class FmaLotFabrication(models.Model):
                     classes[article.id] = article._fma_classe_matiere()
                 if classes[article.id] in ("profile", "remplissage"):
                     continue
-                lignes.append({"product": article, "qty": qty, "uom": uom})
+                lignes.append({
+                    "product": article, "qty": qty, "uom": uom,
+                    "emplacement": emplacements.get(article.id),
+                })
             if not lignes:
                 continue
             lignes.sort(key=lambda d: (

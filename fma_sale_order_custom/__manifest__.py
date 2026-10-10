@@ -31,7 +31,7 @@
     # 1.0.58 : le bloc Facturation devient une vue fille de celle qui
     # cree l'onglet, au lieu d'une soeur. Entre soeurs l'ordre depend des
     # id : une base chargeait, l'autre refusait, a code identique.
-    "version": "19.0.1.0.62",
+    "version": "19.0.1.0.63",
     "depends": [
         "sale_management",
         "custom",
