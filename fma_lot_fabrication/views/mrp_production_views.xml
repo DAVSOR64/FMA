@@ -35,11 +35,16 @@
                     </group>
                     <group string="Planification FMA" name="fma_of_planification">
                         <field name="macro_forced_end" string="Fin de fab"/>
+                        <field name="x_studio_niveau_de_complexite"
+                               string="Niveau de complexité"/>
+                        <!-- L'atelier SOUS la complexite, a la demande du
+                             metier. Il etait pose par une vue de fma_atelier
+                             jusqu'a ce que celle-ci soit retiree — elle
+                             affichait le champ une seconde fois, le bloc
+                             ci-dessus le posant deja. -->
                         <field name="atelier_id"
                                options="{'no_create_edit': False}"
                                placeholder="Atelier de production"/>
-                        <field name="x_studio_niveau_de_complexite"
-                               string="Niveau de complexité"/>
                     </group>
                 </group>
             </xpath>
