@@ -22,12 +22,19 @@
     # 1.0.25 : la colonne SIRET du fichier clients lit le SIRET (fma_siret)
     # et se replie sur le SIREN.
     # 1.0.26 : la colonne SIRET relit company_registry, comme en production.
-    "version": "19.0.1.4.0",
+    "version": "19.0.1.4.1",
     # « custom_sale_order » : il pose l'onglet du cout MOD reel, ou le
-    # prix de revient vient desormais se loger. On herite de la vue qui
-    # CREE l'onglet, jamais d'une vue sœur.
-    "depends": ["custom", "custom_sale_order", "hr", "sale", "purchase",
-                "mrp", "account", "stock"],
+    # prix de revient vient se loger. On herite de la vue qui CREE
+    # l'onglet, jamais d'une vue sœur.
+    #
+    # « fma_sale_order_custom » : il porte fma_facture_ht, que le bloc
+    # Facturation affiche. Sans cette dependance le module se chargeait
+    # AVANT lui et la vue echouait — « Field "fma_facture_ht" does not
+    # exist in model "sale.order" ». Le bloc aurait pu rester chez lui,
+    # mais il aurait fallu l'ancrer depuis une vue sœur, dont l'ordre
+    # d'application depend des priorites : on prefere la dependance.
+    "depends": ["custom", "custom_sale_order", "fma_sale_order_custom",
+                "hr", "sale", "purchase", "mrp", "account", "stock"],
     "data": [
         "views/mail_templates.xml",
         "views/sale_order_actions.xml",
