@@ -1154,6 +1154,9 @@ class FmaLotFabrication(models.Model):
             lot._scinder_assemblages_par_serie()
 
             lot._chainer_debit_et_assemblage()
+            # Apres le chainage seulement : c'est lui qui pose les dates de
+            # fabrication, donc le besoin sur lequel les achats se recalent.
+            lot._recaler_dates_achat()
 
             if lot.state == "confirmed":
                 lot.state = "progress"
@@ -1394,6 +1397,60 @@ class FmaLotFabrication(models.Model):
                         cible + timedelta(days=(fin_debit - debut).days + 1))
                     mo.compute_macro_schedule_from_date_fin()
         return deplaces
+
+    def _recaler_dates_achat(self):
+        """Aligne l'arrivee des achats EN BROUILLON sur le besoin reel.
+
+        La date d'un bon d'achat est le besoin tel qu'il etait A LA
+        CONFIRMATION du devis — a cet instant les ordres ne sont pas encore
+        planifies, et la seule date connue est la livraison client. Le
+        macro-planning ramene ensuite la fabrication des semaines plus tot,
+        et rien ne previent l'achat.
+
+        Mesure sur A26-10-07853 : besoin au 12 novembre, achat SIPO annonce
+        au 3 decembre, soit la date de livraison du chantier.
+
+        On recale donc chaque ligne sur la date du mouvement qu'elle sert,
+        la PLUS PROCHE quand elle en sert plusieurs : la matiere doit etre
+        la pour le premier besoin, pas pour le dernier.
+
+        SEULEMENT LES BONS EN BROUILLON. Une fois le bon envoye, la date de
+        reception est un engagement du fournisseur : la reecrire dans son dos
+        donnerait une base qui affiche une date a laquelle personne n'a
+        souscrit. C'est la meme regle que pour le deplacement des achats a la
+        replanification — l'achat tranche, pas nous.
+        """
+        self.ensure_one()
+        recalees = self.env["purchase.order.line"]
+        try:
+            lignes = self._lignes_achat_du_lot().filtered(
+                lambda l: l.order_id.state == "draft"
+                and not l.display_type and l.product_id
+            )
+            if not lignes or "move_dest_ids" not in lignes._fields:
+                return recalees
+            for ligne in lignes:
+                dates = [
+                    m.date for m in ligne.move_dest_ids
+                    if m.date and m.state not in ("done", "cancel")
+                ]
+                if not dates:
+                    continue
+                besoin = min(dates)
+                if ligne.date_planned != besoin:
+                    ligne.date_planned = besoin
+                    recalees |= ligne
+            if recalees:
+                self.message_post(body=_(
+                    "Achats recalés sur le besoin : %(nb)s ligne(s) sur "
+                    "%(bons)s. L'arrivée annoncée datait de la confirmation "
+                    "du devis, avant que la fabrication ne soit planifiée.",
+                    nb=len(recalees),
+                    bons=", ".join(sorted(set(recalees.mapped("order_id.name")))),
+                ))
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception("Recalage des dates d'achat du lot %s", self.name)
+        return recalees
 
     def _achats_a_revoir(self):
         """Les bons d'achat du lot, pour information — SANS les deplacer.

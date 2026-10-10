@@ -543,6 +543,10 @@ class MrpProduction(models.Model):
 
         deplaces = lot._decaler_assemblages(assemblages, decalage, self)
         depart_matiere = lot._planifier_sortie_matiere(self)
+        # Le besoin a bouge : les achats encore en brouillon suivent. Ceux
+        # qui sont partis chez le fournisseur ne bougent pas — ils sont
+        # NOMMES dans le compte rendu, et c'est a l'achat de negocier.
+        lot._recaler_dates_achat()
         lot._rendre_compte_replanification(
             self, decalage, deplaces, depart_matiere, lot._achats_a_revoir())
         return resultat
