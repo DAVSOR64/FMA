@@ -782,6 +782,28 @@ class FmaLotFabrication(models.Model):
                 "Regroupement des sorties matiere du lot %s", self.name)
         return garde
 
+    def _marquer_sorties_du_lot(self):
+        """Pose le lot sur ses transferts de matiere.
+
+        Le magasin prepare a la journee : il lui faut une liste des sorties
+        du jour avec, en face de chacune, l'affaire et le lot. Le lot
+        connaissait ses transferts — par un calcul non stocke, donc ni
+        groupable ni cherchable — mais le transfert ne connaissait pas son
+        lot. C'est ici qu'on l'ecrit, apres le regroupement : avant, les
+        transferts a marquer n'existent pas encore sous leur forme finale.
+
+        Une affectation deja posee n'est pas ecrasee : un transfert partage
+        entre deux lots — cela ne devrait pas arriver, mais rien ne
+        l'interdit — garde le premier qui l'a revendique, et on ne le
+        deplace pas dans son dos.
+        """
+        self.ensure_one()
+        transferts = self.picking_matiere_ids.filtered(
+            lambda p: not p.lot_fabrication_id)
+        if transferts:
+            transferts.lot_fabrication_id = self.id
+        return transferts
+
     def _sortir_les_debits_du_transfert(self):
         """Retire du transfert matiere les ensembles debites.
 
@@ -1111,6 +1133,7 @@ class FmaLotFabrication(models.Model):
             # confirmes : c'est ici, et pas avant, qu'on peut les regrouper.
             lot._fusionner_sorties_matiere()
             lot._sortir_les_debits_du_transfert()
+            lot._marquer_sorties_du_lot()
             lot._rattacher_achats()
             lot._fusionner_achats_du_lot()
 

@@ -14,13 +14,52 @@ quincaillerie arrive, dans le transfert d'origine ou dans son reliquat.
 """
 import logging
 
-from odoo import _, models
+from odoo import _, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
 
 class StockPicking(models.Model):
     _inherit = "stock.picking"
+
+    # LE LOT SUR LE TRANSFERT, et stocke. Le magasin prepare a la journee :
+    # il lui faut une liste des sorties du jour avec, en face de chacune,
+    # l'affaire et le lot. Le lot connaissait ses transferts — par un calcul
+    # non stocke, donc ni groupable ni cherchable ; le transfert, lui, ne
+    # connaissait pas son lot. C'est le lot qui l'ecrit en regroupant ses
+    # sorties : lui seul sait lesquelles lui appartiennent.
+    lot_fabrication_id = fields.Many2one(
+        "fma.lot.fabrication",
+        string="Lot de fabrication",
+        index="btree_not_null",
+        ondelete="set null",
+        copy=False,
+    )
+    # La commande du lot, pour grouper la preparation par affaire sans
+    # ouvrir le lot. Related STOCKE : un related simple ne se grouperait pas.
+    lot_commande_id = fields.Many2one(
+        "sale.order",
+        string="Commande",
+        related="lot_fabrication_id.ordo_commande_id",
+        store=True,
+        index="btree_not_null",
+    )
+
+    def action_imprimer_besoin_matiere_lot(self):
+        """Le besoin matiere du lot, depuis le transfert.
+
+        Le rapport est rattache au LOT, et le magasin arrive par le
+        transfert : sans ce bouton il faut ouvrir le lot pour l'imprimer,
+        et le menu « Imprimer » du transfert ne le propose pas puisqu'il
+        n'y est pas rattache.
+        """
+        self.ensure_one()
+        if not self.lot_fabrication_id:
+            raise UserError(_(
+                "Ce transfert n'appartient à aucun lot de fabrication : il "
+                "n'y a pas de besoin matière à imprimer."))
+        return self.lot_fabrication_id.action_imprimer_besoin_matiere()
 
     def _action_done(self):
         res = super()._action_done()

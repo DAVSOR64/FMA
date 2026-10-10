@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Le transfert de matiere, vu par le magasin.
+         Ce qu'il prepare aujourd'hui, et pour qui : l'affaire, la commande,
+         le lot. Ces trois colonnes manquaient, et il fallait ouvrir chaque
+         transfert pour savoir a quel chantier il appartenait. -->
+    <record id="view_picking_tree_lot" model="ir.ui.view">
+        <field name="name">stock.picking.list.lot</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.vpicktree"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="lot_fabrication_id" optional="show"/>
+                <field name="lot_commande_id" optional="show"/>
+                <field name="x_studio_projet_de_la_vente" optional="hide"
+                       string="Projet"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_picking_search_lot" model="ir.ui.view">
+        <field name="name">stock.picking.search.lot</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_internal_search"/>
+        <field name="arch" type="xml">
+            <field name="origin" position="after">
+                <field name="lot_fabrication_id" string="Lot de fabrication"/>
+                <field name="lot_commande_id" string="Commande"/>
+            </field>
+            <filter name="starred" position="after">
+                <separator/>
+                <filter name="fma_du_lot" string="Sorties d'un lot"
+                        domain="[('lot_fabrication_id', '!=', False)]"/>
+            </filter>
+        </field>
+    </record>
+
+    <!-- Les deux raccourcis du magasin, sur le formulaire.
+         « Besoin matiere » parce que le rapport est rattache au LOT : sans
+         ce bouton il faut ouvrir le lot pour l'imprimer, et le menu
+         « Imprimer » du transfert ne le propose pas. -->
+    <record id="view_picking_form_lot" model="ir.ui.view">
+        <field name="name">stock.picking.form.lot</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="lot_fabrication_id" readonly="1"
+                       invisible="not lot_fabrication_id"/>
+                <field name="lot_commande_id" readonly="1"
+                       invisible="not lot_commande_id"/>
+            </xpath>
+
+            <xpath expr="//header" position="inside">
+                <button name="action_imprimer_besoin_matiere_lot" type="object"
+                        string="Besoin matière"
+                        invisible="not lot_fabrication_id"
+                        help="Le besoin matière du lot : profilés, vitrages et quincaillerie, puis la quincaillerie casier par casier."/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -75,7 +75,7 @@
     # designer un type numerotant pour un autre atelier.
     # 1.62.0 : colonne Lot et regroupements projet / lot sur
     # l'ordonnancement ; la replanification dit quand elle ne decale rien.
-    "version": "19.0.1.84.0",
+    "version": "19.0.1.85.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
@@ -133,6 +133,7 @@ Voir README.md pour le detail du parametrage.
         "views/fma_lot_fabrication_views.xml",
         "views/sale_order_views.xml",
         "views/mrp_production_views.xml",
+        "views/stock_picking_lot_views.xml",
         "views/purchase_order_views.xml",
         "views/res_config_settings_views.xml",
         "wizard/fma_lot_wizard_views.xml",
