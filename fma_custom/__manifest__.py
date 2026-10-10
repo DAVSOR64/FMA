@@ -22,7 +22,7 @@
     # 1.0.25 : la colonne SIRET du fichier clients lit le SIRET (fma_siret)
     # et se replie sur le SIREN.
     # 1.0.26 : la colonne SIRET relit company_registry, comme en production.
-    "version": "19.0.1.5.0",
+    "version": "19.0.1.5.1",
     # « custom_sale_order » : il pose l'onglet du cout MOD reel, ou le
     # prix de revient vient se loger. On herite de la vue qui CREE
     # l'onglet, jamais d'une vue sœur.
@@ -40,7 +40,6 @@
         "views/sale_order_actions.xml",
         "views/sale_order_views.xml",
         "views/sale_order_pri_views.xml",
-        "views/sale_order_analyse_views.xml",
         "views/purchase_order_views.xml",
         "views/res_config_settings_views.xml",
         "views/res_partner_actions.xml",
