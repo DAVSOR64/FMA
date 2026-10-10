@@ -67,6 +67,26 @@ ENTREPOT_PAR_ETIQUETTE = {
     "F2M": "REM",
 }
 
+#: L'atelier que l'etiquette designe, pour les lots qui n'en portent pas.
+#: Meme regle que l'entrepot, et c'est voulu : « FMA » fabrique a La
+#: Regrippiere, « F2M » a La Remaudiere. Le rapprochement se fait sur le
+#: CODE de l'atelier, et sur son nom a defaut — un referentiel sans code
+#: renseigne ne doit pas priver les ordres de leur atelier.
+#: Les accents d'un referentiel saisi a la main ne doivent pas faire rater
+#: un rapprochement : « Regrippiere » et « Regrippière » se valent.
+_ACCENTS = str.maketrans("ÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÇàáâãäåèéêëìíîïòóôõöùúûüç",
+                         "AAAAAAEEEEIIIIOOOOOUUUUCaaaaaaeeeeiiiiooooouuuuc")
+
+
+def _sans_accent(texte):
+    return (texte or "").translate(_ACCENTS)
+
+
+NOM_ATELIER_PAR_ETIQUETTE = {
+    "FMA": ("LRE", "REGRIPPIERE"),
+    "F2M": ("REM", "REMAUDIERE"),
+}
+
 
 def uom_fname(model):
     """Nom du champ UoM sur ``model``.
@@ -1789,6 +1809,39 @@ class FmaLotFabrication(models.Model):
                     return nom
         return ""
 
+    def _atelier_par_etiquette(self):
+        """L'atelier que l'etiquette de la commande designe.
+
+        « FMA » fabrique a La Regrippiere, « F2M » a La Remaudiere — la meme
+        regle que pour l'entrepot, parce que c'est le meme site. Les ordres
+        d'un lot sortaient sans atelier, donc hors du macro-planning et des
+        restitutions de capacite, qui raisonnent par atelier.
+
+        Le rapprochement se fait sur le CODE de l'atelier, puis sur son nom :
+        un referentiel ou le code n'est pas renseigne ne doit pas priver les
+        ordres de leur atelier. Les accents sont ignores — « Regrippiere » et
+        « Regrippière » doivent se valoir.
+
+        Rien trouve, rien pose : l'ordonnanceur garde la main, et un atelier
+        absent vaut mieux qu'un mauvais.
+        """
+        self.ensure_one()
+        Atelier = self.env["fma.atelier"]
+        reperes = NOM_ATELIER_PAR_ETIQUETTE.get(self._etiquette_commerciale())
+        if not reperes:
+            return Atelier
+        code, nom = reperes
+        trouve = Atelier.search(
+            [("code", "=ilike", code),
+             ("company_id", "in", (False, self.company_id.id))], limit=1)
+        if trouve:
+            return trouve
+        for candidat in Atelier.search(
+                [("company_id", "in", (False, self.company_id.id))]):
+            if nom in _sans_accent(candidat.name or "").upper():
+                return candidat
+        return Atelier
+
     def _picking_type_par_etiquette(self):
         """Le type de fabrication de l'entrepot que l'etiquette designe.
 
@@ -1897,6 +1950,15 @@ class FmaLotFabrication(models.Model):
         projet = self.sale_order_ids.project_id[:1]
         if projet and "x_studio_projet_de_la_vente" in Production._fields:
             vals["x_studio_projet_de_la_vente"] = projet.id
+
+        # L'atelier, deduit de l'etiquette comme l'entrepot. Sans lui les
+        # ordres du lot sortaient hors du macro-planning et des restitutions
+        # de capacite, qui raisonnent par atelier. Le champ vient de
+        # fma_atelier — dependance declaree, mais le controle ne coute rien.
+        if "atelier_id" in Production._fields:
+            atelier = self._atelier_par_etiquette()
+            if atelier:
+                vals["atelier_id"] = atelier.id
 
         # La commande, sur l'OF de debit comme sur les autres. Il n'a pas de
         # ligne de vente — c'est le lot entier qu'il debite, pas une
