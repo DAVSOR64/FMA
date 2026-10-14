@@ -170,7 +170,15 @@ class FmaPricerEngine(models.AbstractModel):
         # articles crees par le connecteur — vitrages en tete, qui portent la
         # position « A » dans toutes les affaires.
         self = self.with_context(
-            fma_site=quotation.site,
+            # A DEFAUT DE SITE DANS LE FICHIER, L'ETIQUETTE DE LA COMMANDE.
+            # REPORTVARIABLES manque a certains exports, et une affaire sans
+            # site laissait les postes homonymes departages par l'ordre
+            # alphabetique : « Debit F2M » l'emportait systematiquement sur
+            # « Debit FMA », et le « Site pricer » renseigne par le metier
+            # n'etait jamais consulte. L'etiquette commerciale porte la meme
+            # information — c'est deja elle qui choisit l'entrepot et
+            # l'atelier.
+            fma_site=quotation.site or self._etiquette_site(order),
             # A defaut d'offre dans le fichier — le chiffrage TechDesign n'en
             # porte pas —, le numero du devis fait l'affaire : c'est le prefixe
             # des references d'articles, celui-la meme sur lequel la resolution
@@ -1343,6 +1351,29 @@ class FmaPricerEngine(models.AbstractModel):
         else:
             Bom.create(vals)
 
+    #: L'etiquette commerciale porte le site : la meme regle que pour
+    #: l'entrepot et l'atelier. On ne s'en invente pas une seconde.
+    CHAMPS_ETIQUETTE = ("tag_ids", "x_studio_etiquette_1")
+    SITES_CONNUS = ("FMA", "F2M")
+
+    @api.model
+    def _etiquette_site(self, order):
+        """« FMA » ou « F2M », lu sur l'etiquette de la commande.
+
+        Aucun des deux champs n'est suppose exister : ils viennent d'ailleurs
+        et un champ absent ne doit pas faire echouer l'import.
+        """
+        if not order:
+            return ""
+        for champ in self.CHAMPS_ETIQUETTE:
+            if champ not in order._fields:
+                continue
+            for tag in order.mapped(champ):
+                nom = (tag.name or "").strip().upper()
+                if nom in self.SITES_CONNUS:
+                    return nom
+        return ""
+
     def _workcenters(self, product):
         """Postes de charge candidats, et ceux explicitement rattaches.
 
@@ -1413,6 +1444,16 @@ class FmaPricerEngine(models.AbstractModel):
 
             # 1. Le rattachement declare a la main fait foi.
             workcenter = declares.get((prefixe, site)) or declares.get((prefixe, ""))
+            # Sans site connu, un rattachement declare — meme porteur d'un
+            # site — vaut mieux qu'un tri alphabetique. On ne le retient que
+            # s'il est UNIQUE : deux postes declares pour la meme operation
+            # sur deux sites, et c'est au metier de dire lequel.
+            if not workcenter and not site:
+                pour_operation = [
+                    poste for (op, _s), poste in declares.items() if op == prefixe
+                ]
+                if len(pour_operation) == 1:
+                    workcenter = pour_operation[0]
 
             # 2. Sinon le code du poste, qui vaut la sequence de l'operation.
             #    C'est la convention de l'atelier et elle est sans ambiguite.
