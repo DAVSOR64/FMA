@@ -1215,10 +1215,16 @@ class FmaLotFabrication(models.Model):
         reporte : les ordres issus de la scission restent dans le lot.
         """
         self.ensure_one()
+        # SEULEMENT LES MENUISERIES. Un habillage appartient au lot et se
+        # debite avec lui, mais il n'a ni numero de serie, ni casier, ni
+        # etiquette : le scinder en exemplaires numerotes n'aurait aucun
+        # sens. Son ordre reste entier, avec ses operations hors debit —
+        # l'emballage au minimum.
         candidats = self.production_assembly_ids.filtered(
             lambda p: p.state not in ("done", "cancel")
             and p.product_id.tracking == "serial"
             and not p.lot_producing_ids
+            and (not p.lot_line_id or p.lot_line_id.est_menuiserie)
         )
         obtenus = self.env["mrp.production"]
         for mo in candidats:
@@ -2807,6 +2813,12 @@ class FmaLotFabrication(models.Model):
                         continue
                     cle = (article, uom)
                     agrege[cle] = agrege.get(cle, 0.0) + qty
+                # UN HABILLAGE N'A PAS DE CASIER. Sa matiere entre bien au
+                # besoin du lot — elle se sort et se debite avec le reste —
+                # mais le magasin ne lui garnit pas de casier : il n'y a pas
+                # de menuiserie a identifier derriere.
+                if not ligne.est_menuiserie:
+                    continue
                 casiers.append({
                     "ligne": ligne,
                     "rang": rang,

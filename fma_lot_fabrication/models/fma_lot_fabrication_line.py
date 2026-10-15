@@ -44,6 +44,14 @@ class FmaLotFabricationLine(models.Model):
         store=True,
         index=True,
     )
+    est_menuiserie = fields.Boolean(
+        string="Menuiserie",
+        related="sale_line_id.fma_est_menuiserie",
+        store=True,
+        help="Une menuiserie recoit un ordre par exemplaire, un numero de "
+        "serie et un casier. Un habillage appartient au lot et se debite "
+        "avec lui, mais n'en recoit aucun.",
+    )
     partner_id = fields.Many2one(
         related="sale_line_id.order_id.partner_id",
         string="Client",

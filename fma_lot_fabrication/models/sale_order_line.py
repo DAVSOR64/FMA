@@ -34,6 +34,16 @@ class SaleOrderLine(models.Model):
         compute="_compute_lot_info",
         digits="Product Unit of Measure",
     )
+    fma_est_menuiserie = fields.Boolean(
+        string="Menuiserie",
+        compute="_compute_fma_est_menuiserie",
+        store=True,
+        help="Une menuiserie a une largeur et une hauteur. Un habillage — "
+        "« Position matiere » cote LOGIKAL — n'en a pas : il appartient au "
+        "lot, il se debite avec lui, mais il ne recoit ni numero de serie, "
+        "ni casier, ni etiquette.",
+    )
+
     is_lotable = fields.Boolean(
         string="A lotir",
         compute="_compute_is_lotable",
@@ -57,31 +67,34 @@ class SaleOrderLine(models.Model):
             line.qty_lot = sum(active.mapped("product_qty"))
             line.qty_to_lot = max(line.product_uom_qty - line.qty_lot, 0.0)
 
-    @api.depends(
-        "product_id", "product_id.type", "display_type",
-        "order_id.order_line.product_id",
-    )
+    @api.depends("product_id")
+    def _compute_fma_est_menuiserie(self):
+        for line in self:
+            line.fma_est_menuiserie = bool(
+                line.product_id and not line.display_type
+                and line._fma_a_des_dimensions()
+            )
+
+    @api.depends("product_id", "product_id.type", "display_type")
     def _compute_is_lotable(self):
-        """Une ligne a lotir est une MENUISERIE, pas une fourniture.
+        """Une ligne a lotir appartient au LOT, menuiserie ou non.
 
-        UNE MENUISERIE A UNE LARGEUR ET UNE HAUTEUR. C'est le critere le plus
-        sur, et il vient de LOGIKAL : une elevation « chassis » porte ses
-        dimensions, une « Position matiere » n'en a pas. Sur A26-10-07833, la
-        ligne « Fourniture de cales de vitrage » etait une position matiere —
-        elle est devenue la huitieme menuiserie du lot, avec son ordre
-        d'assemblage, son numero de serie et son casier, et ne se planifiait
-        pas comme les autres.
+        J'avais confondu deux notions sous ce seul drapeau, et le metier l'a
+        releve : un habillage — « Position matiere » cote LOGIKAL — se debite
+        AVEC le lot, a la meme date, et ses minutes de debit entrent dans
+        l'ordre de debit du lot. L'ecarter du lot lui retirait son debit.
 
-        La position du repere ne suffit pas : LOGIKAL en donne une AUSSI aux
-        positions matiere (« TS N°1 », « 003 »). Elle ne sert donc que de
-        second critere, pour les commandes ou les dimensions ne sont pas
-        renseignees.
+        Ce qu'il n'est pas, c'est une MENUISERIE : pas de numero de serie,
+        pas de casier, pas d'etiquette. C'est fma_est_menuiserie qui le dit,
+        et lui seul.
 
-        Trois niveaux, du plus sur au plus large, et chacun ne s'applique que
-        si la commande porte l'information : refuser tout lotissement sur une
-        commande ancienne ou saisie a la main serait pire que d'en trop
-        proposer.
+        Reste donc a ecarter ce qui n'entre pas en fabrication : les services
+        et les combos, les articles marques « exclu du comptage des reperes »
+        — eco-contribution, transport —, et plus generalement ce qui n'a NI
+        dimensions NI nomenclature. Un habillage a une nomenclature : c'est
+        ce qui le distingue d'une ligne de texte.
         """
+        Bom = self.env["mrp.bom"]
         for line in self:
             if line.display_type or not line.product_id:
                 line.is_lotable = False
@@ -96,23 +109,13 @@ class SaleOrderLine(models.Model):
                     line.product_id.fma_exclu_reperes):
                 line.is_lotable = False
                 continue
-
-            lignes = line.order_id.order_line.filtered(
-                lambda l: not l.display_type and l.product_id)
-            dimensionnees = lignes.filtered(lambda l: l._fma_a_des_dimensions())
-            if dimensionnees:
-                line.is_lotable = line._fma_a_des_dimensions()
+            if line._fma_a_des_dimensions():
+                line.is_lotable = True
                 continue
-            positionnees = lignes.filtered(
-                lambda l: "x_studio_position" in l._fields
-                and (l.x_studio_position or "").strip()
-            )
-            if positionnees:
-                line.is_lotable = bool(
-                    "x_studio_position" in line._fields
-                    and (line.x_studio_position or "").strip())
-                continue
-            line.is_lotable = True
+            # Sans dimensions, il faut une nomenclature : elle porte la
+            # matiere a debiter. Sans elle, il n'y a rien a fabriquer.
+            line.is_lotable = bool(
+                Bom._bom_find(line.product_id).get(line.product_id))
 
     def _fma_a_des_dimensions(self):
         """Le produit de cette ligne porte-t-il largeur ET hauteur ?"""
