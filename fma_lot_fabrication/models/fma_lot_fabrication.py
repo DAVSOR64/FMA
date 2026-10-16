@@ -34,6 +34,7 @@ Les niveaux sont relies par ``lot_fabrication_id`` (la reference de lot), et
 non par le chainage parent/enfant natif d'Odoo.
 """
 import logging
+import re
 from datetime import timedelta
 
 from odoo import Command, _, api, fields, models
@@ -1153,6 +1154,10 @@ class FmaLotFabrication(models.Model):
             # Apres la confirmation, avant le chainage : la scission cree des
             # ordres que la planification doit ensuite dater.
             lot._scinder_assemblages_par_serie()
+            # Apres la scission seulement : elle recopie le texte de la ligne
+            # sur chaque exemplaire, et c'est la quantite de l'ordre qui fait
+            # foi une fois les ordres definitifs.
+            lot._poser_complexite_assemblages()
 
             lot._chainer_debit_et_assemblage()
             # Apres le chainage seulement : c'est lui qui pose les dates de
@@ -2407,31 +2412,111 @@ class FmaLotFabrication(models.Model):
         return poses
 
     @api.model
-    def _agreger_complexites(self, lignes):
-        """« A*5 » puis « B*3 », une ligne par niveau.
+    def _niveaux_de_complexite(self, texte, quantite=1):
+        """{niveau: nombre} a partir de « A*3 », « A » ou « A*2 B*1 ».
 
-        C'est le format que x_studio_niveau_de_complexite porte deja et que
-        _fma_score_complexite sait lire : on ne s'en invente pas un second.
+        Le deviseur ecrit le niveau ET son nombre : « A*3 » vaut trois
+        menuiseries de niveau A. C'est deja le format que
+        x_studio_niveau_de_complexite porte sur l'ordre de fabrication et que
+        _fma_score_complexite sait lire — on s'y tient.
 
-        UNE LIGNE SANS COMPLEXITE NE COMPTE PAS. Le deviseur ne la renseigne
-        pas toujours, et il ne faut pas lui prefrer un niveau par defaut :
-        une complexite inventee pese dans le score comme une vraie.
+        Un niveau ecrit SEUL, sans « * », prend la quantite de la ligne : sur
+        une ligne de trois menuiseries, « A » veut dire trois fois A. Ne pas
+        le faire sous-compterait la ligne de deux tiers, en silence.
 
-        Les niveaux sortent dans l'ordre alphabetique — A avant B — pour que
-        deux lots comparables se lisent pareil.
+        Les niveaux sont ramenes en majuscules : « a » et « A » sont le meme
+        niveau, et deux lots comparables doivent se lire pareil.
         """
         par_niveau = {}
-        for ligne in lignes:
-            niveau = (ligne.product_id.fma_complexite or "").strip().upper() if (
-                "fma_complexite" in ligne.product_id._fields) else ""
+        for morceau in re.split(r"[\s,;]+", (texte or "").strip()):
+            if not morceau:
+                continue
+            niveau, _sep, nombre = morceau.partition("*")
+            niveau = niveau.strip().upper()
             if not niveau:
                 continue
-            nombre = max(int(round(ligne.product_qty or 0)), 1)
-            par_niveau[niveau] = par_niveau.get(niveau, 0) + nombre
+            try:
+                compte = int(float(nombre)) if nombre.strip() else int(quantite)
+            except ValueError:
+                compte = int(quantite)
+            if compte > 0:
+                par_niveau[niveau] = par_niveau.get(niveau, 0) + compte
+        return par_niveau
+
+    @api.model
+    def _formater_complexites(self, par_niveau):
+        """« A*5 » puis « B*2 », une ligne par niveau, dans l'ordre."""
         return "\n".join(
             "%s*%s" % (niveau, nombre)
             for niveau, nombre in sorted(par_niveau.items())
         )
+
+    @api.model
+    def _agreger_complexites(self, lignes):
+        """Le cumul des complexites de plusieurs lignes.
+
+        « A*3 » sur une ligne, « A*2 » sur une autre et « B*2 » sur une
+        troisieme donnent « A*5 » et « B*2 » : les niveaux se regroupent et
+        les nombres s'additionnent.
+
+        UNE LIGNE SANS COMPLEXITE NE COMPTE PAS. Le deviseur ne la renseigne
+        pas toujours, et lui preter un niveau par defaut la ferait peser dans
+        le score comme une vraie.
+        """
+        total = {}
+        for ligne in lignes:
+            produit = ligne.product_id
+            texte = (produit.fma_complexite or "") if (
+                "fma_complexite" in produit._fields) else ""
+            quantite = max(int(round(ligne.product_qty or 0)), 1)
+            for niveau, nombre in self._niveaux_de_complexite(
+                    texte, quantite).items():
+                total[niveau] = total.get(niveau, 0) + nombre
+        return self._formater_complexites(total)
+
+    def _poser_complexite_assemblages(self):
+        """La complexite de CHAQUE ordre d'assemblage, apres la scission.
+
+        A la creation, l'ordre d'une ligne de trois menuiseries porte le
+        « A*3 » de la ligne. La scission en trois exemplaires RECOPIE ce
+        texte : le lot compterait neuf menuiseries de niveau A au lieu de
+        trois. On repose donc la valeur une fois les ordres definitifs.
+
+        Un niveau unique — le cas courant — se ramene a la quantite de
+        l'ordre : « A*1 » sur chacun des trois. Quand une ligne melange
+        plusieurs niveaux, les repartir serait arbitraire : le premier ordre
+        garde le texte entier et les autres n'en portent aucun, de sorte que
+        le total du lot reste exactement celui de la ligne.
+        """
+        self.ensure_one()
+        Production = self.env["mrp.production"]
+        if "x_studio_niveau_de_complexite" not in Production._fields:
+            return Production
+        poses = Production.browse()
+        for ligne in self.line_ids:
+            ordres = self.production_assembly_ids.filtered(
+                lambda p: p.lot_line_id == ligne and p.state != "cancel"
+            ).sorted("id")
+            if not ordres:
+                continue
+            niveaux = self._niveaux_de_complexite(
+                (ligne.product_id.fma_complexite or "")
+                if "fma_complexite" in ligne.product_id._fields else "",
+                max(int(round(ligne.product_qty or 0)), 1),
+            )
+            for rang, ordre in enumerate(ordres):
+                if not niveaux:
+                    texte = ""
+                elif len(niveaux) == 1:
+                    niveau = next(iter(niveaux))
+                    nombre = max(int(round(ordre.product_qty or 0)), 1)
+                    texte = "%s*%s" % (niveau, nombre)
+                else:
+                    texte = self._formater_complexites(niveaux) if rang == 0 else ""
+                if ordre.x_studio_niveau_de_complexite != texte:
+                    ordre.x_studio_niveau_de_complexite = texte
+                    poses |= ordre
+        return poses
 
     def _poser_complexite_lot(self):
         """Pose la complexite sur l'OF de debit : la somme du lot.

@@ -500,13 +500,16 @@ class SqliteConnector(models.Model):
                     cpt = cpt + 1
                     Index = str(cpt)
                     refart = row[8]
-                    # LA COMPLEXITE SE LIT APRES LE « / ». Elevations.Model
+                    # LA COMPLEXITE SE LIT APRES LE « _ ». Elevations.Model
                     # porte la categorie avec son increment — « ALU01 » — et
-                    # le deviseur y ajoute desormais le niveau de complexite
-                    # de la menuiserie : « ALU01/A ». La categorie reste la
-                    # partie de gauche, inchangee pour les affaires qui n'ont
-                    # pas de « / ».
-                    categorie, _sep, complexite = (row[2] or '').partition('/')
+                    # le deviseur y ajoute le niveau de complexite de la
+                    # ligne, avec son nombre : « ALU01_A*3 ». La categorie
+                    # reste la partie de gauche, inchangee pour les affaires
+                    # qui n'ont pas de « _ ».
+                    #
+                    # partition et non split : une categorie pourrait porter
+                    # un « _ » de plus, et seul le PREMIER separe.
+                    categorie, _sep, complexite = (row[2] or '').partition('_')
                     categorie = categorie.strip()
                     complexite = complexite.strip()
                     # Reference = affaire + position, et non le rang de la
