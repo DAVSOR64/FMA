@@ -1143,6 +1143,7 @@ class FmaLotFabrication(models.Model):
 
             # Prelevements et achats n'existent qu'une fois les ordres
             # confirmes : c'est ici, et pas avant, qu'on peut les regrouper.
+            lot._poser_complexite_lot()
             lot._fusionner_sorties_matiere()
             lot._sortir_les_debits_du_transfert()
             lot._marquer_sorties_du_lot()
@@ -2405,6 +2406,50 @@ class FmaLotFabrication(models.Model):
             return self.env["stock.move"]
         return poses
 
+    @api.model
+    def _agreger_complexites(self, lignes):
+        """« A*5 » puis « B*3 », une ligne par niveau.
+
+        C'est le format que x_studio_niveau_de_complexite porte deja et que
+        _fma_score_complexite sait lire : on ne s'en invente pas un second.
+
+        UNE LIGNE SANS COMPLEXITE NE COMPTE PAS. Le deviseur ne la renseigne
+        pas toujours, et il ne faut pas lui prefrer un niveau par defaut :
+        une complexite inventee pese dans le score comme une vraie.
+
+        Les niveaux sortent dans l'ordre alphabetique — A avant B — pour que
+        deux lots comparables se lisent pareil.
+        """
+        par_niveau = {}
+        for ligne in lignes:
+            niveau = (ligne.product_id.fma_complexite or "").strip().upper() if (
+                "fma_complexite" in ligne.product_id._fields) else ""
+            if not niveau:
+                continue
+            nombre = max(int(round(ligne.product_qty or 0)), 1)
+            par_niveau[niveau] = par_niveau.get(niveau, 0) + nombre
+        return "\n".join(
+            "%s*%s" % (niveau, nombre)
+            for niveau, nombre in sorted(par_niveau.items())
+        )
+
+    def _poser_complexite_lot(self):
+        """Pose la complexite sur l'OF de debit : la somme du lot.
+
+        L'ordre de debit couvre tout le lot, sa complexite est donc celle de
+        l'ensemble. Les ordres d'assemblage, eux, portent celle de LEUR
+        menuiserie — c'est _generate_assembly_orders qui la pose, a la
+        creation.
+        """
+        self.ensure_one()
+        debit = self.production_debit_id
+        if not debit or "x_studio_niveau_de_complexite" not in debit._fields:
+            return ""
+        texte = self._agreger_complexites(self.line_ids)
+        if debit.x_studio_niveau_de_complexite != texte:
+            debit.x_studio_niveau_de_complexite = texte
+        return texte
+
     def _poser_operations_debit(self, production):
         """Le temps de debit du lot : la somme de ses reperes.
 
@@ -2640,6 +2685,12 @@ class FmaLotFabrication(models.Model):
                     "origin": "%s - %s" % (self.name, line.order_id.name or ""),
                 }
             )
+            # La complexite de SA menuiserie, au format du champ existant :
+            # « A*2 » pour deux exemplaires de niveau A. L'ordre de debit,
+            # lui, porte la somme du lot — cf. _poser_complexite_lot.
+            if "x_studio_niveau_de_complexite" in Production._fields:
+                vals["x_studio_niveau_de_complexite"] = (
+                    self._agreger_complexites(line))
             production = Production.create(vals)
             # L'ensemble debite de CETTE menuiserie, et non celui du lot : les
             # coupes d'un repere ne montent pas un autre repere. L'ensemble

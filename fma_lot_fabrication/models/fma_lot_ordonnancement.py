@@ -385,7 +385,13 @@ class FmaLotFabrication(models.Model):
             lambda p: p.state != "cancel")
         self.ordo_nb_reperes = len(assemblages) or int(self.menuiserie_qty or 0)
 
-        self.ordo_score_complexite = sum(ordres.mapped("fma_score_complexite"))
+        # L'ORDRE DE DEBIT EST EXCLU. Il porte desormais la complexite de
+        # TOUT le lot — « A*5 B*3 » — tandis que chaque assemblage porte
+        # celle de sa menuiserie. Les additionner compterait deux fois le
+        # meme travail.
+        self.ordo_score_complexite = sum(
+            ordres.filtered(lambda p: p.lot_production_type != "debit")
+            .mapped("fma_score_complexite"))
 
         # LE SCORE SE RELIT, IL NE S'ADDITIONNE PAS. C'est une note tiree d'un
         # bareme a partir du ratio heures / reperes : la moyenne de deux notes

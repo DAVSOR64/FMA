@@ -30,6 +30,15 @@ class ProductTemplate(models.Model):
         "meme endroit.",
     )
 
+    fma_complexite = fields.Char(
+        string="Niveau de complexité",
+        copy=False,
+        help="Code de complexite de la menuiserie, lu dans Elevations.Model "
+        "du fichier LOGIKAL APRES le « / » : « ALU01/A » donne la categorie "
+        "ALU01 et la complexite A. Vide quand le deviseur n'en a pas saisi — "
+        "la ligne ne compte alors pas dans le total du lot.",
+    )
+
     fma_conditionnement = fields.Float(
         string="Conditionnement d'achat",
         digits="Product Unit of Measure",

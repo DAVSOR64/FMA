@@ -500,7 +500,15 @@ class SqliteConnector(models.Model):
                     cpt = cpt + 1
                     Index = str(cpt)
                     refart = row[8]
-                    categorie = row[2]
+                    # LA COMPLEXITE SE LIT APRES LE « / ». Elevations.Model
+                    # porte la categorie avec son increment — « ALU01 » — et
+                    # le deviseur y ajoute desormais le niveau de complexite
+                    # de la menuiserie : « ALU01/A ». La categorie reste la
+                    # partie de gauche, inchangee pour les affaires qui n'ont
+                    # pas de « / ».
+                    categorie, _sep, complexite = (row[2] or '').partition('/')
+                    categorie = categorie.strip()
+                    complexite = complexite.strip()
                     # Reference = affaire + position, et non le rang de la
                     # position dans le fichier : sur une affaire exportee lot
                     # par lot, le rang change d'un fichier a l'autre et deux
@@ -563,6 +571,13 @@ class SqliteConnector(models.Model):
                 existant = self.env['product.product'].search(
                     [('default_code', '=', refint)], limit=1)
                 if (existant and row[3] != 'Position texte'
+                        and row[1] != 'ECO-CONTRIBUTION'
+                        and existant.fma_complexite != complexite):
+                    # Le deviseur corrige souvent la complexite apres coup :
+                    # elle suit a chaque reimport, dans un sens comme dans
+                    # l'autre — une complexite effacee doit s'effacer.
+                    existant.fma_complexite = complexite
+                if (existant and row[3] != 'Position texte'
                         and row[1] != 'ECO-CONTRIBUTION'):
                     # Reimport : le nom suit la designation tant que personne
                     # n'a renomme l'article a la main (fma_nom_importe).
@@ -577,6 +592,7 @@ class SqliteConnector(models.Model):
                         'categ_id': categ.id if categ else self._get_default_product_category().id,
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
                         "x_studio_position": elevID,
+                        "fma_complexite": complexite,
                         "x_studio_hauteur_mm": HautNum,
                         "x_studio_largeur_mm": largNum,
                         "type": "consu",
