@@ -1145,7 +1145,22 @@ class ExportSFTPScheduler(models.Model):
                             planned_start = getattr(wo, "date_planned_start", False) or date_start
                             planned_finished = getattr(wo, "date_planned_finished", False) or date_finished
                             duration_expected = getattr(wo, "duration_expected", 0.0) or 0.0
-                            duration_real = getattr(wo, "duration", 0.0) or 0.0
+                            # LE TEMPS POINTE PAR LES OPERATEURS, et non la
+                            # duree de l'ordre de travail. « duration » est le
+                            # temps que le chronometre de l'ordre a tourne ;
+                            # x_operator_time_spent somme les pointages du
+                            # suivi des temps, operateur par operateur. Deux
+                            # operateurs sur la meme operation comptent deux
+                            # fois, ce qui est la realite de la charge.
+                            #
+                            # Le champ vient de fma_mrp_dashboard, qui n'est
+                            # pas une dependance de ce module : on verifie sa
+                            # presence et on retombe sur duration sinon,
+                            # plutot que d'exporter des zeros en silence.
+                            if "x_operator_time_spent" in wo._fields:
+                                duration_real = wo.x_operator_time_spent or 0.0
+                            else:
+                                duration_real = getattr(wo, "duration", 0.0) or 0.0
                             writer.writerow([_to_cell(cell) for cell in (
                                 wo.id,
                                 mo.id if mo else "",
