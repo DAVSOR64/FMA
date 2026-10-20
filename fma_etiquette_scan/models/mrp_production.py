@@ -70,6 +70,13 @@ class MrpProduction(models.Model):
                 "barcode_src": Serie._fma_image(
                     "Code128", ordre.name, width=900, height=140, quiet=1),
                 "qr_src": "",
+                # Le numero de l'ordre EST deja le code-barres ci-dessus :
+                # le reimprimer sous l'etiquette ferait deux fois le meme.
+                "of_barcode_src": "",
+                # Pas de QR de secours non plus : un numero d'ordre est de
+                # l'ASCII, Code128 l'ecrit toujours. Le repli n'existe que
+                # pour les numeros de serie accentues.
+                "serie_qr_src": "",
             })
         return etiquettes
 

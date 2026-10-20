@@ -32,73 +32,79 @@
         <field name="binding_type">report</field>
     </record>
 
+    <!-- etq.get(...) et non etq[...] : une etiquette se construit a DEUX
+         endroits — depuis le numero de serie, et depuis l'ordre quand
+         l'article n'est pas suivi. Une cle ajoutee d'un cote et oubliee de
+         l'autre faisait tomber l'impression entiere sur un KeyError, au lieu
+         de laisser un champ vide. Le modele ne depend plus de cette
+         symetrie. -->
     <template id="etiquette_menuiserie">
         <div class="page" style="page-break-after: always; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.25;">
             <table style="width: 100%; border-bottom: 2px solid #000;">
                 <tr>
                     <td style="vertical-align: top;">
-                        <div style="font-size: 11px;" t-out="etq['societe']"/>
+                        <div style="font-size: 11px;" t-out="etq.get('societe')"/>
                         <div style="font-size: 12px;">Repère</div>
-                        <div style="font-size: 30px; font-weight: bold; line-height: 1.05;" t-out="etq['repere'] or '-'"/>
+                        <div style="font-size: 30px; font-weight: bold; line-height: 1.05;" t-out="etq.get('repere') or '-'"/>
                     </td>
                     <td style="vertical-align: top; text-align: right; width: 34%;">
                         <div style="font-size: 12px;">Casier n°</div>
-                        <div style="font-size: 44px; font-weight: bold; line-height: 1;" t-out="etq['casier'] or '-'"/>
+                        <div style="font-size: 44px; font-weight: bold; line-height: 1;" t-out="etq.get('casier') or '-'"/>
                     </td>
                 </tr>
             </table>
 
             <table style="width: 100%; margin-top: 4px;">
-                <tr t-if="etq['affaire']">
+                <tr t-if="etq.get('affaire')">
                     <td style="width: 24%; color: #444;">Affaire</td>
-                    <td style="font-weight: bold;" t-out="etq['affaire']"/>
+                    <td style="font-weight: bold;" t-out="etq.get('affaire')"/>
                 </tr>
                 <tr>
                     <td style="width: 24%; color: #444;">Commande</td>
-                    <td style="font-weight: bold;" t-out="etq['commande'] or '-'"/>
+                    <td style="font-weight: bold;" t-out="etq.get('commande') or '-'"/>
                 </tr>
                 <tr>
                     <td style="color: #444;">Client</td>
-                    <td style="font-weight: bold;" t-out="etq['client'] or '-'"/>
+                    <td style="font-weight: bold;" t-out="etq.get('client') or '-'"/>
                 </tr>
-                <tr t-if="etq['chantier']">
+                <tr t-if="etq.get('chantier')">
                     <td style="color: #444;">Chantier</td>
-                    <td style="font-weight: bold;" t-out="etq['chantier']"/>
+                    <td style="font-weight: bold;" t-out="etq.get('chantier')"/>
                 </tr>
                 <tr>
                     <td style="color: #444;">Lot de fab.</td>
-                    <td style="font-weight: bold;" t-out="etq['lot'] or '-'"/>
+                    <td style="font-weight: bold;" t-out="etq.get('lot') or '-'"/>
                 </tr>
                 <tr>
                     <td style="color: #444;">OF</td>
-                    <td t-out="etq['of'] or '-'"/>
+                    <td t-out="etq.get('of') or '-'"/>
                 </tr>
             </table>
 
             <div style="margin-top: 4px; border-top: 1px solid #000; padding-top: 3px;">
-                <div style="font-size: 13px;" t-out="etq['designation']"/>
-                <div t-if="etq['dimensions']" style="font-size: 16px; font-weight: bold;" t-out="etq['dimensions']"/>
+                <div style="font-size: 13px;" t-out="etq.get('designation')"/>
+                <div t-if="etq.get('dimensions')" style="font-size: 16px; font-weight: bold;" t-out="etq.get('dimensions')"/>
             </div>
 
             <div style="text-align: center; margin-top: 6px;">
-                <img t-if="etq['barcode_src']" alt="Code-barres du numéro de série"
-                     style="width: 100%; height: 62px;" t-att-src="etq['barcode_src']"/>
-                <img t-if="etq['serie_qr_src']" alt="QR code du numéro de série"
-                     style="width: 62px; height: 62px;" t-att-src="etq['serie_qr_src']"/>
-                <div style="font-size: 15px; font-weight: bold; letter-spacing: 0.5px;" t-out="etq['serie']"/>
+                <img t-if="etq.get('barcode_src')" alt="Code-barres du numéro de série"
+                     style="width: 100%; height: 62px;" t-att-src="etq.get('barcode_src')"/>
+                <img t-if="etq.get('serie_qr_src')" alt="QR code du numéro de série"
+                     style="width: 62px; height: 62px;" t-att-src="etq.get('serie_qr_src')"/>
+                <div style="font-size: 15px; font-weight: bold; letter-spacing: 0.5px;" t-out="etq.get('serie')"/>
             </div>
 
-            <div t-if="etq['of_barcode_src']" style="text-align: center; margin-top: 3px;">
+            <div t-if="etq.get('of_barcode_src')" style="text-align: center; margin-top: 3px;">
                 <img alt="Code-barres de l'ordre de fabrication"
-                     style="width: 100%; height: 44px;" t-att-src="etq['of_barcode_src']"/>
-                <div style="font-size: 13px;">OF <span t-out="etq['of']"/></div>
+                     style="width: 100%; height: 44px;" t-att-src="etq.get('of_barcode_src')"/>
+                <div style="font-size: 13px;">OF <span t-out="etq.get('of')"/></div>
             </div>
 
-            <table t-if="etq['qr_src']" style="width: 100%; margin-top: 4px; border-top: 1px solid #000;">
+            <table t-if="etq.get('qr_src')" style="width: 100%; margin-top: 4px; border-top: 1px solid #000;">
                 <tr>
                     <td style="width: 38%; vertical-align: middle;">
                         <img alt="QR code de déclaration SAV"
-                             style="width: 118px; height: 118px;" t-att-src="etq['qr_src']"/>
+                             style="width: 118px; height: 118px;" t-att-src="etq.get('qr_src')"/>
                     </td>
                     <td style="vertical-align: middle;">
                         <div style="font-size: 15px; font-weight: bold;">Un problème ?</div>
