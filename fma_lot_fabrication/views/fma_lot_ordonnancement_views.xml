@@ -28,6 +28,7 @@
                        decoration-success="ordo_statut == 'ok'"/>
                 <field name="name" string="Lot"/>
                 <field name="ordo_commande_id" optional="show"/>
+                <field name="ordo_chantier_id" optional="show"/>
                 <field name="partner_id" optional="show"/>
                 <field name="menuiserie_qty" string="Menuiseries" optional="show"/>
 
@@ -102,7 +103,8 @@
             <search string="Ordonnancement">
                 <field name="name" string="Lot"/>
                 <field name="partner_id"/>
-                <field name="ordo_commande_id" string="Affaire"/>
+                <field name="ordo_commande_id" string="N° d'affaire"/>
+                <field name="ordo_chantier_id" string="Chantier"/>
 
                 <filter name="ordo_retard" string="En retard"
                         domain="[('ordo_statut', '=', 'retard')]"/>
@@ -120,7 +122,12 @@
                 <filter name="ordo_sans_quincaillerie" string="Quincaillerie non commandée"
                         domain="[('ordo_statut_quincaillerie', '=', 'none')]"/>
 
-                <filter name="group_affaire" string="Affaire"
+                <!-- Le CHANTIER d'abord : son nom porte le numero ET le
+                     nom de l'affaire, la ou la commande seule n'affiche que
+                     le numero. C'est lui qui regroupe par defaut. -->
+                <filter name="group_chantier" string="Chantier"
+                        context="{'group_by': 'ordo_chantier_id'}"/>
+                <filter name="group_affaire" string="N° d'affaire"
                         context="{'group_by': 'ordo_commande_id'}"/>
                 <filter name="group_client" string="Client"
                         context="{'group_by': 'partner_id'}"/>
@@ -162,7 +169,7 @@
         <field name="res_model">fma.lot.fabrication</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_fma_lot_ordonnancement_search"/>
-        <field name="context">{'search_default_group_affaire': 1}</field>
+        <field name="context">{'search_default_group_chantier': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Aucun lot à ordonnancer.</p>
             <p>Ce tableau dit, affaire par affaire, si les lots sont planifiés

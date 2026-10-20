@@ -75,7 +75,7 @@
     # designer un type numerotant pour un autre atelier.
     # 1.62.0 : colonne Lot et regroupements projet / lot sur
     # l'ordonnancement ; la replanification dit quand elle ne decale rien.
-    "version": "19.0.1.90.0",
+    "version": "19.0.1.91.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
@@ -116,6 +116,11 @@ Voir README.md pour le detail du parametrage.
         "base",
         "mail",
         "sale",
+        # Porte sale.order.project_id, le chantier. Le module le lisait deja
+        # sans le declarer — tolere pour un simple acces, refuse des qu'un
+        # champ RELATIONNEL vise project.project : le modele doit exister au
+        # chargement.
+        "sale_project",
         "sale_stock",
         "stock",
         "mrp",

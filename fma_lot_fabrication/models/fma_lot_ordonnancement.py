@@ -74,6 +74,17 @@ class FmaLotFabrication(models.Model):
         "affaire.",
     )
 
+    ordo_chantier_id = fields.Many2one(
+        "project.project",
+        string="Chantier",
+        related="ordo_commande_id.project_id",
+        store=True,
+        index="btree_not_null",
+        help="Le chantier de la commande. Son nom porte le numero ET le nom "
+        "de l'affaire — « A26-10-07853 - CRASSUS » — la ou la commande seule "
+        "n'affiche que le numero.",
+    )
+
     # --- Planification ------------------------------------------------------
     ordo_date_debit = fields.Date(
         string="Débit prévu le",
