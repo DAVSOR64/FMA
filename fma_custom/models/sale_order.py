@@ -207,6 +207,88 @@ class SaleOrder(models.Model):
             self.with_context(skip_studio_sync=True)._sync_studio_montant_a_facturer()
         return res
 
+    # ------------------------------------------------------------------
+    # Pas de validation sans fournisseur
+    # ------------------------------------------------------------------
+    def _fma_articles_sans_fournisseur(self):
+        """Les articles a ACHETER du devis qui n'ont aucun fournisseur.
+
+        Un article dont la route porte « Acheter » et dont la liste
+        fournisseur est vide ne declenche aucun achat : l'appro renonce en
+        silence — « Aucun fournisseur n'a ete trouve pour le
+        reapprovisionnement » dans le fil — et le besoin reste a decouvert.
+        On s'en apercoit a la reception qui n'arrive pas.
+
+        On regarde les composants des nomenclatures des lignes, et les
+        articles vendus tels quels. Un article FABRIQUE n'est pas concerne :
+        c'est sa propre nomenclature qui porte ses achats, et elle est
+        exploree a son tour.
+        """
+        self.ensure_one()
+        Bom = self.env["mrp.bom"]
+        a_voir = self.order_line.filtered(
+            lambda l: not l.display_type and l.product_id).product_id
+        vus = set()
+        manquants = self.env["product.product"].browse()
+        # Profondeur bornee : une nomenclature qui se contiendrait elle-meme
+        # ferait tourner cette boucle indefiniment, et un devis bloque sans
+        # message serait pire que le probleme qu'on traite.
+        for _niveau in range(5):
+            a_voir = a_voir.filtered(lambda p: p.id not in vus)
+            if not a_voir:
+                break
+            vus |= set(a_voir.ids)
+            suivants = self.env["product.product"].browse()
+            for article in a_voir:
+                bom = Bom._bom_find(article).get(article)
+                if bom:
+                    # explode rend (lignes_entete, lignes_composants) ; chaque
+                    # composant est un couple (ligne, valeurs). Une boucle
+                    # plutot qu'un union(*[...]), qui leve sur une liste vide.
+                    _entete, composants = bom.explode(article, 1)
+                    for ligne_bom, _valeurs in composants:
+                        if ligne_bom.product_id:
+                            suivants |= ligne_bom.product_id
+                    continue
+                if article._fma_achete_sur_commande() and not article.seller_ids:
+                    manquants |= article
+            a_voir = suivants
+        return manquants
+
+    def _fma_verifier_fournisseurs(self):
+        """Bloque tant qu'un article a acheter n'a pas de fournisseur.
+
+        Demande du service Methodes : pouvoir completer AVANT la validation,
+        plutot que de decouvrir les bons manquants apres coup et de devoir
+        les recreer.
+        """
+        for order in self:
+            manquants = order._fma_verifier_fournisseurs_pour(order)
+            if not manquants:
+                continue
+            noms = "\n".join(
+                "  • %s" % (a.display_name or "") for a in manquants[:20])
+            reste = len(manquants) - 20
+            if reste > 0:
+                noms += _("\n  … et %(nb)s autre(s).", nb=reste)
+            raise UserError(_(
+                "Ces articles doivent être achetés mais n'ont aucun "
+                "fournisseur : aucun bon d'achat ne partira pour eux.\n\n"
+                "%(liste)s\n\n"
+                "Renseignez le fournisseur sur la fiche article, onglet "
+                "Achats, puis validez.",
+                liste=noms,
+            ))
+
+    @api.model
+    def _fma_verifier_fournisseurs_pour(self, order):
+        """Separe pour qu'un test puisse l'appeler sans lever."""
+        return order._fma_articles_sans_fournisseur()
+
+    def action_validation(self):
+        self._fma_verifier_fournisseurs()
+        return super().action_validation()
+
     def action_confirm(self):
         for order in self:
             if not order.partner_id.x_studio_cgv_rib:
