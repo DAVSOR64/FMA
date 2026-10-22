@@ -1719,7 +1719,20 @@ class FmaPricerEngine(models.AbstractModel):
         """
         missing_lines = missing_lines or {}
         issues = []
-        vals = []
+        # UNE SEULE LIGNE DE LOT PAR LIGNE DE DEVIS, a la quantite cumulee.
+        #
+        # Les chiffreurs dupliquent une menuiserie dans LOGIKAL et n'en
+        # changent que le repere : deux elevations decrivent alors la MEME
+        # menuiserie, portent la meme signature, et retombent donc sur la
+        # meme ligne de devis. Une ligne de lot par elevation violait
+        # l'unicite (lot, ligne de devis) et l'import s'arretait sur une
+        # erreur SQL brute, sans rien dire de ce qu'il fallait corriger.
+        #
+        # Le cumul est ce que la contrainte demande elle-meme, et il est
+        # juste : la ligne de devis porte deja la quantite totale, les deux
+        # elevations n'en sont que deux ecritures. On garde l'ordre de
+        # rencontre, pour que la liste du lot suive celle du fichier.
+        par_ligne = {}
         for men in lot_pivot.menuiseries:
             if not men.is_manufactured:
                 continue
@@ -1731,6 +1744,9 @@ class FmaPricerEngine(models.AbstractModel):
                     issues.append(
                         _("menuiserie %s : ligne de devis introuvable", men.ref)
                     )
+                continue
+            if line.id in par_ligne:
+                par_ligne[line.id]["product_qty"] += men.qty
                 continue
             ligne = {
                 "lot_id": lot.id,
@@ -1745,9 +1761,9 @@ class FmaPricerEngine(models.AbstractModel):
                 ligne["product_debit_id"] = self._debit_product(
                     line.product_id
                 ).id
-            vals.append(ligne)
-        if vals:
-            self.env["fma.lot.fabrication.line"].create(vals)
+            par_ligne[line.id] = ligne
+        if par_ligne:
+            self.env["fma.lot.fabrication.line"].create(list(par_ligne.values()))
         return issues
 
     def _set_lot_debit_product(self, lot):
