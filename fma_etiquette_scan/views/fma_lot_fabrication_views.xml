@@ -12,7 +12,7 @@
                 <button name="action_fma_imprimer_etiquettes" type="object"
                         string="Imprimer les étiquettes"
                         invisible="production_count == 0 or state == 'cancel'"
-                        help="Une étiquette par menuiserie, dans l'ordre de la liste de quincaillerie : code-barres du numéro de série et QR code SAV."/>
+                        help="Une étiquette 100 x 35 mm par menuiserie, dans l'ordre de la liste de quincaillerie : affaire, lot, repère, rang de l'exemplaire, client, dimensions et code-barres de l'ordre."/>
                 <button name="action_fma_poste_scan" type="object"
                         string="Déclarer au scan"
                         invisible="production_count == 0 or state in ('cancel', 'done')"

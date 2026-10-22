@@ -15,7 +15,7 @@ import logging
 from odoo import _, models
 from odoo.exceptions import UserError
 
-from .stock_lot import fma_message
+from .stock_lot import fma_entete_affaire, fma_lot_court, fma_message
 
 _logger = logging.getLogger(__name__)
 
@@ -52,9 +52,21 @@ class MrpProduction(models.Model):
             commande = ordre.lot_sale_order_id
             produit = ordre.product_id
             Serie = self.env["stock.lot"]
+            projet = (
+                ordre.x_studio_projet_de_la_vente.display_name
+                if "x_studio_projet_de_la_vente" in ordre._fields
+                and ordre.x_studio_projet_de_la_vente else "")
             etiquettes.append({
                 "serie": ordre.name,
                 "casier": "",
+                # Un ordre sans numero de serie n'a pas d'exemplaires
+                # numerotes : c'est un habillage, pas une menuiserie.
+                "exemplaire": "",
+                "affaire_ligne": fma_entete_affaire(
+                    commande.name or ordre.origin or "", projet),
+                "lot_court": fma_lot_court(
+                    ordre.lot_fabrication_id.display_name or "",
+                    commande.name or ""),
                 "repere": (produit.default_code or "").rpartition("_")[2]
                 or produit.default_code or "",
                 "designation": (produit.display_name or "")[:90],
@@ -66,16 +78,15 @@ class MrpProduction(models.Model):
                 "lot": ordre.lot_fabrication_id.display_name or "",
                 "of": ordre.name,
                 "societe": ordre.company_id.name,
-                "sav_url": "",
+                # Faute de numero de serie — un habillage n'en porte pas —,
+                # le code-barres prend le numero de l'ordre : le poste de
+                # scan sait le lire aussi, et c'est le seul identifiant que
+                # cette etiquette-la puisse porter.
                 "barcode_src": Serie._fma_image(
                     "Code128", ordre.name, width=900, height=140, quiet=1),
-                "qr_src": "",
-                # Le numero de l'ordre EST deja le code-barres ci-dessus :
-                # le reimprimer sous l'etiquette ferait deux fois le meme.
-                "of_barcode_src": "",
-                # Pas de QR de secours non plus : un numero d'ordre est de
-                # l'ASCII, Code128 l'ecrit toujours. Le repli n'existe que
-                # pour les numeros de serie accentues.
+                # Pas de repli en QR : un numero d'ordre est de l'ASCII,
+                # Code128 l'ecrit toujours. Le repli n'existe que pour les
+                # numeros de serie accentues.
                 "serie_qr_src": "",
             })
         return etiquettes

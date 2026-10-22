@@ -38,6 +38,51 @@ def fma_message(type_, message, **extra):
     return dict(type=type_, message=message, **extra)
 
 
+def fma_entete_affaire(commande, chantier):
+    """« N° d'affaire · nom du chantier », sans repeter le numero.
+
+    Le chantier porte souvent deja le numero dans son nom — « A26-10-07869
+    LOTISSEMENT KERLANN ». Sur une etiquette de 100 x 35 mm, l'ecrire deux
+    fois coute une ligne entiere.
+    """
+    numero = (commande or "").strip()
+    nom = (chantier or "").strip()
+    if not nom:
+        return numero
+    if numero and nom.upper().startswith(numero.upper()):
+        return nom
+    return " · ".join(part for part in (numero, nom) if part)
+
+
+def fma_lot_court(lot, commande):
+    """« Lot 3 » : le nom du lot prive du numero d'affaire.
+
+    Le lot s'affiche partout « A26-10-07869 - Lot 3 ». Sur l'etiquette
+    compacte, le numero est deja en tete : le repeter mangerait la moitie
+    d'une ligne pour ne rien dire de neuf.
+    """
+    nom = (lot or "").strip()
+    numero = (commande or "").strip()
+    if numero and nom.upper().startswith(numero.upper()):
+        return nom[len(numero):].lstrip(" -–·").strip() or nom
+    return nom
+
+
+def fma_exemplaire(rang, total):
+    """« 3/8 » quand le repere compte plusieurs menuiseries, rien sinon.
+
+    A un exemplaire, « 1/1 » n'apprend rien et prend la place du reste.
+    """
+    try:
+        rang = int(rang)
+        total = int(total or 0)
+    except (TypeError, ValueError):
+        return ""
+    if total < 2 or rang < 1:
+        return ""
+    return "%s/%s" % (rang, total)
+
+
 class StockLot(models.Model):
     _inherit = "stock.lot"
 
@@ -440,11 +485,22 @@ class StockLot(models.Model):
         commande = ctx["commande"]
         ligne = ctx["ligne"]
         produit = self.product_id
-        url = self._fma_url_sav()
         designation = (ligne.name or produit.display_name or "").strip()
+        # Combien d'exemplaires ce repere compte-t-il ? La ligne de commande
+        # fait foi : les numeros de serie courent sur l'article, donc sur la
+        # commande, meme quand le repere est loti en plusieurs fois. A defaut
+        # — lot saisi a la main, sans ligne de vente —, la ligne du lot.
+        total = (ligne.product_uom_qty if ligne else 0) or (
+            ordre.lot_line_id.product_qty if ordre.lot_line_id else 0)
         return {
             "serie": self.name,
             "casier": self._fma_rang(),
+            "exemplaire": fma_exemplaire(self._fma_rang(), total),
+            "affaire_ligne": fma_entete_affaire(
+                commande.name or ordre.origin or "",
+                ctx["projet"].display_name or ""),
+            "lot_court": fma_lot_court(
+                ctx["lot"].display_name or "", commande.name or ""),
             "repere": self._fma_repere(),
             "designation": designation.split("\n")[0][:90],
             "dimensions": self._fma_dimensions(),
@@ -459,30 +515,24 @@ class StockLot(models.Model):
             "of": ordre.name or "",
             "societe": (self.company_id or ordre.company_id
                         or self.env.company).name,
-            "sav_url": url,
+            # LE CODE-BARRES PORTE LE NUMERO DE SERIE : c'est la MENUISERIE
+            # que l'etiquette designe, pas le document qui l'a fabriquee. Sur
+            # 100 x 35 mm il n'y a de place que pour un seul code ; le numero
+            # d'ordre reste ecrit en clair a cote.
+            #
             # CODE128 NE SAIT PAS ECRIRE UN ACCENT. Il ne couvre que l'ASCII,
             # et les numeros de serie reprennent le nom de la ligne de
             # commande : « A26-10-07831_Repère A - Entrée-001 » le faisait
             # echouer. L'echec etait avale par _fma_image et le t-if du
             # modele masquait simplement le code — l'etiquette sortait sans
-            # code-barres de serie, sans rien dire. Le QR, lui, accepte
-            # l'UTF-8 : il prend le relais plutot que de laisser un trou.
+            # code-barres, sans rien dire. Le QR, lui, accepte l'UTF-8 : il
+            # prend la place du code-barres plutot que de laisser un trou.
             "barcode_src": self._fma_image(
                 "Code128", self.name, width=900, height=140, quiet=1),
             "serie_qr_src": "" if self._fma_image(
                 "Code128", self.name, width=900, height=140, quiet=1
             ) else self._fma_image(
                 "QR", self.name, width=260, height=260, barLevel="M"),
-            # Le numero d'ORDRE, en code-barres lui aussi. L'etiquette ne
-            # portait que le numero de serie : il designe la menuiserie, mais
-            # l'ecran Atelier s'ouvre sur un ordre. L'operateur lisait donc le
-            # numero d'OF en clair et le tapait. Les deux codes coexistent —
-            # le serie pour la tracabilite et le SAV, l'ordre pour l'atelier.
-            "of_barcode_src": self._fma_image(
-                "Code128", ordre.name, width=900, height=100, quiet=1
-            ) if ordre.name else "",
-            "qr_src": self._fma_image(
-                "QR", url, width=300, height=300, barLevel="M"),
         }
 
     def _fma_etiquettes(self):

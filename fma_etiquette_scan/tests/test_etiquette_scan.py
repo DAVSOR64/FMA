@@ -125,10 +125,10 @@ class TestEtiquetteScan(EtiquetteScanCommon, TransactionCase):
         premiere = etiquettes[0]
         self.assertTrue(premiere["barcode_src"].startswith(
             "data:image/png;base64,"))
-        self.assertTrue(premiere["qr_src"].startswith(
-            "data:image/png;base64,"))
+        # Le SAV ne s'imprime plus sur l'etiquette — le format 100 x 35 ne le
+        # porte pas —, mais le jeton et le lien restent ceux de la menuiserie.
         self.assertIn("/fma/sav/%s" % self.serie1.fma_sav_token,
-                      premiere["sav_url"])
+                      self.serie1._fma_url_sav())
         self.assertEqual(len(self.serie1.fma_sav_token), 32)
         self.assertNotEqual(
             self.serie1.fma_sav_token, self.serie2.fma_sav_token)
@@ -137,8 +137,7 @@ class TestEtiquetteScan(EtiquetteScanCommon, TransactionCase):
             "fma_etiquette_scan.report_etiquette_of", self.ordres.ids
         )[0].decode()
         for attendu in (self.serie1.name, self.serie2.name,
-                        "Menuiserie Dupont", self.commande.name,
-                        "E-MEXT-C1", "Casier n°", self.ordre1.name):
+                        self.commande.name, "E-MEXT-C1", self.ordre1.name):
             self.assertIn(attendu, html)
         self.assertEqual(html.count("page-break-after"), 2)
 

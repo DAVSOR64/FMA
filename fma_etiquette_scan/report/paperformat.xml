@@ -1,23 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Aucun format d'etiquette n'existait dans le depot. 100 x 150 mm est
-         le format des imprimantes thermiques d'expedition (Zebra, Brother,
-         TSC) : le rouleau le plus courant et le moins cher. -->
+    <!-- 100 x 35 mm : le seul rouleau que l'atelier ait en machine.
+         L'etiquette a d'abord ete ecrite en 100 x 150, le format des
+         imprimantes d'expedition ; le metier n'a pas ce consommable, et un
+         format qu'on ne peut pas imprimer ne sert a rien.
+
+         Marges a 2 mm et non 3 : sur 35 mm de haut, le millimetre gagne de
+         chaque cote est une ligne de texte. -->
     <record id="paperformat_etiquette_menuiserie" model="report.paperformat">
-        <field name="name">Étiquette menuiserie 100 x 150 mm</field>
+        <field name="name">Étiquette menuiserie 100 x 35 mm</field>
         <field name="default" eval="False"/>
         <field name="format">custom</field>
         <field name="page_width">100</field>
-        <field name="page_height">150</field>
+        <field name="page_height">35</field>
         <field name="orientation">Portrait</field>
-        <field name="margin_top">3</field>
-        <field name="margin_bottom">3</field>
-        <field name="margin_left">3</field>
-        <field name="margin_right">3</field>
+        <field name="margin_top">2</field>
+        <field name="margin_bottom">2</field>
+        <field name="margin_left">2</field>
+        <field name="margin_right">2</field>
         <field name="header_line" eval="False"/>
         <field name="header_spacing">0</field>
         <field name="dpi">96</field>
+        <!-- Pas de retrecissement automatique. wkhtmltopdf redimensionne par
+             defaut le contenu pour le faire tenir dans la page : sur une
+             etiquette, cela rend des hauteurs qui ne sont plus celles qu'on
+             a ecrites, et un code-barres redimensionne se lit moins bien.
+             On veut les millimetres demandes, au millimetre. -->
+        <field name="disable_shrinking" eval="True"/>
     </record>
 
 </odoo>

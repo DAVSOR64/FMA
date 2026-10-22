@@ -32,84 +32,74 @@
         <field name="binding_type">report</field>
     </record>
 
-    <!-- etq.get(...) et non etq[...] : une etiquette se construit a DEUX
+    <!-- L'etiquette, sur les 96 x 31 mm utiles du rouleau de l'atelier.
+         Elle porte ce que le metier a demande : numero et nom de l'affaire,
+         numero de lot, repere, rang de l'exemplaire quand le repere en
+         compte plusieurs, client, dimensions, et le code-barres.
+
+         LE CODE-BARRES PORTE LE NUMERO DE SERIE : c'est la MENUISERIE que
+         l'etiquette designe, pas le document qui l'a fabriquee. Un seul code
+         tient sur cette hauteur ; le numero d'ordre reste ecrit en clair a
+         cote, lisible et saisissable.
+
+         Un ordre sans numero de serie — un habillage — met son propre numero
+         dans le code-barres : c'est le seul identifiant qu'il ait.
+
+         IL N'Y A PLUS DE QR CODE SAV. Il occupait un tiers du 100 x 150 ; le
+         metier a tranche de s'en passer plutot que de perdre le format. Le
+         lien SAV existe toujours, sur la fiche du numero de serie.
+
+         Tout est en nowrap et en table-layout fixe : sur 31 mm utiles, une
+         ligne qui se replie en pousse une autre hors de l'etiquette. Un
+         libelle trop long est coupe, il n'ecrase rien.
+
+         etq.get(...) et non etq[...] : une etiquette se construit a DEUX
          endroits — depuis le numero de serie, et depuis l'ordre quand
          l'article n'est pas suivi. Une cle ajoutee d'un cote et oubliee de
          l'autre faisait tomber l'impression entiere sur un KeyError, au lieu
-         de laisser un champ vide. Le modele ne depend plus de cette
-         symetrie. -->
+         de laisser un champ vide. -->
     <template id="etiquette_menuiserie">
-        <div class="page" style="page-break-after: always; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.25;">
-            <table style="width: 100%; border-bottom: 2px solid #000;">
+        <div class="page" style="page-break-after: always; font-family: Arial, Helvetica, sans-serif; line-height: 1.15;">
+            <table style="width: 100%; table-layout: fixed;">
                 <tr>
-                    <td style="vertical-align: top;">
-                        <div style="font-size: 11px;" t-out="etq.get('societe')"/>
-                        <div style="font-size: 12px;">Repère</div>
-                        <div style="font-size: 30px; font-weight: bold; line-height: 1.05;" t-out="etq.get('repere') or '-'"/>
-                    </td>
-                    <td style="vertical-align: top; text-align: right; width: 34%;">
-                        <div style="font-size: 12px;">Casier n°</div>
-                        <div style="font-size: 44px; font-weight: bold; line-height: 1;" t-out="etq.get('casier') or '-'"/>
-                    </td>
+                    <td style="font-size: 10px; font-weight: bold; white-space: nowrap; overflow: hidden;"
+                        t-out="etq.get('affaire_ligne')"/>
+                    <td style="width: 20mm; font-size: 10px; text-align: right; white-space: nowrap; overflow: hidden;"
+                        t-out="etq.get('lot_court')"/>
                 </tr>
             </table>
 
-            <table style="width: 100%; margin-top: 4px;">
-                <tr t-if="etq.get('affaire')">
-                    <td style="width: 24%; color: #444;">Affaire</td>
-                    <td style="font-weight: bold;" t-out="etq.get('affaire')"/>
-                </tr>
+            <table style="width: 100%; table-layout: fixed;">
                 <tr>
-                    <td style="width: 24%; color: #444;">Commande</td>
-                    <td style="font-weight: bold;" t-out="etq.get('commande') or '-'"/>
-                </tr>
-                <tr>
-                    <td style="color: #444;">Client</td>
-                    <td style="font-weight: bold;" t-out="etq.get('client') or '-'"/>
-                </tr>
-                <tr t-if="etq.get('chantier')">
-                    <td style="color: #444;">Chantier</td>
-                    <td style="font-weight: bold;" t-out="etq.get('chantier')"/>
-                </tr>
-                <tr>
-                    <td style="color: #444;">Lot de fab.</td>
-                    <td style="font-weight: bold;" t-out="etq.get('lot') or '-'"/>
-                </tr>
-                <tr>
-                    <td style="color: #444;">OF</td>
-                    <td t-out="etq.get('of') or '-'"/>
+                    <td style="font-size: 16px; font-weight: bold; white-space: nowrap; overflow: hidden;"
+                        t-out="etq.get('repere') or '-'"/>
+                    <td style="width: 18mm; font-size: 16px; font-weight: bold; text-align: right; white-space: nowrap;"
+                        t-out="etq.get('exemplaire')"/>
                 </tr>
             </table>
 
-            <div style="margin-top: 4px; border-top: 1px solid #000; padding-top: 3px;">
-                <div style="font-size: 13px;" t-out="etq.get('designation')"/>
-                <div t-if="etq.get('dimensions')" style="font-size: 16px; font-weight: bold;" t-out="etq.get('dimensions')"/>
-            </div>
+            <table style="width: 100%; table-layout: fixed;">
+                <tr>
+                    <td style="font-size: 9px; white-space: nowrap; overflow: hidden;"
+                        t-out="etq.get('client')"/>
+                    <td style="width: 32mm; font-size: 10px; font-weight: bold; text-align: right; white-space: nowrap;"
+                        t-out="etq.get('dimensions')"/>
+                </tr>
+            </table>
 
-            <div style="text-align: center; margin-top: 6px;">
+            <div style="text-align: center; margin-top: 0.5mm;">
                 <img t-if="etq.get('barcode_src')" alt="Code-barres du numéro de série"
-                     style="width: 100%; height: 62px;" t-att-src="etq.get('barcode_src')"/>
+                     style="width: 100%; height: 10mm;" t-att-src="etq.get('barcode_src')"/>
                 <img t-if="etq.get('serie_qr_src')" alt="QR code du numéro de série"
-                     style="width: 62px; height: 62px;" t-att-src="etq.get('serie_qr_src')"/>
-                <div style="font-size: 15px; font-weight: bold; letter-spacing: 0.5px;" t-out="etq.get('serie')"/>
+                     style="width: 10mm; height: 10mm;" t-att-src="etq.get('serie_qr_src')"/>
             </div>
 
-            <div t-if="etq.get('of_barcode_src')" style="text-align: center; margin-top: 3px;">
-                <img alt="Code-barres de l'ordre de fabrication"
-                     style="width: 100%; height: 44px;" t-att-src="etq.get('of_barcode_src')"/>
-                <div style="font-size: 13px;">OF <span t-out="etq.get('of')"/></div>
-            </div>
-
-            <table t-if="etq.get('qr_src')" style="width: 100%; margin-top: 4px; border-top: 1px solid #000;">
+            <table style="width: 100%; table-layout: fixed;">
                 <tr>
-                    <td style="width: 38%; vertical-align: middle;">
-                        <img alt="QR code de déclaration SAV"
-                             style="width: 118px; height: 118px;" t-att-src="etq.get('qr_src')"/>
-                    </td>
-                    <td style="vertical-align: middle;">
-                        <div style="font-size: 15px; font-weight: bold;">Un problème ?</div>
-                        <div>Scannez ce QR code avec un téléphone pour déclarer un SAV sur cette menuiserie.</div>
-                    </td>
+                    <td style="font-size: 9px; font-weight: bold; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden;"
+                        t-out="etq.get('serie')"/>
+                    <td style="width: 30mm; font-size: 9px; text-align: right; white-space: nowrap; overflow: hidden;"
+                        t-out="etq.get('of')"/>
                 </tr>
             </table>
         </div>

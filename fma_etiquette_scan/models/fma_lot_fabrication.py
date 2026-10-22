@@ -35,7 +35,8 @@ class FmaLotFabrication(models.Model):
             lot.fma_avancement = 100.0 * faits / total if total else 0.0
             lot.fma_avancement_texte = "%s / %s" % (faits, total)
 
-    def action_fma_imprimer_etiquettes(self):
+    def _fma_ordres_a_etiqueter(self):
+        """Les ordres dont on imprime les etiquettes, ou un refus explique."""
         self.ensure_one()
         ordres = self._fma_assemblages()
         if not ordres:
@@ -43,7 +44,10 @@ class FmaLotFabrication(models.Model):
                 "Le lot %s n'a pas encore d'ordre d'assemblage : générez "
                 "les OF, ce sont eux qui posent les numéros de série.",
                 self.display_name))
-        return ordres.action_fma_imprimer_etiquettes()
+        return ordres
+
+    def action_fma_imprimer_etiquettes(self):
+        return self._fma_ordres_a_etiqueter().action_fma_imprimer_etiquettes()
 
     def action_fma_poste_scan(self):
         self.ensure_one()
