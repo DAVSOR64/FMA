@@ -698,6 +698,7 @@ class FmaLotFabrication(models.Model):
                 if retenues:
                     cible.origin = ", ".join(retenues)
                 self._rattacher_bon_au_lot(cible)
+                self._regrouper_lignes_par_article(cible)
             self._rendre_compte_achats(lignes, commandes, gardes)
             return gardes
         except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
@@ -715,6 +716,95 @@ class FmaLotFabrication(models.Model):
                 erreur=erreur,
             ))
             return Achat
+
+    def _regrouper_lignes_par_article(self, bon):
+        """Une seule ligne par reference sur le bon du lot.
+
+        L'appro natif cree une ligne par BESOIN, pas par reference : une
+        paumelle demandee par cinq menuiseries du meme repere donnait cinq
+        lignes identiques, chacune portant dans sa description le texte de la
+        menuiserie qui l'avait declenchee — « ... - 1/5 », « ... - 2/5 ».
+        L'acheteur relisait cinq lignes pour additionner lui-meme une
+        quantite qu'il commande en une fois.
+
+        NE SONT FUSIONNEES QUE DES LIGNES RIGOUREUSEMENT EQUIVALENTES : meme
+        article, meme unite, meme prix, memes taxes, meme remise, meme
+        ventilation analytique. Deux prix differents pour une meme reference
+        restent deux lignes — c'est une anomalie a voir, pas a masquer. La
+        ventilation analytique surtout : elle porte l'imputation du chantier,
+        la fusionner au juge fausserait le prix de revient.
+
+        LE CHAINAGE EST CONSERVE. La ligne retenue herite des mouvements aval
+        de toutes les autres : la reception continue d'alimenter chacun des
+        ordres de fabrication, et rien ne se perd si le bon est confirme.
+        Sans ce report, supprimer les lignes couperait l'appro des menuiseries
+        qu'elles servaient.
+
+        La date d'arrivee retenue est la PLUS PROCHE des besoins fusionnes :
+        c'est le premier ordre servi qui commande, les suivants s'accommodent
+        d'une matiere arrivee en avance — l'inverse n'est pas vrai.
+        """
+        self.ensure_one()
+        if not bon or bon.state not in ("draft", "sent"):
+            return bon
+        Ligne = self.env["purchase.order.line"]
+        uom = uom_fname(Ligne)
+        # Odoo 19 nomme les taxes « tax_ids » ; les versions precedentes
+        # « taxes_id ». On resout au runtime plutot que de figer un nom qui
+        # ferait planter le regroupement a la montee de version.
+        taxes = "tax_ids" if "tax_ids" in Ligne._fields else "taxes_id"
+        groupes = {}
+        for ligne in bon.order_line:
+            if ligne.display_type or not ligne.product_id:
+                continue
+            cle = (
+                ligne.product_id.id,
+                ligne[uom].id,
+                round(ligne.price_unit or 0.0, 5),
+                round(ligne.discount or 0.0, 5),
+                tuple(sorted(ligne[taxes].ids)),
+                str(ligne.analytic_distribution or ""),
+            )
+            groupes.setdefault(cle, self.env["purchase.order.line"])
+            groupes[cle] |= ligne
+
+        fusionnees = 0
+        for lignes in groupes.values():
+            if len(lignes) < 2:
+                continue
+            garde = lignes[0]
+            autres = lignes - garde
+            quantite = sum(lignes.mapped("product_qty"))
+            vals = {"product_qty": quantite}
+            dates = [l.date_planned for l in lignes if l.date_planned]
+            if dates:
+                vals["date_planned"] = min(dates)
+            # La description redevient celle de l'article, ecrite comme Odoo
+            # l'ecrit a la creation d'une ligne d'achat — dans la langue du
+            # fournisseur, description d'achat comprise. Celle qu'elle portait
+            # designait UNE menuiserie ; elle n'a plus de sens sur une ligne
+            # qui les sert toutes.
+            article = garde.product_id.with_context(
+                lang=bon.partner_id.lang or self.env.user.lang)
+            vals["name"] = article.display_name
+            if article.description_purchase:
+                vals["name"] += "\n" + article.description_purchase
+            if "move_dest_ids" in garde._fields:
+                a_reporter = autres.move_dest_ids - garde.move_dest_ids
+                if a_reporter:
+                    vals["move_dest_ids"] = [
+                        Command.link(move.id) for move in a_reporter]
+            fusionnees += len(autres)
+            garde.write(vals)
+            autres.unlink()
+
+        if fusionnees:
+            self.message_post(body=_(
+                "%(bon)s : %(nb)s ligne(s) d'achat regroupee(s) — une seule "
+                "ligne par reference, a la quantite cumulee.",
+                bon=bon.name, nb=fusionnees,
+            ))
+        return bon
 
     def _rendre_compte_achats(self, lignes, avant, apres):
         """Ecrit sur le lot ce que le regroupement a trouve, et ce qu'il a fait.
