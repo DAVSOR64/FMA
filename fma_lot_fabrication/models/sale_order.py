@@ -126,6 +126,17 @@ class SaleOrder(models.Model):
             projet = alloc.sale_line_id.order_id.project_id
             if projet and "x_studio_projet_de_la_vente" in split._fields:
                 vals["x_studio_projet_de_la_vente"] = projet.id
+            # L'ATELIER, A LA MEME REGLE QUE L'OF DE DEBIT : l'etiquette
+            # commerciale de la commande decide — FMA a La Regrippiere, F2M a
+            # La Remaudiere. C'est ICI que se jouait l'ecart constate entre
+            # debit et assemblage : le debit est cree par le lot, qui pose
+            # l'atelier, tandis que l'assemblage nait de l'appro natif et ne
+            # passe jamais par la. Il arrivait donc sans atelier, donc hors du
+            # macro-planning et des restitutions de capacite.
+            if "atelier_id" in split._fields:
+                atelier = alloc.lot_id._atelier_par_etiquette()
+                if atelier:
+                    vals["atelier_id"] = atelier.id
             split.write(vals)
             alloc.production_id = split
             # L'ensemble debite de CETTE menuiserie, comme le fait le lot
