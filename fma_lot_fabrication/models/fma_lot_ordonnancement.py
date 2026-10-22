@@ -102,6 +102,13 @@ class FmaLotFabrication(models.Model):
         compute="_compute_ordo", store=True,
         help="Nombre d'assemblages portant une fin de fab, sur le total.",
     )
+    ordo_assemblages_declares = fields.Char(
+        string="Menuiseries déclarées",
+        compute="_compute_ordo", store=True,
+        help="Nombre de menuiseries déclarées terminées, sur le total du "
+        "lot. C'est l'avancement de fabrication, là où « Assemblages "
+        "planifiés » ne dit que si les dates sont posées.",
+    )
     ordo_tout_planifie = fields.Boolean(
         string="Lot planifié",
         compute="_compute_ordo", store=True,
@@ -307,6 +314,7 @@ class FmaLotFabrication(models.Model):
         self.ordo_date_debit = False
         self.ordo_date_sortie = False
         self.ordo_assemblages_planifies = "-"
+        self.ordo_assemblages_declares = "-"
         self.ordo_tout_planifie = False
         for colonne in COLONNES_MATIERE:
             self["ordo_statut_%s" % colonne] = "none"
@@ -355,15 +363,28 @@ class FmaLotFabrication(models.Model):
 
     def _calculer_ordo_planification(self):
         self.ensure_one()
-        vivants = lambda p: p.state not in ("done", "cancel")  # noqa: E731
 
         debit = self.production_debit_id
         self.ordo_date_debit = debit._date_fin_de_fab() if debit else False
 
-        assemblages = self.production_assembly_ids.filtered(vivants)
-        planifies = assemblages.filtered(lambda p: p._date_fin_de_fab())
+        # LE DENOMINATEUR COMPTE TOUT CE QUI N'EST PAS ANNULE, declare
+        # compris. Il ne retenait que les ordres restant a faire : declarer
+        # une menuiserie sur huit faisait tomber la colonne de « 8 / 8 » a
+        # « 0 / 7 » — le total maigrissait a chaque declaration, et un lot
+        # entierement fabrique finissait a « - ». Un lot de huit menuiseries
+        # en compte huit, qu'elles soient faites ou non.
+        assemblages = self.production_assembly_ids.filtered(
+            lambda p: p.state != "cancel")
+        # Un ordre termine est planifie par construction : il a eu lieu.
+        planifies = assemblages.filtered(
+            lambda p: p.state == "done" or p._date_fin_de_fab())
+        declares = assemblages.filtered(lambda p: p.state == "done")
         self.ordo_assemblages_planifies = (
             "%s / %s" % (len(planifies), len(assemblages))
+            if assemblages else "-"
+        )
+        self.ordo_assemblages_declares = (
+            "%s / %s" % (len(declares), len(assemblages))
             if assemblages else "-"
         )
         self.ordo_tout_planifie = bool(
@@ -527,6 +548,23 @@ class FmaLotFabrication(models.Model):
     # ------------------------------------------------------------------
     # Raccourcis
     # ------------------------------------------------------------------
+    def action_ordo_ouvrir_lot(self):
+        """Ouvre la fiche du lot.
+
+        La liste d'ordonnancement est editable en ligne — il le faut pour
+        cocher « Planifié » et saisir le commentaire sans quitter l'ecran —,
+        et une liste editable ne s'ouvre plus d'un clic sur la ligne. Le seul
+        chemin vers le lot etait donc de le rechercher ailleurs.
+        """
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": self.display_name,
+            "res_model": "fma.lot.fabrication",
+            "view_mode": "form",
+            "res_id": self.id,
+        }
+
     def action_ordo_voir_of(self):
         """Les ordres du lot, depuis le tableau de bord."""
         self.ensure_one()

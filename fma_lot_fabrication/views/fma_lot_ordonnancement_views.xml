@@ -34,6 +34,10 @@
 
                 <field name="ordo_date_debit"/>
                 <field name="ordo_assemblages_planifies"/>
+                <!-- L'avancement reel, a cote de la planification : « 1 / 8 »
+                     des que la premiere menuiserie est declaree. La colonne
+                     voisine ne dit que si les dates sont posees. -->
+                <field name="ordo_assemblages_declares"/>
                 <field name="ordo_date_sortie"/>
 
                 <field name="ordo_statut_profil" widget="badge"
@@ -81,7 +85,14 @@
                 <field name="ordo_peut_modifier" column_invisible="1"/>
 
                 <!-- Les raccourcis. Un bouton et non un lien : depuis une
-                     liste, on veut la liste des OF du lot, pas le premier. -->
+                     liste, on veut la liste des OF du lot, pas le premier.
+
+                     Le premier ouvre le LOT lui-meme : la liste est editable
+                     en ligne — il le faut pour « Planifié » et le
+                     commentaire —, et une liste editable ne s'ouvre plus d'un
+                     clic sur la ligne. -->
+                <button name="action_ordo_ouvrir_lot" type="object"
+                        icon="fa-external-link" title="Ouvrir le lot"/>
                 <button name="action_ordo_voir_of" type="object"
                         icon="fa-wrench" title="Ordres de fabrication"/>
                 <button name="action_ordo_voir_achats" type="object"
