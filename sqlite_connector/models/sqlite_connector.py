@@ -145,10 +145,22 @@ class SqliteConnector(models.Model):
     )
 
     def _clean_so_vals(self, vals):
-        """Retire les valeurs d'entete a ne pas ecraser sur le devis cible."""
+        """Retire les valeurs d'entete a ne pas ecraser sur un devis existant.
+
+        LA PROTECTION NE DEPEND PLUS DU DEVIS CIBLE. Elle ne jouait que
+        lorsque l'import visait un devis designe a la main ; quand il
+        retrouvait le devis par son nom — le cas de l'export des methodes —
+        elle ne jouait pas, et l'entete etait reecrite avec le contact du
+        fichier LOGIKAL. Resultat : l'adresse de livraison choisie par le BE
+        sautait au profit de l'adresse principale du client, a chaque export
+        pour commander la matiere.
+
+        Or ces valeurs ne sont utiles qu'a la CREATION d'un devis, et l'import
+        n'en cree aucun : il ecrit toujours dans un devis qui existe deja.
+        Elles n'ont donc aucune raison d'etre reportees, jamais. Les lignes,
+        elles, passent — c'est tout l'objet de l'import.
+        """
         self.ensure_one()
-        if not self.target_sale_order_id:
-            return vals
         return {
             key: value
             for key, value in vals.items()
