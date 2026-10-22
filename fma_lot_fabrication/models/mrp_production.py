@@ -337,6 +337,25 @@ class MrpProduction(models.Model):
                 "lot_sale_line_id": self.lot_sale_line_id.id,
             }
         )
+        # L'ATELIER, LE CHANTIER ET L'AFFAIRE SUIVENT AUSSI.
+        #
+        # Cette methode construit un dictionnaire, elle ne copie pas l'ordre :
+        # tout ce qui n'y figure pas est perdu. Or la scission par numero de
+        # serie passe par la — une ligne de 5 menuiseries donne 1 ordre
+        # conserve et 4 reliquats. Les 4 sortaient sans atelier, donc hors du
+        # macro-planning et des restitutions de capacite, alors que l'OF de
+        # debit, lui, n'est jamais scinde et gardait le sien. C'est tout
+        # l'ecart que l'atelier constatait entre debit et assemblage.
+        #
+        # La regle reste celle du debit : l'atelier vient de l'etiquette de la
+        # commande (FMA -> La Regrippiere, F2M -> La Remaudiere). On se
+        # contente de le reporter — le calculer a nouveau ici donnerait le
+        # meme resultat, mais ferait vivre la regle a deux endroits.
+        for champ in ("atelier_id",
+                      "x_studio_projet_de_la_vente",
+                      "x_studio_mtn_mrp_sale_order"):
+            if champ in self._fields:
+                vals[champ] = self[champ].id if self[champ] else False
         return vals
 
     # ------------------------------------------------------------------
