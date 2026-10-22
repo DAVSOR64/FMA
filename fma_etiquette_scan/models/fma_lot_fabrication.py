@@ -36,7 +36,16 @@ class FmaLotFabrication(models.Model):
             lot.fma_avancement_texte = "%s / %s" % (faits, total)
 
     def _fma_ordres_a_etiqueter(self):
-        """Les ordres dont on imprime les etiquettes, ou un refus explique."""
+        """Les ordres dont on imprime les etiquettes, ou un refus explique.
+
+        L'OF DE DEBIT EN FAIT PARTIE. Il n'a ni numero de serie ni casier —
+        il ne produit pas une menuiserie mais les coupes de tout le lot —,
+        mais il a besoin d'une etiquette comme les autres : le paquet doit
+        sortir d'un seul geste, pas en deux impressions dont on oublie la
+        seconde. Son etiquette porte le numero de l'ordre en code-barres,
+        faute de numero de serie, et sort la premiere du paquet : le debit
+        precede l'assemblage, l'ordre du paquet suit celui de l'atelier.
+        """
         self.ensure_one()
         ordres = self._fma_assemblages()
         if not ordres:
@@ -44,7 +53,9 @@ class FmaLotFabrication(models.Model):
                 "Le lot %s n'a pas encore d'ordre d'assemblage : générez "
                 "les OF, ce sont eux qui posent les numéros de série.",
                 self.display_name))
-        return ordres
+        debit = self.production_ids.filtered(
+            lambda p: p.lot_production_type == "debit" and p.state != "cancel")
+        return debit | ordres
 
     def action_fma_imprimer_etiquettes(self):
         return self._fma_ordres_a_etiqueter().action_fma_imprimer_etiquettes()

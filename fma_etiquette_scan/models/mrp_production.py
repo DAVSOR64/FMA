@@ -67,8 +67,14 @@ class MrpProduction(models.Model):
                 "lot_court": fma_lot_court(
                     ordre.lot_fabrication_id.display_name or "",
                     commande.name or ""),
-                "repere": (produit.default_code or "").rpartition("_")[2]
-                or produit.default_code or "",
+                # L'OF de debit ne porte pas de repere : il les coupe tous.
+                # Son article s'appelle « <affaire>_DEB », dont la regle
+                # generale tirerait « DEB » — un sigle qui ne dit rien de loin
+                # sur un casier. On ecrit le mot.
+                "repere": _("DÉBIT")
+                if ordre.lot_production_type == "debit"
+                else ((produit.default_code or "").rpartition("_")[2]
+                      or produit.default_code or ""),
                 "designation": (produit.display_name or "")[:90],
                 "dimensions": "",
                 "affaire": "",
