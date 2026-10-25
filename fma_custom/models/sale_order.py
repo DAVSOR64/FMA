@@ -258,9 +258,12 @@ class SaleOrder(models.Model):
     def _fma_verifier_fournisseurs(self):
         """Bloque tant qu'un article a acheter n'a pas de fournisseur.
 
-        Demande du service Methodes : pouvoir completer AVANT la validation,
-        plutot que de decouvrir les bons manquants apres coup et de devoir
-        les recreer.
+        Demande du service Methodes : pouvoir completer AVANT que l'appro
+        parte, plutot que de decouvrir les bons manquants apres coup et de
+        devoir les recreer. Le controle est donc pose sur la CONFIRMATION,
+        le geste qui declenche l'appro — et non sur « Validé », qui ne
+        marque que l'accord commercial, souvent donne alors que les articles
+        sortent tout juste de l'import LOGIKAL.
         """
         for order in self:
             manquants = order._fma_verifier_fournisseurs_pour(order)
@@ -276,7 +279,7 @@ class SaleOrder(models.Model):
                 "fournisseur : aucun bon d'achat ne partira pour eux.\n\n"
                 "%(liste)s\n\n"
                 "Renseignez le fournisseur sur la fiche article, onglet "
-                "Achats, puis validez.",
+                "Achats, puis confirmez.",
                 liste=noms,
             ))
 
@@ -285,11 +288,21 @@ class SaleOrder(models.Model):
         """Separe pour qu'un test puisse l'appeler sans lever."""
         return order._fma_articles_sans_fournisseur()
 
-    def action_validation(self):
-        self._fma_verifier_fournisseurs()
-        return super().action_validation()
-
     def action_confirm(self):
+        # LE CONTROLE DES FOURNISSEURS EST ICI, PAS SUR « Validé ».
+        #
+        # Il y etait d'abord : le metier voulait completer avant la
+        # validation. Mais « Validé » marque l'accord commercial, et les
+        # articles arrivent de LOGIKAL — le deviseur valide un devis dont les
+        # articles viennent d'etre crees par l'import, et leurs fournisseurs
+        # ne sont pas encore renseignes. Le controle bloquait donc un geste
+        # qui n'achete rien.
+        #
+        # C'est « Confirmer » qui declenche l'appro : c'est la, et seulement
+        # la, qu'un article a acheter sans fournisseur devient un bon qui ne
+        # partira jamais. Le controle garde tout son effet et laisse la
+        # validation commerciale passer.
+        self._fma_verifier_fournisseurs()
         for order in self:
             if not order.partner_id.x_studio_cgv_rib:
                 raise UserError(
