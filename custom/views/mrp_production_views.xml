@@ -17,6 +17,21 @@
             <xpath expr="//field[@name='date_start']" position="attributes">
                 <attribute name="readonly">1</attribute>
             </xpath>
+
+            <!-- Le projet de la vente, dans l'onglet Divers, aupres de la
+                 Source dont il est la traduction en affaire : « d'ou vient cet
+                 OF » et « pour quelle affaire » sont la meme question.
+
+                 not(ancestor::field) est indispensable : « origin » existe
+                 aussi comme COLONNE de la liste des composants, et un xpath
+                 sans ce filtre y atterrit. Odoo cherche alors le champ sur
+                 stock.move et refuse la vue — « Field
+                 x_studio_projet_de_la_vente does not exist in model
+                 stock.move ». Le predicat ne retient que le champ pose
+                 directement sur le formulaire de l'OF. -->
+            <xpath expr="//field[@name='origin'][not(ancestor::field)]" position="after">
+                <field name="x_studio_projet_de_la_vente"/>
+            </xpath>
         </field>
     </record>
 </odoo>

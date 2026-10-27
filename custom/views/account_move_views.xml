@@ -8,7 +8,11 @@
                 <group>
                     <field name="commercial_id"/>
                     <field name="mode_reglement_id"/>
-                    <field name="inv_mode_de_reglement"/>
+                    <!-- Masque, pas retire : le noeud reste dans l'arch pour
+                         les vues Studio qui s'y accrochent. Le mode de reglement
+                         se lit sur mode_reglement_id, qui affiche « code -
+                         libelle » et qui est la meme donnee que sur le devis. -->
+                    <field name="inv_mode_de_reglement" invisible="1"/>
                     <field name="inv_code_tiers"/>
                     <field name="inv_affacturage"/>
                     <field name="inv_commande_client"/>

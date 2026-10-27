@@ -17,3 +17,4 @@ from . import purchase_order_line
 from . import product
 from . import misc_studio_fields
 from . import x_affaire
+from . import stock_orderpoint

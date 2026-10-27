@@ -74,6 +74,33 @@ class ExportSFTPScheduler(models.Model):
                 return val
 
         # helper M2O -> texte (safe)
+        def _reglement(val):
+            """(code, libelle) d'un mode de reglement, quelle que soit sa forme.
+
+            Le nom d'affichage du referentiel x_reglements vaut desormais
+            « 11 - Virement Bancaire ». Ecrire l'enregistrement tel quel dans le
+            CSV — _to_cell passe par display_name — mettait ce texte dans la
+            colonne CODE, que Power BI lit comme un nombre : l'actualisation
+            plantait. On lit donc explicitement le code (x_name) et le libelle
+            (x_studio_libelle), et on redecoupe un texte « code - libelle » s'il
+            en arrive un.
+            """
+            try:
+                if not val:
+                    return "", ""
+                if getattr(val, "_name", "") == "x_reglements":
+                    val = val[:1]
+                    return (val.x_name or "").strip(), (val.x_studio_libelle or "").strip()
+                if hasattr(val, "_name"):
+                    return (val[:1].display_name or "").strip(), ""
+                texte = str(val).strip()
+                if " - " in texte:
+                    code, libelle = texte.split(" - ", 1)
+                    return code.strip(), libelle.strip()
+                return texte, ""
+            except Exception:
+                return "", ""
+
         def _m2o_name(val):
             try:
                 if not val:
@@ -170,6 +197,14 @@ class ExportSFTPScheduler(models.Model):
                 return float(value or 0.0)
             except (TypeError, ValueError):
                 return 0.0
+        def _siren(partner):
+            societe = partner.commercial_partner_id or partner
+            siren = getattr(societe, "part_siren", "") or ""
+            if siren:
+                return siren
+            siret = re.sub(r"\s", "", societe.company_registry or "")
+            return siret[:9] if re.fullmatch(r"\d{14}", siret) else ""
+
         def create_attachment(filepath, name):
             """Crée/remplace une pièce jointe CSV Power BI.
 
@@ -239,12 +274,22 @@ class ExportSFTPScheduler(models.Model):
                         # getattr(p, 'x_studio_gneration_n_compte_1', '') or '',
                         getattr(p, "x_studio_compte", "") or "",
                         getattr(p, "x_studio_code_diap", "") or "",
-                        getattr(p, "x_studio_mode_de_rglement_dsa", "") or "",
+                        # Le CODE du mode de reglement. La colonne exportait
+                        # jusqu'ici le many2one lui-meme, ce qui donnait
+                        # « x_reglements(12,) » cote Power BI. Le libelle reste
+                        # dans la colonne suivante, inchangee.
+                        p.x_studio_mode_de_rglement_dsa.x_name or "",
                         p.x_studio_mode_de_rglement_dsa.x_studio_libelle or "",
                         # bool(getattr(p, 'active', True)),
                         getattr(p, "html2plaintext(comment).strip()", "") or "",
-                        p.siret or "",
-                        getattr(p, "part_siren", "") or "",
+                        # SIRET : company_registry depuis la v19.
+                        p.commercial_partner_id.company_registry or "",
+                        # SIREN : lu sur la societe, comme le SIRET. Lu sur
+                        # la fiche elle-meme, il sortait vide pour tous les
+                        # contacts et adresses, dont la colonne Siret etait
+                        # pourtant remplie. Sans SIREN saisi, les 9 premiers
+                        # chiffres d'un SIRET a 14 chiffres.
+                        _siren(p),
                         getattr(p, "part_date_couverture", "") or "",
                         to_float(getattr(p, "part_montant_couverture", "") or ""),
                         to_float(getattr(p, "part_decision", "") or ""),
@@ -381,8 +426,9 @@ class ExportSFTPScheduler(models.Model):
                         or (getattr(o, "x_studio_projet", "") or ""),
                         getattr(o, "so_delai_confirme_en_semaine", "") or "",
                         getattr(o, "so_commande_client", "") or "",
-                        _m2o_name(getattr(o, "x_studio_mode_de_rglement", None))
-                        or (getattr(o, "x_studio_mode_de_rglement", "") or ""),
+                        # Le code seul, depuis la meme source : un eventuel
+                        # « code - libelle » est redecoupe plutot qu'exporte.
+                        _reglement(getattr(o, "x_studio_mode_de_rglement", None))[0],
                         o.so_date_de_reception_devis.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_de_reception_devis", False)
                         else "",
@@ -401,8 +447,13 @@ class ExportSFTPScheduler(models.Model):
                         o.so_date_bpe.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_bpe", False)
                         else "",
-                        o.so_date_bon_pour_fab.strftime("%Y-%m-%d")
-                        if getattr(o, "so_date_bon_pour_fab", False)
+                        # « Date debut de fab » : la date REELLE de debut de
+                        # fabrication, posee par custom (so_date_debut_fab). La
+                        # colonne portait jusqu'ici le Bon pour fab sous un
+                        # en-tete qui ne le disait pas. Le Bon pour fab n'est
+                        # plus exporte : le modele Power BI garde ses colonnes.
+                        o.so_date_debut_fab.strftime("%Y-%m-%d")
+                        if getattr(o, "so_date_debut_fab", False)
                         else "",
                         o.so_date_de_fin_de_production_reel.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_de_fin_de_production_reel", False)
@@ -410,8 +461,12 @@ class ExportSFTPScheduler(models.Model):
                         o.so_date_de_livraison.strftime("%Y-%m-%d")
                         if getattr(o, "so_date_de_livraison", False)
                         else "",
-                        o.so_date_de_livraison_prevu.strftime("%Y-%m-%d")
-                        if getattr(o, "so_date_de_livraison_prevu", False)
+                        # « Date de livraison reelle » : la date effective des
+                        # BL. La colonne exportait la date revisee saisie
+                        # (so_date_de_livraison_prevu) sous un en-tete qui ne
+                        # le disait pas. Structure du fichier inchangee.
+                        o.so_date_livraison_reelle.strftime("%Y-%m-%d")
+                        if getattr(o, "so_date_livraison_reelle", False)
                         else "",
                         to_float(getattr(o, "so_achat_matiere_devis", 0.0) or 0.0),
                         to_float(getattr(o, "so_achat_vitrage_devis", 0.0) or 0.0),
@@ -692,8 +747,20 @@ class ExportSFTPScheduler(models.Model):
                             if getattr(i, "invoice_payment_term_id", False)
                             else ""
                         ),
-                        i.x_studio_mode_de_reglement_1 or "",
-                        i.x_studio_libelle_1 or "",
+                        # Code puis libelle, depuis les MEMES champs qu'avant.
+                        # Repli sur mode_reglement_id quand le champ Studio est
+                        # vide, et sur le libelle du referentiel quand
+                        # x_studio_libelle_1 l'est : les factures recentes ne
+                        # portent souvent que le lien au referentiel.
+                        _reglement(
+                            i.x_studio_mode_de_reglement_1
+                            or (i.mode_reglement_id if "mode_reglement_id" in i._fields else False)
+                        )[0],
+                        (i.x_studio_libelle_1 or "")
+                        or _reglement(
+                            i.x_studio_mode_de_reglement_1
+                            or (i.mode_reglement_id if "mode_reglement_id" in i._fields else False)
+                        )[1],
                         (
                             i.fiscal_position_id.name
                             if getattr(i, "fiscal_position_id", False)
@@ -1078,7 +1145,22 @@ class ExportSFTPScheduler(models.Model):
                             planned_start = getattr(wo, "date_planned_start", False) or date_start
                             planned_finished = getattr(wo, "date_planned_finished", False) or date_finished
                             duration_expected = getattr(wo, "duration_expected", 0.0) or 0.0
-                            duration_real = getattr(wo, "duration", 0.0) or 0.0
+                            # LE TEMPS POINTE PAR LES OPERATEURS, et non la
+                            # duree de l'ordre de travail. « duration » est le
+                            # temps que le chronometre de l'ordre a tourne ;
+                            # x_operator_time_spent somme les pointages du
+                            # suivi des temps, operateur par operateur. Deux
+                            # operateurs sur la meme operation comptent deux
+                            # fois, ce qui est la realite de la charge.
+                            #
+                            # Le champ vient de fma_mrp_dashboard, qui n'est
+                            # pas une dependance de ce module : on verifie sa
+                            # presence et on retombe sur duration sinon,
+                            # plutot que d'exporter des zeros en silence.
+                            if "x_operator_time_spent" in wo._fields:
+                                duration_real = wo.x_operator_time_spent or 0.0
+                            else:
+                                duration_real = getattr(wo, "duration", 0.0) or 0.0
                             writer.writerow([_to_cell(cell) for cell in (
                                 wo.id,
                                 mo.id if mo else "",
@@ -1188,6 +1270,254 @@ class ExportSFTPScheduler(models.Model):
                 _logger.info("[Export Power BI] OF_COMPONENTS: %s lignes", total)
             except Exception as e:
                 _logger.exception("[Export Power BI] ERREUR section OF_COMPONENTS: %s", e)
+
+            # ========================================
+            # Mouvements de stock - export batche
+            #
+            # A quoi ca sert : mesurer l'en-cours atelier et savoir si une
+            # commande a encore de la matiere en fabrication ou si elle est
+            # produite. La reponse ne se lit pas sur une ligne, elle se
+            # calcule dans Power BI en confrontant les emplacements : ce qui
+            # est entre en Pre-Fab et n'en est pas ressorti est en cours.
+            # D'ou les colonnes d'usage d'emplacement, sans lesquelles il
+            # faudrait deviner la nature d'un emplacement a son nom.
+            #
+            # Seuls les mouvements FAITS sont exportes : un mouvement prevu ne
+            # dit rien de l'en-cours reel.
+            # ========================================
+            try:
+                ICP = self.env["ir.config_parameter"].sudo()
+                depuis = ICP.get_param(
+                    "export_powerbi.mouvements_depuis", "2025-01-01"
+                )
+                Move = self.env["stock.move"]
+                valorisation = "stock_valuation_layer_ids" in Move._fields
+
+                # Le perimetre. Sur la base de production, « tous les
+                # mouvements faits depuis 2025 » represente 309 481 lignes :
+                # un fichier d'une centaine de Mo, a regenerer chaque nuit et
+                # a stocker en piece jointe. Or la question posee — l'en-cours
+                # atelier, et si une commande est produite — ne porte que sur
+                # ce qui touche une fabrication ou une vente. Les receptions
+                # fournisseur vers le stock, les inventaires et les transferts
+                # internes sans rapport n'y repondent pas.
+                #
+                # Par defaut on s'en tient donc a ce qui repond. « tous »
+                # reste possible, dans les reglages, pour qui veut la totalite.
+                perimetre = ICP.get_param(
+                    "export_powerbi.mouvements_perimetre", "production")
+                domaine = [("state", "=", "done"), ("date", ">=", depuis)]
+                if perimetre != "tous":
+                    rattachements = [
+                        champ for champ in (
+                            "raw_material_production_id",
+                            "production_id",
+                            "sale_line_id",
+                        )
+                        if champ in Move._fields
+                    ]
+                    feuilles = [(champ, "!=", False) for champ in rattachements]
+                    if "sale_id" in self.env["stock.picking"]._fields:
+                        feuilles.append(("picking_id.sale_id", "!=", False))
+                    # La collecte des composants. En fabrication a deux
+                    # etapes, un bon « Collecter les composants » amene la
+                    # matiere du stock vers la pre-fabrication AVANT que l'OF
+                    # ne la consomme. Ce mouvement-la n'est rattache a rien :
+                    # ni raw_material_production_id, ni production_id, ni
+                    # vente — il ALIMENTE le composant de l'OF au lieu d'en
+                    # etre un.
+                    #
+                    # Or c'est exactement l'en-cours qu'on cherche a mesurer :
+                    # de la matiere sortie du stock, pas encore consommee.
+                    # 7 648 mouvements vers REM/Pre-fabrication tombaient hors
+                    # perimetre sur la production, et l'en-cours atelier etait
+                    # donc sous-evalue d'autant.
+                    #
+                    # Le rattachement existe un cran plus loin : move_dest_ids
+                    # mene au mouvement de composant de l'OF, donc a l'OF,
+                    # donc a la commande.
+                    if "move_dest_ids" in Move._fields:
+                        feuilles.append(
+                            ("move_dest_ids.raw_material_production_id",
+                             "!=", False))
+                    if feuilles:
+                        domaine += ["|"] * (len(feuilles) - 1) + feuilles
+
+                # L'OF d'un mouvement ne change pas d'une ligne a l'autre :
+                # on resout commande et projet une fois par OF, pas une fois
+                # par mouvement. Sur un export de plusieurs centaines de
+                # milliers de lignes, la difference n'est pas theorique.
+                cache_of = {}
+
+                def _unite(move):
+                    """Le nom de l'unite du mouvement.
+
+                    stock.move porte product_uom jusqu'en v18 et
+                    product_uom_id en v19. On interroge l'enregistrement
+                    plutot que de parier sur une version : le reste du fichier
+                    suit deja cette regle, et un attribut absent ferait echouer
+                    la section entiere sans un mot.
+                    """
+                    for champ in ("product_uom", "product_uom_id"):
+                        unite = getattr(move, champ, False)
+                        if unite:
+                            return unite.name or ""
+                    return ""
+
+                def _of_contexte(mo):
+                    if not mo:
+                        return False, False
+                    if mo.id in cache_of:
+                        return cache_of[mo.id]
+                    commande = False
+                    if hasattr(mo, "_fma_commande_de_la_vente"):
+                        commande = mo._fma_commande_de_la_vente()
+                    if not commande:
+                        commande = getattr(mo, "sale_id", False)
+                    projet = getattr(mo, "x_studio_projet_de_la_vente", False)
+                    cache_of[mo.id] = (commande or False, projet or False)
+                    return cache_of[mo.id]
+
+                mouvement_file = os.path.join(temp_dir, "MOUVEMENTS_STOCK.csv")
+                batch_size = 1000
+                total = 0
+                ecartes = 0
+                with open(mouvement_file, "w", newline="", encoding="utf-8") as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([
+                        "ID_Mouvement", "Date", "Etat",
+                        "ID_Commande", "Commande", "Projet",
+                        "ID_OF", "OF", "Type_OF",
+                        "Transfert", "Type_Transfert", "Origine",
+                        "ID_Produit", "Ref_Produit", "Produit", "Categorie",
+                        "Unite", "Quantite", "Quantite_Demandee",
+                        "Valeur", "Source_Valeur",
+                        "Emplacement_Depart", "Usage_Depart",
+                        "Emplacement_Arrivee", "Usage_Arrivee",
+                    ])
+                    last_id = 0
+                    while True:
+                        moves = Move.search(
+                            domaine + [("id", ">", last_id)],
+                            order="id", limit=batch_size)
+                        if not moves:
+                            break
+                        for move in moves:
+                            last_id = move.id
+                            produit = move.product_id
+                            picking = move.picking_id
+
+                            # L'OF, et de quel cote : un composant consomme
+                            # n'est pas un produit fini rentre en stock.
+                            consommation = getattr(move, "raw_material_production_id", False)
+                            production = getattr(move, "production_id", False)
+                            mo = consommation or production
+                            type_of = (
+                                "composant" if consommation
+                                else ("produit fini" if production else "")
+                            )
+                            if not mo:
+                                # Collecte des composants : l'OF se lit sur le
+                                # mouvement aval, celui que cette collecte
+                                # alimente. On le distingue d'un composant
+                                # reellement consomme — l'un est de l'en-cours,
+                                # l'autre de la matiere passee en production.
+                                aval = getattr(move, "move_dest_ids", False)
+                                mo = aval.raw_material_production_id[:1] if aval else False
+                                if mo:
+                                    type_of = "collecte composant"
+
+                            commande, projet = _of_contexte(mo)
+                            if not commande:
+                                ligne_vente = getattr(move, "sale_line_id", False)
+                                commande = ligne_vente.order_id if ligne_vente else False
+                            if not commande and picking:
+                                commande = getattr(picking, "sale_id", False)
+                            if not projet and picking:
+                                projet = getattr(
+                                    picking, "x_studio_projet_de_la_vente", False)
+                            if not projet and commande:
+                                projet = getattr(commande, "x_studio_projet", False)
+
+                            # Sans commande, la ligne ne repond a aucune des
+                            # deux questions posees — l'en-cours d'une
+                            # commande, et si elle est produite. Le domaine ne
+                            # peut pas l'exprimer : un composant d'OF n'est
+                            # rattache qu'a son ordre, et c'est la resolution
+                            # ci-dessus, en trois chemins, qui remonte a la
+                            # commande. On tranche donc ici, une fois qu'on
+                            # sait. Sur la base de production, cela ramene
+                            # 111 736 lignes a ce qui sert vraiment.
+                            if perimetre != "tous" and not commande:
+                                ecartes += 1
+                                continue
+
+                            quantite = getattr(move, "quantity", None)
+                            if quantite is None:
+                                quantite = sum(
+                                    getattr(ml, "quantity", 0.0) or 0.0
+                                    for ml in move.move_line_ids
+                                )
+
+                            # La valeur comptable d'abord. Mais un transfert
+                            # interne -- stock vers Pre-Fab, justement celui
+                            # qui fait l'en-cours -- ne cree aucune couche de
+                            # valorisation : la valeur ne bouge pas, elle
+                            # change d'endroit. On retombe alors sur le cout
+                            # standard, faute de quoi l'en-cours vaudrait zero.
+                            valeur = 0.0
+                            source = ""
+                            couches = (
+                                move.stock_valuation_layer_ids if valorisation else False
+                            )
+                            if couches:
+                                valeur = sum(couches.mapped("value"))
+                                source = "valorisation"
+                            elif produit:
+                                valeur = quantite * (produit.standard_price or 0.0)
+                                source = "cout standard"
+
+                            writer.writerow([_to_cell(cell) for cell in (
+                                move.id,
+                                move.date or "",
+                                move.state or "",
+                                commande.id if commande else "",
+                                commande.name if commande else "",
+                                projet.name if projet else "",
+                                mo.id if mo else "",
+                                mo.name if mo else "",
+                                type_of,
+                                picking.name if picking else "",
+                                picking.picking_type_id.display_name if picking else "",
+                                move.origin or "",
+                                produit.id if produit else "",
+                                produit.default_code if produit else "",
+                                produit.display_name if produit else "",
+                                produit.categ_id.display_name if produit else "",
+                                _unite(move),
+                                quantite,
+                                move.product_uom_qty or 0.0,
+                                valeur,
+                                source,
+                                move.location_id.complete_name if move.location_id else "",
+                                move.location_id.usage if move.location_id else "",
+                                move.location_dest_id.complete_name if move.location_dest_id else "",
+                                move.location_dest_id.usage if move.location_dest_id else "",
+                            )])
+                            total += 1
+                        # Le cache des OF traverse volontairement les lots :
+                        # c'est tout son interet, et il ne retient que des
+                        # enregistrements, que env.clear() se contente de
+                        # rendre a relire.
+                        self.env.clear()
+                create_attachment(mouvement_file, os.path.basename(mouvement_file))
+                _logger.info(
+                    "[Export Power BI] MOUVEMENTS_STOCK: %s lignes depuis %s "
+                    "(perimetre %s, %s mouvement(s) ecarte(s) faute de "
+                    "commande)", total, depuis, perimetre, ecartes)
+            except Exception as e:
+                _logger.exception(
+                    "[Export Power BI] ERREUR section MOUVEMENTS_STOCK: %s", e)
 
             # ========================================
             # Commande Appro (purchase.order)

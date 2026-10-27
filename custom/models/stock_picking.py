@@ -1,4 +1,9 @@
+import logging
+
 from odoo import models, fields, api
+
+
+_logger = logging.getLogger(__name__)
 
 
 class StockPicking(models.Model):
@@ -29,6 +34,22 @@ class StockPicking(models.Model):
     x_studio_many2one_field_uBzGv = fields.Many2one("x_affaire", string="Affaire")
     x_studio_many2one_field_Vc214 = fields.Many2one("x_affaire", string="Affaire")
     x_studio_n_bl = fields.Char(string="N° BL")
+    # Projet de la vente, le meme que sur l'ordre de fabrication
+    # (mrp.production.x_studio_projet_de_la_vente) : c'est le projet porte par
+    # la commande a l'origine du transfert. Meme nom technique d'un modele a
+    # l'autre, pour que le metier et les rapports parlent du meme champ.
+    #
+    # Stocke, sans quoi la colonne ne serait ni filtrable, ni groupable, ni
+    # triable — or c'est pour trier les livraisons par affaire qu'on l'affiche.
+    x_studio_projet_de_la_vente = fields.Many2one(
+        "project.project",
+        string="Projet de la vente",
+        compute="_compute_x_studio_projet_de_la_vente",
+        store=True,
+        readonly=True,
+        index="btree_not_null",
+    )
+
     x_studio_projet_du_mo = fields.Many2one("project.project", string="Projet du MO", readonly=True)
     x_studio_projet_du_so = fields.Many2one("project.project", string="projet du SO")
     x_studio_projet_du_so_1 = fields.Many2one("project.project", string="Projet du SO", readonly=True)
@@ -59,3 +80,174 @@ class StockPicking(models.Model):
         # (docstring de la méthode d'origine : "to be overridden in order
         # to inject new fields to the client action").
         return super()._get_fields_stock_barcode() + ["x_studio_n_bl"]
+
+    def _action_done(self):
+        """Un transfert d'OF valide peut dater le debut de fabrication.
+
+        Encadre : une erreur dans le calcul d'une date ne doit JAMAIS empecher
+        de valider un transfert. Bloquer une livraison ou une collecte de
+        composants pour un champ d'information serait sans commune mesure.
+        """
+        res = super()._action_done()
+        try:
+            commandes = self.env["sale.order"]
+            for picking in self:
+                for production in picking._fma_ordres_de_fabrication():
+                    commandes |= production._fma_commande_de_la_vente()
+            if commandes:
+                commandes._fma_recalculer_dates_fab()
+            # Un bon de livraison valide peut dater la livraison reelle.
+            livrees = self.filtered(
+                lambda p: p.picking_type_code == "outgoing").mapped("sale_id")
+            if livrees:
+                livrees._fma_recalculer_livraison_reelle()
+        except Exception:
+            _logger.exception(
+                "Dates de fabrication non recalculees apres validation de %s",
+                ", ".join(self.mapped("name")))
+        return res
+
+    def write(self, vals):
+        """Deplacer la date planifiee d'un BL redate la commande.
+
+        La livraison « reelle » suit la date planifiee du bon. Elle ne peut
+        donc pas n'etre recalculee qu'a la validation : c'est justement quand
+        le magasin REPOUSSE un bon, avant de l'avoir fait, que l'information
+        vaut quelque chose.
+
+        Seuls les bons sortants comptent. Sans ce filtre, un transfert de
+        composants — que le macro planning deplace vers l'amont — donnerait a
+        la commande une date de fabrication en guise de date de livraison. Le
+        piege est documente dans custom_delivery, il avait fait tomber une
+        livraison promise en octobre 2026 au 12 decembre 2025.
+        """
+        res = super().write(vals)
+        if "scheduled_date" not in vals:
+            return res
+        try:
+            commandes = self.filtered(
+                lambda p: p.picking_type_code == "outgoing"
+            ).mapped("sale_id")
+            if commandes:
+                commandes._fma_recalculer_livraison_reelle()
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "Livraison reelle non recalculee apres deplacement de %s",
+                ", ".join(self.mapped("name")))
+        return res
+
+    def _fma_ordres_de_fabrication(self):
+        """Ordres de fabrication auxquels ce transfert se rattache.
+
+        Trois chemins, du plus direct au plus permissif, parce qu'un OF n'est
+        pas relie de la meme facon a tous ses transferts.
+
+        Les mouvements du transfert portent parfois l'OF directement :
+        production_id pour l'entree du produit fini,
+        raw_material_production_id pour la consommation des composants.
+
+        Mais pas toujours, et c'est ce qui laissait le champ vide. Avec une
+        fabrication en deux ou trois etapes, le transfert « Collecter les
+        composants » deplace la matiere du stock vers la pre-fabrication : ses
+        mouvements ne sont PAS ceux de l'OF, ils les alimentent. Le lien passe
+        alors par le chainage — move_dest_ids vers l'aval, move_orig_ids vers
+        l'amont pour le transfert des produits finis.
+
+        En dernier recours, le document d'origine : Odoo y inscrit le nom de
+        l'OF, comme le montre « LRE/LRE/04506 » sur ces transferts. Moins sur
+        qu'une relation, mais c'est mieux qu'un champ vide.
+        """
+        self.ensure_one()
+        Move = self.env["stock.move"]
+        Production = self.env["mrp.production"]
+        champs = [c for c in ("production_id", "raw_material_production_id")
+                  if c in Move._fields]
+        if not champs:
+            return Production
+
+        mouvements = self.move_ids
+        for lien in ("move_dest_ids", "move_orig_ids"):
+            if lien in Move._fields:
+                mouvements |= self.move_ids.mapped(lien)
+
+        productions = Production
+        for champ in champs:
+            productions |= mouvements.mapped(champ)
+        if productions:
+            return productions
+
+        origine = (self.origin or "").strip()
+        if origine:
+            productions = Production.sudo().search([("name", "=", origine)], limit=1)
+        return productions
+
+    def _fma_projet_source(self):
+        """Projet de la vente a reporter sur ce transfert.
+
+        Deux sources, et pas trois maillons : une livraison porte sa commande
+        dans sale_id, on y lit le projet. Un transfert d'ordre de fabrication
+        n'a pas de commande, on prend le projet DE L'OF, tel qu'il y figure.
+
+        C'est le point ou je m'etais complique la vie : je demandais a l'OF sa
+        commande, puis a la commande son projet. Or l'OF connait son projet
+        sans forcement connaitre sa commande — il le tient parfois d'une
+        automatisation ou d'une saisie, et le diagnostic sur LRE/PC/10083 l'a
+        montre : la chaine atteignait bien l'OF 5436, mais celui-ci n'avait pas
+        de commande a donner. Le transfert doit recopier le projet de son OF,
+        pas le recalculer par un autre chemin.
+        """
+        self.ensure_one()
+        Projet = self.env["project.project"]
+
+        commande = self.sale_id[:1]
+        if commande and "x_studio_projet" in commande._fields:
+            projet = commande.x_studio_projet
+            if projet:
+                return projet
+
+        for production in self._fma_ordres_de_fabrication():
+            projet = production.x_studio_projet_de_la_vente
+            if projet:
+                return projet
+        return Projet
+
+    @api.depends("sale_id", "move_ids")
+    def _compute_x_studio_projet_de_la_vente(self):
+        """Projet de la vente, sur la livraison comme sur les transferts d'OF.
+
+        La dependance se limite a sale_id et move_ids, deux champs apportes
+        par des modules dont custom depend et donc charges avant lui. Ni les
+        champs de l'OF, ni x_studio_projet n'y figurent : Odoo resout les
+        dependances au chargement de CHAQUE module, et custom vient en 257e
+        position sur 356. Un champ pas encore declare y fait echouer le
+        demarrage de la base entiere — c'est ce qui s'est produit avec
+        sale_line_id sur l'ordre de fabrication.
+
+        Tout le reste est donc lu au moment du calcul, si le registre le
+        connait alors.
+
+        Consequence assumee : le transfert ne se recalcule pas si l'OF
+        retrouve sa commande apres coup, ni si le projet change sur une
+        commande deja livree. Les deux se rattrapent en rouvrant
+        l'enregistrement, et l'ordre normal des choses — commande, puis OF,
+        puis transferts — les rend marginaux.
+        """
+        # Les valeurs deja en base, lues d'un coup en SQL. Relire le champ
+        # depuis l'enregistrement, au sein de son propre calcul, est le genre
+        # de detour dont Odoo ne garantit rien pendant un recalcul de masse —
+        # et c'est cette garde-la qui protege la donnee. Elle doit etre sure.
+        anciennes = {}
+        existants = [i for i in self.ids if isinstance(i, int)]
+        if existants:
+            self.env.cr.execute(
+                "SELECT id, x_studio_projet_de_la_vente FROM stock_picking"
+                " WHERE id IN %s", (tuple(existants),))
+            anciennes = dict(self.env.cr.fetchall())
+
+        for picking in self:
+            # Un calcul qui ne trouve rien se tait plutot que d'effacer.
+            picking.x_studio_projet_de_la_vente = (
+                picking._fma_projet_source()
+                or anciennes.get(picking.id)
+                or False
+            )

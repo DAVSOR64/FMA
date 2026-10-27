@@ -1,13 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!--
+        Les deux champs d'export etaient poses a la suite des etiquettes, en
+        haut du formulaire : deux reglages techniques au milieu de l'identite du
+        contact. Ils rejoignent le groupe « Flux documentaires » de l'onglet
+        Technique, laisse vide a cet effet par custom.
+
+        L'ancrage est sur la vue de custom, dont ce module depend deja : elle
+        est donc chargee avant.
+    -->
     <record id="view_partner_form_inherit" model="ir.ui.view">
         <field name="name">res.partner.form.inherit</field>
         <field name="model">res.partner</field>
-        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="inherit_id" ref="custom.view_partner_form_custom"/>
         <field name="arch" type="xml">
-            <xpath expr="//form//field[@name='category_id']" position="after">
-                <field name="shipping_number"/>
-                <field name="po_xml_export_sftp_path"/>
+            <xpath expr="//group[@name='fma_flux_documentaires']" position="inside">
+                <field name="shipping_number" string="Numéro d'expédition"/>
+                <field name="po_xml_export_sftp_path" string="Chemin SFTP des commandes"/>
             </xpath>
         </field>
     </record>

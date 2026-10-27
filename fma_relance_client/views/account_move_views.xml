@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Colonnes de la liste des factures.
+
+        Le vendeur y figure deja, en colonne optionnelle masquee : on bascule
+        son attribut au lieu d'ajouter un second champ, qu'Odoo afficherait en
+        double. Le commercial FMA et le projet, eux, sont nouveaux.
+
+        Les trois sont « optional » : la liste des factures sert a bien
+        d'autres choses qu'a la relance, et chacun doit pouvoir les retirer.
+    -->
+    <record id="view_invoice_tree_relance" model="ir.ui.view">
+        <field name="name">account.move.list.relance.fma</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_invoice_tree"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='invoice_user_id']" position="attributes">
+                <attribute name="optional">show</attribute>
+                <attribute name="string">Vendeur</attribute>
+            </xpath>
+
+            <xpath expr="//field[@name='invoice_user_id']" position="after">
+                <field name="commercial_id" string="Commercial" optional="show"/>
+                <field name="fma_project_id" string="Projet" optional="show"/>
+                <!--
+                    Le niveau et les trois dates de relance, affiches. C'est
+                    l'ecran de travail du recouvrement : voir d'un coup d'oeil
+                    ce qui a deja ete reclame, et quand, est tout l'objet de
+                    ces colonnes. Elles restent « optional », donc retirables
+                    par qui vient chercher autre chose dans cette liste.
+                -->
+                <field name="fma_niveau_relance" string="Niveau" optional="show"/>
+                <field name="fma_date_relance_1" optional="show"/>
+                <field name="fma_date_relance_2" optional="show"/>
+                <field name="fma_date_relance_3" optional="show"/>
+            </xpath>
+
+        </field>
+    </record>
+
+    <!--
+        Relance sur selection.
+
+        Action serveur liee au modele : elle apparait dans le menu Action des
+        que des factures sont cochees, sans ajouter de bouton a la vue. C'est
+        le mecanisme deja utilise par fma_invoice_export.
+    -->
+    <record id="action_relancer_client" model="ir.actions.server">
+        <field name="name">Relancer le client</field>
+        <field name="model_id" ref="account.model_account_move"/>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_fma_relancer_client()</field>
+    </record>
+
+</odoo>

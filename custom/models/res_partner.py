@@ -42,6 +42,14 @@ class ResPartner(models.Model):
     x_studio_iziqo_1 = fields.Boolean(string="Iziqo")
     x_studio_mode_de_rglement = fields.Char(string="Mode de réglement")
     x_studio_mode_de_rglement_dsa = fields.Many2one("x_reglements", string="Mode de règlement")
+    # Remises client, en POURCENTAGE (47.0 = 47 %), l'une pour l'aluminium
+    # (affaires etiquetees FMA), l'autre pour l'acier (F2M). Portees par le
+    # client seul : elles ne s'appliquent a aucun devis, elles sont transmises
+    # a IziQo par fma_iziqo_sync.
+    #
+    # 47 % par defaut sur les societes, cf. create et la migration de reprise.
+    fma_remise_alu = fields.Float(string="Remise ALU (%)", digits=(5, 2))
+    fma_remise_acier = fields.Float(string="Remise ACIER (%)", digits=(5, 2))
     x_studio_mtt_echu = fields.Float(string="Mtt Echu")
     x_studio_mtt_non_echu = fields.Float(string="Mtt Non Echu")
     x_studio_ref_logikal = fields.Char(string="Ref. LOGIKAL")
@@ -154,6 +162,11 @@ class ResPartner(models.Model):
         default="SARL",
     )
 
+    # --- Identite legale : SIRET et SIREN ---
+    # Le champ standard company_registry porte chez FMA le SIRET (14
+    # chiffres) : c'est ce que lisent Iziqo, Power BI, les exports et les PDF.
+    # Le SIREN est part_siren. Aucun controle de forme sur l'un ni l'autre.
+    company_registry = fields.Char(string="SIRET")
     part_siren = fields.Char(string="SIREN")
     part_bic = fields.Char(string="BIC")
     part_iban = fields.Char(string="IBAN")
@@ -172,9 +185,36 @@ class ResPartner(models.Model):
         string="Attachments",
     )
 
+    def init(self):
+        super().init()
+        # Le string="SIRET" ci-dessus ne remplace que le libelle anglais : la
+        # traduction posee par base (« ID de la société ») lui survit, et
+        # c'est elle que montrent les listes, filtres et exports. Odoo
+        # n'ecrase pas une traduction existante ; on aligne donc les langues
+        # deja presentes, a chaque mise a jour du module.
+        self.env.cr.execute(
+            """
+            UPDATE ir_model_fields f
+               SET field_description = (
+                       SELECT jsonb_object_agg(langue, 'SIRET')
+                         FROM jsonb_object_keys(f.field_description) AS langue)
+             WHERE f.model = 'res.partner'
+               AND f.name = 'company_registry'
+               AND EXISTS (
+                       SELECT 1
+                         FROM jsonb_each_text(f.field_description) AS t
+                        WHERE t.value <> 'SIRET')
+            """
+        )
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            # Remise par defaut des societes : 47 %, le taux applique a tous
+            # les clients societe. Une valeur fournie a la creation l'emporte.
+            if vals.get("is_company"):
+                vals.setdefault("fma_remise_alu", 47.0)
+                vals.setdefault("fma_remise_acier", 47.0)
             if vals.get("x_studio_gneration_n_compte_1", False):
                 last_record = self.search(
                     [("is_company", "=", True), ("x_studio_compte", "!=", False)],

@@ -26,9 +26,9 @@
                     <br>
                         TVA : <span t-field="doc.partner_id.vat" />
                     </br>
-                    <br>
-                        SIRET : <span t-field="doc.partner_id.siret" />
-                    </br>
+                    <!-- res.partner.siret n'existe plus en v19 : meme lecture
+                         que la facture, le champ standard de la societe. -->
+                    <br>SIRET : <span t-field="doc.partner_id.commercial_partner_id.company_registry" /></br>
                 </div>
                 <div style="text-align: right;">
                     <br>

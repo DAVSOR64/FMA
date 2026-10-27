@@ -49,31 +49,56 @@ class SaleOrder(models.Model):
         store=True
     )
 
-    @api.depends('delay_category_id', 'delay_reason_id')
-    def _fma_verifier_delai_bpe(self, geste):
-        """Exige le delai confirme et la date de BPE avant d'engager l'affaire.
+    def _fma_manque_delai_bpe(self):
+        """Ce qui manque au calcul des dates de livraison, en clair."""
+        self.ensure_one()
+        manquants = []
+        if not self.so_delai_confirme_en_semaine:
+            manquants.append("le délai confirmé (en semaines)")
+        if not self.so_date_bpe:
+            manquants.append("la date de BPE")
+        return manquants
 
-        Appelee depuis les deux gestes du circuit FMA : « Validé »
-        (fma_sale_order_custom.action_validation) et « Confirmer »
-        (fma_custom.action_confirm). Ces deux informations alimentent le calcul
-        des dates de livraison prevue et reelle ; franchir l'etape sans elles
-        produisait une affaire sans date, que plus rien ne venait combler
-        ensuite puisque le delai se fige des la validation.
+    @api.onchange("so_date_ARC")
+    def _onchange_so_date_arc_alerte(self):
+        """Prévient, sans bloquer, quand l'ARC arrive sans délai ni BPE.
+
+        Ce controle barrait auparavant « Validé » et « Confirmer ». Il y était
+        mal place : au moment de valider, l'ARC n'est pas encore revenu et ces
+        deux informations n'ont souvent pas de raison d'etre connues — le
+        blocage arretait donc un geste legitime.
+
+        L'accuse de reception est le bon moment : c'est la que l'affaire
+        s'engage sur des dates, et que le delai et le BPE prennent leur sens.
+
+        Une alerte et non un refus : l'utilisateur qui saisit l'ARC n'est pas
+        toujours celui qui detient le delai. On l'avertit, il enregistre, et
+        quelqu'un complete — plutot que de bloquer la saisie de l'ARC pour une
+        information qui viendra d'ailleurs.
         """
-        for order in self:
-            manquants = []
-            if not order.so_delai_confirme_en_semaine:
-                manquants.append("le délai confirmé (en semaines)")
-            if not order.so_date_bpe:
-                manquants.append("la date de BPE")
-            if manquants:
-                raise UserError(
-                    "Impossible de %s le devis %s.\n\n"
-                    "Renseignez %s : ces informations déterminent les dates de "
-                    "livraison, et ne seront plus modifiables ensuite."
-                    % (geste, order.name or "", " et ".join(manquants))
-                )
+        if not self.so_date_ARC:
+            return
+        manquants = self._fma_manque_delai_bpe()
+        if not manquants:
+            return
+        return {
+            "warning": {
+                "title": "Dates de livraison incomplètes",
+                "message": (
+                    "L'ARC est renseigné mais il manque %s.\n\n"
+                    "Ces informations déterminent les dates de livraison "
+                    "prévue et réelle : sans elles, l'affaire restera sans "
+                    "date. Vous pouvez enregistrer et les compléter ensuite."
+                    % " et ".join(manquants)
+                ),
+            }
+        }
 
+    # Le decorateur etait pose sur la methode precedente, qui n'est pas un
+    # calcul : so_retard_motif est stocke sans dependance, il n'etait donc
+    # jamais recalcule apres la creation. Le motif de retard restait fige a sa
+    # valeur du premier enregistrement.
+    @api.depends('delay_category_id', 'delay_reason_id')
     def _compute_so_retard_motif(self):
         for order in self:
             parts = []
@@ -239,8 +264,26 @@ class SaleOrder(models.Model):
     so_date_ARC = fields.Date(string="ARC du : ")
     so_date_bon_pour_fab = fields.Date(string="Bon pour Fab. le : ")
     so_date_de_fin_de_production_reel = fields.Date(string="Fin de production du : ")
+    # Debut de fab : le jour ou la production a reellement commence,
+    # c'est-a-dire le plus ancien transfert TERMINE parmi ceux des OF de
+    # la commande. Date effective et non planifiee, par symetrie avec la
+    # fin de production « reelle » juste au-dessus.
+    #
+    # Champ simple, alimente par _fma_recalculer_dates_fab — surtout pas
+    # calcule : un calcul stocke qui ne trouve rien ecrit du vide, et un
+    # recalcul de masse efface l'historique. C'est deja arrive ici.
+    so_date_debut_fab = fields.Date(string="Début de fab", copy=False)
     so_date_de_livraison = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison', store=True)
     so_date_de_livraison_prevu = fields.Date(string="Date livraison saisie")
+    # Livraison REELLE : la date effective des bons de livraison. A ne pas
+    # confondre avec so_date_de_livraison_prevu juste au-dessus, qui porte la
+    # date REVISEE recopiee de la date planifiee du BL — et sur laquelle le
+    # retroplanning de mrp_capacity_planning s'appuie en priorite. On ne la
+    # detourne donc pas : la date reelle a son propre champ.
+    #
+    # Alimente par _fma_recalculer_livraison_reelle, jamais calcule : une
+    # valeur introuvable laisse l'existant en place.
+    so_date_livraison_reelle = fields.Date(string="Livraison réelle le", copy=False)
     so_statut_avancement_production = fields.Char(string="Statut Avancement Production")
     so_delai_confirme_en_semaine = fields.Integer(string="Délai confirmé (en semaines)")
 
@@ -456,9 +499,22 @@ class SaleOrder(models.Model):
     def _compute_so_date_de_livraison(self):
         for order in self:
             if order.so_date_bpe and order.so_delai_confirme_en_semaine:
-                order.so_date_de_livraison = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
-                order.so_date_de_livraison_prevu = order.so_date_bpe + timedelta(weeks=order.so_delai_confirme_en_semaine)
+                order.so_date_de_livraison = order.so_date_bpe + timedelta(
+                    weeks=order.so_delai_confirme_en_semaine)
+                # commitment_date suit, et c'est le seul miroir voulu : la
+                # promesse Odoo dit la meme chose que « Livraison prevue le ».
                 order.commitment_date = order.so_date_de_livraison
+                # so_date_de_livraison_prevu N'EST PLUS ecrit ici. Il recevait
+                # a la fois delai + BPE et la date planifiee du BL, deux choses
+                # differentes dans un seul champ — d'ou l'impossibilite de
+                # savoir ce qu'il portait. La date planifiee du BL a desormais
+                # son champ : so_date_livraison_reelle.
+                if not order.picking_ids.filtered(
+                        lambda p: p.picking_type_code == "outgoing"
+                        and p.state != "cancel"):
+                    # Tant qu'aucun bon n'existe, la livraison « reelle » est
+                    # la prevue : c'est la date que le magasin recevra.
+                    order.so_date_livraison_reelle = order.so_date_de_livraison
             else:
                 order.so_date_de_livraison = False
                 order.commitment_date = False
@@ -540,3 +596,144 @@ class SaleOrder(models.Model):
                 order.so_prc_mcv_reel = (order.so_mcv_reel / order.so_mtt_facturer_reel) * 100
             else:
                 order.so_prc_mcv_reel = 0.0
+
+    # ------------------------------------------------------------------
+    # Dates de fabrication
+    # ------------------------------------------------------------------
+    def _fma_ordres_de_fabrication(self):
+        """Ordres de fabrication de la commande, par tous les liens connus.
+
+        Aucun lien ne suffit seul. L'origine ne vaut le nom de la commande que
+        pour les OF crees par une regle MTO ; x_studio_mtn_mrp_sale_order est
+        pose par une automatisation ; reference_ids est le mecanisme v19 du
+        bouton « Ventes » ; lot_sale_order_id n'existe qu'avec les lots.
+
+        Chaque chemin n'est emprunte que si le champ existe : ce module charge
+        avant ceux qui en declarent plusieurs.
+        """
+        self.ensure_one()
+        Production = self.env["mrp.production"]
+        champs = Production._fields
+        termes = [("origin", "=", self.name)]
+        if "x_studio_mtn_mrp_sale_order" in champs:
+            termes.append(("x_studio_mtn_mrp_sale_order", "=", self.id))
+        if "sale_line_id" in champs:
+            termes.append(("sale_line_id.order_id", "=", self.id))
+        if "lot_sale_order_id" in champs:
+            termes.append(("lot_sale_order_id", "=", self.id))
+        if "reference_ids" in champs:
+            reference = self.env[champs["reference_ids"].comodel_name]
+            if "sale_ids" in reference._fields:
+                termes.append(("reference_ids.sale_ids", "in", self.ids))
+        domaine = ["|"] * (len(termes) - 1) + termes
+        return Production.search(domaine)
+
+    def _fma_transferts_des_of(self, ofs):
+        """Transferts rattaches a des OF, par tous les liens connus.
+
+        picking_ids seul ne suffit pas en v19. Il passait par le groupe
+        d'approvisionnement, remplace par les references : sur A26-01-00022/2,
+        il ne remontait pas REM/PC/01833 ni REM/PC/01876, pourtant termines le
+        30 juin avec REM/MO/00578 pour source. La commande restait sans debut de
+        fabrication alors que sa fin etait posee.
+
+        Trois chemins, reunis :
+        - le chainage des mouvements — les composants arrivent en Pre-Fab par
+          des mouvements dont la destination est celle de l'OF ;
+        - le chainage aval, pour le transfert du produit fini ;
+        - l'origine du transfert, qui porte le nom de l'OF.
+        """
+        Picking = self.env["stock.picking"]
+        transferts = Picking
+        if not ofs:
+            return transferts
+        if "picking_ids" in ofs._fields:
+            transferts |= ofs.picking_ids
+        if "move_raw_ids" in ofs._fields:
+            transferts |= ofs.move_raw_ids.move_orig_ids.picking_id
+        if "move_finished_ids" in ofs._fields:
+            transferts |= ofs.move_finished_ids.move_dest_ids.picking_id
+        noms = [nom for nom in ofs.mapped("name") if nom]
+        if noms:
+            transferts |= Picking.search([("origin", "in", noms)])
+        return transferts
+
+    def _fma_recalculer_dates_fab(self):
+        """Pose le debut et la fin de fabrication a partir des OF.
+
+        Debut : le plus ancien transfert TERMINE rattache aux OF — la collecte
+        des composants, en pratique. Fin : la date de fin du dernier OF, mais
+        seulement quand TOUS les OF non annules sont termines. Poser la fin au
+        premier OF valide, comme avant, datait la fin de production d'une
+        affaire dont la moitie restait a fabriquer.
+
+        Les dates sont ramenees au jour du fuseau de l'utilisateur : Odoo
+        stocke les instants en UTC, et un transfert valide a 23 h 30 serait
+        sinon date du lendemain.
+
+        Ne JAMAIS effacer : une valeur introuvable laisse l'existant en place.
+        """
+        Picking = self.env["stock.picking"]
+        for order in self:
+            ofs = order._fma_ordres_de_fabrication()
+            if not ofs:
+                continue
+            vals = {}
+
+            transferts = order._fma_transferts_des_of(ofs)
+            # Hors livraisons : elles remontent par le chainage du produit
+            # fini, et sur une commande sans transfert de composants —
+            # fabrication en une etape — la livraison deviendrait le seul
+            # transfert trouve. Le debut de fab tomberait apres la fin.
+            instants = [t.date_done for t in transferts
+                        if t.state == "done" and t.date_done
+                        and t.picking_type_code != "outgoing"]
+            if instants:
+                debut = fields.Date.context_today(order, timestamp=min(instants))
+                if order.so_date_debut_fab != debut:
+                    vals["so_date_debut_fab"] = debut
+
+            actifs = ofs.filtered(lambda o: o.state != "cancel")
+            if actifs and all(o.state == "done" for o in actifs):
+                fins = [o.date_finished for o in actifs if o.date_finished]
+                if fins:
+                    fin = fields.Date.context_today(order, timestamp=max(fins))
+                    if order.so_date_de_fin_de_production_reel != fin:
+                        vals["so_date_de_fin_de_production_reel"] = fin
+
+            if vals:
+                order.write(vals)
+
+    def _fma_recalculer_livraison_reelle(self):
+        """La date a laquelle la commande sera livree, telle que le BL la dit.
+
+        La DATE PLANIFIEE du bon de livraison, et non sa date effective. Le
+        choix se justifie par l'usage : on veut savoir quand la commande part,
+        et le savoir AVANT qu'elle parte. Une date effective n'existe qu'apres
+        coup, donc elle ne repond jamais quand on a besoin de la reponse.
+
+        La plus TARDIVE des livraisons non annulees, celles deja faites
+        comprises. Un bon valide qui laisse un reliquat n'a pas livre la
+        commande : c'est la date du reliquat qui dit quand elle le sera. La
+        deplacer deplace donc cette date, ce qui est l'effet voulu.
+
+        Sans aucune livraison, la date prevue fait foi -- delai + BPE. C'est
+        ce que le magasin recevra de toute facon quand le bon sera cree, Odoo
+        calant sa date planifiee sur l'engagement.
+
+        Champ simple et non calcule, comme les dates de fabrication : un
+        calcul stocke qui ne trouve rien ecrit du vide, et un recalcul de
+        masse efface l'historique. C'est deja arrive ici.
+        """
+        for order in self:
+            livraisons = order.picking_ids.filtered(
+                lambda p: p.picking_type_code == "outgoing"
+                and p.state != "cancel"
+            )
+            instants = [p.scheduled_date for p in livraisons if p.scheduled_date]
+            if instants:
+                jour = fields.Date.context_today(order, timestamp=max(instants))
+            else:
+                jour = order.so_date_de_livraison or False
+            if jour and order.so_date_livraison_reelle != jour:
+                order.so_date_livraison_reelle = jour

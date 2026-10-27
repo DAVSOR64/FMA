@@ -90,14 +90,21 @@
                             <td></td>
                         </tr>
                         <!-- Lignes dynamiques -->
+                        <!--
+                            SIX cellules, comme l'en-tete. La ligne en comptait
+                            SEPT : tout etait decale d'un cran vers la droite, et
+                            la quantite s'affichait sous « Reliquat ». La ligne
+                            statique « Retoucheur » juste au-dessus, elle, en a
+                            toujours eu six — d'ou un tableau ou une seule ligne
+                            sur deux tombait juste.
+                        -->
                         <tr t-foreach="doc.laquage_line_ids" t-as="line">
-                            <td></td>
-                            <td><span t-field="line.so_repere" /></td>
-                            <td></td>
-                            <td><span t-field="line.so_qte_commandee" /></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
+                            <td/>
+                            <td><span t-field="line.so_repere"/></td>
+                            <td><span t-field="line.so_qte_commandee"/></td>
+                            <td><span t-field="line.so_reliquat"/></td>
+                            <td/>
+                            <td/>
                         </tr>
                     </tbody>
                 </table>

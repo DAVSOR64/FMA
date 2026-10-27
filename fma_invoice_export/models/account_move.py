@@ -129,14 +129,23 @@ class AccountMove(models.Model):
                 invoice_date_due = str(move.invoice_date_due)
                 items_grouped_by_account = list(items_grouped_by_account)
 
-                # === MODIF: lecture du mode de règlement depuis le nouveau champ libellé ===
+                # La comptabilite attend le LIBELLE, pas le code : on ne
+                # change pas ce qu'elle recoit.
+                #
+                # x_studio_libelle_1 reste lu en premier : c'est ce qui part
+                # aujourd'hui, et les libelles du referentiel ne sont pas
+                # ecrits pareil (« L.C.R. à l'acceptation » contre
+                # « L.C.R. A L ACCEPTATION »). Basculer la source changerait
+                # silencieusement le contenu de toutes les lignes.
+                #
+                # Le referentiel ne sert que de repli, pour les factures ou le
+                # champ Studio n'a jamais ete alimente — sans lui, la colonne
+                # partait vide.
                 mode_reg = (move.x_studio_libelle_1 or "")
-                mode_reg = (
-                    mode_reg.replace("L.C.R. A L ACCEPTATION", "L.C.R. A L ACCEPTATI")
-                    if mode_reg == "L.C.R. A L ACCEPTATION"
-                    else mode_reg
-                )
-                # === FIN MODIF ===
+                if not mode_reg:
+                    mode_reg = move.mode_reglement_id.x_studio_libelle or ""
+                if mode_reg == "L.C.R. A L ACCEPTATION":
+                    mode_reg = "L.C.R. A L ACCEPTATI"
 
                 grouped_items.append(
                     {

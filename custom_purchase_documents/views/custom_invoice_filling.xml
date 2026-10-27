@@ -106,6 +106,7 @@
                         <th class="text-start"><span>Hauteur</span></th>
                         <th class="text-start"><span>Largeur</span></th>
                         <th class="text-start"><span>Spacer</span></th>
+                        <th class="text-start"><span>Forme</span></th>
                         <th class="text-start"><span>Qté</span></th>
                         <th class="text-start"><span>Prix Unitaire</span></th>
                         <th class="text-start"><span>Montant</span></th>
@@ -120,7 +121,21 @@
                                 <td><span t-field="line.name"/></td>
                                 <td><span t-field="line.x_studio_hauteur" t-if="line.x_studio_hauteur"/></td>
                                 <td><span t-field="line.x_studio_largeur" t-if="line.x_studio_largeur"/></td>
-                                <td><span t-field="line.x_studio_spacer" t-if="line.x_studio_spacer"/></td>
+                                <!--
+                                    x_studio_spacer_2 et non x_studio_spacer :
+                                    le second est un Char libre sur la ligne,
+                                    jamais alimente, alors que le premier est le
+                                    related vers le spacer du produit. La colonne
+                                    du PDF sortait donc toujours vide, tandis que
+                                    l'ecran, lui, affichait bien la valeur.
+                                    Le Char reste en secours pour les lignes
+                                    saisies a la main avant la bascule v19.
+                                -->
+                                <td>
+                                    <span t-field="line.x_studio_spacer_2" t-if="line.x_studio_spacer_2"/>
+                                    <t t-else=""><span t-field="line.x_studio_spacer" t-if="line.x_studio_spacer"/></t>
+                                </td>
+                                <td><span t-field="line.x_studio_forme" t-if="line.x_studio_forme"/></td>
                                 <td><span t-field="line.product_qty"/></td>
                                 <td>
                                     <span t-field="line.price_unit" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
