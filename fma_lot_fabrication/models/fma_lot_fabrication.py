@@ -1761,21 +1761,41 @@ class FmaLotFabrication(models.Model):
             return False
 
         try:
-            for mo in assemblages:
-                if fin_forcee:
-                    # Fin imposee par l'ordonnanceur : meme retroplanning,
-                    # autre borne. « Fin de fab » porte la date, le champ
-                    # Studio la suit.
+            if fin_forcee:
+                # Fin imposee par l'ordonnanceur : meme retroplanning, autre
+                # borne. « Fin de fab » porte la date, le champ Studio la suit.
+                for mo in assemblages:
                     mo._set_date_fin_de_fab(
                         fields.Datetime.to_datetime(fin_forcee).date()
                     )
                     mo.compute_macro_schedule_from_date_fin()
-                    continue
-                cible, commande = mo._get_macro_target_date()
-                if cible:
-                    mo.compute_macro_schedule_from_sale(
-                        commande or mo, security_days=security_days
-                    )
+            elif hasattr(assemblages, "compute_macro_schedule_from_sale_batch"):
+                # EN UN SEUL APPEL, et non un par menuiserie.
+                #
+                # Chaque OF garde ses propres dates : le retroplanning reste
+                # calcule ordre par ordre, et chaque ordre porte le sien. Ce
+                # qui est groupe, c'est l'ECRITURE, et seulement entre OF qui
+                # aboutissent exactement aux memes dates — ce qui est le cas
+                # courant, les menuiseries d'un lot partageant la commande,
+                # donc la livraison, donc le retroplanning. Deux OF aux dates
+                # differentes sont ecrits separement.
+                #
+                # Ce que ca evite : ecrire date_start sur un OF fait redater
+                # par Odoo tous ses mouvements de stock et leurs echeances,
+                # qui se propagent aux transferts puis aux lignes d'achat.
+                # 2,51 s par ordre, mesurees sur la staging — quarante
+                # secondes pour un lot de seize, a refaire seize fois la meme
+                # cascade.
+                assemblages.compute_macro_schedule_from_sale_batch(
+                    security_days=security_days
+                )
+            else:
+                for mo in assemblages:
+                    cible, commande = mo._get_macro_target_date()
+                    if cible:
+                        mo.compute_macro_schedule_from_sale(
+                            commande or mo, security_days=security_days
+                        )
 
             debuts = [d for d in assemblages.mapped("date_start") if d]
             if not debuts:

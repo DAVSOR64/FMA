@@ -373,13 +373,15 @@ class MrpProduction(models.Model):
     # ============================================================
     # ENTRY POINT FROM SALE ORDER (SO -> MO)
     # ============================================================
-    def compute_macro_schedule_from_sale(self, sale_order, security_days=6):
-        """
-        Phase 1 (à la confirmation du devis) :
-        - calcule et écrit workorder.macro_planned_start (début macro)
-        - recale mrp.production.date_start / date_finished depuis macro_planned_start + durées
-        - met à jour le picking composants (deadline = début fab, scheduled = veille ouvrée)
-        - NE TOUCHE PAS aux dates standard des WO (date_start/date_finished)
+    def _macro_payloads_depuis_livraison(self, sale_order, security_days=6):
+        """Retroplanning de CET OF, calcule SANS RIEN ECRIRE.
+
+        Renvoie ``(end_fab_dt, payloads)`` : la fin de fabrication visee,
+        et pour chaque ordre de travail les dates a lui poser.
+
+        Separer le calcul de l'ecriture est ce qui permet de planifier
+        plusieurs OF puis de GROUPER leurs ecritures — voir
+        ``compute_macro_schedule_from_sale_batch``.
         """
         self.ensure_one()
         # Meme inversion qu'en _get_macro_target_date : l'engagement d'abord.
@@ -390,7 +392,7 @@ class MrpProduction(models.Model):
         delivery_dt = fields.Datetime.to_datetime(raw_delivery)
         if not delivery_dt:
             _logger.info("SO %s : pas de date prévue de livraison -> pas de macro planning", sale_order.name)
-            return False
+            return False, []
 
 
         # _ordered_workorders_for_planning repose deja op_sequence depuis le
@@ -400,15 +402,12 @@ class MrpProduction(models.Model):
         workorders = self._ordered_workorders_for_planning(include_progress=True)
         if not workorders:
             _logger.info("MO %s : aucun WO", self.name)
-            return False
+            return False, []
 
         # Fin fabrication = livraison - délai sécurité en jours ouvrés (calendrier société)
         end_fab_dt = self._add_working_days_company(delivery_dt, -float(security_days))
         end_fab_day = end_fab_dt.date()
 
-        # Une seule ecriture pour les deux champs : ils ne peuvent plus
-        # diverger, et l'heure calculee est conservee telle quelle.
-        self._set_date_fin_de_fab(end_fab_dt)
 
         _logger.info("MO %s : delivery=%s security_days=%s end_fab_day=%s",
                      self.name, delivery_dt, security_days, end_fab_day)
@@ -457,6 +456,49 @@ class MrpProduction(models.Model):
             # Décalage "veille ouvrée" entre opérations
             current_end_day = self._previous_working_day(first_day, wc)
 
+        return end_fab_dt, payloads
+
+    def _vals_dates_of(self, start_dt, end_dt):
+        """Les champs de date de l'OF, selon ceux que porte la version."""
+        vals = {}
+        # Eviter de reecrire trop de champs : Odoo peut vider les dates OT.
+        if "date_finished" in self._fields:
+            vals["date_finished"] = end_dt
+        if "date_planned_finished" in self._fields:
+            vals["date_planned_finished"] = end_dt
+        if "date_deadline" in self._fields:
+            vals["date_deadline"] = end_dt
+        if "date_start" in self._fields:
+            vals["date_start"] = start_dt
+        if "date_planned_start" in self._fields:
+            vals["date_planned_start"] = start_dt
+        return vals
+
+    def _dates_of_figees(self):
+        """Vrai si des OT sont commences : on ne touche plus aux dates de l'OF.
+
+        Sinon Odoo tente une deplanification standard et bloque avec
+        « Certains ordres de travail sont deja termines... ».
+        """
+        self.ensure_one()
+        return any(
+            self._is_workorder_started(wo)
+            for wo in self.workorder_ids.filtered(lambda w: w.state != "cancel")
+        )
+
+    def compute_macro_schedule_from_sale(self, sale_order, security_days=6):
+        """Planifie UN ordre de fabrication depuis la date de livraison."""
+        self.ensure_one()
+        end_fab_dt, payloads = self._macro_payloads_depuis_livraison(
+            sale_order, security_days)
+        if not payloads:
+            return False
+
+        # Une seule ecriture pour les deux champs de fin de fab : ils ne
+        # peuvent plus diverger, et l'heure calculee est conservee telle
+        # quelle.
+        self._set_date_fin_de_fab(end_fab_dt)
+
         # L'OF D'ABORD, LES OT ENSUITE.
         #
         # Ecrire date_start sur l'ordre de fabrication fait replanifier ses
@@ -500,6 +542,84 @@ class MrpProduction(models.Model):
         self._update_components_picking_dates()
 
         return True
+
+    def compute_macro_schedule_from_sale_batch(self, sale_order=None,
+                                               security_days=6):
+        """Planifie PLUSIEURS ordres de fabrication en groupant les ecritures.
+
+        Chaque OF garde ses propres dates : rien n'est mutualise du calcul,
+        qui reste fait ordre par ordre, ni du resultat. Ce qui est groupe,
+        c'est l'ECRITURE — et seulement entre OF qui aboutissent exactement
+        aux memes dates.
+
+        C'est le cas courant : les N menuiseries d'un lot partagent la
+        commande, donc la date de livraison, donc le meme retroplanning. Un
+        ``write`` sur les seize OF pose les memes dates sur chacun des seize,
+        et chacun les porte ensuite individuellement. Deux OF qui aboutissent
+        a des dates differentes tombent dans deux groupes differents et sont
+        ecrits separement.
+
+        Ce que ca evite : ecrire ``date_start`` sur un OF fait redater par
+        Odoo tous ses mouvements de stock et leurs echeances, ce qui se
+        propage aux transferts puis aux lignes d'achat. Mesure sur la
+        staging : 2,51 s, par ordre de fabrication. Pour un lot de seize
+        menuiseries, c'est quarante secondes passees a refaire seize fois une
+        cascade identique.
+
+        ``sale_order`` peut etre omis : chaque OF remonte alors a sa propre
+        commande, comme le fait la version unitaire.
+        """
+        groupes = {}
+        for mo in self:
+            commande = sale_order
+            if commande is None:
+                cible, commande = mo._get_macro_target_date()
+                if not cible:
+                    continue
+            end_fab_dt, payloads = mo._macro_payloads_depuis_livraison(
+                commande or mo, security_days)
+            if not payloads:
+                continue
+            mo._set_date_fin_de_fab(end_fab_dt)
+            debuts = [p['macro_dt'] for p in payloads if p['macro_dt']]
+            cle = (min(debuts) if debuts else None, end_fab_dt)
+            groupes.setdefault(cle, []).append((mo, payloads))
+
+        for (start_dt, end_fab_dt), couples in groupes.items():
+            # Les OF dont des OT sont commences gardent leurs dates : leurs
+            # OT non commences, eux, sont bien recalcules.
+            a_dater = self.browse([
+                mo.id for mo, _payloads in couples if not mo._dates_of_figees()
+            ])
+            if a_dater and start_dt:
+                a_dater.with_context(
+                    mail_notrack=True,
+                    from_macro_update=True,
+                    skip_macro_recalc=True,
+                ).write(a_dater[:1]._vals_dates_of(start_dt, end_fab_dt))
+
+            # Les OT ensuite, comme dans la version unitaire : l'ecriture de
+            # l'OF ne peut plus effacer leurs dates puisqu'elle precede.
+            for mo, payloads in couples:
+                for payload in payloads:
+                    mo._write_wo_schedule_debug(
+                        payload['wo'],
+                        payload['macro_dt'],
+                        payload['start_dt'],
+                        payload['end_dt'],
+                        payload['nb_resources'],
+                    )
+            self.env.cr.flush()
+
+            for mo, _payloads in couples:
+                mo._update_components_picking_dates()
+
+        _logger.info(
+            "Planification groupee : %s OF, %s ecriture(s) d'OF",
+            len(self), len(groupes),
+        )
+        return True
+
 
     # ============================================================
     # ENTRY POINT FROM REPLANIFIER (date_fin custom -> backward)
@@ -817,31 +937,16 @@ class MrpProduction(models.Model):
     
             end_dt = max(end_candidates) if end_candidates else start_dt
     
-        # Si l'OF a déjà démarré / contient des OT terminés, on n'écrit plus les dates natives de l'OF.
-        # Sinon Odoo tente une déplanification standard et bloque avec :
-        # « Certains ordres de travail sont déjà terminés... ».
-        if any(self._is_workorder_started(wo) for wo in self.workorder_ids.filtered(lambda w: w.state != "cancel")):
+        if self._dates_of_figees():
             _logger.info(
-                "OF %s : dates natives OF non mises à jour car des OT sont déjà commencés/terminés. "
-                "Les OT non commencés restent recalculés.",
+                "OF %s : dates natives OF non mises à jour car des OT sont déjà "
+                "commencés/terminés. Les OT non commencés restent recalculés.",
                 self.name,
             )
             return
 
-        vals = {}
-        # Important: éviter de réécrire trop de champs OF, car Odoo 17 peut vider les dates OT.
-        if "date_finished" in self._fields:
-            vals["date_finished"] = end_dt
-        if "date_planned_finished" in self._fields:
-            vals["date_planned_finished"] = end_dt
-        if "date_deadline" in self._fields:
-            vals["date_deadline"] = end_dt
-        # On conserve date_start uniquement si vraiment présent, mais après les OT seront restaurés.
-        if "date_start" in self._fields:
-            vals["date_start"] = start_dt
-        if "date_planned_start" in self._fields:
-            vals["date_planned_start"] = start_dt
-    
+        vals = self._vals_dates_of(start_dt, end_dt)
+
         if vals:
             self.with_context(
                 mail_notrack=True,
