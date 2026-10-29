@@ -1584,11 +1584,33 @@ class FmaLotFabrication(models.Model):
         Le calcul se fait a sec, sans rien ecrire, et c'est le meme qui sert a
         afficher, a controler et a poser la cible : les trois ne peuvent plus
         se contredire.
+
+        LA FIN LUE EST « Fin de fab » (``macro_forced_end``), ET NON LE
+        ``date_finished`` NATIF. Les deux divergent, et pas d'un peu : le
+        second est repose par le planificateur de capacite d'Odoo, qui cherche
+        un creneau libre sur le poste de charge et le trouve derriere tout ce
+        qui y est deja reserve. Constate sur le lot A26-10-10090 : des
+        assemblages dont « Fin de fab » est au 18 decembre portaient un
+        date_finished au 26 et 27 janvier suivant — la date du dernier ordre
+        de travail, le vitrage, rejete en bout de file. Le controle de
+        livraison declarait donc le lot en retard de 17 a 21 jours et bloquait
+        une replanification parfaitement tenable, dans les deux sens.
+
+        Pire que le blocage : la projection n'est pas que comparee, elle est
+        ECRITE par ``_replanifier_assemblages`` comme nouvelle fin de fab. Le
+        jour ou le controle laissait passer, c'est la date du planificateur
+        qui venait remplacer celle de l'ordonnanceur.
+
+        Tout le reste de la chaine travaille deja sur « Fin de fab » : la
+        replanification qui l'ecrit, le tableau d'ordonnancement qui l'affiche.
+        Ce calcul etait le seul a lire ailleurs. Le repli sur ``date_finished``
+        ne sert qu'aux ordres qui n'ont jamais ete planifies.
         """
-        fin = mo.date_finished
+        fin = mo._date_fin_de_fab() if hasattr(mo, "_date_fin_de_fab") else False
+        fin = fin or mo.date_finished
         if not fin:
             return None
-        cible = fields.Datetime.to_datetime(fin).date() + decalage
+        cible = fields.Date.to_date(fin) + decalage
         debut = mo.date_start
         if fin_debit and debut:
             debut = fields.Datetime.to_datetime(debut).date() + decalage
