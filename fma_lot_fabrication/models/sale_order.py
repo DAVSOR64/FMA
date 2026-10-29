@@ -51,7 +51,7 @@ class SaleOrder(models.Model):
     # Couplage lots <-> OF standards
     # ------------------------------------------------------------------
     def action_confirm(self):
-        """Confirme la commande, puis rattache les OF natifs aux lots.
+        """Confirme la commande, ses lots, puis rattache les OF natifs.
 
         La generation des OF reste **standard** : c'est l'approvisionnement
         Odoo qui les cree a la confirmation, ce qui declenche les besoins
@@ -60,8 +60,53 @@ class SaleOrder(models.Model):
         donc chaque OF selon la repartition du lotissement.
         """
         res = super().action_confirm()
+        # Avant la scission : le lot est confirme parce que la VENTE l'est,
+        # et non parce que des ordres lui sont arrives.
+        self._confirmer_lots()
         self._dispatch_productions_to_lots()
         return res
+
+    def _confirmer_lots(self):
+        """Passe les lots de la commande en « Confirme ».
+
+        Le lotissement se fait sur le devis, donc avant la vente : le lot
+        naissait en brouillon et il fallait aller le confirmer a la main,
+        alors que la confirmation de la commande est exactement le moment ou
+        il devient ferme. Oublier ce clic laissait des lots en brouillon sur
+        des affaires vendues, et le tableau d'ordonnancement les affichait
+        comme non engages.
+
+        Cela ne cree aucun ordre de fabrication : « Generer les OF » reste
+        un geste volontaire de l'atelier, et c'est lui qui fait passer le lot
+        en production.
+
+        Un lot peut couvrir plusieurs commandes d'un meme chantier. On le
+        confirme des que la PREMIERE est confirmee : l'engagement existe des
+        ce moment-la, et attendre les autres — dont une peut ne jamais etre
+        signee — serait attendre indefiniment.
+
+        Les lots sans ligne sont ecartes plutot que remontes : `action_confirm`
+        leve une erreur sur un lot vide, et elle ferait echouer la
+        confirmation de la commande elle-meme.
+        """
+        for order in self:
+            lots = order.lot_ids.filtered(
+                lambda l: l.state == "draft" and l.line_ids
+            )
+            if not lots:
+                continue
+            lots.action_confirm()
+            for lot in lots:
+                # Le suivi de `state` dit QUE le lot a change d'etat, pas
+                # pourquoi. Sans ce message, un lot confirme sans que personne
+                # n'ait clique reste inexplicable depuis sa fiche.
+                lot.message_post(
+                    body=_(
+                        "Lot confirmé automatiquement à la confirmation de "
+                        "la commande %s.",
+                        order.display_name,
+                    )
+                )
 
     def _dispatch_productions_to_lots(self):
         """Scinde les OF issus de l'appro et les affecte a leur lot."""

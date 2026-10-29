@@ -32,6 +32,19 @@
                 <field name="partner_id" optional="show"/>
                 <field name="menuiserie_qty" string="Menuiseries" optional="show"/>
 
+                <!-- L'OF de debit, cliquable : c'est par lui qu'on entre
+                     dans la fabrication du lot, et la colonne suivante donne
+                     sa date. En lecture seule — le rattachement se fait a la
+                     generation des OF, jamais a la main.
+
+                     Le bouton « cle » plus loin reste : il ouvre la LISTE des
+                     ordres du lot, assemblages compris. Les deux ne repondent
+                     pas a la meme question — « ou en est le debit » d'un cote,
+                     « montre-moi tous les ordres » de l'autre — et le bouton
+                     seul obligeait a un detour par une autre liste pour
+                     atteindre l'ordre qu'on voulait. -->
+                <field name="production_debit_id" string="OF débit"
+                       readonly="1" optional="show"/>
                 <field name="ordo_date_debit"/>
                 <field name="ordo_assemblages_planifies"/>
                 <!-- L'avancement reel, a cote de la planification : « 1 / 8 »
