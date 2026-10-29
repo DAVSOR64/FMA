@@ -119,10 +119,19 @@ class Menuiserie:
         seule ligne de devis** — le decoupage en lots n'est qu'un quantitatif
         de production.
 
-        L'empreinte ignore volontairement le repere du pricer (``A_1``,
-        ``A_2``...), qui change d'un lot a l'autre pour une menuiserie
-        identique, et ne retient que la definition technique : designation,
-        dimensions, composants et debit.
+        L'empreinte retient le REPERE DE BASE et la definition technique :
+        designation, dimensions, composants et debit. Le repere du pricer
+        (``A_1``, ``A_2``...) n'y entre pas tel quel — il change d'un lot a
+        l'autre pour une menuiserie identique — mais ``position``, dont le
+        suffixe de lot a deja ete retire, si.
+
+        SANS LE REPERE, deux positions DISTINCTES techniquement identiques
+        fusionnaient. Sur A26-10-10091, les reperes 001 et 007 — la meme porte
+        posee a deux endroits du chantier, 8 exemplaires chacun — ne faisaient
+        qu'une empreinte : les 16 etaient recales sur la ligne du 001, pendant
+        que celle du 007 restait a 8, hors du recalcul puisqu'il n'y a qu'une
+        entree par empreinte. Le devis annoncait 24 menuiseries pour 16, et le
+        lot ne lancait la fabrication que sous le repere 001.
         """
         if not self.is_manufactured:
             # Position de texte, remise, transport, eco-contribution : rien
@@ -139,6 +148,9 @@ class Menuiserie:
             for c in self.debit
         )
         return (
+            # Le repere de base : « 001_1 » et « 001_2 » valent « 001 » et
+            # restent une seule ligne, « 001 » et « 007 » en font deux.
+            (self.position or self.ref).strip(),
             self.description.strip(),
             round(self.width_mm),
             round(self.height_mm),
