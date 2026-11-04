@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================
+         Les cycles : une suite de décalages en jours ouvrés, comptés
+         à rebours depuis la fin de fabrication.
+         ============================================================ -->
+    <record id="view_fma_cycle_list" model="ir.ui.view">
+        <field name="name">fma.cycle.list</field>
+        <field name="model">fma.cycle</field>
+        <field name="arch" type="xml">
+            <list string="Cycles de fabrication">
+                <field name="sequence" widget="handle"/>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="operation_count" string="Opérations"/>
+                <field name="duree_jours"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fma_cycle_form" model="ir.ui.view">
+        <field name="name">fma.cycle.form</field>
+        <field name="model">fma.cycle</field>
+        <field name="arch" type="xml">
+            <form string="Cycle de fabrication">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivé" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Cycle 1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code" placeholder="C1"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="duree_jours"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Opérations" name="operations">
+                            <p class="text-muted">
+                                Le décalage se compte en jours OUVRÉS avant la fin
+                                de fabrication : 0 le jour même, 6 pour six jours
+                                ouvrés avant. Un poste absent de cette liste n'est
+                                pas daté par le cycle.
+                            </p>
+                            <field name="operation_ids">
+                                <list editable="bottom">
+                                    <field name="workcenter_id"/>
+                                    <field name="jours_avant_fin"/>
+                                    <field name="libelle" readonly="1"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Commentaire" name="note">
+                            <field name="note" placeholder="À quoi sert ce cycle, et pour quels lots."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fma_cycle" model="ir.actions.act_window">
+        <field name="name">Cycles de fabrication</field>
+        <field name="res_model">fma.cycle</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Créer un cycle de fabrication</p>
+            <p>
+                Un cycle dit à quel moment chaque opération d'un lot se place,
+                en jours ouvrés avant la fin de fabrication. Les cycles sont
+                ensuite affectés aux lots par la matrice complexité / quantité.
+            </p>
+        </field>
+    </record>
+
+    <!-- ============================================================
+         La matrice : complexité x tranche de quantité -> cycle.
+         ============================================================ -->
+    <record id="view_fma_cycle_regle_list" model="ir.ui.view">
+        <field name="name">fma.cycle.regle.list</field>
+        <field name="model">fma.cycle.regle</field>
+        <field name="arch" type="xml">
+            <list string="Matrice des cycles" editable="bottom">
+                <field name="niveau_id"/>
+                <field name="qte_min"/>
+                <field name="qte_max"/>
+                <field name="cycle_id"/>
+                <field name="niveau_sequence" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fma_cycle_regle_search" model="ir.ui.view">
+        <field name="name">fma.cycle.regle.search</field>
+        <field name="model">fma.cycle.regle</field>
+        <field name="arch" type="xml">
+            <search string="Matrice des cycles">
+                <field name="niveau_id"/>
+                <field name="cycle_id"/>
+                <filter name="group_niveau" string="Complexité"
+                        context="{'group_by': 'niveau_id'}"/>
+                <filter name="group_cycle" string="Cycle"
+                        context="{'group_by': 'cycle_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fma_cycle_regle" model="ir.actions.act_window">
+        <field name="name">Matrice des cycles</field>
+        <field name="res_model">fma.cycle.regle</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_fma_cycle_regle_search"/>
+        <field name="context">{'search_default_group_niveau': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Compléter la matrice</p>
+            <p>
+                Une ligne par croisement : la complexité la plus haute du lot,
+                une tranche de nombre de menuiseries, et le cycle qui s'applique.
+                Les tranches d'une même complexité ne peuvent pas se recouvrir,
+                et un lot dont la combinaison manque n'est pas planifié.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_fma_cycle"
+              name="Cycles de fabrication"
+              parent="mrp.menu_mrp_configuration"
+              action="action_fma_cycle"
+              groups="mrp.group_mrp_manager"
+              sequence="80"/>
+
+    <menuitem id="menu_fma_cycle_regle"
+              name="Matrice des cycles"
+              parent="mrp.menu_mrp_configuration"
+              action="action_fma_cycle_regle"
+              groups="mrp.group_mrp_manager"
+              sequence="81"/>
+
+</odoo>

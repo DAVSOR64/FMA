@@ -25,6 +25,17 @@ class ResCompany(models.Model):
         "et le debut de l'OF de debit. Les profiles ne sont pas concernes : "
         "ils suivent l'OF de debit, qui les consomme.",
     )
+    fma_lot_decalage_entre_lots = fields.Integer(
+        string="Décalage entre deux lots d'une affaire (jours ouvrés)",
+        # Les lots d'une meme affaire ne debitent pas le meme jour : le lot 2
+        # passe X jours ouvres AVANT le lot 1, le lot 3 X jours avant le lot
+        # 2, et ainsi de suite. Le chiffre est un reglage d'atelier, il n'a
+        # rien a faire dans le code.
+        default=2,
+        help="Nombre de jours OUVRÉS entre le débit d'un lot et celui du lot "
+        "précédent de la même affaire. Le lot 2 débite ce nombre de jours "
+        "avant le lot 1, le lot 3 avant le lot 2, et ainsi de suite.",
+    )
     fma_lot_product_debit_id = fields.Many2one(
         "product.product",
         string="Article debite par defaut",

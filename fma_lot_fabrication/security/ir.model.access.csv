@@ -10,3 +10,9 @@ access_fma_lot_wizard_sale,fma.lot.wizard.sale,model_fma_lot_wizard,sales_team.g
 access_fma_lot_wizard_user,fma.lot.wizard.user,model_fma_lot_wizard,mrp.group_mrp_user,1,1,1,1
 access_fma_lot_wizard_line_sale,fma.lot.wizard.line.sale,model_fma_lot_wizard_line,sales_team.group_sale_salesman,1,1,1,1
 access_fma_lot_wizard_line_user,fma.lot.wizard.line.user,model_fma_lot_wizard_line,mrp.group_mrp_user,1,1,1,1
+access_fma_cycle_user,fma.cycle.user,model_fma_cycle,mrp.group_mrp_user,1,0,0,0
+access_fma_cycle_manager,fma.cycle.manager,model_fma_cycle,mrp.group_mrp_manager,1,1,1,1
+access_fma_cycle_operation_user,fma.cycle.operation.user,model_fma_cycle_operation,mrp.group_mrp_user,1,0,0,0
+access_fma_cycle_operation_manager,fma.cycle.operation.manager,model_fma_cycle_operation,mrp.group_mrp_manager,1,1,1,1
+access_fma_cycle_regle_user,fma.cycle.regle.user,model_fma_cycle_regle,mrp.group_mrp_user,1,0,0,0
+access_fma_cycle_regle_manager,fma.cycle.regle.manager,model_fma_cycle_regle,mrp.group_mrp_manager,1,1,1,1

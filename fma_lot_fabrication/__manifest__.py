@@ -75,7 +75,12 @@
     # designer un type numerotant pour un autre atelier.
     # 1.62.0 : colonne Lot et regroupements projet / lot sur
     # l'ordonnancement ; la replanification dit quand elle ne decale rien.
-    "version": "19.0.1.96.0",
+    # 1.97.0 : la structure des cycles de fabrication — un cycle porte le
+    # decalage de chaque poste en jours ouvres avant la fin de fab, et une
+    # matrice complexite x nombre de menuiseries dit quel cycle s'applique.
+    # Le decalage de debit entre deux lots d'une affaire devient un reglage.
+    # Referentiel seul : rien ne planifie encore par les cycles.
+    "version": "19.0.1.97.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
@@ -144,6 +149,7 @@ Voir README.md pour le detail du parametrage.
         "wizard/fma_lot_wizard_views.xml",
         "report/fma_lot_sortie_matiere.xml",
         "views/fma_lot_ordonnancement_views.xml",
+        "views/fma_cycle_views.xml",
         "views/menus.xml",
     ],
     "installable": True,

@@ -15,6 +15,11 @@ class ResConfigSettings(models.TransientModel):
         string="Jours avant le débit : sortie quincaillerie et vitrage",
         readonly=False,
     )
+    fma_lot_decalage_entre_lots = fields.Integer(
+        related="company_id.fma_lot_decalage_entre_lots",
+        string="Décalage entre deux lots d'une affaire (jours ouvrés)",
+        readonly=False,
+    )
     fma_lot_product_debit_id = fields.Many2one(
         related="company_id.fma_lot_product_debit_id",
         string="Article debite par defaut",
