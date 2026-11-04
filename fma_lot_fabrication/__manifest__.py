@@ -80,7 +80,12 @@
     # matrice complexite x nombre de menuiseries dit quel cycle s'applique.
     # Le decalage de debit entre deux lots d'une affaire devient un reglage.
     # Referentiel seul : rien ne planifie encore par les cycles.
-    "version": "19.0.1.97.0",
+    # 1.98.0 : le moteur de calcul des cycles. Il ne pose aucune date : il
+    # les calcule et les montre, onglet « Planning du cycle » du lot, pour
+    # que les chiffres soient verifiables avant de toucher aux ordres. Le
+    # delai de securite avant livraison rejoint les reglages, et un ecran a
+    # plat permet de saisir tous les decalages d'un bloc.
+    "version": "19.0.1.98.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

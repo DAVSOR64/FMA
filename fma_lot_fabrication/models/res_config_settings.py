@@ -15,6 +15,11 @@ class ResConfigSettings(models.TransientModel):
         string="Jours avant le débit : sortie quincaillerie et vitrage",
         readonly=False,
     )
+    fma_lot_jours_securite_livraison = fields.Integer(
+        related="company_id.fma_lot_jours_securite_livraison",
+        string="Délai de sécurité avant livraison (jours ouvrés)",
+        readonly=False,
+    )
     fma_lot_decalage_entre_lots = fields.Integer(
         related="company_id.fma_lot_decalage_entre_lots",
         string="Décalage entre deux lots d'une affaire (jours ouvrés)",

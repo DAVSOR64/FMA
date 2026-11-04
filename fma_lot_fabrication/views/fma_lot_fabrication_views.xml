@@ -185,6 +185,23 @@
                             </field>
                         </page>
 
+                        <page string="Planning du cycle" name="cycle">
+                            <group>
+                                <group>
+                                    <field name="fma_cycle_niveau_id"/>
+                                    <field name="fma_cycle_nb_menuiseries"/>
+                                    <field name="fma_cycle_id"/>
+                                </group>
+                            </group>
+                            <p class="text-muted">
+                                Dates calculées par le cycle, pour tous les lots de
+                                l'affaire. Rien n'est écrit sur les ordres : c'est un
+                                aperçu, qui se recalcule dès que la matrice ou le
+                                chiffrage changent.
+                            </p>
+                            <field name="fma_cycle_apercu" widget="text" readonly="1"
+                                   nolabel="1"/>
+                        </page>
                         <page string="Notes" name="notes">
                             <field name="note" placeholder="Notes internes sur le lot..."/>
                         </page>

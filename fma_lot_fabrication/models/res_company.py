@@ -25,6 +25,16 @@ class ResCompany(models.Model):
         "et le debut de l'OF de debit. Les profiles ne sont pas concernes : "
         "ils suivent l'OF de debit, qui les consomme.",
     )
+    fma_lot_jours_securite_livraison = fields.Integer(
+        string="Délai de sécurité avant livraison (jours ouvrés)",
+        # Le retroplanning historique portait ce 6 en valeur par defaut d'un
+        # argument de methode. Les cycles en font un reglage : c'est une marge
+        # commerciale, elle se negocie, elle n'appartient pas au code.
+        default=6,
+        help="Jours OUVRÉS entre la fin de fabrication d'un lot et la date de "
+        "livraison engagée auprès du client. Ne s'applique qu'au premier lot "
+        "d'une affaire : les suivants se calent sur son débit.",
+    )
     fma_lot_decalage_entre_lots = fields.Integer(
         string="Décalage entre deux lots d'une affaire (jours ouvrés)",
         # Les lots d'une meme affaire ne debitent pas le meme jour : le lot 2
