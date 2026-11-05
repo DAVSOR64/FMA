@@ -534,6 +534,15 @@ class FmaLotFabrication(models.Model):
             # L'ordre d'abord, ses operations ensuite : meme inversion que le
             # retroplanning natif du module de capacite, pour que l'ecriture
             # de l'OF n'efface pas celles des OT.
+            # « Fin de fab » AUSSI, et pas seulement date_finished. Les deux
+            # champs ne sont pas le meme : macro_forced_end est la borne que
+            # l'ordonnanceur lit et que « Replanifier » reprend. Le chainage
+            # historique la posait explicitement sur le debit, seul ordre ou
+            # elle restait vide ; la planification par cycle doit faire de
+            # meme, sans quoi replanifier un debit n'a plus de point de
+            # depart.
+            if hasattr(ordre, "_set_date_fin_de_fab"):
+                ordre._set_date_fin_de_fab(max(fins))
             if hasattr(ordre, "_update_mo_dates_from_macro"):
                 ordre._update_mo_dates_from_macro(
                     forced_end_dt=max(fins), start_dt=min(debuts),
