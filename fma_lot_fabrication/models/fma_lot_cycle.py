@@ -24,7 +24,9 @@ La regle, telle que la production l'a posee :
   est deja en retard, et le planning ne doit pas faire semblant.
 """
 import logging
-from datetime import timedelta
+from datetime import datetime, time, timedelta
+
+import pytz
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
@@ -149,8 +151,33 @@ class FmaLotFabrication(models.Model):
         self.ensure_one()
         return self.company_id.resource_calendar_id
 
+    def _cycle_jour_est_ouvre(self, jour, calendrier):
+        """Ce jour-la est-il travaille selon le calendrier de la societe ?
+
+        On interroge le calendrier plutot que le seul jour de la semaine :
+        c'est lui qui porte les feries et les fermetures d'entreprise. Meme
+        idiome que mrp_capacity_planning, qui teste deja l'existence d'un
+        intervalle de travail sur la journee.
+        """
+        fuseau = pytz.timezone(calendrier.tz or "UTC")
+        ouverture = fuseau.localize(datetime.combine(jour, time.min))
+        fermeture = fuseau.localize(datetime.combine(jour, time.max))
+        intervalles = calendrier._work_intervals_batch(ouverture, fermeture)
+        return bool(intervalles.get(False))
+
     def _cycle_jours_ouvres(self, depart, jours):
         """``depart`` decale de ``jours`` jours OUVRES, positif ou negatif.
+
+        LA CONVENTION, explicite parce qu'elle decidait tout en silence :
+        J-0 est le jour de depart lui-meme, J-1 le premier jour ouvre
+        STRICTEMENT avant lui. Le vitrage a J-1 tombe donc la veille ouvree
+        de la fin de fabrication, et non le jour meme.
+
+        Le comptage se fait ici, jour par jour, au lieu de passer par
+        ``plan_days``. Cette methode d'Odoo compte le jour de depart dans son
+        total selon les versions, ce qui decalait tout le cycle d'un rang
+        sans que rien ne le signale — un planning faux d'un jour reste
+        credible, c'est ce qui le rend dangereux.
 
         Le calendrier de la societe porte les week-ends, les feries et les
         fermetures d'entreprise. Les conges d'un salarie n'y sont pas, et
@@ -159,22 +186,40 @@ class FmaLotFabrication(models.Model):
         """
         self.ensure_one()
         depart = fields.Datetime.to_datetime(depart)
+        jours = int(jours or 0)
+        if not jours:
+            return depart
         calendrier = self._cycle_calendrier()
-        if calendrier:
-            cible = calendrier.plan_days(
-                float(jours) if jours >= 0 else float(jours),
-                depart,
-                compute_leaves=True,
+        if not calendrier:
+            # Sans calendrier exploitable, des jours calendaires valent mieux
+            # qu'une absence de date, qui laisserait le lot non planifie.
+            _logger.warning(
+                "Lot %s : pas de calendrier societe, decalage en jours "
+                "calendaires", self.display_name,
             )
-            if cible:
-                return fields.Datetime.to_datetime(cible)
-        # Sans calendrier exploitable, des jours calendaires valent mieux
-        # qu'une absence de date, qui laisserait le lot non planifie.
-        _logger.warning(
-            "Lot %s : pas de calendrier societe, decalage en jours "
-            "calendaires", self.display_name,
-        )
-        return depart + timedelta(days=jours)
+            return depart + timedelta(days=jours)
+
+        pas = 1 if jours > 0 else -1
+        restants = abs(jours)
+        jour = depart.date()
+        # Deux ans de marge : au-dela, c'est le calendrier qui est vide, et
+        # mieux vaut le dire que boucler.
+        for _garde in range(730):
+            if not restants:
+                break
+            jour += timedelta(days=pas)
+            if self._cycle_jour_est_ouvre(jour, calendrier):
+                restants -= 1
+        if restants:
+            raise UserError(_(
+                "Le calendrier « %(calendrier)s » ne comporte pas assez de "
+                "jours ouvrés pour décaler le lot %(lot)s de %(jours)s jours. "
+                "Vérifiez ses heures de travail.",
+                calendrier=calendrier.display_name,
+                lot=self.display_name,
+                jours=jours,
+            ))
+        return datetime.combine(jour, depart.time())
 
     def _cycle_jours_securite(self):
         """DELLOG : le delai de securite STANDARD d'Odoo, en jours ouvres.
@@ -416,3 +461,201 @@ class FmaLotFabrication(models.Model):
             lignes.append("    = débit du lot 1 - délai appro"
                           " - décalage x (nb lots - 1), hors prépa matière")
         return "\n".join(lignes)
+
+    # ------------------------------------------------------------------
+    # Du cycle aux ordres : ici seulement, on ecrit
+    # ------------------------------------------------------------------
+    def _cycle_dates_ordre(self, ordre, mes_dates):
+        """Les dates que le cycle donne aux ordres de travail de ``ordre``.
+
+        Rend ``(debuts, fins, postes_inconnus)``. Un ordre de travail dont le
+        poste n'est pas nomme par le cycle n'est PAS date : le cycle ne
+        pretend pas connaitre un poste qu'on ne lui a pas decrit, et une date
+        inventee serait pire qu'une date absente.
+        """
+        self.ensure_one()
+        debuts, fins, inconnus = [], [], set()
+        for ot in ordre.workorder_ids:
+            if ot.state in ("done", "cancel"):
+                continue
+            plage = mes_dates.get(ot.workcenter_id.id)
+            if not plage:
+                inconnus.add(ot.workcenter_id.display_name or _("sans poste"))
+                continue
+            debut, terme = plage
+            matin = self._cycle_matin(ordre, debut.date(), ot.workcenter_id)
+            soir = self._cycle_soir(ordre, terme.date(), ot.workcenter_id)
+            if hasattr(ordre, "_write_wo_schedule_debug"):
+                ordre._write_wo_schedule_debug(ot, matin, matin, soir)
+            else:
+                vals = {"date_start": matin, "date_finished": soir}
+                if "macro_planned_start" in ot._fields:
+                    vals["macro_planned_start"] = matin
+                ot.sudo().write(vals)
+            debuts.append(matin)
+            fins.append(soir)
+        return debuts, fins, inconnus
+
+    def _cycle_matin(self, ordre, jour, poste):
+        """Le debut de journee du poste, ou 07h30 a defaut.
+
+        ``mrp_capacity_planning`` n'est pas une dependance declaree de ce
+        module : quand il est la, on reprend SES heures d'ouverture, pour que
+        le cycle et le retroplanning natif datent a la meme heure. Sans lui,
+        une heure fixe vaut mieux qu'une erreur.
+        """
+        if hasattr(ordre, "_morning_dt"):
+            return ordre._morning_dt(jour, poste)
+        return datetime.combine(jour, time(7, 30))
+
+    def _cycle_soir(self, ordre, jour, poste):
+        """La fin de journee du poste, ou 17h00 a defaut."""
+        if hasattr(ordre, "_evening_dt"):
+            return ordre._evening_dt(jour, poste)
+        return datetime.combine(jour, time(17, 0))
+
+    def _cycle_ecrire_lot(self, mes_dates):
+        """Ecrit sur les ordres de CE lot les dates que ``mes_dates`` porte.
+
+        Rend ``(ordres dates, operations datees, postes inconnus)``. Rien de
+        metier ici : la regle est dans le calcul, ce bloc ne fait que poser.
+        """
+        self.ensure_one()
+        ordres_dates, ot_dates, inconnus = 0, 0, set()
+        for ordre in self.production_ids.filtered(
+            lambda p: p.state not in ("done", "cancel")
+        ):
+            debuts, fins, manquants = self._cycle_dates_ordre(ordre, mes_dates)
+            inconnus |= manquants
+            if not debuts:
+                continue
+            ot_dates += len(debuts)
+            ordres_dates += 1
+            # L'ordre d'abord, ses operations ensuite : meme inversion que le
+            # retroplanning natif du module de capacite, pour que l'ecriture
+            # de l'OF n'efface pas celles des OT.
+            if hasattr(ordre, "_update_mo_dates_from_macro"):
+                ordre._update_mo_dates_from_macro(
+                    forced_end_dt=max(fins), start_dt=min(debuts),
+                )
+            else:
+                ordre.sudo().write({
+                    "date_start": min(debuts), "date_finished": max(fins),
+                })
+            if hasattr(ordre, "_update_components_picking_dates"):
+                ordre._update_components_picking_dates()
+        return ordres_dates, ot_dates, inconnus
+
+    def _cycle_appliquer_dates(self, controler_passe=True):
+        """Pose sur les ordres les dates que le cycle calcule.
+
+        C'est le pendant ecrivain de ``_cycle_planifier_affaire``, qui lui ne
+        fait que calculer. La separation est voulue : l'apercu permet de lire
+        les chiffres avant qu'ils ne touchent la production, et ce qui est
+        ecrit ici est exactement ce que l'apercu montrait.
+
+        Le recalcul porte sur l'AFFAIRE entiere, pas sur le seul lot : les
+        lots se calent les uns sur les autres, dater celui-ci seul le ferait
+        deriver par rapport aux siens.
+
+        Les ordres termines ou annules ne sont pas touches — ce qui est fait
+        est fait — et leurs ordres de travail non plus.
+        """
+        self.ensure_one()
+        dates = self._cycle_planifier_affaire(controler_passe=controler_passe)
+
+        ordres_dates, ot_dates, inconnus = 0, 0, set()
+        for lot in self._cycle_lots_de_l_affaire():
+            mes_dates = dates.get(lot.id)
+            if not mes_dates:
+                continue
+            ordres, ots, manquants = lot._cycle_ecrire_lot(mes_dates)
+            ordres_dates += ordres
+            ot_dates += ots
+            inconnus |= manquants
+        self.env.cr.flush()
+
+        mes_dates = dates.get(self.id) or {}
+        corps = [_(
+            "Planification par le cycle %(cycle)s : %(ordres)s ordre(s) et "
+            "%(ot)s opération(s) datés sur l'affaire. Fin de fabrication du "
+            "lot au %(fin)s.",
+            cycle=self.fma_cycle_id.display_name or "?",
+            ordres=ordres_dates,
+            ot=ot_dates,
+            fin=(fields.Date.to_string(mes_dates[False][0].date())
+                 if mes_dates.get(False) else "?"),
+        )]
+        if inconnus:
+            corps.append(_(
+                "<br/><b>Postes absents du cycle, non datés</b> : %(postes)s. "
+                "Leurs opérations gardent les dates qu'elles avaient. "
+                "Ajoutez-les au cycle pour qu'il les pilote.",
+                postes=", ".join(sorted(inconnus)),
+            ))
+        commande = dates.get("commande")
+        if commande:
+            corps.append(_(
+                "<br/>Date limite de passage de commande de l'affaire : "
+                "%(date)s.", date=fields.Date.to_string(commande.date()),
+            ))
+        self.message_post(body="".join(corps))
+        return True
+
+    def action_fma_cycle_planifier(self):
+        """Bouton : le cycle date les ordres de toute l'affaire."""
+        for lot in self:
+            lot._cycle_appliquer_dates()
+        return True
+
+    def _cycle_appliquer_depuis_fin(self, fin_de_fab):
+        """Date les ordres de CE lot depuis une fin de fabrication imposée.
+
+        L'ordonnanceur tient le banc de debit et impose parfois sa date : on
+        garde alors la forme du cycle — les ecarts entre postes restent ceux
+        de la matrice — mais on la cale sur la fin qu'il donne, et sur ce lot
+        seul. Les autres lots de l'affaire ne bougent pas : s'ils devaient
+        suivre, c'est toute l'affaire qu'il faut replanifier.
+        """
+        self.ensure_one()
+        mes_dates = self._cycle_dates_depuis_fin(fin_de_fab)
+        ordres, ots, inconnus = self._cycle_ecrire_lot(mes_dates)
+        corps = [_(
+            "Replanification par le cycle %(cycle)s depuis la fin imposée du "
+            "%(fin)s : %(ordres)s ordre(s) et %(ot)s opération(s) datés.",
+            cycle=self.fma_cycle_id.display_name or "?",
+            fin=fields.Date.to_string(
+                fields.Datetime.to_datetime(fin_de_fab).date()),
+            ordres=ordres, ot=ots,
+        )]
+        if inconnus:
+            corps.append(_(
+                "<br/><b>Postes absents du cycle, non datés</b> : %(postes)s.",
+                postes=", ".join(sorted(inconnus)),
+            ))
+        self.message_post(body="".join(corps))
+        return bool(ordres)
+
+    def _planifier_lot(self, fin_forcee=None):
+        """La planification du lot : le cycle d'abord, le chaînage en secours.
+
+        Le cycle ne peut pas tout dater : un lot dont les menuiseries ne
+        portent aucune complexité, une affaire sans date de livraison, un
+        couple complexité/quantité absent de la matrice. Dans ces cas-la, le
+        chainage historique reprend la main plutot que de laisser des ordres
+        sans dates — et la raison est ecrite dans le fil du lot, pour qu'on
+        sache quoi corriger dans la configuration.
+        """
+        self.ensure_one()
+        try:
+            if fin_forcee:
+                return self._cycle_appliquer_depuis_fin(fin_forcee)
+            return self._cycle_appliquer_dates()
+        except UserError as erreur:
+            self.message_post(body=_(
+                "Le cycle n'a pas pu dater ce lot : %(erreur)s<br/>"
+                "Planification par le chaînage historique "
+                "(assemblages depuis la livraison, débit la veille).",
+                erreur=erreur,
+            ))
+        return self._chainer_debit_et_assemblage(fin_forcee=fin_forcee)

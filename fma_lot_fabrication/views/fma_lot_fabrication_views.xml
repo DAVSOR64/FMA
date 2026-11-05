@@ -47,6 +47,12 @@
                             string="Imprimer le besoin matière"
                             invisible="not line_ids or production_count == 0"
                             help="Besoin matière du lot : profilés, vitrages et quincaillerie, puis la quincaillerie repère par repère et le détail par article. Lu sur les composants réels des ordres de fabrication, donc construit à l'impression et jamais d'avance."/>
+                    <button name="action_fma_cycle_planifier" type="object"
+                            string="Planifier par le cycle"
+                            class="btn-primary"
+                            invisible="state not in ('confirmed', 'progress')"
+                            confirm="Les dates de TOUS les lots de l'affaire vont être recalculées depuis la matrice des cycles, puis écrites sur les ordres de fabrication. Continuer ?"
+                            help="Applique le « Planning du cycle » aux ordres : chaque opération est datée au décalage que la matrice donne à son poste, en jours ouvrés avant la fin de fabrication. Les lots de l'affaire se calent les uns sur les autres, donc ils sont tous redatés. Les ordres terminés ne bougent pas, et un poste absent du cycle garde ses dates."/>
                     <button name="action_replanifier_depuis_debit" type="object"
                             string="Replanifier depuis le débit"
                             invisible="state not in ('confirmed', 'progress')"
