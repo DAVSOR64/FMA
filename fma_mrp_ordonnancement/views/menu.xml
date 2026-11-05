@@ -46,11 +46,14 @@
               action="action_product_template_fma"
               sequence="8"/>
 
+    <!-- Les niveaux ne sont plus un detail du sequencement : ils sont l'un
+         des deux axes de la matrice des cycles. Ils remontent donc a cote
+         d'elle, et non trois clics plus loin. -->
     <menuitem id="menu_fma_complexite_niveau"
               name="Niveaux de complexité"
-              parent="menu_fma_ordonnancement_config"
+              parent="fma_atelier.menu_fma_specifique"
               action="action_fma_complexite_niveau"
-              sequence="10"/>
+              sequence="19"/>
 
     <menuitem id="menu_fma_complexite_regle"
               name="Complexité par gammiste"

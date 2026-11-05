@@ -27,4 +27,61 @@
               groups="mrp.group_mrp_manager"
               sequence="90"/>
 
+
+    <!-- ============================================================
+         LES RACCOURCIS DU METIER.
+
+         Les reglages de la planification et le calendrier de la societe
+         se trouvaient l'un dans la page generale des parametres, l'autre
+         dans Technique. Ni l'un ni l'autre n'est un sujet technique : ce
+         sont les deux choses qu'on ouvre quand on cale un planning. Ils
+         rejoignent donc la configuration de la Fabrication, a cote des
+         cycles qu'ils commandent.
+         ============================================================ -->
+
+    <record id="action_fma_parametres_planification" model="ir.actions.act_window">
+        <field name="name">Paramètres de planification</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'mrp'}</field>
+    </record>
+
+    <menuitem id="menu_fma_parametres_planification"
+              name="Paramètres de planification"
+              parent="menu_fma_specifique"
+              action="action_fma_parametres_planification"
+              sequence="5"/>
+
+    <!-- Le calendrier de la societe : c'est LUI qui porte les week-ends,
+         les feries et les fermetures d'entreprise, donc lui qui decide de
+         ce qu'est un jour ouvre pour toute la planification par cycles.
+         Une fermeture oubliee ici decale tous les lots sans que rien ne le
+         signale. -->
+    <record id="action_fma_calendrier_societe" model="ir.actions.act_window">
+        <field name="name">Calendrier et jours fériés</field>
+        <field name="res_model">resource.calendar</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Le calendrier de travail de la société</p>
+            <p>
+                Horaires, week-ends, jours fériés et fermetures d'entreprise.
+                Toute la planification par cycles compte en jours ouvrés sur ce
+                calendrier : un férié ou une fermeture qui manque ici décale
+                silencieusement tous les lots.
+            </p>
+            <p>
+                Les congés d'un salarié n'y figurent pas, et c'est voulu : une
+                absence réduit la capacité d'un poste, elle ne déplace pas un
+                lot, qui n'est affecté à personne.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_fma_calendrier_societe"
+              name="Calendrier et jours fériés"
+              parent="menu_fma_specifique"
+              action="action_fma_calendrier_societe"
+              sequence="6"/>
+
 </odoo>
