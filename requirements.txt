@@ -1,0 +1,10 @@
+# Dependances Python installees par odoo.sh a chaque build.
+#
+# Stockage des pieces jointes hors base, via OCA/storage (sous-module
+# oca_storage). fsspec porte l'interface commune a tous les systemes de
+# fichiers ; l'extra « abfs » tire adlfs, qui est ce qui parle a Azure Blob.
+# Il n'existe pas de module Odoo « Azure » : c'est le protocole qui l'apporte.
+fsspec[abfs]>=2025.3.0
+
+# Exige par fs_attachment pour normaliser les noms de fichiers.
+python-slugify
