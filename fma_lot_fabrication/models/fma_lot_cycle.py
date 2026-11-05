@@ -10,8 +10,9 @@ La regle, telle que la production l'a posee :
 
 * le cycle d'un lot se lit dans la matrice, a l'intersection de sa complexite
   la plus haute et de son nombre de menuiseries ;
-* le cycle donne, pour chaque poste, un nombre de jours OUVRES avant la fin de
-  fabrication ;
+* le cycle donne, pour chaque poste, le jour ou son operation COMMENCE — en
+  jours OUVRES avant la fin de fabrication — et le nombre de jours ouvres
+  qu'elle occupe : le montage d'un cycle 1 commence a J-3 et finit a J-2 ;
 * le premier lot d'une affaire se cale sur la livraison client, moins un delai
   de securite, en jours ouvres lui aussi ;
 * les lots suivants ne se calent pas sur la livraison mais **les uns sur les
@@ -201,20 +202,29 @@ class FmaLotFabrication(models.Model):
     # Les dates d'un lot
     # ------------------------------------------------------------------
     def _cycle_dates_depuis_fin(self, fin_de_fab, cycle=None):
-        """{id de poste: date} pour une fin de fabrication donnee.
+        """{id de poste: (debut, fin)} pour une fin de fabrication donnee.
 
-        Chaque poste recule de son propre nombre de jours ouvres. La fin de
-        fabrication elle-meme figure dans le resultat sous la cle ``False``,
-        pour que l'appelant n'ait pas a la recalculer.
+        Chaque poste recule de son propre nombre de jours ouvres. Le couple
+        rendu porte le premier et le DERNIER jour de l'operation : ils sont
+        egaux pour une operation d'une journee, distincts pour un montage qui
+        court sur deux jours. La fin de fabrication elle-meme figure dans le
+        resultat sous la cle ``False``, pour que l'appelant n'ait pas a la
+        recalculer.
         """
         self.ensure_one()
         cycle = cycle or self._cycle_ou_erreur()
-        fin = fields.Datetime.to_datetime(fin_de_fab)
-        dates = {False: fin}
-        for poste_id, jours in cycle._decalages_par_poste().items():
-            dates[poste_id] = (
-                fin if not jours else self._cycle_jours_ouvres(fin, -jours)
+        fin_fab = fields.Datetime.to_datetime(fin_de_fab)
+        dates = {False: (fin_fab, fin_fab)}
+        for poste_id, (av_debut, av_terme) in cycle._plages_par_poste().items():
+            debut = (
+                fin_fab if not av_debut
+                else self._cycle_jours_ouvres(fin_fab, -av_debut)
             )
+            terme = (
+                fin_fab if not av_terme
+                else self._cycle_jours_ouvres(fin_fab, -av_terme)
+            )
+            dates[poste_id] = (debut, terme)
         return dates
 
     def _cycle_premier_poste(self, cycle=None):
@@ -385,14 +395,17 @@ class FmaLotFabrication(models.Model):
             postes = self.env["mrp.workcenter"].browse(
                 [cle for cle in mes_dates if cle]
             )
-            for poste in postes.sorted(lambda p: mes_dates[p.id]):
-                lignes.append("    %-28s %s" % (
-                    poste.display_name,
-                    fields.Date.to_string(mes_dates[poste.id].date()),
-                ))
+            for poste in postes.sorted(lambda p: mes_dates[p.id][0]):
+                debut, terme = mes_dates[poste.id]
+                quand = fields.Date.to_string(debut.date())
+                if terme.date() != debut.date():
+                    quand = "%s au %s" % (
+                        quand, fields.Date.to_string(terme.date())
+                    )
+                lignes.append("    %-28s %s" % (poste.display_name, quand))
             lignes.append("    %-28s %s" % (
                 "FIN DE FABRICATION",
-                fields.Date.to_string(mes_dates[False].date()),
+                fields.Date.to_string(mes_dates[False][0].date()),
             ))
             lignes.append("")
 
