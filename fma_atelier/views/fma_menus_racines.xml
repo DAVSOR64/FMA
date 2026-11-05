@@ -43,7 +43,9 @@
         <field name="name">Paramètres de planification</field>
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
-        <field name="target">inline</field>
+        <!-- Pas de target « inline » : la valeur n'existe plus en Odoo 19 et
+             la selection la refuse a l'installation. Le defaut, « current »,
+             affiche la page de reglages comme le menu natif. -->
         <field name="context">{'module': 'mrp'}</field>
     </record>
 
