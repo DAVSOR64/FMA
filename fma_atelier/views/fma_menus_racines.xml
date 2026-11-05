@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================
+         LES DEUX SEULES RACINES FMA DE L'APPLICATION FABRICATION.
+
+         Elles vivent ici parce que fma_atelier est le seul module dont
+         tous les autres dependent, directement ou non : c'est le seul
+         endroit d'ou un parent commun est visible de tous. Les modules
+         y accrochent leurs ecrans au lieu d'ajouter chacun sa racine —
+         on en comptait sept, et le menu debordait dans un « Menu Plus »
+         ou plus personne ne trouvait rien.
+         ============================================================ -->
+
+    <menuitem id="menu_fma_macro_planning"
+              name="Macro Planning"
+              parent="mrp.menu_mrp_root"
+              groups="mrp.group_mrp_user"
+              sequence="82"/>
+
+    <!-- Toute la configuration specifique FMA sous une seule entree, a
+         cote de celle d'Odoo : on cherche un reglage dans Configuration,
+         pas dans sept rubriques du menu principal. -->
+    <menuitem id="menu_fma_specifique"
+              name="Spécifique"
+              parent="mrp.menu_mrp_configuration"
+              groups="mrp.group_mrp_manager"
+              sequence="90"/>
+
+</odoo>

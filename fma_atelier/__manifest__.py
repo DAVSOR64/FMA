@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "FMA Atelier",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.2.0",
     "category": "Manufacturing",
     "summary": "Gestion des ateliers de production FMA",
     "description": """
@@ -24,6 +24,7 @@ Objectifs :
     "data": [
         "security/ir.model.access.csv",
         "data/fma_atelier_data.xml",
+        "views/fma_menus_racines.xml",
         "views/fma_atelier_views.xml",
         "views/mrp_production_views.xml",
     ],

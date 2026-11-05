@@ -52,6 +52,13 @@ class FmaLotFabrication(models.Model):
         string="Cycle",
         compute="_compute_fma_cycle",
     )
+    fma_delai_appro_semaines = fields.Integer(
+        string="Délai appro — DELAPP (semaines)",
+        help="Délai d'approvisionnement de la matière de ce lot, en SEMAINES, "
+             "repris du tableau des délais fournisseurs. Il ne décale aucune "
+             "fabrication : il sert à calculer la date limite de passage de "
+             "commande de l'affaire.",
+    )
     fma_cycle_apercu = fields.Text(
         string="Planning du cycle",
         compute="_compute_fma_cycle_apercu",
@@ -274,23 +281,30 @@ class FmaLotFabrication(models.Model):
         decalage = self._cycle_decalage_entre_lots()
         aujourd_hui = fields.Datetime.now()
         resultat = {}
-        debit_precedent = False
+        debit_lot_1 = False
+        appro_lot_1 = 0
 
         for rang, lot in enumerate(lots, start=1):
             cycle = lot._cycle_ou_erreur()
             poste_debit, jours_debit = lot._cycle_premier_poste(cycle)
 
             if rang == 1:
-                # Le premier lot porte la date client : fin de fab = livraison
-                # moins le delai de securite, en jours ouvres.
+                # FF_1 = LIV - DELLOG, puis DEB_1 = FF_1 - CYC_1.
                 fin = lot._cycle_jours_ouvres(
                     livraison, -lot._cycle_jours_securite()
                 )
                 debit = lot._cycle_jours_ouvres(fin, -jours_debit)
+                debit_lot_1 = debit
+                appro_lot_1 = lot.fma_delai_appro_semaines or 0
             else:
-                # Les suivants se calent sur le debit du precedent, et leur
-                # fin de fabrication se DEDUIT de leur debit.
-                debit = lot._cycle_jours_ouvres(debit_precedent, -decalage)
+                # DEB_L = DEB_1 - X * (L-1), et non DEB_(L-1) - X.
+                # Le resultat est le meme tant que X ne change pas, mais la
+                # formule du CDC ne derive pas : un lot reimporte au milieu
+                # de la chaine ne decale plus ceux qui le suivent.
+                debit = lot._cycle_jours_ouvres(
+                    debit_lot_1, -decalage * (rang - 1)
+                )
+                # FF_L se DEDUIT du debit du lot, et non l'inverse.
                 fin = lot._cycle_jours_ouvres(debit, jours_debit)
 
             if controler_passe and debit.date() < aujourd_hui.date():
@@ -306,9 +320,26 @@ class FmaLotFabrication(models.Model):
                 ))
 
             resultat[lot.id] = lot._cycle_dates_depuis_fin(fin, cycle)
-            debit_precedent = debit
+
+        # CDE = DEB_1 - DELAPP_1 - DELMP - X * (N-1).
+        # UNE SEULE date pour toute l'affaire : la matiere est commandee en
+        # une fois, et elle doit couvrir le lot qui debite le plus tot — donc
+        # le dernier, d'ou le X * (N-1).
+        if debit_lot_1:
+            jours_appro = appro_lot_1 * 5
+            commande = self._cycle_jours_ouvres(
+                debit_lot_1,
+                -(jours_appro + self._cycle_jours_prepa_mp()
+                  + decalage * (len(lots) - 1)),
+            )
+            resultat["commande"] = commande
 
         return resultat
+
+    def _cycle_jours_prepa_mp(self):
+        """DELMP : jours ouvres de preparation de la matiere."""
+        self.ensure_one()
+        return self.company_id.fma_lot_jours_avance_matiere or 0
 
     # ------------------------------------------------------------------
     # L'apercu, pour verifier avant d'ecrire
@@ -351,4 +382,11 @@ class FmaLotFabrication(models.Model):
                 fields.Date.to_string(mes_dates[False].date()),
             ))
             lignes.append("")
+
+        commande = dates.get("commande")
+        if commande:
+            lignes.append("DATE LIMITE DE PASSAGE DE COMMANDE (affaire) : %s"
+                          % fields.Date.to_string(commande.date()))
+            lignes.append("    = débit du lot 1 - délai appro - délai prépa MP"
+                          " - décalage x (nb lots - 1)")
         return "\n".join(lignes)

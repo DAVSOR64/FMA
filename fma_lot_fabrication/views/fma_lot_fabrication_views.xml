@@ -192,6 +192,9 @@
                                     <field name="fma_cycle_nb_menuiseries"/>
                                     <field name="fma_cycle_id"/>
                                 </group>
+                                <group>
+                                    <field name="fma_delai_appro_semaines"/>
+                                </group>
                             </group>
                             <p class="text-muted">
                                 Dates calculées par le cycle, pour tous les lots de

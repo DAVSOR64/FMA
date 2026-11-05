@@ -13,8 +13,8 @@
 
     <menuitem id="menu_fma_ordonnancement_config"
               name="Séquencement"
-              parent="mrp.menu_mrp_configuration"
-              sequence="90"/>
+              parent="fma_atelier.menu_fma_specifique"
+              sequence="30"/>
 
     <menuitem id="menu_fma_workcenter_typage"
               name="Typage des postes de charge"

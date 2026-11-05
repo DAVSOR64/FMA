@@ -85,7 +85,7 @@
     # que les chiffres soient verifiables avant de toucher aux ordres. Le
     # delai de securite avant livraison rejoint les reglages, et un ecran a
     # plat permet de saisir tous les decalages d'un bloc.
-    "version": "19.0.1.98.0",
+    "version": "19.0.1.99.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

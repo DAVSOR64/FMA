@@ -16,7 +16,7 @@ class ResCompany(models.Model):
         "impose par l'optimisation du debit. 0 = pas de limite.",
     )
     fma_lot_jours_avance_matiere = fields.Integer(
-        string="Jours avant le débit : sortie quincaillerie et vitrage",
+        string="Délai prépa MP — DELMP (jours ouvrés)",
         # 6 et non 3 : le magasin garnit un casier par menuiserie, et trois
         # jours ne suffisaient pas sur un lot de huit. Le delai a deja change
         # deux fois — il vit dans les reglages, plus dans le code.
@@ -26,7 +26,7 @@ class ResCompany(models.Model):
         "ils suivent l'OF de debit, qui les consomme.",
     )
     fma_lot_jours_securite_livraison = fields.Integer(
-        string="Délai de sécurité avant livraison (jours ouvrés)",
+        string="Délai logistique — DELLOG (jours ouvrés)",
         # Le retroplanning historique portait ce 6 en valeur par defaut d'un
         # argument de methode. Les cycles en font un reglage : c'est une marge
         # commerciale, elle se negocie, elle n'appartient pas au code.
@@ -36,7 +36,7 @@ class ResCompany(models.Model):
         "d'une affaire : les suivants se calent sur son débit.",
     )
     fma_lot_decalage_entre_lots = fields.Integer(
-        string="Décalage entre deux lots d'une affaire (jours ouvrés)",
+        string="Décalage entre lots — X (jours ouvrés)",
         # Les lots d'une meme affaire ne debitent pas le meme jour : le lot 2
         # passe X jours ouvres AVANT le lot 1, le lot 3 X jours avant le lot
         # 2, et ainsi de suite. Le chiffre est un reglage d'atelier, il n'a

@@ -178,23 +178,23 @@
 
     <menuitem id="menu_fma_cycle"
               name="Cycles de fabrication"
-              parent="mrp.menu_mrp_configuration"
+              parent="fma_atelier.menu_fma_specifique"
               action="action_fma_cycle"
               groups="mrp.group_mrp_manager"
-              sequence="80"/>
+              sequence="20"/>
 
     <menuitem id="menu_fma_cycle_operation"
               name="Décalages des cycles"
-              parent="mrp.menu_mrp_configuration"
+              parent="fma_atelier.menu_fma_specifique"
               action="action_fma_cycle_operation"
               groups="mrp.group_mrp_manager"
-              sequence="81"/>
+              sequence="21"/>
 
     <menuitem id="menu_fma_cycle_regle"
               name="Matrice des cycles"
-              parent="mrp.menu_mrp_configuration"
+              parent="fma_atelier.menu_fma_specifique"
               action="action_fma_cycle_regle"
               groups="mrp.group_mrp_manager"
-              sequence="82"/>
+              sequence="22"/>
 
 </odoo>
