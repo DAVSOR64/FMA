@@ -85,7 +85,11 @@
     # que les chiffres soient verifiables avant de toucher aux ordres. Le
     # delai de securite avant livraison rejoint les reglages, et un ecran a
     # plat permet de saisir tous les decalages d'un bloc.
-    "version": "19.0.1.99.0",
+    # 1.100.0 : le delai de securite du retroplanning est celui d'Odoo,
+    # security_lead, et non un reglage FMA de plus ; le delai de preparation
+    # matiere sort du calcul de la date limite de commande, parce qu'il se
+    # calcule par affaire et ne peut pas etre une constante de societe.
+    "version": "19.0.1.100.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

@@ -12,12 +12,7 @@ class ResConfigSettings(models.TransientModel):
     )
     fma_lot_jours_avance_matiere = fields.Integer(
         related="company_id.fma_lot_jours_avance_matiere",
-        string="Délai prépa MP — DELMP (jours ouvrés)",
-        readonly=False,
-    )
-    fma_lot_jours_securite_livraison = fields.Integer(
-        related="company_id.fma_lot_jours_securite_livraison",
-        string="Délai logistique — DELLOG (jours ouvrés)",
+        string="Jours avant le débit : sortie quincaillerie et vitrage",
         readonly=False,
     )
     fma_lot_decalage_entre_lots = fields.Integer(

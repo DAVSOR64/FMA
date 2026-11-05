@@ -176,8 +176,22 @@ class FmaLotFabrication(models.Model):
         return depart + timedelta(days=jours)
 
     def _cycle_jours_securite(self):
+        """DELLOG : le delai de securite STANDARD d'Odoo, en jours ouvres.
+
+        Pas de reglage FMA pour cela : ``security_lead`` existe deja sur la
+        societe, pose par sale_stock, et c'est lui que le natif applique
+        entre la date de livraison et la date prevue de l'expedition. En
+        creer un second aurait donne deux marges a tenir a jour, et la
+        certitude qu'elles divergent.
+
+        Seule difference avec le natif : Odoo le compte en jours calendaires,
+        et toute la planification par cycles se compte en jours OUVRES.
+        """
         self.ensure_one()
-        return self.company_id.fma_lot_jours_securite_livraison or 0
+        societe = self.company_id
+        if "security_lead" not in societe._fields:
+            return 0
+        return int(round(societe.security_lead or 0.0))
 
     def _cycle_decalage_entre_lots(self):
         self.ensure_one()
@@ -321,25 +335,24 @@ class FmaLotFabrication(models.Model):
 
             resultat[lot.id] = lot._cycle_dates_depuis_fin(fin, cycle)
 
-        # CDE = DEB_1 - DELAPP_1 - DELMP - X * (N-1).
+        # CDE = DEB_1 - DELAPP_1 - X * (N-1).
         # UNE SEULE date pour toute l'affaire : la matiere est commandee en
         # une fois, et elle doit couvrir le lot qui debite le plus tot — donc
         # le dernier, d'ou le X * (N-1).
+        #
+        # LE DELAI DE PREPARATION MATIERE DU CDC N'Y FIGURE PAS. Il est
+        # calcule en amont et change d'une affaire a l'autre : en faire une
+        # constante de societe aurait fige ce qui varie. La date rendue ici
+        # est donc la limite AVANT prise en compte de cette preparation.
         if debit_lot_1:
             jours_appro = appro_lot_1 * 5
             commande = self._cycle_jours_ouvres(
                 debit_lot_1,
-                -(jours_appro + self._cycle_jours_prepa_mp()
-                  + decalage * (len(lots) - 1)),
+                -(jours_appro + decalage * (len(lots) - 1)),
             )
             resultat["commande"] = commande
 
         return resultat
-
-    def _cycle_jours_prepa_mp(self):
-        """DELMP : jours ouvres de preparation de la matiere."""
-        self.ensure_one()
-        return self.company_id.fma_lot_jours_avance_matiere or 0
 
     # ------------------------------------------------------------------
     # L'apercu, pour verifier avant d'ecrire
@@ -387,6 +400,6 @@ class FmaLotFabrication(models.Model):
         if commande:
             lignes.append("DATE LIMITE DE PASSAGE DE COMMANDE (affaire) : %s"
                           % fields.Date.to_string(commande.date()))
-            lignes.append("    = débit du lot 1 - délai appro - délai prépa MP"
-                          " - décalage x (nb lots - 1)")
+            lignes.append("    = débit du lot 1 - délai appro"
+                          " - décalage x (nb lots - 1), hors prépa matière")
         return "\n".join(lignes)

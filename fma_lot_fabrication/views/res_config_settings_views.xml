@@ -17,14 +17,9 @@
                         <field name="fma_lot_max_menuiserie"/>
                     </setting>
                     <setting id="fma_lot_avance_matiere_setting"
-                             string="Délai prépa MP — DELMP (jours ouvrés)"
+                             string="Jours avant le débit : sortie quincaillerie et vitrage"
                              help="Jours OUVRÉS entre la sortie de la quincaillerie et du vitrage vers la Pré-Fab et le début de l'OF de débit. Les profilés ne sont pas concernés : ils suivent l'OF de débit.">
                         <field name="fma_lot_jours_avance_matiere"/>
-                    </setting>
-                    <setting id="fma_lot_securite_livraison_setting"
-                             string="Délai logistique — DELLOG (jours ouvrés)"
-                             help="Jours OUVRÉS entre la fin de fabrication et la livraison engagée. Ne cale que le premier lot d'une affaire ; les suivants se calent sur son débit.">
-                        <field name="fma_lot_jours_securite_livraison"/>
                     </setting>
                     <setting id="fma_lot_decalage_lots_setting"
                              string="Décalage entre lots — X (jours ouvrés)"
