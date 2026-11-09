@@ -1249,8 +1249,8 @@ class FmaLotFabrication(models.Model):
             # foi une fois les ordres definitifs.
             lot._poser_complexite_assemblages()
 
-            lot._chainer_debit_et_assemblage()
-            # Apres le chainage seulement : c'est lui qui pose les dates de
+            lot._planifier_lot()
+            # Apres la planification seulement : c'est elle qui pose les dates de
             # fabrication, donc le besoin sur lequel les achats se recalent.
             lot._recaler_dates_achat()
 
@@ -1373,7 +1373,7 @@ class FmaLotFabrication(models.Model):
                     self.name,
                 )
             )
-        self._chainer_debit_et_assemblage(fin_forcee=self.date_fin_fab)
+        self._planifier_lot(fin_forcee=self.date_fin_fab)
         return True
 
     def action_replanifier_depuis_debit(self):

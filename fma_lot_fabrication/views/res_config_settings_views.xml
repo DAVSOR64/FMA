@@ -22,7 +22,7 @@
                         <field name="fma_lot_jours_avance_matiere"/>
                     </setting>
                     <setting id="fma_lot_decalage_lots_setting"
-                             string="Décalage entre deux lots d'une affaire (jours ouvrés)"
+                             string="Décalage entre lots — X (jours ouvrés)"
                              help="Le lot 2 d'une affaire débite ce nombre de jours OUVRÉS avant le lot 1, le lot 3 avant le lot 2, et ainsi de suite.">
                         <field name="fma_lot_decalage_entre_lots"/>
                     </setting>

@@ -26,10 +26,18 @@
          ci-dessous restent déclarés (utilisés par ces entrées Configuration
          natives), seul l'accès en doublon disparaît. -->
 
-    <!-- Fabrication -->
-    <menuitem id="menu_x_delai_entre_operatio" name="Délai entre opérations" parent="mrp.menu_mrp_root" action="action_x_delai_entre_operatio" sequence="90"/>
-    <menuitem id="menu_x_delai_entre_operatio_config" name="Configuration personnalisée" parent="mrp.menu_mrp_root" sequence="91"/>
-    <menuitem id="menu_x_delai_entre_operatio_tag" name="Délai entre opérations - Étiquettes" parent="menu_x_delai_entre_operatio_config" action="action_x_delai_entre_operatio_tag" sequence="10"/>
-    <menuitem id="menu_x_capacite_par_poste" name="Capacité par poste" parent="mrp.menu_mrp_root" action="action_x_capacite_par_poste" sequence="92"/>
-    <menuitem id="menu_x_capacite_par_poste_tag" name="Capacité par poste - Étiquettes" parent="menu_x_delai_entre_operatio_config" action="action_x_capacite_par_poste_tag" sequence="20"/>
+    <!-- Fabrication
+
+         « Délai entre opérations » et ses étiquettes n'ont plus de menu :
+         AUCUN code du depot ne lit x_delai_entre_operatio. Ce referentiel ne
+         sert deja a aucune planification, et les cycles le rendent sans
+         objet. Le modele, ses vues et ses actions restent declares — une
+         automatisation Studio pourrait les lire, et ca ne se voit pas depuis
+         le depot. Seul l'acces par le menu disparait.
+
+         « Capacité par poste » rejoint la configuration specifique. Il est
+         encore lu, par _get_effective_duration_hours, tant que l'ancienne
+         chaine de planification tourne. Il partira avec elle. -->
+    <menuitem id="menu_x_capacite_par_poste" name="Capacité par poste" parent="fma_atelier.menu_fma_specifique" action="action_x_capacite_par_poste" sequence="70"/>
+    <menuitem id="menu_x_capacite_par_poste_tag" name="Capacité par poste - Étiquettes" parent="fma_atelier.menu_fma_specifique" action="action_x_capacite_par_poste_tag" sequence="71"/>
 </odoo>

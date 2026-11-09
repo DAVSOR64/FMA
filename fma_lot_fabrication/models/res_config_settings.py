@@ -17,7 +17,7 @@ class ResConfigSettings(models.TransientModel):
     )
     fma_lot_decalage_entre_lots = fields.Integer(
         related="company_id.fma_lot_decalage_entre_lots",
-        string="Décalage entre deux lots d'une affaire (jours ouvrés)",
+        string="Décalage entre lots — X (jours ouvrés)",
         readonly=False,
     )
     fma_lot_product_debit_id = fields.Many2one(

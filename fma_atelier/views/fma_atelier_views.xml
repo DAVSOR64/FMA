@@ -85,7 +85,7 @@
     <!-- Menu volontairement placé dans Fabrication > Configuration -->
     <menuitem id="menu_fma_atelier"
               name="Ateliers"
-              parent="mrp.menu_mrp_configuration"
+              parent="menu_fma_specifique"
               action="action_fma_atelier"
-              sequence="95"/>
+              sequence="10"/>
 </odoo>

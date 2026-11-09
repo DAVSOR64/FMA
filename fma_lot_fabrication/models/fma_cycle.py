@@ -3,9 +3,15 @@
 
 Un lot n'est plus planifie en cherchant des heures libres sur les postes, mais
 en appliquant un CYCLE : une suite de decalages en jours OUVRES, comptes a
-rebours depuis la fin de fabrication. Le cycle 1, par exemple, place
-l'emballage la veille de la fin de fab, le vitrage l'avant-veille, et le debit
+rebours depuis la fin de fabrication. Le cycle 1, par exemple, place le
+vitrage la veille de la fin de fab, le montage trois jours avant, et le debit
 six jours avant.
+
+UNE OPERATION PEUT TENIR SUR PLUSIEURS JOURS. Le montage du cycle 1 commence a
+J-3 et finit a J-2 : il occupe deux jours ouvres. Le cycle porte donc deux
+nombres par poste, le jour ou l'operation COMMENCE et le nombre de jours
+qu'elle dure, et non un decalage unique. C'est le debut qui sert a enchainer
+les lots ; la duree sert a occuper le poste sur le macro-planning.
 
 Le cycle a appliquer se lit dans une matrice a deux entrees — la complexite la
 plus haute du lot et son nombre de menuiseries : voir ``fma.cycle.regle``.
@@ -49,9 +55,9 @@ class FmaCycle(models.Model):
         string="Durée (jours ouvrés)",
         compute="_compute_duree_jours",
         store=True,
-        help="Nombre de jours ouvrés entre la première opération du cycle et "
-             "la fin de fabrication. C'est l'avance qu'il faut prendre pour "
-             "tenir la date.",
+        help="Nombre de jours ouvrés entre le DÉBUT de la première opération "
+             "du cycle et la fin de fabrication. C'est l'avance qu'il faut "
+             "prendre pour tenir la date.",
     )
 
     _code_unique = models.Constraint(
@@ -67,14 +73,17 @@ class FmaCycle(models.Model):
     @api.depends("operation_ids.jours_avant_fin")
     def _compute_duree_jours(self):
         for cycle in self:
+            # Le DEBUT le plus recule, pas la fin : c'est lui qui dit quand
+            # le lot doit entrer en fabrication.
             jours = cycle.operation_ids.mapped("jours_avant_fin")
             cycle.duree_jours = max(jours) if jours else 0
 
     def _decalages_par_poste(self):
         """Retourne {id de poste: jours ouvrés avant la fin de fab}.
 
-        Point d'entree de la planification : elle n'a pas a connaitre la
-        structure du cycle, seulement ce decalage par poste.
+        Le DEBUT de chaque operation, et lui seul. Les appelants qui datent
+        un enchainement n'ont pas besoin d'autre chose ; ceux qui occupent un
+        poste sur plusieurs jours passent par ``_plages_par_poste``.
         """
         self.ensure_one()
         return {
@@ -83,13 +92,29 @@ class FmaCycle(models.Model):
             if operation.workcenter_id
         }
 
+    def _plages_par_poste(self):
+        """Retourne {id de poste: (jours avant fin au début, à la fin)}.
+
+        Une operation d'un jour rend deux fois le meme nombre. Une operation
+        de deux jours qui commence a J-3 rend ``(3, 2)``.
+        """
+        self.ensure_one()
+        return {
+            operation.workcenter_id.id: (
+                operation.jours_avant_fin,
+                operation.jours_avant_fin_terme,
+            )
+            for operation in self.operation_ids
+            if operation.workcenter_id
+        }
+
 
 class FmaCycleOperation(models.Model):
-    """Une operation du cycle, et son decalage avant la fin de fabrication."""
+    """Une operation du cycle : quand elle commence, et combien elle dure."""
 
     _name = "fma.cycle.operation"
     _description = "Opération d'un cycle de fabrication"
-    # Du plus tot au plus tard : le debit ouvre la liste, l'emballage la ferme.
+    # Du plus tot au plus tard : le debit ouvre la liste, le vitrage la ferme.
     _order = "jours_avant_fin desc, id"
 
     cycle_id = fields.Many2one(
@@ -109,11 +134,27 @@ class FmaCycleOperation(models.Model):
              "planifiée par lui.",
     )
     jours_avant_fin = fields.Integer(
-        string="Jours ouvrés avant la fin de fab",
+        string="Début — jours ouvrés avant la fin de fab",
         required=True,
         default=0,
-        help="0 = le jour de la fin de fabrication. 6 = six jours OUVRÉS "
-             "avant, week-ends, fériés et fermetures d'entreprise exclus.",
+        help="Le jour où l'opération COMMENCE. 0 = le jour de la fin de "
+             "fabrication. 6 = six jours OUVRÉS avant, week-ends, fériés et "
+             "fermetures d'entreprise exclus.",
+    )
+    duree_jours = fields.Integer(
+        string="Durée (jours ouvrés)",
+        required=True,
+        default=1,
+        help="Nombre de jours OUVRÉS que l'opération occupe, le jour de début "
+             "compris. 1 pour une opération d'une journée ; 2 pour un montage "
+             "qui commence à J-3 et finit à J-2.",
+    )
+    jours_avant_fin_terme = fields.Integer(
+        string="Fin — jours ouvrés avant la fin de fab",
+        compute="_compute_jours_avant_fin_terme",
+        store=True,
+        help="Déduit du début et de la durée : une opération de deux jours "
+             "qui commence à J-3 finit à J-2.",
     )
     libelle = fields.Char(
         string="Libellé",
@@ -126,22 +167,62 @@ class FmaCycleOperation(models.Model):
         "Ce poste de charge figure déjà dans ce cycle.",
     )
 
-    @api.depends("workcenter_id", "jours_avant_fin")
+    @api.depends("jours_avant_fin", "duree_jours")
+    def _compute_jours_avant_fin_terme(self):
+        for operation in self:
+            duree = max(operation.duree_jours or 1, 1)
+            operation.jours_avant_fin_terme = max(
+                operation.jours_avant_fin - (duree - 1), 0
+            )
+
+    @api.depends("workcenter_id", "jours_avant_fin", "jours_avant_fin_terme",
+                 "duree_jours")
     def _compute_libelle(self):
+        def jour(decalage):
+            return "J-%s" % decalage if decalage else "J"
+
         for operation in self:
             poste = operation.workcenter_id.display_name or "-"
-            if operation.jours_avant_fin:
-                operation.libelle = "%s — J-%s" % (poste, operation.jours_avant_fin)
+            debut = jour(operation.jours_avant_fin)
+            if (operation.duree_jours or 1) <= 1:
+                operation.libelle = "%s — %s" % (poste, debut)
             else:
-                operation.libelle = "%s — J" % poste
+                operation.libelle = "%s — %s → %s (%s j)" % (
+                    poste,
+                    debut,
+                    jour(operation.jours_avant_fin_terme),
+                    operation.duree_jours,
+                )
 
-    @api.constrains("jours_avant_fin")
-    def _check_jours_avant_fin(self):
+    @api.constrains("jours_avant_fin", "duree_jours")
+    def _check_decalages(self):
         for operation in self:
+            poste = operation.workcenter_id.display_name or "?"
             if operation.jours_avant_fin < 0:
                 raise ValidationError(_(
                     "Le décalage de « %(poste)s » est négatif. Un cycle se "
                     "compte à rebours depuis la fin de fabrication : une "
                     "opération ne peut pas la suivre.",
-                    poste=operation.workcenter_id.display_name or "?",
+                    poste=poste,
+                ))
+            if operation.duree_jours < 1:
+                raise ValidationError(_(
+                    "La durée de « %(poste)s » doit valoir au moins 1 jour : "
+                    "une opération qui ne dure aucun jour ouvré n'occupe "
+                    "aucune place dans le cycle.",
+                    poste=poste,
+                ))
+            # Une operation qui deborderait la fin de fabrication n'est pas
+            # une erreur de saisie anodine : elle date un ordre apres la date
+            # que le cycle est cense tenir.
+            if operation.duree_jours > operation.jours_avant_fin + 1:
+                raise ValidationError(_(
+                    "« %(poste)s » commence à J-%(debut)s et dure "
+                    "%(duree)s jours ouvrés : elle finirait APRÈS la fin de "
+                    "fabrication. La durée ne peut pas dépasser %(max)s jour(s) "
+                    "à cette date de début.",
+                    poste=poste,
+                    debut=operation.jours_avant_fin,
+                    duree=operation.duree_jours,
+                    max=operation.jours_avant_fin + 1,
                 ))

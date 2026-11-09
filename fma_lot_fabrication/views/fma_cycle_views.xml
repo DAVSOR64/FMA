@@ -46,13 +46,18 @@
                             <p class="text-muted">
                                 Le décalage se compte en jours OUVRÉS avant la fin
                                 de fabrication : 0 le jour même, 6 pour six jours
-                                ouvrés avant. Un poste absent de cette liste n'est
-                                pas daté par le cycle.
+                                ouvrés avant. Il désigne le jour où l'opération
+                                COMMENCE ; la durée dit combien de jours ouvrés
+                                elle occupe ensuite — 2 pour un montage qui
+                                commence à J-3 et finit à J-2. Un poste absent de
+                                cette liste n'est pas daté par le cycle.
                             </p>
                             <field name="operation_ids">
                                 <list editable="bottom">
                                     <field name="workcenter_id"/>
                                     <field name="jours_avant_fin"/>
+                                    <field name="duree_jours"/>
+                                    <field name="jours_avant_fin_terme" readonly="1"/>
                                     <field name="libelle" readonly="1"/>
                                 </list>
                             </field>
@@ -76,6 +81,56 @@
                 Un cycle dit à quel moment chaque opération d'un lot se place,
                 en jours ouvrés avant la fin de fabrication. Les cycles sont
                 ensuite affectés aux lots par la matrice complexité / quantité.
+            </p>
+        </field>
+    </record>
+
+    <!-- Saisie a plat de tous les decalages, tous cycles confondus :
+         remplir cycle par cycle depuis le formulaire demande autant
+         d'allers-retours qu'il y a de cycles. -->
+    <record id="view_fma_cycle_operation_list" model="ir.ui.view">
+        <field name="name">fma.cycle.operation.list</field>
+        <field name="model">fma.cycle.operation</field>
+        <field name="arch" type="xml">
+            <list string="Décalages des cycles" editable="bottom">
+                <field name="cycle_id"/>
+                <field name="workcenter_id"/>
+                <field name="jours_avant_fin"/>
+                <field name="duree_jours"/>
+                <field name="jours_avant_fin_terme" readonly="1"/>
+                <field name="libelle" readonly="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fma_cycle_operation_search" model="ir.ui.view">
+        <field name="name">fma.cycle.operation.search</field>
+        <field name="model">fma.cycle.operation</field>
+        <field name="arch" type="xml">
+            <search string="Décalages des cycles">
+                <field name="cycle_id"/>
+                <field name="workcenter_id"/>
+                <filter name="group_cycle" string="Cycle"
+                        context="{'group_by': 'cycle_id'}"/>
+                <filter name="group_poste" string="Poste de charge"
+                        context="{'group_by': 'workcenter_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fma_cycle_operation" model="ir.actions.act_window">
+        <field name="name">Décalages des cycles</field>
+        <field name="res_model">fma.cycle.operation</field>
+        <field name="view_mode">list</field>
+        <field name="search_view_id" ref="view_fma_cycle_operation_search"/>
+        <field name="context">{'search_default_group_cycle': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Saisir les décalages</p>
+            <p>
+                Une ligne par couple cycle / poste de charge : le jour où
+                l'opération commence, en jours OUVRÉS avant la fin de
+                fabrication — 0 le jour même, 6 pour six jours ouvrés avant —
+                et le nombre de jours ouvrés qu'elle dure.
             </p>
         </field>
     </record>
@@ -131,16 +186,23 @@
 
     <menuitem id="menu_fma_cycle"
               name="Cycles de fabrication"
-              parent="mrp.menu_mrp_configuration"
+              parent="fma_atelier.menu_fma_specifique"
               action="action_fma_cycle"
               groups="mrp.group_mrp_manager"
-              sequence="80"/>
+              sequence="20"/>
+
+    <menuitem id="menu_fma_cycle_operation"
+              name="Décalages des cycles"
+              parent="fma_atelier.menu_fma_specifique"
+              action="action_fma_cycle_operation"
+              groups="mrp.group_mrp_manager"
+              sequence="21"/>
 
     <menuitem id="menu_fma_cycle_regle"
               name="Matrice des cycles"
-              parent="mrp.menu_mrp_configuration"
+              parent="fma_atelier.menu_fma_specifique"
               action="action_fma_cycle_regle"
               groups="mrp.group_mrp_manager"
-              sequence="81"/>
+              sequence="22"/>
 
 </odoo>
