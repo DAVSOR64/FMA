@@ -32,7 +32,7 @@
         <field name="binding_type">report</field>
     </record>
 
-    <!-- L'etiquette, sur les 96 x 31 mm utiles du rouleau de l'atelier.
+    <!-- L'etiquette, sur les 96 x 26 mm utiles du rouleau de l'atelier.
          Elle porte ce que le metier a demande : numero et nom de l'affaire,
          numero de lot, repere, rang de l'exemplaire quand le repere en
          compte plusieurs, client, dimensions, et le code-barres.
@@ -49,9 +49,19 @@
          metier a tranche de s'en passer plutot que de perdre le format. Le
          lien SAV existe toujours, sur la fiche du numero de serie.
 
-         Tout est en nowrap et en table-layout fixe : sur 31 mm utiles, une
+         Tout est en nowrap et en table-layout fixe : sur 26 mm utiles, une
          ligne qui se replie en pousse une autre hors de l'etiquette. Un
          libelle trop long est coupe, il n'ecrase rien.
+
+         PASSAGE DE 31 A 26 MM UTILES. Le plus gros du gain ne vient pas des
+         polices mais du border-spacing : un tableau HTML en pose 2 px de
+         chaque cote par defaut, soit pres de 4 mm perdus sur les quatre
+         tableaux, en pure marge invisible. Il est annule ici. Les polices ne
+         baissent donc que la ou elles avaient de la marge — le repere, qui
+         reste de loin le texte le plus gros, et le code-barres, dont la
+         hauteur ne commande pas la lisibilite : c'est la LARGEUR qui la
+         donne, et elle n'a pas bouge. Les petites lignes gardent leur taille,
+         parce qu'elles se lisent a bout de bras dans l'atelier.
 
          etq.get(...) et non etq[...] : une etiquette se construit a DEUX
          endroits — depuis le numero de serie, et depuis l'ordre quand
@@ -59,8 +69,8 @@
          l'autre faisait tomber l'impression entiere sur un KeyError, au lieu
          de laisser un champ vide. -->
     <template id="etiquette_menuiserie">
-        <div class="page" style="page-break-after: always; font-family: Arial, Helvetica, sans-serif; line-height: 1.15;">
-            <table style="width: 100%; table-layout: fixed;">
+        <div class="page" style="page-break-after: always; font-family: Arial, Helvetica, sans-serif; line-height: 1.05;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border-spacing: 0;">
                 <tr>
                     <td style="font-size: 10px; font-weight: bold; white-space: nowrap; overflow: hidden;"
                         t-out="etq.get('affaire_ligne')"/>
@@ -69,16 +79,16 @@
                 </tr>
             </table>
 
-            <table style="width: 100%; table-layout: fixed;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border-spacing: 0;">
                 <tr>
-                    <td style="font-size: 16px; font-weight: bold; white-space: nowrap; overflow: hidden;"
+                    <td style="font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden;"
                         t-out="etq.get('repere') or '-'"/>
-                    <td style="width: 18mm; font-size: 16px; font-weight: bold; text-align: right; white-space: nowrap;"
+                    <td style="width: 18mm; font-size: 14px; font-weight: bold; text-align: right; white-space: nowrap;"
                         t-out="etq.get('exemplaire')"/>
                 </tr>
             </table>
 
-            <table style="width: 100%; table-layout: fixed;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border-spacing: 0;">
                 <tr>
                     <td style="font-size: 9px; white-space: nowrap; overflow: hidden;"
                         t-out="etq.get('client')"/>
@@ -89,12 +99,12 @@
 
             <div style="text-align: center; margin-top: 0.5mm;">
                 <img t-if="etq.get('barcode_src')" alt="Code-barres du numéro de série"
-                     style="width: 100%; height: 10mm;" t-att-src="etq.get('barcode_src')"/>
+                     style="width: 100%; height: 9mm;" t-att-src="etq.get('barcode_src')"/>
                 <img t-if="etq.get('serie_qr_src')" alt="QR code du numéro de série"
-                     style="width: 10mm; height: 10mm;" t-att-src="etq.get('serie_qr_src')"/>
+                     style="width: 9mm; height: 9mm;" t-att-src="etq.get('serie_qr_src')"/>
             </div>
 
-            <table style="width: 100%; table-layout: fixed;">
+            <table style="width: 100%; table-layout: fixed; border-collapse: collapse; border-spacing: 0;">
                 <tr>
                     <td style="font-size: 9px; font-weight: bold; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden;"
                         t-out="etq.get('serie')"/>
