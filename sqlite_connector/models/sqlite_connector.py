@@ -1465,7 +1465,15 @@ class SqliteConnector(models.Model):
                     article = self.env['product.product'].search(
                         [('default_code', '=', refinterne)], limit=1)
                     if article:
-                        destination, anomalie = destination_vitrage(info_livraison)
+                        # ligne[1] et NON info_livraison : cette variable ne
+                        # prend la valeur de la ligne courante qu'en bas de
+                        # boucle, elle porte encore celle de la PRECEDENTE.
+                        # Comme la requete trie par Info2, le decalage ne se
+                        # voyait pas a l'interieur d'un groupe — mais le
+                        # PREMIER vitrage de chaque groupe heritait de la
+                        # destination du groupe d'avant. Un chantier bascule
+                        # en palette gardait donc un vitrage sur le chariot.
+                        destination, anomalie = destination_vitrage(ligne[1])
                         if article.fma_destination_vitrage != destination:
                             article.fma_destination_vitrage = destination
                         if anomalie:
