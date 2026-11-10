@@ -108,6 +108,44 @@ class PurchaseOrderLine(models.Model):
         lignes._fma_normaliser_description()
         return lignes
 
+    # ------------------------------------------------------------------
+    # Le lot au bout de la chaine des ordres de fabrication
+    # ------------------------------------------------------------------
+    #: Profondeur de remontee des ordres de fabrication. Trois niveaux
+    #: couvrent largement le cas reel — quincaillerie, assemblage — et bornent
+    #: une chaine qu'un parametrage pourrait refermer sur elle-meme.
+    PROFONDEUR_CHAINAGE = 3
+
+    def _lot_par_chainage(self, moves):
+        """Le lot au bout de la chaine des ordres de fabrication.
+
+        L'achat n'alimente pas toujours directement l'OF qui porte le lot. Un
+        sous-ensemble s'intercale : la quincaillerie achetee entre dans l'OF
+        du kit, dont le produit fini entre dans l'OF d'assemblage, et c'est
+        CELUI-LA qui appartient au lot. Une remontee d'un seul niveau ne
+        trouvait rien, et le bon de commande sortait sans lot — constate sur
+        P28117.
+
+        On remonte donc : les OF alimentes par ces mouvements, puis ce que
+        leurs produits finis alimentent a leur tour, jusqu'a rencontrer un lot.
+        """
+        Lot = self.env["fma.lot.fabrication"]
+        vus = set()
+        profondeur = self.PROFONDEUR_CHAINAGE
+        while moves and profondeur:
+            ordres = moves.raw_material_production_id
+            lot = ordres.lot_fabrication_id[:1]
+            if lot:
+                return lot
+            ordres = ordres.filtered(lambda p: p.id not in vus)
+            if not ordres:
+                break
+            vus |= set(ordres.ids)
+            # Ce que ces OF produisent alimente peut-etre un OF du lot.
+            moves = ordres.move_finished_ids.move_dest_ids
+            profondeur -= 1
+        return Lot
+
 
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
