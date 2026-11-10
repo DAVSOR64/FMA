@@ -1,31 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- ══════════════════════════════════════════════════════════════════ -->
-    <!-- Menu principal Fabrication → Capacité                             -->
-    <!-- ══════════════════════════════════════════════════════════════════ -->
-    <menuitem id="menu_fma_planning_root"
-              name="Capacité"
-              parent="mrp.menu_mrp_root"
-              sequence="60"/>
 
-    <!-- Ressources & Postes -->
-    <menuitem id="menu_mrp_capacity_resource"
-              name="Ressources &amp; Postes"
-              parent="menu_fma_planning_root"
-              action="action_mrp_capacity_resource"
-              sequence="10"/>
+    <!-- La racine « Capacité » disparait : ses trois ecrans se repartissent
+         entre le suivi quotidien (Macro Planning) et la configuration
+         (Spécifique). Les deux racines vivent dans fma_atelier, le seul
+         module commun a tous. -->
 
-    <!-- Planning Capacité (Gantt) -->
     <menuitem id="menu_mrp_capacity_week_gantt"
               name="Planning capacité"
-              parent="menu_fma_planning_root"
+              parent="fma_atelier.menu_fma_macro_planning"
               action="action_mrp_capacity_week"
-              sequence="20"/>
+              sequence="50"/>
 
-    <!-- Replanification en lot -->
     <menuitem id="menu_mrp_batch_macro_replan"
               name="Replanification en lot"
-              parent="menu_fma_planning_root"
+              parent="fma_atelier.menu_fma_macro_planning"
               action="action_mrp_batch_macro_replan_wizard"
-              sequence="30"/>
+              sequence="60"/>
+
+    <!-- La capacite disponible par ressource et par poste : un referentiel,
+         qu'on regle et qu'on ne consulte pas tous les jours. -->
+    <menuitem id="menu_mrp_capacity_resource"
+              name="Ressources &amp; Postes"
+              parent="fma_atelier.menu_fma_specifique"
+              action="action_mrp_capacity_resource"
+              sequence="50"/>
+
 </odoo>

@@ -20,7 +20,9 @@
         rationale behind this module.
     """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.19",    "depends": ["base", "mail", "mrp", "purchase", "account"],
+    "version": "19.0.1.1.0",    # fma_atelier porte le menu « Spécifique » sous lequel les
+    # referentiels Studio sont desormais ranges.
+    "depends": ["base", "mail", "mrp", "purchase", "account", "fma_atelier"],
     "data": [
         "security/ir.model.access.csv",
         "views/x_affaire_views.xml",

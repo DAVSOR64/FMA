@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_mrp_suivi_prod_root" name="Suivi Prod" parent="mrp.menu_mrp_root" sequence="55"/>
+
+    <!-- La racine « Suivi Prod » disparait : ses deux ecrans repondent a la
+         meme question que le macro planning — ou en est la charge — et les
+         separer obligeait a savoir dans quelle rubrique chercher avant de
+         savoir ce qu'on cherchait. -->
 
     <menuitem id="menu_mrp_prod_followup_week"
               name="Charge vs capacité"
-              parent="menu_mrp_suivi_prod_root"
+              parent="fma_atelier.menu_fma_macro_planning"
               action="action_mrp_prod_followup_week"
-              sequence="10"/>
+              sequence="20"/>
 
     <menuitem id="menu_mrp_daily_snapshot"
               name="Visu Atelier"
-              parent="menu_mrp_suivi_prod_root"
+              parent="fma_atelier.menu_fma_macro_planning"
               action="action_mrp_daily_snapshot"
-              sequence="20"/>
+              sequence="40"/>
+
 </odoo>
