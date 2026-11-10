@@ -16,6 +16,11 @@ from odoo import api, fields, models
 # Jetons plausibles d'une reference de lot dans un champ "origin" libre.
 ORIGIN_TOKEN_RE = re.compile(r"[A-Za-z0-9_/\-]+")
 
+#: Prefixe de la ligne de description qui porte le lot. Il sert a deux
+#: choses : le magasin le lit sur le bon imprime, et nous le reconnaissons
+#: pour le remplacer au lieu de l'empiler quand le lot change.
+PREFIXE_LOT = "Lot : "
+
 
 class PurchaseOrderLine(models.Model):
     _inherit = "purchase.order.line"
@@ -61,6 +66,66 @@ class PurchaseOrderLine(models.Model):
             # inconditionnelle : un compute stocke doit donner une valeur a
             # CHAQUE enregistrement, sans quoi Odoo leve « failed to assign ».
             line.lot_fabrication_id = line.lot_fabrication_id or lot
+
+        # Le lot vient parfois APRES la creation de la ligne : le mouvement
+        # qui le porte n'est rattache qu'ensuite. C'est pour cela que la
+        # description se repose ici et pas seulement a la creation.
+        self._fma_poser_lot_en_description()
+
+    # ------------------------------------------------------------------
+    # Le lot, ecrit dans la description de la ligne
+    # ------------------------------------------------------------------
+    def _fma_description_sans_lot(self, texte):
+        """``texte`` debarrasse de la ligne de lot qu'on y aurait deja mise.
+
+        Sans cela, un lot reaffecte empilerait les mentions au lieu de
+        corriger la premiere.
+        """
+        lignes = [
+            ligne for ligne in (texte or "").splitlines()
+            if not ligne.strip().startswith(PREFIXE_LOT)
+        ]
+        return "\n".join(lignes).rstrip()
+
+    def _fma_poser_lot_en_description(self):
+        """Ajoute le lot a la description de la ligne d'achat.
+
+        La designation de l'article ne suffit pas au magasin : elle dit CE
+        QUI est commande, pas POUR QUEL LOT. Deux lots d'une meme affaire
+        commandent la meme quincaillerie, et le bon de commande regroupe les
+        deux — sans cette mention, rien sur le document ne permet de repartir
+        ce qui arrive.
+
+        On ne touche qu'a NOTRE ligne : tout ce que l'acheteur a saisi
+        au-dessus est conserve tel quel. Et on n'ecrit que si le texte change
+        reellement, pour ne pas rouvrir en boucle les lignes a chaque
+        recalcul du lot.
+        """
+        for ligne in self:
+            base = ligne._fma_description_sans_lot(ligne.name)
+            if ligne.lot_fabrication_id:
+                attendu = "%s\n%s%s" % (
+                    base, PREFIXE_LOT, ligne.lot_fabrication_id.display_name)
+            else:
+                attendu = base
+            if attendu != (ligne.name or ""):
+                ligne.name = attendu
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lignes = super().create(vals_list)
+        # Lire le lot force le calcul stocke s'il est encore en attente.
+        lignes.lot_fabrication_id
+        lignes._fma_poser_lot_en_description()
+        return lignes
+
+    def write(self, vals):
+        res = super().write(vals)
+        # Une reaffectation manuelle du lot doit se voir sur le document.
+        # Pas de recursion : la pose n'ecrit que « name ».
+        if "lot_fabrication_id" in vals:
+            self._fma_poser_lot_en_description()
+        return res
 
 
     #: Profondeur de remontee des ordres de fabrication. Trois niveaux
