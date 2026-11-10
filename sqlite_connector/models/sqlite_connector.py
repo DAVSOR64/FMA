@@ -19,7 +19,15 @@ _logger = logging.getLogger(__name__)
 
 # Suffixe de lot ajoute par LOGIKAL quand une position est repartie en lots :
 # la position « A » devient « A_1 » dans LOT 1, « A_2 » dans LOT 2, etc.
-LOT_SUFFIX_RE = re.compile(r"_(\d+)$")
+#: Suffixe qui marque une position repartie en lots. LOGIKAL le pose lui-meme
+#: sous la forme « A » -> « A_1 », mais le chiffreur nomme aussi ses positions
+#: a la main — « A LOT 1 », « A-LOT2 », « A_LOT_3 ». Les deux ecritures
+#: designent LA MEME menuiserie, qui doit rester un seul article, une seule
+#: nomenclature et une seule ligne de commande.
+#:
+#: « LOT » exige un separateur devant lui : sans cela « BALLOT1 » serait
+#: tronque en « BAL ». Le suffixe nu « _n » reste accepte tel quel.
+LOT_SUFFIX_RE = re.compile(r"(?:_|[\s_\-]+LOT[\s_\-]*)(\d+)$", re.IGNORECASE)
 
 
 def base_position(name, phase):
@@ -30,7 +38,11 @@ def base_position(name, phase):
     seul article, une seule nomenclature et une seule ligne de devis.
 
     On ne retire le suffixe que s'il correspond au numero du lot : une position
-    reellement nommee « PORTE_2 » dans un lot 1 n'est pas tronquee.
+    reellement nommee « PORTE_2 » dans un lot 1 n'est pas tronquee. C'est ce
+    garde-fou qui permet d'accepter « A_1 » comme « A LOT 1 » sans risquer de
+    confondre deux positions distinctes.
+
+    Doit rester aligne sur ``fma_pricer_import.pivot.logikal.base_position``.
     """
     name = (name or '').strip()
     found = LOT_SUFFIX_RE.search(name)
@@ -1453,7 +1465,15 @@ class SqliteConnector(models.Model):
                     article = self.env['product.product'].search(
                         [('default_code', '=', refinterne)], limit=1)
                     if article:
-                        destination, anomalie = destination_vitrage(info_livraison)
+                        # ligne[1] et NON info_livraison : cette variable ne
+                        # prend la valeur de la ligne courante qu'en bas de
+                        # boucle, elle porte encore celle de la PRECEDENTE.
+                        # Comme la requete trie par Info2, le decalage ne se
+                        # voyait pas a l'interieur d'un groupe — mais le
+                        # PREMIER vitrage de chaque groupe heritait de la
+                        # destination du groupe d'avant. Un chantier bascule
+                        # en palette gardait donc un vitrage sur le chariot.
+                        destination, anomalie = destination_vitrage(ligne[1])
                         if article.fma_destination_vitrage != destination:
                             article.fma_destination_vitrage = destination
                         if anomalie:

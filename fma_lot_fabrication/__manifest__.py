@@ -89,7 +89,7 @@
     # security_lead, et non un reglage FMA de plus ; le delai de preparation
     # matiere sort du calcul de la date limite de commande, parce qu'il se
     # calcule par affaire et ne peut pas etre une constante de societe.
-    "version": "19.0.1.103.0",
+    "version": "19.0.1.105.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

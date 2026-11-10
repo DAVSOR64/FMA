@@ -29,16 +29,28 @@ from .schema import Bar, Component, Cut, Lot, Menuiserie, Operation, Quotation
 #: lignes de texte...). LOGIKAL leur laisse une phase sans nom.
 LOT_SANS_NOM = "SANS LOT"
 
-#: Suffixe ajoute par LOGIKAL a une position repartie en lots (« A » -> « A_1 »).
-LOT_SUFFIX_RE = re.compile(r"_(\d+)$")
+#: Suffixe qui marque une position repartie en lots. LOGIKAL le pose lui-meme
+#: sous la forme « A » -> « A_1 », mais le chiffreur nomme aussi ses positions
+#: a la main — « A LOT 1 », « A-LOT2 », « A_LOT_3 ». Les deux ecritures
+#: designent LA MEME menuiserie, qui doit rester un seul article, une seule
+#: nomenclature et une seule ligne de commande.
+#:
+#: « LOT » exige un separateur devant lui : sans cela « BALLOT1 » serait
+#: tronque en « BAL ». Le suffixe nu « _n » reste accepte tel quel.
+LOT_SUFFIX_RE = re.compile(r"(?:_|[\s_\-]+LOT[\s_\-]*)(\d+)$", re.IGNORECASE)
 
 
 def base_position(name, phase):
     """Position independante du lot.
 
     Le suffixe n'est retire que s'il correspond au numero du lot : une position
-    reellement nommee « PORTE_2 » dans un lot 1 n'est pas tronquee. Doit rester
-    aligne sur ``sqlite_connector.base_position``, qui nomme les articles.
+    reellement nommee « PORTE_2 » dans un lot 1 n'est pas tronquee. C'est ce
+    garde-fou qui permet d'accepter plusieurs ecritures du suffixe sans risquer
+    de confondre deux positions distinctes.
+
+    Doit rester aligne sur ``sqlite_connector.base_position``, qui nomme les
+    articles : si les deux divergent, la ligne fusionnee du devis ne retrouve
+    plus l'article que le connecteur a cree.
     """
     name = (name or "").strip()
     found = LOT_SUFFIX_RE.search(name)
