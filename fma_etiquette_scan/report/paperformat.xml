@@ -1,19 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- 100 x 35 mm : le seul rouleau que l'atelier ait en machine.
+    <!-- 100 x 30 mm : le rouleau que l'atelier a en machine.
          L'etiquette a d'abord ete ecrite en 100 x 150, le format des
          imprimantes d'expedition ; le metier n'a pas ce consommable, et un
-         format qu'on ne peut pas imprimer ne sert a rien.
+         format qu'on ne peut pas imprimer ne sert a rien. Elle est passee
+         ensuite en 100 x 35, puis ici en 100 x 30 — la LARGEUR n'a jamais
+         bouge, et c'est ce qui permet de ne pas retoucher les colonnes.
 
-         Marges a 2 mm et non 3 : sur 35 mm de haut, le millimetre gagne de
-         chaque cote est une ligne de texte. -->
+         Marges a 2 mm et non 3 : sur 30 mm de haut, le millimetre gagne de
+         chaque cote est une ligne de texte. Il reste 26 mm utiles. -->
     <record id="paperformat_etiquette_menuiserie" model="report.paperformat">
-        <field name="name">Étiquette menuiserie 100 x 35 mm</field>
+        <field name="name">Étiquette menuiserie 100 x 30 mm</field>
         <field name="default" eval="False"/>
         <field name="format">custom</field>
         <field name="page_width">100</field>
-        <field name="page_height">35</field>
+        <field name="page_height">30</field>
         <field name="orientation">Portrait</field>
         <field name="margin_top">2</field>
         <field name="margin_bottom">2</field>
