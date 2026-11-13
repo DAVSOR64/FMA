@@ -468,13 +468,29 @@ class FmaLotFabrication(models.Model):
     def _cycle_dates_ordre(self, ordre, mes_dates):
         """Les dates que le cycle donne aux ordres de travail de ``ordre``.
 
-        Rend ``(debuts, fins, postes_inconnus)``. Un ordre de travail dont le
-        poste n'est pas nomme par le cycle n'est PAS date : le cycle ne
-        pretend pas connaitre un poste qu'on ne lui a pas decrit, et une date
-        inventee serait pire qu'une date absente.
+        NE REND QUE DES VALEURS, N'ECRIT RIEN : ``(plages, postes_inconnus)``,
+        ou chaque plage vaut ``{"ot": ..., "debut": ..., "fin": ...}``.
+
+        La separation n'est pas une elegance, c'est la correction d'un bug.
+        Cette methode ECRIVAIT les dates des ordres de travail au fil du
+        calcul, et son appelant datait l'ordre de fabrication ENSUITE — or
+        ecrire date_start sur un OF fait replanifier ses OT par Odoo, donc
+        VIDER les dates qu'on venait d'y poser. Le fil annoncait « 38
+        operations datees » et les 38 ressortaient a False. Odoo recalculait
+        alors lui-meme la fin de l'OF, six mois plus loin, et c'est cette
+        date que le lot affichait en « Fin de fabrication ».
+
+        Le retroplanning natif du module de capacite fait l'inverse depuis
+        longtemps — « L'OF D'ABORD, LES OT ENSUITE », cf.
+        compute_macro_schedule_from_sale. Le commentaire de _cycle_ecrire_lot
+        l'affirmait deja ; le code, lui, faisait le contraire.
+
+        Un ordre de travail dont le poste n'est pas nomme par le cycle n'est
+        PAS date : le cycle ne pretend pas connaitre un poste qu'on ne lui a
+        pas decrit, et une date inventee serait pire qu'une date absente.
         """
         self.ensure_one()
-        debuts, fins, inconnus = [], [], set()
+        plages, inconnus = [], set()
         for ot in ordre.workorder_ids:
             if ot.state in ("done", "cancel"):
                 continue
@@ -483,18 +499,53 @@ class FmaLotFabrication(models.Model):
                 inconnus.add(ot.workcenter_id.display_name or _("sans poste"))
                 continue
             debut, terme = plage
-            matin = self._cycle_matin(ordre, debut.date(), ot.workcenter_id)
-            soir = self._cycle_soir(ordre, terme.date(), ot.workcenter_id)
+            plages.append({
+                "ot": ot,
+                "debut": self._cycle_matin(ordre, debut.date(), ot.workcenter_id),
+                "fin": self._cycle_soir(ordre, terme.date(), ot.workcenter_id),
+            })
+        return plages, inconnus
+
+    def _cycle_ecrire_ordre(self, ordre, plages):
+        """Pose les dates sur l'OF puis sur ses operations, dans CET ordre.
+
+        Ecrire l'OF efface les dates de ses OT ; les ecrire apres, rien ne
+        vient plus les effacer derriere. ``start_dt`` est passe explicitement
+        pour cette raison : _update_mo_dates_from_macro saurait le relire sur
+        les OT, mais elles ne sont pas encore ecrites.
+        """
+        debuts = [p["debut"] for p in plages]
+        fins = [p["fin"] for p in plages]
+
+        # 1. L'ordre de fabrication. « Fin de fab » AUSSI, et pas seulement
+        #    date_finished : macro_forced_end est la borne que l'ordonnanceur
+        #    lit et que « Replanifier » reprend.
+        if hasattr(ordre, "_set_date_fin_de_fab"):
+            ordre._set_date_fin_de_fab(max(fins))
+        if hasattr(ordre, "_update_mo_dates_from_macro"):
+            ordre._update_mo_dates_from_macro(
+                forced_end_dt=max(fins), start_dt=min(debuts),
+            )
+        else:
+            ordre.sudo().write({
+                "date_start": min(debuts), "date_finished": max(fins),
+            })
+
+        # 2. Ses operations.
+        for plage in plages:
+            ot = plage["ot"]
             if hasattr(ordre, "_write_wo_schedule_debug"):
-                ordre._write_wo_schedule_debug(ot, matin, matin, soir)
+                ordre._write_wo_schedule_debug(
+                    ot, plage["debut"], plage["debut"], plage["fin"])
             else:
-                vals = {"date_start": matin, "date_finished": soir}
+                vals = {"date_start": plage["debut"],
+                        "date_finished": plage["fin"]}
                 if "macro_planned_start" in ot._fields:
-                    vals["macro_planned_start"] = matin
+                    vals["macro_planned_start"] = plage["debut"]
                 ot.sudo().write(vals)
-            debuts.append(matin)
-            fins.append(soir)
-        return debuts, fins, inconnus
+
+        if hasattr(ordre, "_update_components_picking_dates"):
+            ordre._update_components_picking_dates()
 
     def _cycle_matin(self, ordre, jour, poste):
         """Le debut de journee du poste, ou 07h30 a defaut.
@@ -525,34 +576,13 @@ class FmaLotFabrication(models.Model):
         for ordre in self.production_ids.filtered(
             lambda p: p.state not in ("done", "cancel")
         ):
-            debuts, fins, manquants = self._cycle_dates_ordre(ordre, mes_dates)
+            plages, manquants = self._cycle_dates_ordre(ordre, mes_dates)
             inconnus |= manquants
-            if not debuts:
+            if not plages:
                 continue
-            ot_dates += len(debuts)
+            ot_dates += len(plages)
             ordres_dates += 1
-            # L'ordre d'abord, ses operations ensuite : meme inversion que le
-            # retroplanning natif du module de capacite, pour que l'ecriture
-            # de l'OF n'efface pas celles des OT.
-            # « Fin de fab » AUSSI, et pas seulement date_finished. Les deux
-            # champs ne sont pas le meme : macro_forced_end est la borne que
-            # l'ordonnanceur lit et que « Replanifier » reprend. Le chainage
-            # historique la posait explicitement sur le debit, seul ordre ou
-            # elle restait vide ; la planification par cycle doit faire de
-            # meme, sans quoi replanifier un debit n'a plus de point de
-            # depart.
-            if hasattr(ordre, "_set_date_fin_de_fab"):
-                ordre._set_date_fin_de_fab(max(fins))
-            if hasattr(ordre, "_update_mo_dates_from_macro"):
-                ordre._update_mo_dates_from_macro(
-                    forced_end_dt=max(fins), start_dt=min(debuts),
-                )
-            else:
-                ordre.sudo().write({
-                    "date_start": min(debuts), "date_finished": max(fins),
-                })
-            if hasattr(ordre, "_update_components_picking_dates"):
-                ordre._update_components_picking_dates()
+            self._cycle_ecrire_ordre(ordre, plages)
         return ordres_dates, ot_dates, inconnus
 
     def _cycle_appliquer_dates(self, controler_passe=True):
