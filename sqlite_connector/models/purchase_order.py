@@ -106,7 +106,19 @@ class PurchaseOrder(models.Model):
 
     # ------------------------------------------------------------------
     def _fma_scinder_vitrage(self):
-        """Sort les lignes de palette des bons qui melangent les deux.
+        """Rassemble le vitrage de chantier sur UN bon par flux.
+
+        Le traitement porte sur le LOT DE BONS recu, et non sur chacun pris a
+        part. C'est la difference avec la premiere version : elle sortait les
+        palettes bon par bon, donc creait autant de bons de palette qu'il y
+        avait de bons d'origine. Une affaire qui approvisionnait en deux fois
+        — la confirmation du devis, puis la generation d'un lot — recevait
+        deux livraisons de chantier la ou elle n'en attend qu'une.
+
+        Le chantier veut un bon, un camion, un dechargement. Les lignes de
+        palette d'une meme affaire se rejoignent donc toutes sur le meme bon,
+        tant qu'elles partagent le fournisseur, la societe, la devise et le
+        type d'operation : on ne melange ni deux receptions ni deux monnaies.
 
         Ne touche qu'aux bons en brouillon : une fois envoye au fournisseur,
         un bon ne se recompose pas dans le dos de l'acheteur.
@@ -115,15 +127,34 @@ class PurchaseOrder(models.Model):
         est genant et visible. Une exception qui empecherait de confirmer une
         commande client le serait bien davantage.
         """
+        bons = self.filtered(lambda a: a.state in ("draft", "sent"))
+        palettes = bons.order_line.filtered(
+            lambda l: l.fma_destination_vitrage == DESTINATION_PALETTE)
+        if not palettes:
+            return self.browse()
+
+        par_flux = {}
+        for ligne in palettes:
+            achat = ligne.order_id
+            cle = (
+                achat.partner_id.id,
+                achat.company_id.id,
+                achat.currency_id.id,
+                achat.picking_type_id.id,
+            )
+            par_flux.setdefault(cle, self.env["purchase.order.line"])
+            par_flux[cle] |= ligne
+
         nouveaux = self.browse()
-        for achat in self.filtered(lambda a: a.state in ("draft", "sent")):
+        for du_flux in par_flux.values():
             try:
-                nouveaux |= achat._fma_sortir_les_palettes()
-            except Exception as erreur:  # noqa: BLE001
+                nouveaux |= self._fma_grouper_les_palettes(du_flux)
+            except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
                 _logger.exception(
-                    "Scission du vitrage sur le bon %s", achat.name)
-                achat.message_post(body=_(
-                    "Séparation du vitrage de chantier impossible : "
+                    "Regroupement du vitrage de chantier (%s lignes)",
+                    len(du_flux))
+                du_flux.order_id[:1].message_post(body=_(
+                    "Regroupement du vitrage de chantier impossible : "
                     "%(erreur)s<br/>Ce bon porte peut-être les deux "
                     "destinations — à vérifier avant de l'envoyer.",
                     erreur=erreur,
@@ -163,27 +194,61 @@ class PurchaseOrder(models.Model):
                 vals[nom] = self[nom].id if hasattr(self[nom], "id") else self[nom]
         return vals
 
-    def _fma_sortir_les_palettes(self):
-        self.ensure_one()
-        palettes = self.order_line.filtered(
-            lambda l: l.fma_destination_vitrage == DESTINATION_PALETTE)
-        autres = self.order_line - palettes
-        # Rien a faire quand le bon est homogene : tout palette, ou pas de
-        # palette du tout.
-        if not palettes or not autres:
-            return self.browse()
+    def _fma_bon_de_palette(self, lignes):
+        """Le bon qui accueille ces lignes : un bon deja tout palette, sinon un neuf.
 
-        cible = self.create(self._fma_vals_bon_vitrage())
-        palettes.write({"order_id": cible.id})
-        self.invalidate_recordset(["order_line"])
+        On prefere un bon existant qui ne porte QUE de la palette : il a deja
+        ses liens d'approvisionnement, son origine et, le cas echeant, son
+        numero connu de l'acheteur. En ouvrir un alors qu'il convenait
+        laisserait un bon vide a nettoyer.
+        """
+        candidats = lignes.order_id
+        for achat in candidats:
+            if not (achat.order_line - lignes):
+                return achat
+        return self.create(candidats[0]._fma_vals_bon_vitrage())
+
+    def _fma_grouper_les_palettes(self, lignes):
+        """Pose ``lignes`` sur un bon unique et vide les bons qu'elles quittent.
+
+        Deplacer les lignes plutot que les recreer : la ligne d'achat porte
+        ses liens d'approvisionnement — le mouvement qu'elle alimente, l'ordre
+        qui l'attend. Les recreer les casserait.
+        """
+        cible = self._fma_bon_de_palette(lignes)
+        a_deplacer = lignes - cible.order_line
+        if not a_deplacer:
+            return self.browse() if cible in self else cible
+
+        anciens = a_deplacer.order_id
+        origines = [cible.origin or ""] + [a.origin or "" for a in anciens]
+        a_deplacer.write({"order_id": cible.id})
+        anciens.invalidate_recordset(["order_line"])
+
+        # ANNULER AVANT DE SUPPRIMER : Odoo refuse de supprimer un bon
+        # d'achat qui n'est pas annule.
+        vides = anciens.filtered(
+            lambda a: not a.order_line and a.state in ("draft", "sent"))
+        if vides:
+            vides.button_cancel()
+            vides.unlink()
+
+        # L'origine des bons absorbes reste sur le bon d'accueil : sans elle
+        # on perdrait le lien vers la commande et vers l'OF demandeur.
+        retenues = []
+        for origine in origines:
+            for jeton in (origine or "").split(", "):
+                jeton = jeton.strip()
+                if jeton and jeton not in retenues:
+                    retenues.append(jeton)
+        if retenues:
+            cible.origin = ", ".join(retenues)
+
         cible.message_post(body=_(
-            "Vitrage destiné au chantier, séparé de %(origine)s : il se "
-            "réceptionne et se réexpédie, il n'entre pas en stock atelier.",
-            origine=self.name,
-        ))
-        self.message_post(body=_(
-            "%(nb)s ligne(s) de vitrage sur palette déplacées vers "
-            "%(cible)s.", nb=len(palettes), cible=cible.name,
+            "%(nb)s ligne(s) de vitrage sur palette rassemblées ici : il se "
+            "réceptionne et se réexpédie au chantier, il n'entre pas en stock "
+            "atelier. Une seule livraison pour l'affaire.",
+            nb=len(a_deplacer),
         ))
         return cible
 
@@ -191,19 +256,24 @@ class PurchaseOrder(models.Model):
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
-    def action_confirm(self):
-        """Les achats naissent ici : on les scinde dans la foulee.
+    def fma_regrouper_vitrage_chantier(self):
+        """Rassemble le vitrage sur palette de l'affaire sur un bon unique.
 
-        Le vitrage est a la commande (MTO) : c'est la confirmation du devis
-        qui declenche son achat. C'est donc le seul moment ou l'on est sur de
-        passer apres la creation des bons et avant que l'acheteur les ouvre.
+        PUBLIQUE A DESSEIN : le lot de fabrication l'appelle apres avoir
+        regroupe SES achats, par ``hasattr`` — fma_lot_fabrication ne depend
+        pas de ce module, et une methode privee appelee de l'exterieur est un
+        contrat qui ne se voit pas.
+
+        Le balayage part de l'AFFAIRE et non des bons qu'on vient de creer :
+        c'est ce qui permet a un lot genere trois semaines apres la
+        confirmation de rejoindre le bon de palette deja ouvert, au lieu d'en
+        ouvrir un second.
         """
-        resultat = super().action_confirm()
-        # LES BONS DE CETTE COMMANDE, pas tous les brouillons de la base. Le
-        # lien passe par l'origine, que l'approvisionnement renseigne avec le
-        # nom du devis — c'est le seul lien direct, la ligne d'achat ne porte
-        # pas la commande de vente.
         for commande in self.filtered("name"):
+            # LES BONS DE CETTE COMMANDE, pas tous les brouillons de la base.
+            # Le lien passe par l'origine, que l'approvisionnement renseigne
+            # avec le nom du devis — c'est le seul lien direct, la ligne
+            # d'achat ne porte pas la commande de vente.
             achats = self.env["purchase.order"].search([
                 ("state", "in", ("draft", "sent")),
                 ("origin", "ilike", commande.name),
@@ -213,7 +283,18 @@ class SaleOrder(models.Model):
             if not achats:
                 continue
             nouveaux = achats._fma_scinder_vitrage()
-            # Apres la scission seulement : avant, un bon melangeant les deux
-            # destinations n'aurait rien eu a dire au fournisseur.
-            (achats | nouveaux)._fma_noter_destination()
+            # Apres le regroupement seulement : avant, un bon melangeant les
+            # deux destinations n'aurait rien eu a dire au fournisseur.
+            restants = (achats | nouveaux).exists()
+            restants._fma_noter_destination()
+
+    def action_confirm(self):
+        """Les achats naissent ici : on les regroupe dans la foulee.
+
+        Le vitrage est a la commande (MTO) : c'est la confirmation du devis
+        qui declenche son achat. C'est donc le seul moment ou l'on est sur de
+        passer apres la creation des bons et avant que l'acheteur les ouvre.
+        """
+        resultat = super().action_confirm()
+        self.fma_regrouper_vitrage_chantier()
         return resultat

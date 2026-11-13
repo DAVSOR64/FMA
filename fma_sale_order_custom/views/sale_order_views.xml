@@ -50,8 +50,17 @@
                      commandes d'achat avec x_studio_posit. -->
                 <field name="date_bpe" invisible="1"/>
                 <!-- Saisissable jusqu'au Bon pour fabrication, cf. le pave
-                     Conditions plus bas. -->
-                <field name="so_date_bpe" readonly="so_date_bon_pour_fab"/>
+                     Conditions plus bas.
+
+                     Le verrou lit so_fab_lancee et NON so_date_bon_pour_fab :
+                     Odoo n'envoie pas un champ passe en lecture seule, et
+                     celui qui saisissait les quatre dates d'un geste voyait le
+                     verrou se fermer a la frappe — le BPE et le delai ne
+                     partaient jamais au serveur. so_fab_lancee porte l'etat
+                     ENREGISTRE (custom, _fma_sync_fab_lancee) : il ne bouge
+                     pas pendant la saisie. -->
+                <field name="so_fab_lancee" invisible="1"/>
+                <field name="so_date_bpe" readonly="so_fab_lancee"/>
                 <field name="x_studio_gamme"/>
                 <field name="x_studio_srie"
                        domain="[('x_studio_gamme_de_la_srie', '=', x_studio_gamme)]"/>
@@ -280,7 +289,7 @@ if resultat and resultat is not True:
                              deplacerait des dates de livraison sur lesquelles
                              la production s'est deja engagee. -->
                         <field name="so_delai_confirme_en_semaine"
-                               readonly="so_date_bon_pour_fab"/>
+                               readonly="so_fab_lancee"/>
                     </group>
 
                     <group string="Statut de l'affaire" name="fma_statut">

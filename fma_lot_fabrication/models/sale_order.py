@@ -213,6 +213,37 @@ class SaleOrder(models.Model):
             return Production.browse(action["res_id"])
         return Production.browse()
 
+    @api.depends("lot_ids.production_ids", "order_line.product_id")
+    def _compute_mrp_production_count(self):
+        """Le compteur du raccourci « Fabrication », OF des lots compris.
+
+        LE BOUTON AVAIT DISPARU DU DEVIS, et ce n'etait pas un probleme de
+        vue : le raccourci natif se masque lui-meme quand son compteur vaut
+        zero. Or il ne compte que les OF nes de la chaine
+        d'approvisionnement — ceux qu'une ligne de commande a declenches par
+        sa route. Depuis que les ordres naissent du LOT et non plus de la
+        ligne, plus aucun ne remonte par ce chemin : le compteur tombait a
+        zero et le bouton s'effacait, alors que l'affaire avait bien ses
+        ordres.
+
+        On recompte donc l'union : ce que la ligne de commande a declenche,
+        et ce que les lots de l'affaire portent. C'est exactement ce que
+        montre action_view_mrp_production juste en dessous — un compteur qui
+        ne dit pas la meme chose que la liste qu'il ouvre vaut mieux ne pas
+        exister.
+        """
+        Production = self.env["mrp.production"]
+        # sale_line_id vient de sale_mrp et existe en v18 comme en v19 ;
+        # procurement_group_id, lui, a disparu avec procurement.group.
+        natifs = Production
+        if "sale_line_id" in Production._fields and self.ids:
+            natifs = Production.search(
+                [("sale_line_id.order_id", "in", self.ids)])
+        for order in self:
+            a_elle = natifs.filtered(
+                lambda p: p.sale_line_id.order_id == order)
+            order.mrp_production_count = len(a_elle | order.lot_ids.production_ids)
+
     def action_view_mrp_production(self):
         """Ajoute les OF des lots a la liste ouverte depuis la commande.
 

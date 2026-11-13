@@ -60,6 +60,40 @@ class SaleOrder(models.Model):
             manquants.append("la date de BPE")
         return manquants
 
+    def _fma_alerte_dates(self, manquants):
+        """L'alerte commune a l'ARC et au BPE, pour ne la rediger qu'une fois."""
+        return {
+            "warning": {
+                "title": "Dates de livraison incomplètes",
+                "message": (
+                    "Il manque %s.\n\n"
+                    "Ces informations déterminent les dates de livraison "
+                    "prévue et réelle : sans elles, l'affaire restera sans "
+                    "date. Vous pouvez enregistrer et les compléter ensuite."
+                    % " et ".join(manquants)
+                ),
+            }
+        }
+
+    @api.onchange("so_date_bpe")
+    def _onchange_so_date_bpe_alerte(self):
+        """Previent quand le BPE est pose sans delai confirme.
+
+        Les deux vont par paire : « Date de livraison prevue » vaut BPE +
+        delai, et _compute_so_date_de_livraison n'ecrit RIEN tant que l'un
+        des deux manque — ni la date de livraison, ni commitment_date. Un BPE
+        saisi seul donne donc une affaire qui semble datee alors qu'aucune
+        date n'a ete calculee, et le cycle de fabrication refuse de planifier
+        faute de date de livraison.
+
+        Une alerte et non un refus, pour la meme raison que sur l'ARC : celui
+        qui pose le BPE ne detient pas toujours le delai. Il enregistre,
+        quelqu'un complete.
+        """
+        if not self.so_date_bpe or self.so_delai_confirme_en_semaine:
+            return
+        return self._fma_alerte_dates(["le délai confirmé (en semaines)"])
+
     @api.onchange("so_date_ARC")
     def _onchange_so_date_arc_alerte(self):
         """Prévient, sans bloquer, quand l'ARC arrive sans délai ni BPE.
@@ -82,18 +116,7 @@ class SaleOrder(models.Model):
         manquants = self._fma_manque_delai_bpe()
         if not manquants:
             return
-        return {
-            "warning": {
-                "title": "Dates de livraison incomplètes",
-                "message": (
-                    "L'ARC est renseigné mais il manque %s.\n\n"
-                    "Ces informations déterminent les dates de livraison "
-                    "prévue et réelle : sans elles, l'affaire restera sans "
-                    "date. Vous pouvez enregistrer et les compléter ensuite."
-                    % " et ".join(manquants)
-                ),
-            }
-        }
+        return self._fma_alerte_dates(manquants)
 
     # Le decorateur etait pose sur la methode precedente, qui n'est pas un
     # calcul : so_retard_motif est stocke sans dependance, il n'etait donc
@@ -318,6 +341,51 @@ class SaleOrder(models.Model):
 
     so_date_ARC = fields.Date(string="ARC du : ")
     so_date_bon_pour_fab = fields.Date(string="Bon pour Fab. le : ")
+    # VERROU DU BON POUR FABRICATION, ET POURQUOI IL NE LIT PAS LA DATE.
+    #
+    # Le delai confirme et le BPE se figent des que le Bon pour fabrication
+    # est pose : passe ce point l'atelier est lance, et deplacer ces deux
+    # valeurs deplacerait des dates de livraison sur lesquelles la production
+    # s'est engagee. La vue portait donc « readonly="so_date_bon_pour_fab" ».
+    #
+    # Seulement, Odoo N'ENVOIE PAS un champ passe en lecture seule. Celui qui
+    # renseignait d'un seul geste l'ARC, le delai, le BPE et le Bon pour
+    # fabrication voyait le verrou se fermer a la frappe, AVANT
+    # l'enregistrement : les deux valeurs qu'il venait de saisir restaient
+    # dans l'ecran et ne partaient jamais au serveur. Elles revenaient vides.
+    #
+    # Ce booleen porte l'etat ENREGISTRE, pas l'etat de l'ecran. Il n'est pas
+    # calcule — un calcul serait rejoue par le moteur d'onchange et se
+    # refermerait aussi vite. Il est ecrit apres coup, a la creation et a
+    # l'ecriture : pendant la saisie il vaut encore Faux, la saisie passe, et
+    # le verrou se ferme au rechargement.
+    so_fab_lancee = fields.Boolean(
+        string="Fabrication lancée",
+        copy=False,
+        help="Vrai dès que le Bon pour fabrication a été ENREGISTRÉ. Fige le "
+        "délai confirmé et la date de BPE, dont dépendent les dates de "
+        "livraison sur lesquelles la production s'est engagée.",
+    )
+
+    def _fma_sync_fab_lancee(self):
+        """Aligne le verrou sur la date reellement enregistree."""
+        for order in self:
+            valeur = bool(order.so_date_bon_pour_fab)
+            if order.so_fab_lancee != valeur:
+                order.so_fab_lancee = valeur
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = super().create(vals_list)
+        orders._fma_sync_fab_lancee()
+        return orders
+
+    def write(self, vals):
+        res = super().write(vals)
+        # Pas de recursion : la seconde ecriture ne porte que so_fab_lancee.
+        if "so_date_bon_pour_fab" in vals:
+            self._fma_sync_fab_lancee()
+        return res
     so_date_de_fin_de_production_reel = fields.Date(string="Fin de production du : ")
     # Debut de fab : le jour ou la production a reellement commence,
     # c'est-a-dire le plus ancien transfert TERMINE parmi ceux des OF de

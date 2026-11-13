@@ -17,40 +17,49 @@ from ..ref_logikal import destination_vitrage
 
 _logger = logging.getLogger(__name__)
 
-# Suffixe de lot ajoute par LOGIKAL quand une position est repartie en lots :
-# la position « A » devient « A_1 » dans LOT 1, « A_2 » dans LOT 2, etc.
-#: Suffixe qui marque une position repartie en lots. LOGIKAL le pose lui-meme
-#: sous la forme « A » -> « A_1 », mais le chiffreur nomme aussi ses positions
-#: a la main — « A LOT 1 », « A-LOT2 », « A_LOT_3 ». Les deux ecritures
-#: designent LA MEME menuiserie, qui doit rester un seul article, une seule
-#: nomenclature et une seule ligne de commande.
+#: DEUX ECRITURES DU SUFFIXE DE LOT, DEUX TRAITEMENTS.
 #:
-#: « LOT » exige un separateur devant lui : sans cela « BALLOT1 » serait
-#: tronque en « BAL ». Le suffixe nu « _n » reste accepte tel quel.
-LOT_SUFFIX_RE = re.compile(r"(?:_|[\s_\-]+LOT[\s_\-]*)(\d+)$", re.IGNORECASE)
+#: « REP A LOT 1 » : le mot LOT est ecrit. Il ne peut rien designer d'autre
+#: que le lot, et le repere est tout ce qui le precede — « REP A ». On coupe
+#: sans condition, quel que soit le numero : « REP A LOT 2 » rencontre dans le
+#: lot 1 reste le repere « REP A », il n'est pas reparti autrement.
+#:
+#: « A_1 » : LOGIKAL pose ce suffixe nu lui-meme quand il repartit une
+#: position. Il est AMBIGU — « PORTE_2 » est un nom de position parfaitement
+#: legitime — et on ne le retire que s'il porte le numero du lot courant.
+#:
+#: Le mot LOT exige un separateur devant lui, sans quoi « BALLOT1 » serait
+#: tronque en « BAL ».
+LOT_MOT_RE = re.compile(r"[\s_\-]+LOT[\s_\-]*\d*$", re.IGNORECASE)
+LOT_SUFFIX_RE = re.compile(r"_(\d+)$")
 
 
 def base_position(name, phase):
-    """Nom de position independant du lot.
+    """Position independante du lot.
 
-    Les references d'article doivent designer *ce qui est fabrique*, pas le lot
-    dans lequel il l'est : une meme menuiserie repartie sur cinq lots reste un
-    seul article, une seule nomenclature et une seule ligne de devis.
+    Les references d'article doivent designer *ce qui est fabrique*, pas le
+    lot dans lequel il l'est : une meme menuiserie repartie sur cinq lots
+    reste un seul article, une seule nomenclature et une seule ligne de devis.
+    C'est ce qui regroupe « REP A LOT 1 » et « REP A LOT 2 » sous le repere
+    « REP A », sur une ligne de commande unique.
 
-    On ne retire le suffixe que s'il correspond au numero du lot : une position
-    reellement nommee « PORTE_2 » dans un lot 1 n'est pas tronquee. C'est ce
-    garde-fou qui permet d'accepter « A_1 » comme « A LOT 1 » sans risquer de
-    confondre deux positions distinctes.
-
-    Doit rester aligne sur ``fma_pricer_import.pivot.logikal.base_position``.
+    Doit rester aligne sur l'autre copie — ``sqlite_connector.base_position``
+    nomme les articles, ``logikal.base_position`` nomme les positions du
+    pivot : si les deux divergent, la ligne fusionnee du devis ne retrouve
+    plus l'article que le connecteur a cree.
     """
-    name = (name or '').strip()
+    name = (name or "").strip()
+    # Le mot LOT d'abord : il est sans ambiguite, et il peut masquer un
+    # suffixe nu (« A_1 LOT 2 »).
+    coupe = LOT_MOT_RE.search(name)
+    if coupe:
+        return name[: coupe.start()].strip()
     found = LOT_SUFFIX_RE.search(name)
     if not found:
         return name
-    numbers = re.findall(r"\d+", phase or '')
+    numbers = re.findall(r"\d+", phase or "")
     if numbers and numbers[-1] == found.group(1):
-        return name[:found.start()]
+        return name[: found.start()]
     return name
 
 

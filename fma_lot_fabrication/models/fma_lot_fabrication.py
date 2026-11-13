@@ -43,18 +43,36 @@ from odoo.tools import float_compare, float_is_zero
 
 _logger = logging.getLogger(__name__)
 
-#: Ce qui ne se regroupe PAS par lot. Le REMPLISSAGE — vitrages ET
-#: panneaux, « All / Remplissage » — se commande pour la commande client et
-#: non pour le lot : il arrive deja decoupe a la menuiserie, et sa
-#: destination (chariot pour l'atelier, palette pour le chantier) commande
-#: son bon bien avant le lot.
+#: Le REMPLISSAGE — vitrages ET panneaux, « All / Remplissage » — ne se
+#: regroupe pas comme le reste : c'est sa DESTINATION qui dit a quel niveau
+#: il se commande.
+#:
+#: * CHARIOT : il arrive a l'atelier et monte sur le lot. Il se commande donc
+#:   PAR LOT, comme les profiles et la quincaillerie — le chariot suit le lot
+#:   jusqu'au poste de vitrage.
+#: * PALETTE : il part au chantier, decoupe, sans jamais passer en stock
+#:   atelier. Il se commande POUR L'AFFAIRE ENTIERE, en un bon unique : le
+#:   decouper par lot multiplierait les livraisons sur un chantier qui n'en
+#:   attend qu'une.
 #:
 #: Le test porte sur le CLASSEMENT de l'article et non sur sa famille
 #: d'appro : tous les articles de FMA n'ont pas de famille renseignee, mais
 #: tous ont une categorie, et _fma_classe_matiere remonte l'une puis
 #: l'autre. C'est deja la regle du besoin matiere — on n'en invente pas une
 #: seconde.
-CLASSES_HORS_LOT = ("remplissage",)
+CLASSES_REMPLISSAGE = ("remplissage",)
+
+#: La destination qui sort le remplissage du lot. Valeur de
+#: ``fma_destination_vitrage`` (sqlite_connector.ref_logikal), recopiee et
+#: non importee : sqlite_connector n'est pas une dependance d'ici, et une
+#: dependance posee pour une seule chaine de six lettres couterait plus
+#: qu'elle ne rapporte. Si la valeur change la-bas, elle change ici.
+#:
+#: TOUT LE RESTE REJOINT LE LOT, l'article sans destination compris. C'est le
+#: meme repli que destination_vitrage() : un vitrage de chantier traite comme
+#: un chariot arrive a l'atelier, ou il passe de toute facon ; l'inverse
+#: expedie au chantier ce que l'atelier attendait.
+DESTINATION_HORS_LOT = "palette"
 
 
 #: Etiquette commerciale de la commande -> code de l'entrepot qui fabrique.
@@ -617,11 +635,12 @@ class FmaLotFabrication(models.Model):
         lot. Celui qui est deja dans ce cas sert d'accueil ; sinon on en
         ouvre un, et le bon partage se vide de la part qui revient au lot.
 
-        LE VITRAGE EST HORS DE CE JEU. Il s'achete pour la commande client,
-        pas pour le lot : il arrive deja decoupe a la menuiserie, et sa
-        destination — chariot pour l'atelier, palette pour le chantier —
-        commande son bon bien avant le lot. Le melanger aux profiles
-        obligerait a le rouvrir a chaque nouveau lot.
+        LE REMPLISSAGE SE PARTAGE SELON SA DESTINATION. Le vitrage et les
+        panneaux montes SUR CHARIOT entrent dans ce regroupement comme le
+        reste : ils arrivent a l'atelier et montent sur le lot. Ceux poses SUR
+        PALETTE n'y entrent pas — ils partent au chantier et se commandent
+        pour l'affaire entiere, en un bon unique (sqlite_connector,
+        _fma_grouper_les_palettes).
 
         Ne sont rapproches que les bons de MEME fournisseur, meme societe,
         meme devise et meme type d'operation : on ne melange pas deux
@@ -645,11 +664,22 @@ class FmaLotFabrication(models.Model):
                 article = ligne.product_id
                 if article.id not in classes:
                     classes[article.id] = article._fma_classe_matiere()
-                return classes[article.id] not in CLASSES_HORS_LOT
+                if classes[article.id] not in CLASSES_REMPLISSAGE:
+                    return True
+                # Remplissage : seule la palette reste a l'affaire.
+                if "fma_destination_vitrage" not in ligne._fields:
+                    # Sans le connecteur LOGIKAL, aucune destination n'est
+                    # connue : on garde l'ancienne regle, tout le remplissage
+                    # hors lot, plutot que d'envoyer au lot ce qu'on ne sait
+                    # pas qualifier.
+                    return False
+                return ligne.fma_destination_vitrage != DESTINATION_HORS_LOT
 
-            lignes = self._lignes_achat_du_lot().filtered(dans_le_lot)
+            toutes = self._lignes_achat_du_lot()
+            lignes = toutes.filtered(dans_le_lot)
             commandes = lignes.order_id
             if not lignes:
+                self._fma_regrouper_vitrage_chantier(toutes - lignes)
                 self._rendre_compte_achats(lignes, commandes, Achat)
                 return commandes
 
@@ -699,6 +729,7 @@ class FmaLotFabrication(models.Model):
                     cible.origin = ", ".join(retenues)
                 self._rattacher_bon_au_lot(cible)
                 self._regrouper_lignes_par_article(cible)
+            self._fma_regrouper_vitrage_chantier(toutes - lignes)
             self._rendre_compte_achats(lignes, commandes, gardes)
             return gardes
         except Exception as erreur:  # noqa: BLE001 — trace, pas de blocage
@@ -716,6 +747,26 @@ class FmaLotFabrication(models.Model):
                 erreur=erreur,
             ))
             return Achat
+
+    def _fma_regrouper_vitrage_chantier(self, lignes_hors_lot):
+        """Renvoie le vitrage sur palette au bon unique de l'affaire.
+
+        Le regroupement par lot vient d'ecarter ces lignes : elles partent au
+        chantier, pas a l'atelier. Mais les ecarter ne suffit pas — Odoo les a
+        posees sur le bon qu'il a bien voulu, et un lot genere apres la
+        confirmation du devis en ouvre un nouveau. Sans ce rappel, le chantier
+        recevait une livraison par lot.
+
+        Appel par ``hasattr`` : le regroupement vit dans sqlite_connector, qui
+        n'est pas une dependance d'ici. Sans ce module, il n'y a pas de
+        destination de vitrage et il n'y a rien a regrouper.
+        """
+        self.ensure_one()
+        if not lignes_hors_lot:
+            return
+        commandes = self.line_ids.order_id
+        if commandes and hasattr(commandes, "fma_regrouper_vitrage_chantier"):
+            commandes.fma_regrouper_vitrage_chantier()
 
     def _regrouper_lignes_par_article(self, bon):
         """Une seule ligne par reference sur le bon du lot.
