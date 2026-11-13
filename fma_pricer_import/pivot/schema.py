@@ -47,6 +47,12 @@ class Component:
     price: float = 0.0
     width_mm: float = 0.0
     height_mm: float = 0.0
+    #: ``Glass.Info2``, texte libre ou le deviseur ecrit CHARIOT ou PALETTE.
+    #: Conserve BRUT : c'est destination_vitrage() qui l'interprete, et lui
+    #: seul connait les ecritures reellement rencontrees (« SUR CHARIOT »,
+    #: « Chevalet bois »...). Vide pour les articles, qui n'ont pas de
+    #: destination — seul le remplissage en a une.
+    info_livraison: str = ""
 
 
 @dataclass

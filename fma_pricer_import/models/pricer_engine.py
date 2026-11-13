@@ -25,7 +25,10 @@ from odoo.exceptions import UserError
 from markupsafe import Markup
 
 from odoo.addons.sqlite_connector import noms_articles
-from odoo.addons.sqlite_connector.ref_logikal import ref_logikal
+from odoo.addons.sqlite_connector.ref_logikal import (
+    destination_vitrage,
+    ref_logikal,
+)
 
 from ..pivot import logikal, techdesign, techdesign_order
 
@@ -773,6 +776,11 @@ class FmaPricerEngine(models.AbstractModel):
         code = "%s_%s_%s" % (affaire, position, rang)
         existant = Product.search([("default_code", "=", code)], limit=1)
         if existant:
+            # A CHAQUE IMPORT, et pas seulement a la creation : le deviseur
+            # corrige Info2 sur une affaire deja importee, et c'est meme le
+            # cas le plus frequent depuis que la consigne CHARIOT / PALETTE
+            # est diffusee. Meme regle que le connecteur historique.
+            self._poser_destination(existant, comp)
             return existant
 
         champs = Product._fields
@@ -798,8 +806,34 @@ class FmaPricerEngine(models.AbstractModel):
             if nom in champs:
                 vals[nom] = valeur
         produit = Product.create(vals)
+        self._poser_destination(produit, comp)
         _logger.info("Import pricer : vitrage %s cree (%s).", code, produit.name)
         return produit
+
+    def _poser_destination(self, produit, comp):
+        """Ecrit CHARIOT ou PALETTE sur le vitrage, depuis Glass.Info2.
+
+        C'est cette valeur qui decide du niveau d'achat : le chariot se
+        commande avec son lot, il monte a l'atelier ; la palette se commande
+        pour l'affaire entiere, elle part au chantier. Tant qu'elle restait
+        vide, tout le remplissage importe par le pricer suivait la meme
+        regle, et la distinction du deviseur ne servait a rien.
+
+        Le repli de destination_vitrage() est CHARIOT, et il est volontaire :
+        un vitrage de chantier traite comme un chariot arrive a l'atelier, ou
+        il passe de toute facon. L'inverse expedie au chantier ce que
+        l'atelier attendait.
+        """
+        if "fma_destination_vitrage" not in produit._fields:
+            return
+        destination, anomalie = destination_vitrage(
+            getattr(comp, "info_livraison", "") or "")
+        if produit.fma_destination_vitrage != destination:
+            produit.fma_destination_vitrage = destination
+        if anomalie:
+            _logger.info(
+                "Import pricer : destination du vitrage %s deduite de %r -> %s",
+                produit.default_code, anomalie, destination)
 
     def _rangs_vitrage(self, men):
         """Rang de chaque vitrage dans sa menuiserie, sur un tri stable.
@@ -877,6 +911,12 @@ class FmaPricerEngine(models.AbstractModel):
                     found, problem = self._creer_vitrage(
                         comp, men.position or men.ref, rangs.get(id(comp), 1)
                     ), None
+                if found:
+                    # Y COMPRIS QUAND LE VITRAGE EXISTE DEJA : _find_glass le
+                    # retrouve sans passer par _creer_vitrage, et sa
+                    # destination daterait alors du premier import. Or c'est
+                    # justement entre deux imports que le deviseur la corrige.
+                    self._poser_destination(found, comp)
             elif comp.code:
                 found, problem = self._find_product(
                     comp.code, comp.color,

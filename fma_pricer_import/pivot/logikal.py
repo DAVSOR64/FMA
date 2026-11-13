@@ -292,9 +292,15 @@ def _parse(con, source):
         )
 
     # --- composants : vitrage ------------------------------------------------
-    for eid, name, desc, width, height, price, sid in con.execute(
+    # Info2 EST LU ICI, et pas seulement par le connecteur historique. C'est
+    # le champ ou le deviseur ecrit CHARIOT ou PALETTE, et c'est lui qui
+    # decide si le vitrage se commande avec son lot (atelier) ou pour
+    # l'affaire entiere (chantier). Sans lui, tout le remplissage importe par
+    # le pricer restait sans destination.
+    for eid, name, desc, width, height, price, sid, info2 in con.execute(
         """select i.ElevationId, g.Name, g.Description,
-                  g.Width_Output, g.Height_Output, g.Price, g.LK_SupplierId
+                  g.Width_Output, g.Height_Output, g.Price, g.LK_SupplierId,
+                  g.Info2
              from Glass g
              join Insertions i on i.InsertionID = g.InsertionId"""
     ):
@@ -312,6 +318,7 @@ def _parse(con, source):
                 price=price or 0.0,
                 width_mm=width or 0.0,
                 height_mm=height or 0.0,
+                info_livraison=(info2 or "").strip(),
             )
         )
 
