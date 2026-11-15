@@ -275,6 +275,39 @@ class PurchaseOrder(models.Model):
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
+    def _fma_achats_de_l_affaire(self, commande):
+        """Les bons d'achat encore ouverts de cette affaire.
+
+        PAR L'ORIGINE **ET** PAR LE LOT, et c'est la correction.
+        L'approvisionnement recopie dans ``origin`` le nom du DEVIS quand le
+        besoin nait d'une ligne de commande, mais celui de l'ORDRE DE
+        FABRICATION quand il nait d'un lot — « LRE/LRE/05262 », ou le nom du
+        devis ne figure nulle part. Chercher par la seule origine laissait
+        donc de cote tous les bons issus des lots : le vitrage sur palette
+        restait sur le bon de SON lot, et le chantier recevait une livraison
+        par lot au lieu d'une seule. Trois bons la ou deux suffisent.
+
+        Le lien par le lot est lu avec precaution : ``lot_fabrication_id``
+        vient de fma_lot_fabrication, qui n'est pas une dependance d'ici.
+        """
+        Achat = self.env["purchase.order"]
+        Ligne = self.env["purchase.order.line"]
+        domaine = [("state", "in", ("draft", "sent"))]
+
+        lots = None
+        if ("lot_fabrication_id" in Ligne._fields
+                and "lot_ids" in commande._fields):
+            lots = commande.lot_ids
+        if lots:
+            domaine += [
+                "|",
+                ("origin", "ilike", commande.name),
+                ("order_line.lot_fabrication_id", "in", lots.ids),
+            ]
+        else:
+            domaine.append(("origin", "ilike", commande.name))
+        return Achat.search(domaine)
+
     def fma_regrouper_vitrage_chantier(self):
         """Rassemble le vitrage sur palette de l'affaire sur un bon unique.
 
@@ -289,14 +322,7 @@ class SaleOrder(models.Model):
         ouvrir un second.
         """
         for commande in self.filtered("name"):
-            # LES BONS DE CETTE COMMANDE, pas tous les brouillons de la base.
-            # Le lien passe par l'origine, que l'approvisionnement renseigne
-            # avec le nom du devis — c'est le seul lien direct, la ligne
-            # d'achat ne porte pas la commande de vente.
-            achats = self.env["purchase.order"].search([
-                ("state", "in", ("draft", "sent")),
-                ("origin", "ilike", commande.name),
-            ])
+            achats = self._fma_achats_de_l_affaire(commande)
             achats = achats.filtered(
                 lambda a: any(a.order_line.mapped("fma_destination_vitrage")))
             if not achats:

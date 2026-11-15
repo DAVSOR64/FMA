@@ -544,8 +544,59 @@ class FmaLotFabrication(models.Model):
                     vals["macro_planned_start"] = plage["debut"]
                 ot.sudo().write(vals)
 
+        # 3. LA FIN DE L'OF, EN DERNIER — et c'est la tout le correctif.
+        #
+        #    En 19.0, mrp.production.date_finished est un compute STOCKE :
+        #
+        #        @api.depends('company_id', 'date_start', 'is_planned',
+        #                     'product_id', 'workorder_ids.duration_expected')
+        #        def _compute_date_finished(self):
+        #            if not date_start or production.is_planned or done:
+        #                continue
+        #            ... date_start + produce_delay, puis la disponibilite
+        #            des postes de charge ...
+        #
+        #    et is_planned vaut « au moins une operation porte ses deux
+        #    dates ». Ecrire l'OF efface les dates de ses OT : is_planned
+        #    retombe a False, la garde ne retient plus rien, et Odoo
+        #    RECALCULE date_finished depuis la disponibilite des postes —
+        #    d'ou les six mois d'ecart. Les OT dates ensuite, is_planned
+        #    repasse a True, le calcul retombe sur « continue »... et
+        #    conserve la valeur fausse qu'il venait de poser.
+        #
+        #    Dater l'OF avant ses OT ne suffisait donc pas : il faut
+        #    reposer sa FIN une fois les operations datees, quand la garde
+        #    protege de nouveau. D'ou cet ordre : debut de l'OF, operations,
+        #    fin de l'OF.
+        ordre.flush_recordset()
+        ordre.invalidate_recordset(["date_finished", "is_planned"])
+        voulue = max(fins)
+        if ordre.date_finished != voulue:
+            ordre.sudo().with_context(
+                mail_notrack=True,
+                from_macro_update=True,
+                skip_macro_recalc=True,
+            ).write({"date_finished": voulue})
+            ordre.flush_recordset()
+            ordre.invalidate_recordset(["date_finished"])
+
         if hasattr(ordre, "_update_components_picking_dates"):
             ordre._update_components_picking_dates()
+
+        # Et on le DIT si elle n'a pas tenu : une date fausse qui se corrige
+        # toute seule au prochain clic est un piege, une date fausse annoncee
+        # est un diagnostic.
+        if ordre.date_finished != voulue:
+            return _(
+                "%(of)s : fin de fabrication posée au %(voulue)s, "
+                "ramenée au %(obtenue)s par Odoo (operations planifiées : "
+                "%(plan)s).",
+                of=ordre.name,
+                voulue=fields.Datetime.to_string(voulue),
+                obtenue=fields.Datetime.to_string(ordre.date_finished),
+                plan=_("oui") if ordre.is_planned else _("non"),
+            )
+        return ""
 
     def _cycle_matin(self, ordre, jour, poste):
         """Le debut de journee du poste, ou 07h30 a defaut.
@@ -568,11 +619,11 @@ class FmaLotFabrication(models.Model):
     def _cycle_ecrire_lot(self, mes_dates):
         """Ecrit sur les ordres de CE lot les dates que ``mes_dates`` porte.
 
-        Rend ``(ordres dates, operations datees, postes inconnus)``. Rien de
-        metier ici : la regle est dans le calcul, ce bloc ne fait que poser.
+        Rend ``(ordres dates, operations datees, postes inconnus, fins
+        refusees)``. Rien de metier ici : la regle est dans le calcul, ce bloc ne fait que poser.
         """
         self.ensure_one()
-        ordres_dates, ot_dates, inconnus = 0, 0, set()
+        ordres_dates, ot_dates, inconnus, refuses = 0, 0, set(), []
         for ordre in self.production_ids.filtered(
             lambda p: p.state not in ("done", "cancel")
         ):
@@ -582,8 +633,10 @@ class FmaLotFabrication(models.Model):
                 continue
             ot_dates += len(plages)
             ordres_dates += 1
-            self._cycle_ecrire_ordre(ordre, plages)
-        return ordres_dates, ot_dates, inconnus
+            refus = self._cycle_ecrire_ordre(ordre, plages)
+            if refus:
+                refuses.append(refus)
+        return ordres_dates, ot_dates, inconnus, refuses
 
     def _cycle_appliquer_dates(self, controler_passe=True):
         """Pose sur les ordres les dates que le cycle calcule.
@@ -603,15 +656,16 @@ class FmaLotFabrication(models.Model):
         self.ensure_one()
         dates = self._cycle_planifier_affaire(controler_passe=controler_passe)
 
-        ordres_dates, ot_dates, inconnus = 0, 0, set()
+        ordres_dates, ot_dates, inconnus, refuses = 0, 0, set(), []
         for lot in self._cycle_lots_de_l_affaire():
             mes_dates = dates.get(lot.id)
             if not mes_dates:
                 continue
-            ordres, ots, manquants = lot._cycle_ecrire_lot(mes_dates)
+            ordres, ots, manquants, refus = lot._cycle_ecrire_lot(mes_dates)
             ordres_dates += ordres
             ot_dates += ots
             inconnus |= manquants
+            refuses += refus
         self.env.cr.flush()
 
         mes_dates = dates.get(self.id) or {}
@@ -631,6 +685,11 @@ class FmaLotFabrication(models.Model):
                 "Leurs opérations gardent les dates qu'elles avaient. "
                 "Ajoutez-les au cycle pour qu'il les pilote.",
                 postes=", ".join(sorted(inconnus)),
+            ))
+        if refuses:
+            corps.append(_(
+                "<br/><b>Fins de fabrication non tenues</b> :<br/>%(liste)s",
+                liste="<br/>".join(refuses),
             ))
         commande = dates.get("commande")
         if commande:
@@ -658,7 +717,7 @@ class FmaLotFabrication(models.Model):
         """
         self.ensure_one()
         mes_dates = self._cycle_dates_depuis_fin(fin_de_fab)
-        ordres, ots, inconnus = self._cycle_ecrire_lot(mes_dates)
+        ordres, ots, inconnus, refuses = self._cycle_ecrire_lot(mes_dates)
         corps = [_(
             "Replanification par le cycle %(cycle)s depuis la fin imposée du "
             "%(fin)s : %(ordres)s ordre(s) et %(ot)s opération(s) datés.",
