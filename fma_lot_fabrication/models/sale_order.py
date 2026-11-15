@@ -213,36 +213,41 @@ class SaleOrder(models.Model):
             return Production.browse(action["res_id"])
         return Production.browse()
 
-    @api.depends("lot_ids.production_ids", "order_line.product_id")
-    def _compute_mrp_production_count(self):
-        """Le compteur du raccourci « Fabrication », OF des lots compris.
+    @api.depends(
+        "stock_reference_ids.production_ids",
+        "lot_ids.production_ids",
+    )
+    def _compute_mrp_production_ids(self):
+        """Le raccourci « Fabrication » du devis, OF des lots compris.
 
-        LE BOUTON AVAIT DISPARU DU DEVIS, et ce n'etait pas un probleme de
-        vue : le raccourci natif se masque lui-meme quand son compteur vaut
-        zero. Or il ne compte que les OF nes de la chaine
-        d'approvisionnement — ceux qu'une ligne de commande a declenches par
-        sa route. Depuis que les ordres naissent du LOT et non plus de la
-        ligne, plus aucun ne remonte par ce chemin : le compteur tombait a
-        zero et le bouton s'effacait, alors que l'affaire avait bien ses
+        LE BOUTON AVAIT DISPARU, et ce n'etait pas un probleme de vue : le
+        raccourci natif se masque lui-meme quand son compteur vaut zero. Or
+        le natif ne remonte que les OF nes de la chaine d'approvisionnement
+        — ``stock_reference_ids.production_ids``, les ordres qu'une ligne de
+        commande a declenches par sa route. Depuis que les ordres naissent
+        du LOT, plus aucun ne passe par la : le compteur tombait a zero et
+        le bouton s'effacait, alors que l'affaire avait bien ses onze
         ordres.
 
-        On recompte donc l'union : ce que la ligne de commande a declenche,
-        et ce que les lots de l'affaire portent. C'est exactement ce que
-        montre action_view_mrp_production juste en dessous — un compteur qui
-        ne dit pas la meme chose que la liste qu'il ouvre vaut mieux ne pas
-        exister.
+        LE NOM DE LA METHODE EST CELUI DE LA v19, et c'est tout l'objet de
+        cette correction. La precedente surchargeait
+        ``_compute_mrp_production_count``, le nom des versions anterieures.
+        En 19.0, sale_mrp declare les DEUX champs sur le meme calcul,
+        ``_compute_mrp_production_ids`` ; la methode ecrite sous l'ancien
+        nom n'etait donc appelee par personne. Le code etait juste, il
+        n'etait jamais execute — un correctif muet, le pire genre.
+
+        On etend la liste plutot que le seul compteur : l'action du bouton
+        lit ``mrp_production_ids``, un compteur qui ne dit pas la meme chose
+        que la liste qu'il ouvre vaut mieux ne pas exister.
         """
-        Production = self.env["mrp.production"]
-        # sale_line_id vient de sale_mrp et existe en v18 comme en v19 ;
-        # procurement_group_id, lui, a disparu avec procurement.group.
-        natifs = Production
-        if "sale_line_id" in Production._fields and self.ids:
-            natifs = Production.search(
-                [("sale_line_id.order_id", "in", self.ids)])
+        super()._compute_mrp_production_ids()
         for order in self:
-            a_elle = natifs.filtered(
-                lambda p: p.sale_line_id.order_id == order)
-            order.mrp_production_count = len(a_elle | order.lot_ids.production_ids)
+            des_lots = order.lot_ids.production_ids.filtered(
+                lambda p: p.state != "cancel")
+            toutes = order.mrp_production_ids | des_lots
+            order.mrp_production_ids = toutes
+            order.mrp_production_count = len(toutes)
 
     def action_view_mrp_production(self):
         """Ajoute les OF des lots a la liste ouverte depuis la commande.

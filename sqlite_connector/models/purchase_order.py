@@ -53,6 +53,20 @@ class PurchaseOrderLine(models.Model):
         index="btree_not_null",
     )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Pose la mention de destination des la naissance de la ligne.
+
+        Elle n'etait ecrite qu'au REGROUPEMENT du vitrage de chantier. Or un
+        bon qui n'a pas de palette a sortir ne passe jamais par ce
+        regroupement : il sortait muet, et le verrier n'avait pas
+        l'information. C'est le cas de tout bon entierement CHARIOT — le cas
+        courant.
+        """
+        lignes = super().create(vals_list)
+        lignes.order_id._fma_noter_destination()
+        return lignes
+
 
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
@@ -93,14 +107,19 @@ class PurchaseOrder(models.Model):
                 return
             destinations = set(
                 achat.order_line.mapped("fma_destination_vitrage")) - {False}
-            if len(destinations) != 1:
-                # Pas de vitrage, ou les deux destinations encore melangees :
-                # rien a affirmer au fournisseur.
-                continue
-            mention = MENTION_PAR_DESTINATION[destinations.pop()]
             actuel = (achat[CHAMP_COMMENTAIRE] or "").strip()
+            # Un commentaire saisi par l'acheteur ne se touche pas.
             if actuel and actuel.upper() not in mentions:
                 continue
+            if len(destinations) != 1:
+                # Pas de vitrage, ou les deux destinations encore melangees.
+                # On EFFACE notre mention au lieu de la laisser : une ligne
+                # de palette arrivee sur un bon deja marque « CHARIOT »
+                # ferait mentir le document jusqu'au regroupement.
+                if actuel:
+                    achat[CHAMP_COMMENTAIRE] = False
+                continue
+            mention = MENTION_PAR_DESTINATION[destinations.pop()]
             if actuel != mention:
                 achat[CHAMP_COMMENTAIRE] = mention
 
