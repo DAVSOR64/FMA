@@ -83,6 +83,53 @@ def fma_exemplaire(rang, total):
     return "%s/%s" % (rang, total)
 
 
+def fma_complexite_courte(texte, niveaux_seuls=False):
+    """Le niveau de complexite, ramene a ce qui tient sur une etiquette.
+
+    L'ordre d'assemblage porte « A*1 » — un niveau, un exemplaire. Le « *1 »
+    n'apprend rien a l'atelier et mange la largeur : on l'enleve. Un ordre
+    qui melange plusieurs niveaux les garde tous, separes par une espace :
+    « A*2 B ».
+
+    ``niveaux_seuls`` sert au repli sur l'ARTICLE, dont le « A*3 » compte les
+    menuiseries de la LIGNE de commande. Une etiquette ne designe qu'UNE
+    menuiserie : recopier le multiplicateur de la ligne lui ferait dire trois
+    fois sa valeur. On ne garde alors que les codes.
+    """
+    morceaux = []
+    for ligne in (texte or "").splitlines():
+        ligne = ligne.strip()
+        if not ligne:
+            continue
+        code, _separateur, nombre = ligne.partition("*")
+        code = code.strip().upper()
+        if not code or code in morceaux:
+            continue
+        nombre = nombre.strip()
+        if niveaux_seuls or nombre in ("", "1"):
+            morceaux.append(code)
+        else:
+            morceaux.append("%s*%s" % (code, nombre))
+    return " ".join(morceaux)
+
+
+def fma_complexite_etiquette(ordre, produit):
+    """La complexite a porter sur l'etiquette de CETTE menuiserie.
+
+    L'ordre fait foi : _poser_complexite_assemblages y repose la valeur une
+    fois les ordres scindes, exemplaire par exemplaire. L'article n'est qu'un
+    repli, pour les ordres anterieurs a cette pose et pour les lots saisis a
+    la main — et on n'en retient alors que les niveaux.
+    """
+    if ordre and "x_studio_niveau_de_complexite" in ordre._fields:
+        court = fma_complexite_courte(ordre.x_studio_niveau_de_complexite)
+        if court:
+            return court
+    if produit and "fma_complexite" in produit._fields:
+        return fma_complexite_courte(produit.fma_complexite, niveaux_seuls=True)
+    return ""
+
+
 class StockLot(models.Model):
     _inherit = "stock.lot"
 
@@ -502,6 +549,7 @@ class StockLot(models.Model):
             "lot_court": fma_lot_court(
                 ctx["lot"].display_name or "", commande.name or ""),
             "repere": self._fma_repere(),
+            "complexite": fma_complexite_etiquette(ordre, produit),
             "designation": designation.split("\n")[0][:90],
             "dimensions": self._fma_dimensions(),
             "affaire": (

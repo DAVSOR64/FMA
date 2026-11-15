@@ -83,6 +83,20 @@
                 <tr>
                     <td style="font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden;"
                         t-out="etq.get('repere') or '-'"/>
+                    <!-- LA COMPLEXITE, encadree pour se trouver d'un coup
+                         d'oeil : c'est elle qui dit a l'atelier le temps que
+                         la menuiserie va prendre. Largeur fixe et nowrap
+                         comme le reste de l'etiquette — sur 26 mm utiles,
+                         une ligne qui se replie en pousse une autre dehors.
+                         La cellule reste en place quand elle est vide (un
+                         debit, un article sans niveau) : trois colonnes qui
+                         ne bougent pas valent mieux qu'une mise en page qui
+                         change d'une etiquette a l'autre. -->
+                    <td style="width: 13mm; font-size: 12px; font-weight: bold; text-align: center; white-space: nowrap; overflow: hidden;">
+                        <span t-if="etq.get('complexite')"
+                              style="border: 1px solid #000; border-radius: 1mm; padding: 0 1mm;"
+                              t-out="etq.get('complexite')"/>
+                    </td>
                     <td style="width: 18mm; font-size: 14px; font-weight: bold; text-align: right; white-space: nowrap;"
                         t-out="etq.get('exemplaire')"/>
                 </tr>

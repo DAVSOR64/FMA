@@ -33,9 +33,13 @@ declare menuiserie par menuiserie, Odoo cree le reliquat du reste.
 Les niveaux sont relies par ``lot_fabrication_id`` (la reference de lot), et
 non par le chainage parent/enfant natif d'Odoo.
 """
+import base64
+import io
 import logging
 import re
 from datetime import timedelta
+
+import xlsxwriter
 
 from odoo import Command, _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
@@ -3402,6 +3406,140 @@ class FmaLotFabrication(models.Model):
         return self.env.ref(
             "fma_lot_fabrication.action_report_lot_sortie_matiere"
         ).report_action(self)
+
+    # ------------------------------------------------------------------
+    # Le meme besoin matiere, en classeur
+    # ------------------------------------------------------------------
+    #: Les trois feuilles, dans l'ordre des trois parties du PDF. Le magasin
+    #: travaille avec le papier ; le classeur sert a trier, filtrer et
+    #: rapprocher d'un etat de stock — d'ou les memes colonnes, mais a plat :
+    #: pas de cellules fusionnees, une ligne = un fait.
+    FEUILLES_BESOIN = (
+        ("Besoin matière", (
+            ("Type", 18), ("Référence", 22), ("Désignation", 52),
+            ("Quantité", 12), ("Unité", 12),
+        )),
+        ("Quincaillerie par repère", (
+            ("Repère", 20), ("Casier", 14), ("Rang", 8), ("Sur", 8),
+            ("Emplacement", 20), ("Code article", 22), ("Désignation", 48),
+            ("Qté", 12),
+        )),
+        ("Quincaillerie par article", (
+            ("Emplacement", 20), ("Code article", 22), ("Désignation", 48),
+            ("Qté totale", 12), ("Qté", 12), ("Casier", 14), ("Repère", 20),
+        )),
+    )
+
+    def _besoin_matiere_lignes(self):
+        """Les trois tableaux du besoin matiere, prets a ecrire.
+
+        MEME SOURCE QUE LE PDF, aux memes methodes : le classeur n'est pas un
+        second calcul du besoin, c'est le meme rendu autrement. Deux calculs
+        finiraient par ne plus dire la meme chose, et c'est precisement le
+        genre d'ecart qu'on ne decouvre qu'au magasin.
+        """
+        self.ensure_one()
+        profiles, prefab, casiers = self._besoin_matiere()
+        complet = self._besoin_matiere_complet(profiles, prefab)
+        par_repere = self._quincaillerie_par_repere(casiers)
+        par_article = self._quincaillerie_par_article(casiers)
+
+        feuille1 = [[
+            poste["libelle"],
+            poste["product"].default_code or "",
+            poste["product"].name or "",
+            poste["qty"],
+            poste["uom"].name or "",
+        ] for poste in complet]
+
+        feuille2 = []
+        for bloc in par_repere:
+            for ligne in bloc["lignes"]:
+                feuille2.append([
+                    bloc["repere"], bloc["casier"], bloc["rang"], bloc["sur"],
+                    ligne["emplacement"].name if ligne["emplacement"] else "",
+                    ligne["product"].default_code or "",
+                    ligne["product"].name or "",
+                    ligne["qty"],
+                ])
+
+        feuille3 = []
+        for poste in par_article:
+            for detail in poste["detail"]:
+                feuille3.append([
+                    poste["emplacement"].name if poste["emplacement"] else "",
+                    poste["article"].default_code or "",
+                    poste["article"].name or "",
+                    poste["total"],
+                    detail["qty"],
+                    detail["casier"],
+                    detail["repere"],
+                ])
+        return [feuille1, feuille2, feuille3]
+
+    def _besoin_matiere_classeur(self):
+        """Le classeur, en octets."""
+        self.ensure_one()
+        tampon = io.BytesIO()
+        classeur = xlsxwriter.Workbook(tampon, {"in_memory": True})
+        entete = classeur.add_format({
+            "bold": True, "bg_color": "#D9D9D9", "border": 1,
+            "align": "left", "valign": "vcenter", "text_wrap": False,
+        })
+        nombre = classeur.add_format({"num_format": "0.00"})
+        entier = classeur.add_format({"num_format": "0"})
+
+        for (titre, colonnes), lignes in zip(
+                self.FEUILLES_BESOIN, self._besoin_matiere_lignes()):
+            # 31 caracteres : la limite d'Excel pour un nom d'onglet. Au-dela
+            # le fichier s'ouvre en se plaignant d'etre corrompu.
+            feuille = classeur.add_worksheet(titre[:31])
+            for rang, (nom, largeur) in enumerate(colonnes):
+                feuille.set_column(rang, rang, largeur)
+                feuille.write(0, rang, nom, entete)
+            feuille.freeze_panes(1, 0)
+            # Le filtre automatique sur l'entete : c'est ce que le magasin
+            # vient chercher dans un classeur et que le PDF ne sait pas faire.
+            if lignes:
+                feuille.autofilter(0, 0, len(lignes), len(colonnes) - 1)
+            for i, ligne in enumerate(lignes, start=1):
+                for j, valeur in enumerate(ligne):
+                    if isinstance(valeur, float):
+                        feuille.write_number(i, j, valeur, nombre)
+                    elif isinstance(valeur, int):
+                        feuille.write_number(i, j, valeur, entier)
+                    else:
+                        feuille.write_string(i, j, valeur or "")
+        classeur.close()
+        return tampon.getvalue()
+
+    def action_exporter_besoin_matiere(self):
+        """Le besoin matiere en classeur, a cote du PDF.
+
+        Le PDF se prend en main dans l'atelier ; le classeur se trie, se
+        filtre et se rapproche d'un etat de stock. Le metier a demande les
+        deux, pas l'un a la place de l'autre.
+
+        La piece jointe est posee sur le LOT : elle reste consultable apres
+        coup, et on retrouve ce qui a ete sorti le jour ou on se demande
+        pourquoi il manque une paumelle.
+        """
+        self.ensure_one()
+        nom = "Besoin matiere - %s.xlsx" % (self.display_name or self.name)
+        piece = self.env["ir.attachment"].create({
+            "name": nom,
+            "type": "binary",
+            "datas": base64.b64encode(self._besoin_matiere_classeur()),
+            "res_model": self._name,
+            "res_id": self.id,
+            "mimetype": "application/vnd.openxmlformats-"
+                        "officedocument.spreadsheetml.sheet",
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % piece.id,
+            "target": "self",
+        }
 
     def action_view_sortie_matiere(self):
         """Les bons de sortie matiere du lot : les barres, puis les casiers.

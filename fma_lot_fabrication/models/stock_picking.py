@@ -61,6 +61,15 @@ class StockPicking(models.Model):
                 "n'y a pas de besoin matière à imprimer."))
         return self.lot_fabrication_id.action_imprimer_besoin_matiere()
 
+    def action_exporter_besoin_matiere_lot(self):
+        """Le meme besoin, en classeur, depuis le transfert."""
+        self.ensure_one()
+        if not self.lot_fabrication_id:
+            raise UserError(_(
+                "Ce transfert n'appartient à aucun lot de fabrication : il "
+                "n'y a pas de besoin matière à exporter."))
+        return self.lot_fabrication_id.action_exporter_besoin_matiere()
+
     def _action_done(self):
         res = super()._action_done()
         # Encadre : terminer un kit est un confort. Une erreur ici ne doit

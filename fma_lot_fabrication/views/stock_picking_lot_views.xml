@@ -57,6 +57,10 @@
                         string="Besoin matière"
                         invisible="not lot_fabrication_id"
                         help="Le besoin matière du lot : profilés, vitrages et quincaillerie, puis la quincaillerie casier par casier."/>
+                <button name="action_exporter_besoin_matiere_lot" type="object"
+                        string="Besoin matière (Excel)"
+                        invisible="not lot_fabrication_id"
+                        help="Le même besoin matière, en classeur filtrable."/>
             </xpath>
         </field>
     </record>

@@ -15,7 +15,12 @@ import logging
 from odoo import _, models
 from odoo.exceptions import UserError
 
-from .stock_lot import fma_entete_affaire, fma_lot_court, fma_message
+from .stock_lot import (
+    fma_complexite_etiquette,
+    fma_entete_affaire,
+    fma_lot_court,
+    fma_message,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -75,6 +80,10 @@ class MrpProduction(models.Model):
                 if ordre.lot_production_type == "debit"
                 else ((produit.default_code or "").rpartition("_")[2]
                       or produit.default_code or ""),
+                # Le debit ne porte pas de complexite : il coupe pour
+                # tout le lot, pas pour une menuiserie.
+                "complexite": "" if ordre.lot_production_type == "debit"
+                else fma_complexite_etiquette(ordre, produit),
                 "designation": (produit.display_name or "")[:90],
                 "dimensions": "",
                 "affaire": "",

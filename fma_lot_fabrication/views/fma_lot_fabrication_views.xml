@@ -47,6 +47,10 @@
                             string="Imprimer le besoin matière"
                             invisible="not line_ids or production_count == 0"
                             help="Besoin matière du lot : profilés, vitrages et quincaillerie, puis la quincaillerie repère par repère et le détail par article. Lu sur les composants réels des ordres de fabrication, donc construit à l'impression et jamais d'avance."/>
+                    <button name="action_exporter_besoin_matiere" type="object"
+                            string="Besoin matière (Excel)"
+                            invisible="not line_ids or production_count == 0"
+                            help="Le même besoin matière, en classeur : trois feuilles filtrables — le besoin complet, la quincaillerie par repère, la quincaillerie par article. Le PDF se prend en main dans l'atelier, le classeur se trie et se rapproche d'un état de stock. Le fichier reste en pièce jointe du lot."/>
                     <button name="action_fma_cycle_planifier" type="object"
                             string="Planifier par le cycle"
                             class="btn-primary"
