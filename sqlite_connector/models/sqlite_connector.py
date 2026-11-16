@@ -529,40 +529,51 @@ class SqliteConnector(models.Model):
 
             # To get the product category as Elevations.Name will be categ_id
             for row in resultsm:
-                if row[3] != 'Position texte' :
-                    cpt = cpt + 1
-                    Index = str(cpt)
-                    refart = row[8]
-                    # LA COMPLEXITE SE LIT APRES LE « _ ». Elevations.Model
-                    # porte la categorie avec son increment — « ALU01 » — et
-                    # le deviseur y ajoute le niveau de complexite de la
-                    # ligne, avec son nombre : « ALU01_A*3 ». La categorie
-                    # reste la partie de gauche, inchangee pour les affaires
-                    # qui n'ont pas de « _ ».
-                    #
-                    # partition et non split : une categorie pourrait porter
-                    # un « _ » de plus, et seul le PREMIER separe.
-                    categorie, _sep, complexite = (row[2] or '').partition('_')
-                    categorie = categorie.strip()
-                    complexite = complexite.strip()
-                    # Reference = affaire + position, et non le rang de la
-                    # position dans le fichier : sur une affaire exportee lot
-                    # par lot, le rang change d'un fichier a l'autre et deux
-                    # menuiseries differentes se retrouveraient sous la meme
-                    # reference.
-                    position = base_positions.get(
-                        (row[1] or '').strip(), (row[1] or '').strip()
-                    )
-                    if Tranche == '0' :
-                        refint =  projet + '_' + position
-                    else :
-                        refint =  projet + '/' + str(Tranche) + '_' + position
-                    elevID = row[1]
-                    idrefart = ''
-                    HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
-                    largNumDec = float(row[5]) if row[5] not in (None, '', ' ') else 0.0
-                    HautNum = int(HautNumDec)
-                    largNum = int(largNumDec)
+                # UNE « POSITION TEXTE » N'EST PAS UNE MENUISERIE : ni
+                # modele, ni dimensions, ni reference interne. Tout ce qui
+                # suit la supposait et l'ecartait deja, condition par
+                # condition — sauf la CREATION de l'article, qui n'avait
+                # pas la garde et ne devait son innocuite qu'au refint de
+                # la ligne PRECEDENTE, encore en memoire. Quand la
+                # premiere ligne du fichier etait une position texte,
+                # refint n'existait pas du tout : UnboundLocalError, et
+                # l'import entier tombait au lieu de sauter une ligne.
+                if row[3] == 'Position texte':
+                    continue
+
+                cpt = cpt + 1
+                Index = str(cpt)
+                refart = row[8]
+                # LA COMPLEXITE SE LIT APRES LE « _ ». Elevations.Model
+                # porte la categorie avec son increment — « ALU01 » — et
+                # le deviseur y ajoute le niveau de complexite de la
+                # ligne, avec son nombre : « ALU01_A*3 ». La categorie
+                # reste la partie de gauche, inchangee pour les affaires
+                # qui n'ont pas de « _ ».
+                #
+                # partition et non split : une categorie pourrait porter
+                # un « _ » de plus, et seul le PREMIER separe.
+                categorie, _sep, complexite = (row[2] or '').partition('_')
+                categorie = categorie.strip()
+                complexite = complexite.strip()
+                # Reference = affaire + position, et non le rang de la
+                # position dans le fichier : sur une affaire exportee lot
+                # par lot, le rang change d'un fichier a l'autre et deux
+                # menuiseries differentes se retrouveraient sous la meme
+                # reference.
+                position = base_positions.get(
+                    (row[1] or '').strip(), (row[1] or '').strip()
+                )
+                if Tranche == '0' :
+                    refint =  projet + '_' + position
+                else :
+                    refint =  projet + '/' + str(Tranche) + '_' + position
+                elevID = row[1]
+                idrefart = ''
+                HautNumDec = float(row[4]) if row[4] not in (None, '', ' ') else 0.0
+                largNumDec = float(row[5]) if row[5] not in (None, '', ' ') else 0.0
+                HautNum = int(HautNumDec)
+                largNum = int(largNumDec)
                 
                 categ = product_categories.filtered(lambda c: c.x_studio_logical_map == categorie)
                 # Le message ne concerne que les lignes qui donnent un article :
