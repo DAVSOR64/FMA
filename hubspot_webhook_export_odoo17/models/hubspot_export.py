@@ -1,8 +1,11 @@
+import base64
+import io
 import json
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import requests
+import xlsxwriter
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
@@ -323,7 +326,32 @@ class HubspotWebhookExport(models.AbstractModel):
                 "Commande": order.name if order.state in ["sale", "done"] else "",
                 "statut_chiffrage": self._map_order_status(order),
                 "statut_odoo": order.state or "",
-                "Prix": order.amount_total,
+                # LE PRIX, ET POURQUOI IL ARRIVAIT A ZERO.
+                #
+                # « Prix » porte le total de la commande. Sur un devis non
+                # confirme, ce total est souvent nul : chez FMA le chiffrage
+                # ne vit pas dans les lignes mais dans « Montant a Facturer
+                # H.T. (Devis) », saisi par le deviseur. HubSpot recevait donc
+                # des transactions a zero tant que la commande n'etait pas
+                # prise.
+                #
+                # « Prix » garde donc sa valeur quand elle existe, et retombe
+                # sur le chiffrage sinon : rien ne change pour les commandes
+                # deja remontees, et un devis cesse de valoir zero. Attention
+                # a la base : le total de commande est TTC, le chiffrage est
+                # HT. Un repli ne porte pas de taxe de toute facon.
+                #
+                # « Prix_devis » porte le chiffrage seul, toujours, pour qui
+                # veut la valeur sans avoir a deviner d'ou elle vient.
+                "Prix": self._montant_commande(order),
+                "Prix_devis": self._montant_devis(order),
+                # Les deux relances du devis, au format attendu par HubSpot —
+                # « 11/11/2026 », et vide quand la relance n'a pas eu lieu.
+                "date_relance_1": self._date_fr(
+                    order, "x_studio_date_de_relance_1"),
+                "date_relance_2": self._date_fr(
+                    order, "x_studio_date_de_relance_2"),
+                "Lien_Devis": self._lien_devis(order),
                 "SIRET": self._get_siret(partner),
                 "SIREN": self._get_siren(partner),
                 "Chantier": self._get_site_name(order),
@@ -336,6 +364,93 @@ class HubspotWebhookExport(models.AbstractModel):
             })
 
         return data
+
+    # -- Montants ----------------------------------------------------------
+    #
+    # Le chiffrage est un champ du devis, pas le total de ses lignes. Il est
+    # pose par le module « custom », dont celui-ci ne depend pas : on le lit
+    # par son nom, apres avoir verifie qu'il existe. Une base qui ne l'aurait
+    # pas doit continuer d'exporter, sans ce montant.
+    CHAMP_MONTANT_DEVIS = "so_mtt_facturer_devis"
+
+    @api.model
+    def _montant_devis(self, order):
+        """« Montant a Facturer H.T. (Devis) » : ce que le deviseur a chiffre.
+
+        Zero quand le champ n'existe pas ou n'est pas renseigne — et zero est
+        ici une reponse, pas un defaut : un devis peut n'avoir pas encore ete
+        chiffre.
+        """
+        champ = self.CHAMP_MONTANT_DEVIS
+        if champ not in order._fields:
+            return 0.0
+        return order[champ] or 0.0
+
+    @api.model
+    def _montant_commande(self, order):
+        """Ce que porte « Prix » : le total de la commande, le chiffrage sinon."""
+        return order.amount_total or self._montant_devis(order)
+
+    # -- Dates -------------------------------------------------------------
+    @api.model
+    def _date_fr(self, record, champ):
+        """Une date au format demande — « 11/11/2026 » — et vide a defaut.
+
+        Le champ peut ne pas exister : les dates de relance sont des champs
+        Studio, et ce module ne depend pas de celui qui les declare. Un champ
+        absent n'est pas une erreur, c'est une base ou la relance n'est pas
+        posee.
+
+        LE FUSEAU COMPTE. Les deux dates de relance sont des DATETIME, donc
+        stockees en UTC. Une relance enregistree a 23 h 30 a Paris est datee
+        du lendemain en UTC : sans conversion, HubSpot recevrait le jour
+        suivant. On convertit donc dans le fuseau de l'utilisateur, et a
+        defaut dans celui de la societe — un cron tourne sans fuseau
+        d'ecran.
+        """
+        if champ not in record._fields:
+            return ""
+        valeur = record[champ]
+        if not valeur:
+            return ""
+        if record._fields[champ].type == "datetime":
+            tz = (
+                self.env.context.get("tz")
+                or self.env.user.tz
+                or record.company_id.partner_id.tz
+            )
+            if tz:
+                record = record.with_context(tz=tz)
+            valeur = fields.Datetime.context_timestamp(record, valeur)
+        return valeur.strftime("%d/%m/%Y")
+
+    # -- Lien vers le devis -------------------------------------------------
+    @api.model
+    def _lien_devis(self, order):
+        """Lien de telechargement du PDF du devis, jeton d'acces compris.
+
+        C'est l'adresse du portail client : elle ouvre le devis SANS
+        connexion, sur la seule foi du jeton qu'elle porte. Quiconque detient
+        le lien detient le devis — il part dans HubSpot, il faut le savoir.
+
+        Appeler get_portal_url FABRIQUE le jeton s'il n'existe pas encore, et
+        c'est une ecriture sur la commande. Consequence a connaitre : les
+        commandes touchees par le premier envoi repartiront une fois de plus
+        le lendemain, leur date de modification ayant bouge. Une fois.
+
+        Encadre : un devis dont le lien echoue ne doit pas priver les
+        cinq cents autres de leur envoi.
+        """
+        base = self.env["ir.config_parameter"].sudo().get_param("web.base.url")
+        if not base or not hasattr(order, "get_portal_url"):
+            return ""
+        try:
+            chemin = order.get_portal_url(report_type="pdf", download=True)
+        except Exception:  # noqa: BLE001 — trace, pas de blocage
+            _logger.exception(
+                "HubSpot : lien du devis %s", order.name or order.id)
+            return ""
+        return "%s%s" % (base.rstrip("/"), chemin)
 
     @api.model
     def _get_sale_orders_to_export(self, force_full=False):
@@ -377,6 +492,121 @@ class HubspotWebhookExport(models.AbstractModel):
             "cancel": "annulé",
         }
         return mapping.get(order.state, order.state or "")
+
+    # -------------------------------------------------------------------------
+    # Historique des chiffrages, en classeur
+    # -------------------------------------------------------------------------
+    #
+    # Le webhook envoie le present ; l'historique, lui, se reprend une fois.
+    # Il peut repasser par le webhook (cf. la REPRISE complete), mais un
+    # classeur se lit, se trie et se recoupe sans rien installer : c'est ce
+    # que demande celui qui doit verifier ce qu'il a recu.
+    #
+    # Les colonnes sont CELLES DU WEBHOOK, dans le meme ordre et sous le meme
+    # nom. C'est la seule facon que le fichier et l'envoi quotidien disent la
+    # meme chose : ils sortent du meme _devis_depuis, et une colonne ajoutee
+    # a l'un suivra dans l'autre.
+    COLONNES_CHIFFRAGE = (
+        ("Client", 14), ("Devis", 18), ("Commande", 18),
+        ("statut_chiffrage", 20), ("statut_odoo", 14),
+        ("Prix", 14), ("Prix_devis", 14),
+        ("date_relance_1", 14), ("date_relance_2", 14),
+        ("Chantier", 32), ("Proprietaire", 22),
+        ("Date_Creation", 14), ("Date_Envoi", 14),
+        ("SIRET", 16), ("SIREN", 12), ("Activite", 24),
+        ("Lien_Devis", 60),
+    )
+
+    #: Les deux champs qui portent un montant : ils s'ecrivent en nombre, pas
+    #: en texte, sans quoi Excel ne sait pas les additionner.
+    COLONNES_MONTANT = ("Prix", "Prix_devis")
+
+    @api.model
+    def _chiffrages_de_la_periode(self, annee_debut, annee_fin):
+        """Les devis/commandes CREES entre le 1er janvier et le 31 decembre.
+
+        La date de creation, et non celle de commande : une transaction
+        HubSpot nait du chiffrage, pas de sa confirmation. Un devis de 2025
+        confirme en 2026 appartient a 2025, et c'est ainsi qu'il a ete compte.
+        """
+        debut = datetime(int(annee_debut), 1, 1)
+        fin = datetime(int(annee_fin) + 1, 1, 1)
+        return self.env["sale.order"].sudo().search(
+            [
+                ("state", "in", ["draft", "sent", "sale", "done", "cancel"]),
+                ("create_date", ">=", fields.Datetime.to_string(debut)),
+                ("create_date", "<", fields.Datetime.to_string(fin)),
+            ],
+            order="create_date",
+        )
+
+    @api.model
+    def _classeur_chiffrages(self, enregistrements):
+        """Le classeur, en octets."""
+        flux = io.BytesIO()
+        classeur = xlsxwriter.Workbook(flux, {"in_memory": True})
+        entete = classeur.add_format({
+            "bold": True, "bg_color": "#DDDDDD", "border": 1,
+        })
+        feuille = classeur.add_worksheet("Chiffrages")
+        for rang, (nom, largeur) in enumerate(self.COLONNES_CHIFFRAGE):
+            feuille.write(0, rang, nom, entete)
+            feuille.set_column(rang, rang, largeur)
+        feuille.freeze_panes(1, 0)
+        if enregistrements:
+            feuille.autofilter(
+                0, 0, len(enregistrements), len(self.COLONNES_CHIFFRAGE) - 1)
+        for ligne, donnees in enumerate(enregistrements, start=1):
+            for rang, (nom, _largeur) in enumerate(self.COLONNES_CHIFFRAGE):
+                valeur = donnees.get(nom, "")
+                if nom in self.COLONNES_MONTANT:
+                    feuille.write_number(ligne, rang, float(valeur or 0.0))
+                else:
+                    feuille.write_string(ligne, rang, str(valeur or ""))
+        classeur.close()
+        return flux.getvalue()
+
+    @api.model
+    def action_export_chiffrages_excel(self, annee_debut=2025, annee_fin=2026):
+        """Ecrit l'historique des chiffrages dans un classeur telechargeable.
+
+        Rien n'est envoye au webhook : c'est une extraction, pas un export.
+        Le fichier est range en piece jointe du journal, et le journal porte
+        son adresse de telechargement — une action planifiee n'a pas d'ecran
+        d'ou proposer un fichier.
+        """
+        commandes = self._chiffrages_de_la_periode(annee_debut, annee_fin)
+        enregistrements = self._devis_depuis(commandes)
+        nom = "Chiffrages HubSpot %s-%s.xlsx" % (annee_debut, annee_fin)
+        journal = self.env["hubspot.export.log"].sudo().create({
+            "name": "%s - %s" % (fields.Datetime.now(), nom),
+            "export_type": "quotes",
+            "status": "success",
+            "record_count": len(enregistrements),
+            "response_code": 0,
+            "message": _("Extraction Excel, aucun envoi au webhook."),
+        })
+        piece = self.env["ir.attachment"].sudo().create({
+            "name": nom,
+            "type": "binary",
+            "datas": base64.b64encode(self._classeur_chiffrages(enregistrements)),
+            "res_model": "hubspot.export.log",
+            "res_id": journal.id,
+            "mimetype": "application/vnd.openxmlformats-"
+                        "officedocument.spreadsheetml.sheet",
+        })
+        base = self.env["ir.config_parameter"].sudo().get_param("web.base.url")
+        adresse = "%s/web/content/%s?download=true" % (
+            (base or "").rstrip("/"), piece.id)
+        journal.message = _(
+            "%(nb)s chiffrage(s) de %(debut)s a %(fin)s.\n"
+            "Telechargement : %(adresse)s",
+            nb=len(enregistrements), debut=annee_debut, fin=annee_fin,
+            adresse=adresse,
+        )
+        _logger.info("HubSpot : %s ecrit (%s lignes) — %s",
+                     nom, len(enregistrements), adresse)
+        return adresse
 
     # -------------------------------------------------------------------------
     # HTTP POST
