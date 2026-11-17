@@ -1189,6 +1189,125 @@ class ExportSFTPScheduler(models.Model):
                 _logger.exception("[Export Power BI] ERREUR section OF_OPERATIONS: %s", e)
 
             # ========================================
+            # Temps de production : le pointage des opérateurs - export batché
+            # ========================================
+            #
+            # Une ligne par POINTAGE, et non par ordre de travail. C'est la
+            # maille de l'écran « Temps de Production » : deux opérateurs sur
+            # la même opération font deux lignes, une opération reprise le
+            # lendemain en fait deux autres. OF_OPERATIONS donne déjà le
+            # cumul ; ce fichier-ci donne le détail dont il est la somme, et
+            # les deux se recoupent.
+            #
+            # Les identifiants sont là pour que Power BI relie : ID_OF vers
+            # OF.csv, ID_OT vers OF_OPERATIONS.csv, ID_Commande vers
+            # commandes.csv, ID_Poste et ID_Employe vers les référentiels.
+            # C'est la demande même : une table de temps rattachable aux
+            # autres.
+            #
+            # Les dates sont en UTC, comme partout ailleurs dans cet export :
+            # un fuseau appliqué ici et pas aux autres tables ferait diverger
+            # les rapprochements.
+            try:
+                cache_of_temps = {}
+
+                def _contexte_pointage(mo):
+                    """La commande et le projet de l'OF, mis en cache.
+
+                    Même résolution que pour les mouvements de stock : la
+                    méthode du module « custom » d'abord, le champ natif
+                    ensuite. Un OF revient sur des dizaines de pointages, le
+                    cache évite d'y répondre à chaque fois.
+                    """
+                    if not mo:
+                        return False, False
+                    if mo.id in cache_of_temps:
+                        return cache_of_temps[mo.id]
+                    commande = False
+                    if hasattr(mo, "_fma_commande_de_la_vente"):
+                        commande = mo._fma_commande_de_la_vente()
+                    if not commande:
+                        commande = getattr(mo, "sale_id", False)
+                    projet = getattr(mo, "x_studio_projet_de_la_vente", False)
+                    cache_of_temps[mo.id] = (commande or False, projet or False)
+                    return cache_of_temps[mo.id]
+
+                temps_file = os.path.join(temp_dir, "TEMPS_PRODUCTION.csv")
+                batch_size = 1000
+                total = 0
+                with open(temps_file, "w", newline="", encoding="utf-8") as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([
+                        "ID_Pointage", "ID_OF", "OF", "ID_OT", "OT",
+                        "ID_Poste", "Poste", "ID_Employe", "Employe",
+                        "ID_Utilisateur", "Utilisateur",
+                        "Date_Debut", "Date_Fin", "Duree_Min",
+                        "Type_Temps", "Motif",
+                        "ID_Commande", "Commande", "ID_Projet", "Projet",
+                        "ID_Societe", "Societe",
+                    ])
+                    last_id = 0
+                    while True:
+                        pointages = self.env["mrp.workcenter.productivity"].search(
+                            [("id", ">", last_id)], order="id", limit=batch_size)
+                        if not pointages:
+                            break
+                        for pointage in pointages:
+                            ordre_travail = pointage.workorder_id
+                            # production_id est un related de l'ordre de
+                            # travail, present depuis la v16. On retombe sur
+                            # l'ordre de travail si la base ne l'a pas.
+                            of = getattr(pointage, "production_id", False)
+                            if not of and ordre_travail:
+                                of = ordre_travail.production_id
+                            commande, projet = _contexte_pointage(of)
+                            # employee_id vient du suivi des temps par
+                            # operateur. Il peut ne pas exister : un pointage
+                            # declare par un utilisateur et non par un
+                            # employe n'en porte pas.
+                            employe = getattr(pointage, "employee_id", False)
+                            poste = pointage.workcenter_id
+                            utilisateur = pointage.user_id
+                            societe = pointage.company_id
+                            writer.writerow([_to_cell(cell) for cell in (
+                                pointage.id,
+                                of.id if of else "",
+                                of.name if of else "",
+                                ordre_travail.id if ordre_travail else "",
+                                ordre_travail.name if ordre_travail else "",
+                                poste.id if poste else "",
+                                poste.display_name if poste else "",
+                                employe.id if employe else "",
+                                employe.name if employe else "",
+                                utilisateur.id if utilisateur else "",
+                                utilisateur.name if utilisateur else "",
+                                pointage.date_start or "",
+                                pointage.date_end or "",
+                                # La duree est deja en minutes, comme
+                                # « Duree (minutes) » a l'ecran.
+                                pointage.duration or 0.0,
+                                # Productif, arret qualite, indisponibilite :
+                                # sans cette colonne, un arret machine se
+                                # compterait comme du temps de fabrication.
+                                pointage.loss_type or "",
+                                pointage.loss_id.name if pointage.loss_id else "",
+                                commande.id if commande else "",
+                                commande.name if commande else "",
+                                projet.id if projet else "",
+                                projet.display_name if projet else "",
+                                societe.id if societe else "",
+                                societe.name if societe else "",
+                            )])
+                            total += 1
+                            last_id = pointage.id
+                        self.env.clear()
+                create_attachment(temps_file, os.path.basename(temps_file))
+                _logger.info("[Export Power BI] TEMPS_PRODUCTION: %s lignes", total)
+            except Exception as e:
+                _logger.exception(
+                    "[Export Power BI] ERREUR section TEMPS_PRODUCTION: %s", e)
+
+            # ========================================
             # Nomenclature réelle de l'OF / composants à consommer et consommés - export batché
             # ========================================
             try:
