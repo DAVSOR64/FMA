@@ -433,17 +433,43 @@ class HubspotWebhookExport(models.AbstractModel):
         connexion, sur la seule foi du jeton qu'elle porte. Quiconque detient
         le lien detient le devis — il part dans HubSpot, il faut le savoir.
 
-        Appeler get_portal_url FABRIQUE le jeton s'il n'existe pas encore, et
-        c'est une ecriture sur la commande. Consequence a connaitre : les
-        commandes touchees par le premier envoi repartiront une fois de plus
-        le lendemain, leur date de modification ayant bouge. Une fois.
+        LE JETON EST UNE ECRITURE, ET ELLE A TUE L'EXTRACTION.
 
-        Encadre : un devis dont le lien echoue ne doit pas priver les
-        cinq cents autres de leur envoi.
+        get_portal_url fabrique le jeton quand la commande n'en a pas encore,
+        et c'est donc une ecriture sur la commande. Sur l'historique complet,
+        cette ecriture a echoue en SQL : l'exception etait rattrapee ici,
+        mais la transaction PostgreSQL restait morte, et la requete suivante
+        — la recherche du premier courriel du devis d'apres — levait
+        InFailedSqlTransaction. Un echec sur une seule commande emportait
+        ainsi l'extraction entiere.
+
+        Deux garde-fous, qui ne font pas le meme travail :
+
+        - l'extraction de l'historique n'ecrit RIEN (hubspot_sans_jeton). On
+          ne distribue pas des jetons d'acces sur deux ans de devis au
+          passage d'un export, et on ne touche pas a leur date de
+          modification : elles repartiraient toutes vers HubSpot le
+          lendemain. Les devis deja partages gardent leur lien, les autres
+          n'en ont pas.
+        - l'envoi quotidien, lui, fabrique le jeton manquant, mais dans un
+          POINT DE REPRISE : si l'ecriture echoue, elle est annulee seule et
+          la transaction reste saine pour les cinq cents devis suivants.
         """
         base = self.env["ir.config_parameter"].sudo().get_param("web.base.url")
         if not base or not hasattr(order, "get_portal_url"):
             return ""
+        jeton = order.access_token if "access_token" in order._fields else False
+        if not jeton:
+            if self.env.context.get("hubspot_sans_jeton"):
+                return ""
+            try:
+                with self.env.cr.savepoint():
+                    order.sudo()._portal_ensure_token()
+            except Exception:  # noqa: BLE001 — trace, pas de blocage
+                _logger.exception(
+                    "HubSpot : jeton d'acces du devis %s",
+                    order.name or order.id)
+                return ""
         try:
             chemin = order.get_portal_url(report_type="pdf", download=True)
         except Exception:  # noqa: BLE001 — trace, pas de blocage
@@ -576,7 +602,11 @@ class HubspotWebhookExport(models.AbstractModel):
         d'ou proposer un fichier.
         """
         commandes = self._chiffrages_de_la_periode(annee_debut, annee_fin)
-        enregistrements = self._devis_depuis(commandes)
+        # SANS FABRIQUER DE JETON D'ACCES : une extraction ne modifie pas les
+        # devis. C'est cette ecriture qui cassait la transaction, et avec elle
+        # l'extraction entiere. Voir _lien_devis.
+        enregistrements = self.with_context(
+            hubspot_sans_jeton=True)._devis_depuis(commandes)
         nom = "Chiffrages HubSpot %s-%s.xlsx" % (annee_debut, annee_fin)
         journal = self.env["hubspot.export.log"].sudo().create({
             "name": "%s - %s" % (fields.Datetime.now(), nom),
