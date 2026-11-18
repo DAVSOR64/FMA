@@ -52,10 +52,15 @@ class SaleOrder(models.Model):
         hourly_cost est le seul champ de cout present sur la fiche employe.
         La version precedente essayait une liste de champs et s'arretait au
         premier qui EXISTAIT, meme vide.
+
+        Lu en sudo : le champ est reserve aux gestionnaires RH alors que
+        l'appelant est, dans le flux normal, un operateur de l'atelier. Le
+        sudo ne porte que sur cette lecture, pour que la methode tienne quel
+        que soit son appelant.
         """
         if not employee or "hourly_cost" not in employee._fields:
             return 0.0
-        return float(employee.hourly_cost or 0.0)
+        return float(employee.sudo().hourly_cost or 0.0)
 
     def _fma_recalculer_mod(self):
         """Recalcule les heures et le cout MOD reels de chaque commande.
