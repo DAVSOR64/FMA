@@ -41,7 +41,14 @@ class MrpWorkcenterProductivity(models.Model):
         if not commandes:
             return
         try:
-            commandes._fma_recalculer_mod()
+            # EN SUDO. L'evenement declencheur est le pointage d'un operateur
+            # de l'atelier : il n'a ni le droit de lire hourly_cost sur la
+            # fiche employe (champ reserve aux gestionnaires RH) ni celui
+            # d'ecrire sur la commande. Sans sudo, le recalcul echouait sur
+            # AccessError et la commande restait sur ses anciennes valeurs :
+            # les heures etaient perdues comme le cout, et personne ne le
+            # voyait puisque l'erreur n'est que journalisee.
+            commandes.sudo()._fma_recalculer_mod()
         except Exception:
             _logger.exception(
                 "MOD reelle non recalculee pour %s", ", ".join(commandes.mapped("name")))
