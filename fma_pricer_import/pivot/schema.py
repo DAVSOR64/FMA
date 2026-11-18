@@ -175,13 +175,17 @@ class Bar:
     """Barre physique achetee, telle qu'optimisee par le pricer pour ce lot."""
 
     code: str
+    #: Reference COMPLETE telle que le fichier la porte (``ArticleCode``) :
+    #: « IDA CI60402 ». ProfileBars la porte, et on ne la lisait pas — la
+    #: barre cherchait alors « CI60402.AS » quand l'article s'appelle
+    #: « IDA CI60402.AS », et se declarait introuvable alors qu'il existait.
+    ref_fichier: str = ""
     #: ``ArticleCode_BaseNumber`` — cf. Component.base_code.
     base_code: str = ""
     #: ``ArticleCode_Supplier`` : le fournisseur tel que le CODE le porte
     #: (« WICONA »), et non le libelle de la table Suppliers (« WICONA
     #: FRANCE »). C'est lui que sqlite_connector lit pour construire la
-    #: reference, donc lui qui fait foi. Vide quand le fichier ne le
-    #: donne pas — les barres, notamment.
+    #: reference, donc lui qui fait foi.
     code_supplier: str = ""
     description: str = ""
     supplier: str = ""

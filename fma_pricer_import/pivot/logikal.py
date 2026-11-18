@@ -445,10 +445,12 @@ def _attach_bars(con, quo, lots, suppliers):
 
     orphans = 0
     for (
-        bar_id, code, base_code, desc, length, used, amount, sid,
+        bar_id, code, base_code, ref_fichier, code_supplier,
+        desc, length, used, amount, sid,
         outer, inner, internal, color,
     ) in con.execute(
         """select ProfileBarID, ArticleCode_Number, ArticleCode_BaseNumber,
+                  ArticleCode, ArticleCode_Supplier,
                   Description,
                   Length_Output, UsedLength_Output, Amount, SupplierId,
                   OuterColorInfoInternal, InnerColorInfoInternal,
@@ -469,7 +471,9 @@ def _attach_bars(con, quo, lots, suppliers):
         lot.bars.append(
             Bar(
                 code=(code or "").strip(),
+                ref_fichier=(ref_fichier or "").strip(),
                 base_code=(base_code or "").strip(),
+                code_supplier=(code_supplier or "").strip(),
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
                 color=teinte_profile(quo.site, outer, inner, internal, color),

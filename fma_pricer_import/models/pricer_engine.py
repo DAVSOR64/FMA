@@ -256,10 +256,38 @@ class FmaPricerEngine(models.AbstractModel):
             ("create_date", ">=", fields.Datetime.to_string(debut)),
         ]) if affaire else self.env["product.product"]
 
-        if not libres and not incomplete:
+        # LES ARTICLES CODES CREES PENDANT CET IMPORT. Ils ne demandent pas
+        # le meme travail qu'un article libre — ils ont une reference et un
+        # catalogue — mais leur creation doit se voir : jusqu'ici elle
+        # n'existait que dans le journal du serveur, et un profile apparu
+        # tout seul dans une nomenclature n'avait aucune explication.
+        #
+        # Le critere est la case « creation auto », posee aussi bien par le
+        # connecteur que par l'import, et la fenetre de temps de cet import.
+        # Pas de filtre sur l'affaire : un profile ne porte pas son affaire
+        # dans sa reference, au contraire d'une menuiserie.
+        Produit = self.env["product.product"]
+        crees = Produit.sudo().search([
+            ("create_date", ">=", fields.Datetime.to_string(debut)),
+            ("x_studio_cration_auto", "=", True),
+            ("id", "not in", libres.ids),
+        ]) if "x_studio_cration_auto" in Produit._fields else Produit
+
+        if not libres and not crees and not incomplete:
             return
 
         lignes = []
+        if crees:
+            lignes.append(_(
+                "<b>%(nb)s article(s) cree(s) automatiquement</b> — ils "
+                "manquaient a la base et ont ete crees a la convention du "
+                "connecteur. Rien ne bloque, mais ils meritent un coup d'oeil "
+                "(prix, fournisseur, classement) :<br/>%(liste)s",
+                nb=len(crees),
+                liste="<br/>".join(
+                    "&nbsp;&nbsp;%s — %s" % (p.default_code or "", p.name)
+                    for p in crees[:20]),
+            ))
         if libres:
             lignes.append(_(
                 "<b>%(nb)s article(s) libre(s) cree(s)</b> — saisis a la main "
@@ -1853,8 +1881,15 @@ class FmaPricerEngine(models.AbstractModel):
             entry = by_key.setdefault(key, {
                 "qty": 0.0,
                 "length": bar.length_mm,
+                # LA REFERENCE COMPLETE DU FICHIER, et le fournisseur que le
+                # code porte. Sans eux, une barre dont le fournisseur n'est
+                # pas de ceux que le connecteur prefixe — IDA, CHA — cherchait
+                # « CI60402.AS » quand l'article s'appelle « IDA CI60402.AS ».
+                # Les coupes les transmettaient deja ; les barres, non.
+                "ref_fichier": getattr(bar, "ref_fichier", ""),
                 "base_code": getattr(bar, "base_code", ""),
                 "supplier": getattr(bar, "supplier", ""),
+                "code_supplier": getattr(bar, "code_supplier", ""),
             })
             entry["qty"] += bar.qty
 
@@ -1864,8 +1899,10 @@ class FmaPricerEngine(models.AbstractModel):
             product, problem = self._find_product(
                 code, color,
                 _("barre du plan de coupe"),
+                ref_fichier=entry.get("ref_fichier", ""),
                 base_code=entry.get("base_code", ""),
                 supplier=entry.get("supplier", ""),
+                code_supplier=entry.get("code_supplier", ""),
             )
             if not product:
                 missing[problem] = missing.get(problem, 0.0) + entry["qty"]
