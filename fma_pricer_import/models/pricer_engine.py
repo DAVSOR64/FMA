@@ -189,7 +189,14 @@ class FmaPricerEngine(models.AbstractModel):
             fma_affaire=quotation.project.get("offer_no") or (order.name or ""),
             # Meme regle que pour les lignes de devis : le pricer qui n'a pas
             # de redacteur doit creer lui-meme les articles qui lui manquent.
-            fma_creer_articles=quotation.pricer not in PRICERS_AVEC_REDACTEUR,
+            # TOUJOURS VRAI depuis que le connecteur cree lui aussi sans
+            # condition. Attendre le redacteur avait un sens tant qu'il
+            # finissait toujours par poser l'article ; ce n'etait pas le
+            # cas quand le fournisseur lui manquait, et le lot restait
+            # bloque sur un article que personne n'allait creer. Creer
+            # ici ne fabrique pas de doublon : _creer_article cherche
+            # d'abord la reference, a la convention du connecteur.
+            fma_creer_articles=True,
             # Longueur de barre par profile, relevee sur le plan de coupe de
             # l'affaire. C'est elle qui permet d'exprimer un besoin en metres
             # dans une unite qui compte des barres.

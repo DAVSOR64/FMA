@@ -678,7 +678,14 @@ class SqliteConnector(models.Model):
                         #"standard_price": row[7],
                         'categ_id': categ.id if categ else self._get_default_product_category().id,
                         "uom_id": self.env.ref('uom.product_uom_unit').id,
-                        "x_studio_position": elevID,
+                        # POSITION DE BASE, et non le nom brut de l'elevation. « CHAMBRE
+                        # LOT 1 » et « CHAMBRE LOT 2 » sont la meme
+                        # menuiserie fabriquee dans deux lots : la
+                        # reference de l'article l'a toujours su
+                        # (A26-11-10167_CHAMBRE), mais la position
+                        # gardait le lot et le faisait reapparaitre sur
+                        # la ligne de devis.
+                        "x_studio_position": position,
                         "fma_complexite": complexite,
                         "x_studio_hauteur_mm": HautNum,
                         "x_studio_largeur_mm": largNum,
@@ -1214,50 +1221,63 @@ class SqliteConnector(models.Model):
                 else:
                     self.log_request('Unable to find customer (x_studio_ref_logikal)', fournisseur, 'Articles Data')
                 
-                if idfrs != '':     
-                    refart = ligne[0]
-                    nom = ligne[1]
-                    prix = float (ligne[5])
-                    categorie = ligne[3]
-                    categ_id = self.env.ref(categorie)
-                    # Created new article
-                    if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
-                        vals = {
-                            'default_code': refart,
-                            'name': nom,
-                            'lst_price': prix,
-                            'standard_price': prix,
-                            'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
-                            'categ_id': categ_id.id,
-                            'purchase_ok': True,
-                            'sale_ok': True,
-                            'type': 'consu',
-                            'is_storable': True,
-                            'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_54_b165c5dc').id)],
-                            'x_studio_hauteur_mm': 0,
-                            'x_studio_largeur_mm': 0,
-                            'x_studio_ref_int_logikal' : ligne[10],
-                            'x_studio_color_logikal' : ligne[11],
-                            'x_studio_unit_logikal' : ligne[12],
-                            'x_studio_longueur_m' : ligne[13],
-                            'x_studio_cration_auto' : True,
-                            'fma_article_libre' : bool(ligne[8]),
-                            'fma_nature_logikal' : CATEGORIE_NATURE.get(ligne[3]),
-                            # 'x_studio_positionn': ''
-                            }
-                        if idfrs:
-                            vals.update({'seller_ids': [Command.create({
-                                'partner_id': idfrs,
-                                'price': prix,
-                                'delay': delai,
-                            })]})
-                        product = self.env['product.product'].create(vals)
-                        message = _("Product has been Created: ") + product._get_html_link()
-                        self.message_post(body=message)
-                        self.env.cr.commit()
-                        # created nomenclature
-                        creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
-                        
+                # CREATION INCONDITIONNELLE, comme pour les articles.
+                #
+                # Le fournisseur ne commandait rien de moins que
+                # l'existence de l'article : un fournisseur absent du
+                # referentiel — IDA, CHA — et le profile n'etait pas
+                # cree du tout. L'import du pricer le signalait ensuite
+                # comme « article inexistant dans Odoo » et bloquait le
+                # lot, pour une raison que rien a l'ecran n'expliquait.
+                #
+                # La boucle des articles ne fait pas cela : elle cree,
+                # et le fournisseur n'est qu'une ligne d'achat en plus
+                # quand on le connait. Les profiles s'alignent dessus.
+                # L'absence reste tracee par le log_request ci-dessus,
+                # et l'article porte x_studio_cration_auto.
+                refart = ligne[0]
+                nom = ligne[1]
+                prix = float (ligne[5])
+                categorie = ligne[3]
+                categ_id = self.env.ref(categorie)
+                # Created new article
+                if not self.env['product.product'].search([('default_code', '=', refart)], limit=1):
+                    vals = {
+                        'default_code': refart,
+                        'name': nom,
+                        'lst_price': prix,
+                        'standard_price': prix,
+                        'uom_id': idun if idun else self.env.ref('uom.product_uom_unit').id,
+                        'categ_id': categ_id.id,
+                        'purchase_ok': True,
+                        'sale_ok': True,
+                        'type': 'consu',
+                        'is_storable': True,
+                        'route_ids': [Command.link(self.env.ref('stock.route_warehouse0_mto').id),Command.link(self.env.ref('__export__.stock_route_54_b165c5dc').id)],
+                        'x_studio_hauteur_mm': 0,
+                        'x_studio_largeur_mm': 0,
+                        'x_studio_ref_int_logikal' : ligne[10],
+                        'x_studio_color_logikal' : ligne[11],
+                        'x_studio_unit_logikal' : ligne[12],
+                        'x_studio_longueur_m' : ligne[13],
+                        'x_studio_cration_auto' : True,
+                        'fma_article_libre' : bool(ligne[8]),
+                        'fma_nature_logikal' : CATEGORIE_NATURE.get(ligne[3]),
+                        # 'x_studio_positionn': ''
+                        }
+                    if idfrs:
+                        vals.update({'seller_ids': [Command.create({
+                            'partner_id': idfrs,
+                            'price': prix,
+                            'delay': delai,
+                        })]})
+                    product = self.env['product.product'].create(vals)
+                    message = _("Product has been Created: ") + product._get_html_link()
+                    self.message_post(body=message)
+                    self.env.cr.commit()
+                    # created nomenclature
+                    creation_nomenclature(Nomenclature, refart, idun, QteBesoin)
+                    
             for ligne in Commande :
                 idfrs = ''
                 idun = ''
