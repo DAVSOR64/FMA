@@ -89,7 +89,15 @@
     # security_lead, et non un reglage FMA de plus ; le delai de preparation
     # matiere sort du calcul de la date limite de commande, parce qu'il se
     # calcule par affaire et ne peut pas etre une constante de societe.
-    "version": "19.0.1.111.0",
+    # 1.112.0 : la matrice du cycle compte TOUTES les lignes du lot, et
+    # non les seules menuiseries. Une position matiere n'a ni largeur ni
+    # hauteur, donc n'etait pas une menuiserie : un lot qui n'en
+    # contenait qu'une tombait a zero, sans entree dans la matrice, sans
+    # cycle, et la planification annoncait une complexite manquante que
+    # les ordres affichaient pourtant. Numeros de serie, casiers et
+    # etiquettes restent reserves aux menuiseries : rien ne change pour
+    # l'atelier.
+    "version": "19.0.1.112.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

@@ -41,14 +41,18 @@ class FmaLotFabrication(models.Model):
         "fma.complexite.niveau",
         string="Complexité du lot",
         compute="_compute_fma_cycle",
-        help="La complexité la plus haute portée par les menuiseries du lot, "
-             "lue sur leur article depuis le chiffrage LOGIKAL.",
+        help="La complexité la plus haute portée par les lignes du lot, lue "
+             "sur leur article depuis le chiffrage LOGIKAL. Les positions "
+             "matière comptent : elles se débitent et s'assemblent avec le "
+             "lot, même sans dimensions.",
     )
     fma_cycle_nb_menuiseries = fields.Integer(
         string="Menuiseries du lot",
         compute="_compute_fma_cycle",
         help="Somme des quantités des repères du lot, et non son nombre de "
-             "repères : deux repères de 8 font 16 menuiseries.",
+             "repères : deux repères de 8 font 16 exemplaires. Les positions "
+             "matière y figurent, au contraire des numéros de série et des "
+             "étiquettes, qui restent réservés aux menuiseries.",
     )
     fma_cycle_id = fields.Many2one(
         "fma.cycle",
@@ -72,14 +76,33 @@ class FmaLotFabrication(models.Model):
     # ------------------------------------------------------------------
     # Les deux entrees de la matrice
     # ------------------------------------------------------------------
-    def _cycle_lignes_menuiserie(self):
+    def _cycle_lignes(self):
+        """Les lignes du lot qui entrent dans la matrice.
+
+        TOUTES CELLES QUI PORTENT UN ARTICLE, et non les seules menuiseries.
+
+        « est_menuiserie » exige que l'article porte une largeur ET une
+        hauteur. Une POSITION MATIERE — un habillage que LOGIKAL ne dimensionne
+        pas — n'en a aucune : elle ne comptait donc pas, et un lot qui n'en
+        contenait qu'une se retrouvait a zero menuiserie. Sans entree dans la
+        matrice, aucun cycle, et la planification retombait sur le chainage
+        historique en annoncant une complexite manquante — alors que l'article
+        la portait, et que les ordres l'affichaient.
+
+        Le lot n'a pas a trancher ici ce qu'est une menuiserie : ses lignes
+        sont deja celles qu'on a mises en lot, elles se debitent et
+        s'assemblent avec lui, donc elles pesent sur son cycle. Le drapeau
+        est_menuiserie garde son role ailleurs, celui qu'il a toujours eu :
+        numero de serie, casier et etiquette — une position matiere n'en
+        recoit toujours aucun.
+        """
         self.ensure_one()
-        return self.line_ids.filtered("est_menuiserie")
+        return self.line_ids.filtered(lambda ligne: ligne.product_id)
 
     def _cycle_nb_menuiseries(self):
-        """Le nombre de MENUISERIES du lot, pas son nombre de reperes."""
+        """Le nombre d'exemplaires du lot, pas son nombre de reperes."""
         self.ensure_one()
-        total = sum(self._cycle_lignes_menuiserie().mapped("product_qty"))
+        total = sum(self._cycle_lignes().mapped("product_qty"))
         return int(round(total))
 
     def _cycle_niveau(self):
@@ -102,7 +125,7 @@ class FmaLotFabrication(models.Model):
             if niveau.code
         }
         retenu = Niveau
-        for ligne in self._cycle_lignes_menuiserie():
+        for ligne in self._cycle_lignes():
             produit = ligne.product_id
             texte = produit.fma_complexite if "fma_complexite" in produit._fields else ""
             for brut in (texte or "").splitlines():
@@ -112,8 +135,7 @@ class FmaLotFabrication(models.Model):
                     retenu = niveau
         return retenu
 
-    @api.depends("line_ids.product_qty", "line_ids.est_menuiserie",
-                 "line_ids.product_id")
+    @api.depends("line_ids.product_qty", "line_ids.product_id")
     def _compute_fma_cycle(self):
         Regle = self.env["fma.cycle.regle"]
         for lot in self:
@@ -132,13 +154,27 @@ class FmaLotFabrication(models.Model):
     def _cycle_ou_erreur(self):
         """Le cycle du lot, ou l'erreur qui dit quoi corriger."""
         self.ensure_one()
+        # DEUX CAUSES, DEUX MESSAGES. L'unique message d'avant parlait de
+        # complexité manquante même quand le lot n'avait aucune ligne à lire :
+        # on cherchait la complexité sur les articles, où elle se trouvait
+        # pourtant déjà.
+        lignes = self._cycle_lignes()
+        if not lignes:
+            raise UserError(_(
+                "Le lot %(lot)s ne porte aucune ligne d'article : il n'y a "
+                "rien dont lire la complexité.",
+                lot=self.display_name,
+            ))
         niveau = self._cycle_niveau()
         if not niveau:
             raise UserError(_(
-                "Le lot %(lot)s ne porte aucune complexité exploitable. Les "
-                "articles de ses menuiseries doivent porter celle du "
-                "chiffrage LOGIKAL (A, B, C, D ou E).",
+                "Le lot %(lot)s ne porte aucune complexité exploitable. "
+                "Aucun des %(nb)s article(s) de ses lignes ne porte celle du "
+                "chiffrage LOGIKAL (A, B, C, D ou E) : %(articles)s.",
                 lot=self.display_name,
+                nb=len(lignes),
+                articles=", ".join(
+                    lignes.mapped("product_id.display_name")[:5]),
             ))
         return self.env["fma.cycle.regle"]._cycle_pour(
             niveau, self._cycle_nb_menuiseries()
