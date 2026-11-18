@@ -500,12 +500,17 @@ class MrpProduction(models.Model):
     def _get_laquage_planning_end_date(self):
         """Retourne la vraie date de fin fabrication utilisée par le rétroplanning F2M.
 
-        Priorité au champ Studio affiché sur l'OF : x_studio_date_de_fin.
-        Si ce champ est vide mais qu'une date standard existe, on la remonte dans
-        le champ Studio pour éviter l'écran "Date de fin" vide côté opérateur.
+        Priorité à « Fin de fab » (macro_forced_end), la date que le métier
+        saisit sur l'OF. Le repli sur x_studio_date_de_fin couvre le cas où
+        mrp_capacity_planning n'est pas installé.
+        Si rien n'est renseigné mais qu'une date standard existe, on la remonte
+        pour éviter l'écran "Date de fin" vide côté opérateur.
         """
         self.ensure_one()
-        x_end = getattr(self, 'x_studio_date_de_fin', False) or getattr(self, 'x_studio_date_fin', False)
+        if hasattr(self, '_date_fin_de_fab'):
+            x_end = self._date_fin_de_fab()
+        else:
+            x_end = getattr(self, 'x_studio_date_de_fin', False)
         fallback = False
         for fname in ('date_finished', 'date_deadline', 'date_planned_finished'):
             if fname in self._fields and getattr(self, fname, False):
@@ -513,8 +518,11 @@ class MrpProduction(models.Model):
                 break
         if not x_end and fallback:
             x_end = fallback
-            if 'x_studio_date_de_fin' in self._fields:
-                self.with_context(skip_laquage_sync=True).write({'x_studio_date_de_fin': fields.Date.to_date(fallback)})
+            of_sync = self.with_context(skip_laquage_sync=True)
+            if hasattr(self, '_set_date_fin_de_fab'):
+                of_sync._set_date_fin_de_fab(fields.Date.to_date(fallback))
+            elif 'x_studio_date_de_fin' in self._fields:
+                of_sync.write({'x_studio_date_de_fin': fields.Date.to_date(fallback)})
         return x_end
 
     def _replan_laquage_backward(self):

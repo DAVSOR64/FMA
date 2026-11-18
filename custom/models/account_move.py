@@ -1,4 +1,4 @@
-from odoo import api, models, fields
+from odoo import api, fields, models
 
 
 class AccountMove(models.Model):
@@ -17,7 +17,7 @@ class AccountMove(models.Model):
     #   leur valeur.
     x_studio_affaire_relance = fields.Char(string="Affaire relance")
     x_studio_code_tiers = fields.Char(string="Code (tiers)", readonly=True)
-    x_studio_compte = fields.Char(string="Compte", readonly=True)
+    x_studio_compte = fields.Char(string="Compte (texte)", readonly=True)
     x_studio_compte_1 = fields.Integer(string="Compte", readonly=True)
     x_studio_courriel = fields.Char(string="Courriel", readonly=True)
     x_studio_libelle_1 = fields.Char(string="Libelle", readonly=True)
@@ -30,11 +30,20 @@ class AccountMove(models.Model):
     x_studio_com_delegation_fac = fields.Char(string="Commentaire Délégation :")
     x_studio_mode_de_rglement = fields.Char(string="Mode de réglement")
     x_studio_related_field_m8sZb = fields.Char(string="test")
-    x_studio_mode_de_rglement_1 = fields.Char(string="Mode de réglement")
+    x_studio_mode_de_rglement_1 = fields.Char(string="Mode de réglement (bis)")
 
-    # Commercial de la facture. Recu de la commande via _prepare_invoice, ou
-    # a defaut recopie du client. Fige comme sur le devis : une facture emise
-    # ne suit plus les changements du client.
+    inv_mode_de_reglement = fields.Selection(
+        related="partner_id.part_mode_de_reglement", string="Mode de Règlement"
+    )
+    inv_code_tiers = fields.Integer(
+        related="partner_id.part_code_tiers", string="Code Tiers"
+    )
+    inv_commercial = fields.Selection(
+        related="partner_id.part_commercial", string="Commercial (ancienne liste)"
+    )
+    # Recopie depuis la commande (cf. sale.order._prepare_invoice) ou, a
+    # defaut, depuis le client. Stocke et modifiable : une facture emise ne
+    # doit plus suivre les changements de commercial du client.
     commercial_id = fields.Many2one(
         "hr.employee",
         string="Commercial",
@@ -45,16 +54,9 @@ class AccountMove(models.Model):
         index="btree_not_null",
     )
 
-    @api.depends("partner_id")
-    def _compute_commercial_id(self):
-        # Les factures issues d'une commande recoivent leur commercial par
-        # _prepare_invoice, ce qui court-circuite ce calcul.
-        for move in self:
-            move.commercial_id = move.partner_id.x_studio_commercial_1
-
     # Mode de reglement, sur le referentiel x_reglements. Recopie depuis la
-    # commande (_prepare_invoice) ou, a defaut, depuis le client. Fige : une
-    # facture emise ne suit plus les changements du client.
+    # commande (_prepare_invoice) ou, a defaut, depuis le client. Fige comme
+    # commercial_id : une facture emise ne suit plus les changements du client.
     mode_reglement_id = fields.Many2one(
         "x_reglements",
         string="Mode de règlement",
@@ -69,15 +71,14 @@ class AccountMove(models.Model):
         for move in self:
             move.mode_reglement_id = move.partner_id.x_studio_mode_de_rglement_dsa
 
-    inv_mode_de_reglement = fields.Selection(
-        related="partner_id.part_mode_de_reglement", string="Mode de Règlement"
-    )
-    inv_code_tiers = fields.Integer(
-        related="partner_id.part_code_tiers", string="Code Tiers"
-    )
-    inv_commercial = fields.Selection(
-        related="partner_id.part_commercial", string="Commercial"
-    )
+    @api.depends("partner_id")
+    def _compute_commercial_id(self):
+        # Meme regle que sur sale.order : affectation inconditionnelle, sans
+        # jamais lire le champ calcule. Les factures issues d'une commande
+        # recoivent leur commercial par _prepare_invoice, ce qui court-circuite
+        # ce calcul.
+        for move in self:
+            move.commercial_id = move.partner_id.x_studio_commercial_1
     inv_commande_client = fields.Char(string="N° Commande Client")
     inv_affacturage = fields.Boolean(
         related="partner_id.part_affacturage", string="Affacturage"

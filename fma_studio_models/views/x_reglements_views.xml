@@ -4,9 +4,41 @@
         <field name="name">x_reglements.list</field>
         <field name="model">x_reglements</field>
         <field name="arch" type="xml">
-            <list string="Règlements">
+            <!-- Editable sur place : ce referentiel se saisit en quelques
+                 lignes, ouvrir un formulaire pour chacune serait une corvee. -->
+            <list string="Règlements" editable="bottom">
+                <field name="x_studio_sequence" widget="handle"/>
                 <field name="x_name"/>
+                <field name="x_studio_libelle"/>
+                <field name="x_active" widget="boolean_toggle"/>
             </list>
+        </field>
+    </record>
+
+    <!-- Vue formulaire fournie par le module.
+         Sans elle, Odoo n'en avait aucune, et Studio en a genere une au
+         premier clic — avec un fil de discussion, comme il le fait par
+         defaut. Or ce modele n'herite pas de mail.thread : la consultation
+         d'un enregistrement plantait sur _get_thread_with_access.
+         Une vue portee par le module evite d'avoir a passer par Studio, et
+         ne pose que ce que le modele sait faire. -->
+    <record id="view_x_reglements_form" model="ir.ui.view">
+        <field name="name">x_reglements.form</field>
+        <field name="model">x_reglements</field>
+        <field name="arch" type="xml">
+            <form string="Règlement">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="x_name"/>
+                        <h1><field name="x_name" placeholder="VIREMENT BANCAIRE"/></h1>
+                    </div>
+                    <group>
+                        <field name="x_studio_libelle"/>
+                        <field name="x_studio_sequence"/>
+                        <field name="x_active"/>
+                    </group>
+                </sheet>
+            </form>
         </field>
     </record>
 
@@ -14,14 +46,22 @@
         <field name="name">x_reglements.search</field>
         <field name="model">x_reglements</field>
         <field name="arch" type="xml">
-            <search string="Règlements"/>
+            <search string="Règlements">
+                <field name="x_name"/>
+                <field name="x_studio_libelle"/>
+                <filter name="inactifs" string="Archivés"
+                        domain="[('x_active', '=', False)]"/>
+            </search>
         </field>
     </record>
 
     <record id="action_x_reglements" model="ir.actions.act_window">
         <field name="name">Réglements</field>
         <field name="res_model">x_reglements</field>
-        <field name="view_mode">list</field>
+        <field name="view_mode">list,form</field>
+        <!-- view_id reste epingle : c'est ce qui avait ete fait pour tous les
+             ecrans x_* portes depuis Studio, afin qu'une vue Studio residuelle
+             ne s'impose pas a la place. -->
         <field name="view_id" ref="view_x_reglements_list"/>
         <field name="search_view_id" ref="view_x_reglements_search"/>
     </record>

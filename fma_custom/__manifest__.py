@@ -12,11 +12,36 @@
     """,
     "summary": "Custom delete button",
     "author": "Odoo PS",
-    "version": "19.0.1.0.13",
-    "depends": ["custom", "hr", "sale", "purchase", "mrp", "account", "stock"],
+    # 1.0.21 : rattachement d'un achat a une commande client (champ
+    # « Commande client » sur l'achat et ses lignes), prix de revient ventile
+    # par ligne de commande, achats du projet non rattaches signales. Champs
+    # stockes nouveaux : la mise a jour du module est obligatoire.
+    # 1.0.22 : les achats de services rattaches (sous-traitance, laquage,
+    # pose) entrent au PRI, dans la matiere, et sont affiches a part ; MOD
+    # saisie et MOD calculee par Odoo cote a cote, avec leur ecart.
+    # 1.0.25 : la colonne SIRET du fichier clients lit le SIRET (fma_siret)
+    # et se replie sur le SIREN.
+    # 1.0.26 : la colonne SIRET relit company_registry, comme en production.
+    "version": "19.0.1.7.0",
+    # « custom_sale_order » : il pose l'onglet du cout MOD reel, ou le
+    # prix de revient vient se loger. On herite de la vue qui CREE
+    # l'onglet, jamais d'une vue sœur.
+    #
+    # « fma_sale_order_custom » : il porte fma_facture_ht, que le bloc
+    # Facturation affiche. Sans cette dependance le module se chargeait
+    # AVANT lui et la vue echouait — « Field "fma_facture_ht" does not
+    # exist in model "sale.order" ». Le bloc aurait pu rester chez lui,
+    # mais il aurait fallu l'ancrer depuis une vue sœur, dont l'ordre
+    # d'application depend des priorites : on prefere la dependance.
+    "depends": ["custom", "custom_sale_order", "fma_sale_order_custom",
+                "hr", "sale", "purchase", "mrp", "account", "stock"],
     "data": [
         "views/mail_templates.xml",
         "views/sale_order_actions.xml",
+        "views/sale_order_views.xml",
+        "views/sale_order_pri_views.xml",
+        "views/purchase_order_views.xml",
+        "views/res_config_settings_views.xml",
         "views/res_partner_actions.xml",
         "views/hr_employee_actions.xml",
         "views/stock_picking_actions.xml",

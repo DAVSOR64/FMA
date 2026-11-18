@@ -10,12 +10,12 @@ class MrpProdFollowupWeek(models.Model):
     _order = "month_start desc, week_start desc, workcenter_name asc"
 
     atelier_id = fields.Many2one("fma.atelier", string="Atelier", readonly=True)
-    atelier_label = fields.Char(string="Atelier", readonly=True)
+    atelier_label = fields.Char(string="Atelier (libellé)", readonly=True)
     month_start = fields.Date(string="Mois", readonly=True)
-    month_label = fields.Char(string="Mois", readonly=True)
+    month_label = fields.Char(string="Mois (libellé)", readonly=True)
     week_start = fields.Date(string="Début semaine", readonly=True)
     week_label = fields.Char(string="Semaine", readonly=True)
-    workcenter_id = fields.Many2one('mrp.workcenter', string="Poste de travail", readonly=True)
+    workcenter_id = fields.Many2one('mrp.workcenter', string="Poste de travail (fiche)", readonly=True)
     workcenter_name = fields.Char(string="Poste de travail", readonly=True)
     capacite_heures = fields.Float(string="Capacité (h)", digits=(10, 2), readonly=True)
     charge_prevue_heures = fields.Float(string="Charge prévue (h)", digits=(10, 2), readonly=True)

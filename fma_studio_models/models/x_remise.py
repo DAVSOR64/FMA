@@ -94,12 +94,12 @@ class XRemiseChantier(models.Model):
     x_active = fields.Boolean(string="Actif", default=True)
     x_name = fields.Char(string="Description", required=True, translate=True)
     x_studio_libelle = fields.Char(string="libelle")
-    x_studio_libelle_1 = fields.Many2one("x_remise_chantier_line_46d7e", string="libelle")
+    x_studio_libelle_1 = fields.Many2one("x_remise_chantier_line_46d7e", string="libelle (ligne 46d7e)")
     x_studio_many2one_field_2m5_1invkcoub = fields.Many2one("x_remise_chantier", string="Nouveau Many2One")
     x_studio_sequence = fields.Integer(string="Séquence")
     x_studio_one2many_field_3o8_1invkeis7 = fields.One2many(
-        "x_remise_chantier_line_da285", "x_remise_chantier_id", string="Nouvelles lignes"
+        "x_remise_chantier_line_da285", "x_remise_chantier_id", string="Nouvelles lignes (da285)"
     )
     x_studio_one2many_field_8i9_1invkbjin = fields.One2many(
-        "x_remise_chantier_line_46d7e", "x_remise_chantier_id", string="Nouvelles lignes"
+        "x_remise_chantier_line_46d7e", "x_remise_chantier_id", string="Nouvelles lignes (46d7e)"
     )

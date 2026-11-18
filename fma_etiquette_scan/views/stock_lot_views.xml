@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_stock_lot_form_fma_etiquette" model="ir.ui.view">
+        <field name="name">stock.lot.form.fma.etiquette</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_fma_voir_tickets" type="object"
+                        class="oe_stat_button" icon="fa-life-ring">
+                    <field name="fma_ticket_count" widget="statinfo" string="Tickets SAV"/>
+                </button>
+                <button name="action_fma_voir_of" type="object"
+                        class="oe_stat_button" icon="fa-cogs"
+                        invisible="not fma_production_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Ordre de</span>
+                        <span class="o_stat_text">fabrication</span>
+                    </div>
+                </button>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <group string="Menuiserie" name="fma_menuiserie"
+                       invisible="not fma_production_id">
+                    <group>
+                        <field name="fma_production_id"/>
+                        <field name="fma_etat_fabrication" widget="badge"/>
+                        <field name="fma_operation_en_cours"
+                               invisible="fma_etat_fabrication in ('done', 'cancel')"/>
+                        <field name="fma_lot_fabrication_id"/>
+                        <field name="fma_repere"/>
+                        <field name="fma_casier"/>
+                        <field name="fma_casier_emplacement"/>
+                        <field name="fma_dimensions"/>
+                    </group>
+                    <group>
+                        <field name="fma_sale_order_id"/>
+                        <field name="fma_partner_id"/>
+                        <field name="fma_affaire"/>
+                        <field name="fma_chantier"/>
+                        <field name="fma_date_fabrication"/>
+                        <field name="fma_livraison"/>
+                        <field name="fma_picking_id"/>
+                        <field name="fma_sav_url" widget="url"/>
+                    </group>
+                </group>
+                <group string="Historique de la menuiserie" name="fma_historique"
+                       invisible="not fma_production_id">
+                    <field name="fma_historique" nolabel="1" colspan="2"/>
+                </group>
+                <div invisible="not fma_production_id">
+                    <button name="action_fma_imprimer_etiquette" type="object"
+                            string="Imprimer l'étiquette" class="btn-secondary me-1"/>
+                    <button name="action_fma_creer_ticket" type="object"
+                            string="Créer un ticket SAV" class="btn-secondary"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_stock_lot_list_fma_menuiserie" model="ir.ui.view">
+        <field name="name">stock.lot.list.fma.menuiserie</field>
+        <field name="model">stock.lot</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list string="Menuiseries" create="0">
+                <field name="name" string="N° de série / casier"/>
+                <field name="fma_repere"/>
+                <field name="product_id"/>
+                <field name="fma_lot_fabrication_id"/>
+                <field name="fma_sale_order_id"/>
+                <field name="fma_partner_id"/>
+                <field name="fma_chantier" optional="show"/>
+                <field name="fma_production_id" optional="show"/>
+                <field name="fma_etat_fabrication" widget="badge"
+                       decoration-success="fma_etat_fabrication == 'done'"
+                       decoration-warning="fma_etat_fabrication == 'progress'"
+                       decoration-info="fma_etat_fabrication == 'confirmed'"/>
+                <field name="fma_operation_en_cours" optional="show"/>
+                <field name="fma_casier_emplacement" optional="show"/>
+                <field name="fma_livraison" optional="show"/>
+                <field name="fma_ticket_count" string="SAV"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_fma_menuiseries" model="ir.actions.act_window">
+        <field name="name">Menuiseries (numéros de série)</field>
+        <field name="res_model">stock.lot</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_stock_lot_list_fma_menuiserie"/>
+        <field name="domain">[('fma_est_menuiserie', '=', True)]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucune menuiserie numérotée
+            </p>
+            <p>
+                Les numéros de série sont posés par « Générer les OF » sur un
+                lot de fabrication : un ordre et un numéro par menuiserie.
+            </p>
+        </field>
+    </record>
+
+</odoo>

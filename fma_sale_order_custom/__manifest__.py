@@ -9,28 +9,45 @@
             Task: 4098688
         """,
     "author": "Odoo PS",
+    # 1.0.7 : le bouton « Validé » renseigne « Devis validé le », qui
+    # alimente le taux de transformation du tableau de bord.
+    # 1.0.8 : pose les champs de relance et le commentaire dans l'onglet
+    # Chronologie cree par « custom ». Ils sont declares ici, et « custom »
+    # ne peut pas dependre de ce module : il en est la dependance.
     # 1.0.9 : barre d'etat allegee, Pro forma et Annuler passent dans le
     # menu Action (actions serveur liees au modele).
-    # 1.0.10 : portage des champs Studio x_studio_avancement,
-    # x_studio_commercial_si_prospect et x_studio_motif_annul, definitions
-    # relevees en base. Prealable a la refonte de la vue : un champ
-    # « manual » n'existe pas au chargement des vues des modules.
-    # 1.0.12 : les quatre paves de la maquette. Sans les notions de projet,
-    # de chantier ni de tranche, qui restent sur Staging_19 — d'ou l'absence
-    # de la dependance sale_project et de views/project_project_views.xml.
-    # 1.0.19 : RAF HT devient un champ calcule et stocke, et il n'y en
-    # a plus qu'un. Reprise des commandes deja en base en post-migrate.
-    # 1.0.20 : RAF HT visible dans l'onglet Analyse Financiere, avec le
-    # total HT et le facture HT qui le composent.
-    "version": "19.0.1.0.20",
+    # 1.0.10 : portage des 4 derniers champs Studio de sale.order
+    # (x_studio_avancement, x_studio_commercial_si_prospect,
+    # x_studio_motif_annul, x_studio_commercial_client_mtn), definitions
+    # relevees en base. Prealable indispensable a la refonte de la vue :
+    # un champ « manual » n'existe pas au chargement des vues des modules.
+    # 1.0.11 : x_studio_commercial_1 devient le reflet de commercial_id.
+    # 1.0.12 : fusion avec iziqo-sales-sync. Le pave « Affaire & equipe »
+    # garde projet, chantier et tranche : ces notions restent propres a
+    # Staging_19, l'autre branche ne les portait pas encore.
+    # 1.0.55 : RAF HT devient un calcul stocke — reprise dans
+    # migrations/19.0.1.0.55, numerotee pour CETTE branche : un dossier
+    # 19.0.1.0.50 ne tournerait jamais sur une base deja en 1.0.54.
+    # 1.0.58 : le bloc Facturation devient une vue fille de celle qui
+    # cree l'onglet, au lieu d'une soeur. Entre soeurs l'ordre depend des
+    # id : une base chargeait, l'autre refusait, a code identique.
+    "version": "19.0.1.0.64",
     "depends": [
         "sale_management",
         "custom",
         "fma_studio_models",
         "crm",
         "project",
+        # Porte sale.order.project_id, le champ projet natif retenu en
+        # 19.0.1.0.3 comme remplacant d'analytic_account_id (supprime en v19)
+        # et deja lu par mrp_capacity_planning et fma_mrp_dashboard. Sans
+        # cette dependance, nos vues ne peuvent pas le placer.
+        "sale_project",
         "documents",
     ],
-    "data": ["views/sale_order_views.xml"],
+    "data": [
+        "views/sale_order_views.xml",
+        "views/project_project_views.xml",
+    ],
     "license": "LGPL-3",
 }

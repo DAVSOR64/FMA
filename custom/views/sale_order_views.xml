@@ -84,8 +84,31 @@
                         </group>
                         <group string="Commande et production">
                             <field name="so_date_ARC"/>
+                            <!-- LE VERROU LIT so_fab_lancee, PAS LA DATE.
+                                 Odoo N'ENVOIE PAS un champ passe en lecture
+                                 seule. Avec « readonly="so_date_bon_pour_fab" »,
+                                 celui qui renseignait le BPE puis le Bon pour
+                                 fabrication dans le meme geste voyait le
+                                 verrou se fermer A LA FRAPPE, avant tout
+                                 enregistrement : le BPE restait a l'ecran et
+                                 ne partait jamais au serveur. Il revenait
+                                 vide, et la date de livraison prevue avec lui.
+
+                                 so_fab_lancee porte l'etat ENREGISTRE (cf.
+                                 _fma_sync_fab_lancee) : il vaut encore Faux
+                                 pendant la saisie, le BPE passe, et le verrou
+                                 se ferme au rechargement. Le pave de l'entete
+                                 a ete corrige ainsi ; cet onglet-ci, qui est
+                                 la source de verite des dates, y avait
+                                 echappe.
+
+                                 Le champ est pose ici, invisible, plutot
+                                 qu'emprunte a la vue d'un module situe en
+                                 aval : un verrou ne doit pas dependre d'un
+                                 champ qu'une autre vue ajoute. -->
+                            <field name="so_fab_lancee" invisible="1"/>
                             <field name="so_date_bpe"
-                                   readonly="so_date_bon_pour_fab"/>
+                                   readonly="so_fab_lancee"/>
                             <field name="so_date_bon_pour_fab"/>
                             <field name="so_date_debut_fab"/>
                             <field name="so_date_de_fin_de_production_reel"/>

@@ -16,7 +16,7 @@
                 }
             </style>
         </xpath>
-        <xpath expr="//div[@class='page mb-4']" position="before">
+        <xpath expr="//div[hasclass('page', 'mb-4')]" position="before">
             <div class="header_table">
                 <div style="margin-left: 400px;">
                     <span t-field="o.partner_id" />
@@ -51,14 +51,18 @@
                 <div style="text-align: right;">
                     <br>
                         <strong>Commercial :</strong>
-                        <span t-field="o.inv_commercial" />
+                        <!-- Nouveau champ s'il est renseigne, ancienne
+                             sélection sinon : les factures anterieures a la
+                             bascule continuent d'afficher le bon nom. -->
+                        <span t-if="o.commercial_id" t-field="o.commercial_id"/>
+                        <span t-else="" t-field="o.inv_commercial"/>
                     </br>
                 </div>
             </div>
         </xpath>
         <!-- Masque au lieu d'etre supprime : l10n_fr_account accroche ses
              mentions SIRET sur (//address)[1..3], toutes contenues ici. -->
-        <xpath expr="//div[@class='row'][1]" position="attributes">
+        <xpath expr="//div[hasclass('row')][1]" position="attributes">
             <attribute name="t-if">False</attribute>
         </xpath>
         <!-- Rajout du factor suivant le boolean du client-->
@@ -117,17 +121,15 @@
                                 <span t-field="o.invoice_date_due" />
                             </td>
                             <td>
-                                <!-- Trois sources, de la plus ancienne a la plus
-                                     recente. x_studio_libelle_1 reste en tete :
-                                     c'est ce qui s'imprime aujourd'hui, et le
-                                     reimprimer autrement changerait le PDF de
-                                     factures deja envoyees au client.
+                                <!-- Trois sources, de la plus ancienne a la plus recente.
+                                     x_studio_libelle_1 reste en tete : c'est ce qui s'imprime
+                                     aujourd'hui, et reimprimer autrement une facture deja
+                                     envoyee au client changerait le document.
 
-                                     Le referentiel prend le relais des que ce
-                                     champ Studio est vide — le cas des factures
-                                     recentes, ou seul mode_reglement_id est
-                                     alimente. C'est lui qui aligne la facture
-                                     sur le devis. -->
+                                     Le referentiel prend le relais des que ce champ Studio est
+                                     vide — le cas des factures recentes, ou seul
+                                     mode_reglement_id est alimente. C'est lui qui aligne la
+                                     facture sur le devis. -->
                                 <t t-if="o.x_studio_libelle_1">
                                     <span t-field="o.x_studio_libelle_1"/>
                                 </t>

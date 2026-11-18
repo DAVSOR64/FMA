@@ -2,6 +2,7 @@ import logging
 from odoo import models, fields, api
 from odoo.exceptions import UserError
 from odoo.tools import float_round
+from odoo.exceptions import UserError
 from datetime import timedelta
 
 _logger = logging.getLogger(__name__)
@@ -59,6 +60,40 @@ class SaleOrder(models.Model):
             manquants.append("la date de BPE")
         return manquants
 
+    def _fma_alerte_dates(self, manquants):
+        """L'alerte commune a l'ARC et au BPE, pour ne la rediger qu'une fois."""
+        return {
+            "warning": {
+                "title": "Dates de livraison incomplètes",
+                "message": (
+                    "Il manque %s.\n\n"
+                    "Ces informations déterminent les dates de livraison "
+                    "prévue et réelle : sans elles, l'affaire restera sans "
+                    "date. Vous pouvez enregistrer et les compléter ensuite."
+                    % " et ".join(manquants)
+                ),
+            }
+        }
+
+    @api.onchange("so_date_bpe")
+    def _onchange_so_date_bpe_alerte(self):
+        """Previent quand le BPE est pose sans delai confirme.
+
+        Les deux vont par paire : « Date de livraison prevue » vaut BPE +
+        delai, et _compute_so_date_de_livraison n'ecrit RIEN tant que l'un
+        des deux manque — ni la date de livraison, ni commitment_date. Un BPE
+        saisi seul donne donc une affaire qui semble datee alors qu'aucune
+        date n'a ete calculee, et le cycle de fabrication refuse de planifier
+        faute de date de livraison.
+
+        Une alerte et non un refus, pour la meme raison que sur l'ARC : celui
+        qui pose le BPE ne detient pas toujours le delai. Il enregistre,
+        quelqu'un complete.
+        """
+        if not self.so_date_bpe or self.so_delai_confirme_en_semaine:
+            return
+        return self._fma_alerte_dates(["le délai confirmé (en semaines)"])
+
     @api.onchange("so_date_ARC")
     def _onchange_so_date_arc_alerte(self):
         """Prévient, sans bloquer, quand l'ARC arrive sans délai ni BPE.
@@ -81,18 +116,7 @@ class SaleOrder(models.Model):
         manquants = self._fma_manque_delai_bpe()
         if not manquants:
             return
-        return {
-            "warning": {
-                "title": "Dates de livraison incomplètes",
-                "message": (
-                    "L'ARC est renseigné mais il manque %s.\n\n"
-                    "Ces informations déterminent les dates de livraison "
-                    "prévue et réelle : sans elles, l'affaire restera sans "
-                    "date. Vous pouvez enregistrer et les compléter ensuite."
-                    % " et ".join(manquants)
-                ),
-            }
-        }
+        return self._fma_alerte_dates(manquants)
 
     # Le decorateur etait pose sur la methode precedente, qui n'est pas un
     # calcul : so_retard_motif est stocke sans dependance, il n'etait donc
@@ -245,8 +269,62 @@ class SaleOrder(models.Model):
     delivery_set = fields.Boolean(string="Delivery Set")
     recompute_delivery_price = fields.Boolean(string="Delivery Price")
 
-    so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement")
-    so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial")
+    so_mode_reglement = fields.Selection(related='partner_id.part_mode_de_reglement', string="Mode de Règlement (client)")
+    so_commercial = fields.Selection(related='partner_id.part_commercial', string="Commercial (ancienne liste)")
+
+    # Mode de reglement du devis, sur le referentiel x_reglements.
+    #
+    # Cette notion etait eclatee sur neuf champs : quatre sur le client
+    # (un Char mort, un Many2one vers x_reglements jamais affiche, et deux
+    # Selection aux valeurs strictement identiques), trois sur le devis, deux
+    # sur la facture. Celui qui etait affiche sur le devis — un Char — n'etait
+    # alimente que par _prepare_order, methode du portail jamais appelee ici :
+    # il etait donc toujours vide.
+    #
+    # On repart du referentiel, seul endroit ou la liste des modes se
+    # maintient sans toucher au code. Meme motif que commercial_id :
+    # pre-rempli depuis le client, modifiable, puis fige — changer le mode de
+    # reglement d'un client ne doit pas reecrire ses affaires en cours.
+    mode_reglement_id = fields.Many2one(
+        "x_reglements",
+        string="Mode de règlement",
+        compute="_compute_mode_reglement_id",
+        store=True,
+        readonly=False,
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_mode_reglement_id(self):
+        # Affectation inconditionnelle, et sans jamais lire le champ calcule.
+        for order in self:
+            order.mode_reglement_id = order.partner_id.x_studio_mode_de_rglement_dsa
+
+    # Commercial de l'affaire : recopie depuis le client a la selection de
+    # celui-ci, puis **fige**. « compute + store + readonly=False » et non un
+    # related : changer le commercial d'un client ne doit rien changer aux
+    # devis et factures deja etablis, sans quoi la remuneration serait
+    # reecrite retroactivement. Le deviseur peut le modifier (conges, vente
+    # faite par un autre commercial).
+    commercial_id = fields.Many2one(
+        "hr.employee",
+        string="Commercial",
+        compute="_compute_commercial_id",
+        store=True,
+        readonly=False,
+        domain="[('department_id.name', '=', 'Commerce')]",
+        index="btree_not_null",
+    )
+
+    @api.depends("partner_id")
+    def _compute_commercial_id(self):
+        # Un compute doit affecter une valeur a *chaque* enregistrement, et ne
+        # jamais lire le champ qu'il calcule : le lire declencherait son propre
+        # calcul. On affecte donc sans condition. Une valeur fournie a la
+        # creation (cf. _prepare_invoice) reste prioritaire : Odoo n'appelle
+        # pas le calcul quand le champ est dans les valeurs ecrites.
+        for order in self:
+            order.commercial_id = order.partner_id.x_studio_commercial_1
     so_code_tiers = fields.Integer(related='partner_id.part_code_tiers', string="Code Tiers")
     so_commande_client = fields.Char(string="N° Commande Client")
 
@@ -263,6 +341,51 @@ class SaleOrder(models.Model):
 
     so_date_ARC = fields.Date(string="ARC du : ")
     so_date_bon_pour_fab = fields.Date(string="Bon pour Fab. le : ")
+    # VERROU DU BON POUR FABRICATION, ET POURQUOI IL NE LIT PAS LA DATE.
+    #
+    # Le delai confirme et le BPE se figent des que le Bon pour fabrication
+    # est pose : passe ce point l'atelier est lance, et deplacer ces deux
+    # valeurs deplacerait des dates de livraison sur lesquelles la production
+    # s'est engagee. La vue portait donc « readonly="so_date_bon_pour_fab" ».
+    #
+    # Seulement, Odoo N'ENVOIE PAS un champ passe en lecture seule. Celui qui
+    # renseignait d'un seul geste l'ARC, le delai, le BPE et le Bon pour
+    # fabrication voyait le verrou se fermer a la frappe, AVANT
+    # l'enregistrement : les deux valeurs qu'il venait de saisir restaient
+    # dans l'ecran et ne partaient jamais au serveur. Elles revenaient vides.
+    #
+    # Ce booleen porte l'etat ENREGISTRE, pas l'etat de l'ecran. Il n'est pas
+    # calcule — un calcul serait rejoue par le moteur d'onchange et se
+    # refermerait aussi vite. Il est ecrit apres coup, a la creation et a
+    # l'ecriture : pendant la saisie il vaut encore Faux, la saisie passe, et
+    # le verrou se ferme au rechargement.
+    so_fab_lancee = fields.Boolean(
+        string="Fabrication lancée",
+        copy=False,
+        help="Vrai dès que le Bon pour fabrication a été ENREGISTRÉ. Fige le "
+        "délai confirmé et la date de BPE, dont dépendent les dates de "
+        "livraison sur lesquelles la production s'est engagée.",
+    )
+
+    def _fma_sync_fab_lancee(self):
+        """Aligne le verrou sur la date reellement enregistree."""
+        for order in self:
+            valeur = bool(order.so_date_bon_pour_fab)
+            if order.so_fab_lancee != valeur:
+                order.so_fab_lancee = valeur
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = super().create(vals_list)
+        orders._fma_sync_fab_lancee()
+        return orders
+
+    def write(self, vals):
+        res = super().write(vals)
+        # Pas de recursion : la seconde ecriture ne porte que so_fab_lancee.
+        if "so_date_bon_pour_fab" in vals:
+            self._fma_sync_fab_lancee()
+        return res
     so_date_de_fin_de_production_reel = fields.Date(string="Fin de production du : ")
     # Debut de fab : le jour ou la production a reellement commence,
     # c'est-a-dire le plus ancien transfert TERMINE parmi ceux des OF de
@@ -273,8 +396,15 @@ class SaleOrder(models.Model):
     # calcule : un calcul stocke qui ne trouve rien ecrit du vide, et un
     # recalcul de masse efface l'historique. C'est deja arrive ici.
     so_date_debut_fab = fields.Date(string="Début de fab", copy=False)
-    so_date_de_livraison = fields.Date(string="Livraison prévue le : ", compute='_compute_so_date_de_livraison', store=True)
-    so_date_de_livraison_prevu = fields.Date(string="Date livraison saisie")
+    # Deux dates de livraison, et deux seulement -- ce sont les libelles de
+    # la prod :
+    #  - « Date de livraison prévue » : la date promise au client, BPE +
+    #    delai confirme. C'est elle qui alimente commitment_date (cf.
+    #    _compute_so_date_de_livraison), inutile d'afficher les deux.
+    #  - « Date de livraison » : celle du bon de livraison client, recopiee
+    #    depuis son scheduled_date (custom_delivery).
+    so_date_de_livraison = fields.Date(string="Date de livraison prévue", compute='_compute_so_date_de_livraison', store=True)
+    so_date_de_livraison_prevu = fields.Date(string="Date de livraison")
     # Livraison REELLE : la date effective des bons de livraison. A ne pas
     # confondre avec so_date_de_livraison_prevu juste au-dessus, qui porte la
     # date REVISEE recopiee de la date planifiee du BL — et sur laquelle le
@@ -493,6 +623,15 @@ class SaleOrder(models.Model):
         invoice_vals['x_studio_com_delegation_fac'] = self.x_studio_com_delegation
         invoice_vals['x_studio_mode_de_rglement'] = self.x_studio_mode_de_rglement_1
         invoice_vals['x_studio_date_de_la_commande'] = self.x_studio_date_de_la_commande
+        # La facture garde le commercial du moment de la vente, pas celui que
+        # porte le client aujourd'hui : c'est ce qui rend la remuneration
+        # auditable.
+        invoice_vals['commercial_id'] = self.commercial_id.id
+        # Meme regle pour le mode de reglement : la facture garde celui de la
+        # vente. Le PDF continue de lire les anciens champs tant que le
+        # referentiel n'est pas peuple ; c'est un basculement a faire une fois
+        # les donnees en place, pas maintenant.
+        invoice_vals['mode_reglement_id'] = self.mode_reglement_id.id
         return invoice_vals
 
     @api.depends('so_date_bpe', 'so_delai_confirme_en_semaine')

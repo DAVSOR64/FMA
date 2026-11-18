@@ -1,0 +1,335 @@
+# -*- coding: utf-8 -*-
+"""Point d'entree commercial de la mise en lot.
+
+Le devis est l'ecran d'ou part le lotissement : un bouton ouvre le wizard
+qui liste les lignes et laisse saisir, pour chacune, un numero de lot et la
+quantite a y placer.
+"""
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
+from odoo.tools import float_compare
+
+
+class SaleOrder(models.Model):
+    _inherit = "sale.order"
+
+    lot_ids = fields.Many2many(
+        "fma.lot.fabrication",
+        string="Lots de fabrication",
+        compute="_compute_lot_ids",
+        store=False,
+    )
+    lot_count = fields.Integer(
+        string="Nb lots",
+        compute="_compute_lot_ids",
+    )
+    qty_to_lot_total = fields.Float(
+        string="Reste a lotir",
+        compute="_compute_lot_ids",
+        digits="Product Unit of Measure",
+    )
+
+    @api.depends(
+        "order_line.lot_line_ids.lot_id",
+        "order_line.lot_line_ids.lot_id.state",
+        "order_line.lot_line_ids.product_qty",
+        "order_line.product_uom_qty",
+        "order_line.is_lotable",
+    )
+    def _compute_lot_ids(self):
+        for order in self:
+            lot_lines = order.order_line.lot_line_ids.filtered(
+                lambda l: l.lot_id.state != "cancel"
+            )
+            order.lot_ids = lot_lines.mapped("lot_id")
+            order.lot_count = len(order.lot_ids)
+            order.qty_to_lot_total = sum(
+                order.order_line.filtered("is_lotable").mapped("qty_to_lot")
+            )
+
+    # ------------------------------------------------------------------
+    # Couplage lots <-> OF standards
+    # ------------------------------------------------------------------
+    def action_confirm(self):
+        """Confirme la commande, ses lots, puis rattache les OF natifs.
+
+        La generation des OF reste **standard** : c'est l'approvisionnement
+        Odoo qui les cree a la confirmation, ce qui declenche les besoins
+        composants et relie l'OF a la livraison. Mais le natif raisonne par
+        ligne de commande, alors que l'atelier fabrique par lot : on scinde
+        donc chaque OF selon la repartition du lotissement.
+        """
+        res = super().action_confirm()
+        # Avant la scission : le lot est confirme parce que la VENTE l'est,
+        # et non parce que des ordres lui sont arrives.
+        self._confirmer_lots()
+        self._dispatch_productions_to_lots()
+        return res
+
+    def _confirmer_lots(self):
+        """Passe les lots de la commande en « Confirme ».
+
+        Le lotissement se fait sur le devis, donc avant la vente : le lot
+        naissait en brouillon et il fallait aller le confirmer a la main,
+        alors que la confirmation de la commande est exactement le moment ou
+        il devient ferme. Oublier ce clic laissait des lots en brouillon sur
+        des affaires vendues, et le tableau d'ordonnancement les affichait
+        comme non engages.
+
+        Cela ne cree aucun ordre de fabrication : « Generer les OF » reste
+        un geste volontaire de l'atelier, et c'est lui qui fait passer le lot
+        en production.
+
+        Un lot peut couvrir plusieurs commandes d'un meme chantier. On le
+        confirme des que la PREMIERE est confirmee : l'engagement existe des
+        ce moment-la, et attendre les autres — dont une peut ne jamais etre
+        signee — serait attendre indefiniment.
+
+        Les lots sans ligne sont ecartes plutot que remontes : `action_confirm`
+        leve une erreur sur un lot vide, et elle ferait echouer la
+        confirmation de la commande elle-meme.
+        """
+        for order in self:
+            lots = order.lot_ids.filtered(
+                lambda l: l.state == "draft" and l.line_ids
+            )
+            if not lots:
+                continue
+            lots.action_confirm()
+            for lot in lots:
+                # Le suivi de `state` dit QUE le lot a change d'etat, pas
+                # pourquoi. Sans ce message, un lot confirme sans que personne
+                # n'ait clique reste inexplicable depuis sa fiche.
+                lot.message_post(
+                    body=_(
+                        "Lot confirmé automatiquement à la confirmation de "
+                        "la commande %s.",
+                        order.display_name,
+                    )
+                )
+
+    def _dispatch_productions_to_lots(self):
+        """Scinde les OF issus de l'appro et les affecte a leur lot."""
+        Production = self.env["mrp.production"]
+        for order in self:
+            for line in order.order_line:
+                # Une affectation dont l'OF a ete ANNULE redevient a traiter :
+                # sinon, apres une annulation, la commande reconfirmee ne
+                # scindait plus rien — l'affectation restait marquee comme
+                # deja produite et le decoupage passait son chemin. Constate
+                # sur la staging : une seule production de 30 au lieu de trois
+                # de 10.
+                allocations = line.lot_line_ids.filtered(
+                    lambda a: a.product_qty > 0
+                    and (not a.production_id or a.production_id.state == "cancel")
+                ).sorted(lambda a: (a.lot_id.name or "", a.id))
+                if not allocations:
+                    continue
+
+                productions = Production.search(
+                    [
+                        ("sale_line_id", "=", line.id),
+                        ("state", "not in", ("done", "cancel")),
+                        ("lot_fabrication_id", "=", False),
+                    ]
+                )
+                if len(productions) != 1:
+                    # Aucun OF natif, ou plusieurs : on ne devine pas. Le
+                    # bouton du lot reste disponible pour completer.
+                    continue
+
+                self._assign_production_to_lots(productions, allocations)
+
+    def _assign_production_to_lots(self, production, allocations):
+        """Scinde un OF selon les quantites des lots, puis les rattache."""
+        amounts = [alloc.product_qty for alloc in allocations]
+        reste = production.product_qty - sum(amounts)
+        if float_compare(reste, 0.0, precision_digits=2) > 0:
+            # Une part de la ligne n'est pas lotie : elle reste sur un OF
+            # a part, que le natif continue de piloter.
+            amounts.append(reste)
+        elif float_compare(reste, 0.0, precision_digits=2) < 0:
+            # Plus de quantite lotie que produite : le lotissement a change
+            # apres coup. On ne scinde pas, on laisse l'ecart visible.
+            return
+
+        productions = production
+        if len(amounts) > 1:
+            productions = production._split_productions({production: amounts})
+
+        for alloc, split in zip(allocations, productions):
+            vals = {
+                "lot_fabrication_id": alloc.lot_id.id,
+                "lot_line_id": alloc.id,
+                "lot_sale_line_id": alloc.sale_line_id.id,
+                "lot_production_type": "assemblage",
+            }
+            # Le chantier, repris depuis la commande. Ces OF viennent de
+            # l'appro natif et ne passent pas par le lot : sans cette ligne,
+            # ils sortaient sans projet. Champ declare par « custom », dont ce
+            # module ne depend pas — d'ou le controle.
+            projet = alloc.sale_line_id.order_id.project_id
+            if projet and "x_studio_projet_de_la_vente" in split._fields:
+                vals["x_studio_projet_de_la_vente"] = projet.id
+            # L'ATELIER, A LA MEME REGLE QUE L'OF DE DEBIT : l'etiquette
+            # commerciale de la commande decide — FMA a La Regrippiere, F2M a
+            # La Remaudiere. C'est ICI que se jouait l'ecart constate entre
+            # debit et assemblage : le debit est cree par le lot, qui pose
+            # l'atelier, tandis que l'assemblage nait de l'appro natif et ne
+            # passe jamais par la. Il arrivait donc sans atelier, donc hors du
+            # macro-planning et des restitutions de capacite.
+            if "atelier_id" in split._fields:
+                atelier = alloc.lot_id._atelier_par_etiquette()
+                if atelier:
+                    vals["atelier_id"] = atelier.id
+            split.write(vals)
+            alloc.production_id = split
+            # L'ensemble debite de CETTE menuiserie, comme le fait le lot
+            # quand il cree lui-meme l'assemblage : l'article du lot n'est
+            # qu'un repli. Sans effet quand la nomenclature porte deja le
+            # sien — le cas courant.
+            split._add_debit_component(
+                alloc.product_debit_id or alloc.lot_id._get_product_debit(),
+                alloc.product_qty,
+            )
+
+    def _of_deja_dans_action(self, action):
+        """Les OF que l'action native remonte deja — SANS tout ramasser.
+
+        Un domaine vide ne veut pas dire « tous les ordres » : quand la
+        commande n'a qu'un seul OF, l'action native ouvre un formulaire, donc
+        un ``res_id`` et aucun domaine. Le ``or []`` precedent transformait ce
+        cas en recherche sans filtre et l'ecran affichait les 4 000 OF de la
+        base au lieu des deux de l'affaire.
+
+        On ne cherche donc que lorsqu'il y a vraiment un domaine, et on se
+        rabat sur le ``res_id`` sinon.
+        """
+        Production = self.env["mrp.production"]
+        domaine = action.get("domain")
+        if domaine:
+            return Production.search(domaine)
+        if action.get("res_id"):
+            return Production.browse(action["res_id"])
+        return Production.browse()
+
+    @api.depends(
+        "stock_reference_ids.production_ids",
+        "lot_ids.production_ids",
+    )
+    def _compute_mrp_production_ids(self):
+        """Le raccourci « Fabrication » du devis, OF des lots compris.
+
+        LE BOUTON AVAIT DISPARU, et ce n'etait pas un probleme de vue : le
+        raccourci natif se masque lui-meme quand son compteur vaut zero. Or
+        le natif ne remonte que les OF nes de la chaine d'approvisionnement
+        — ``stock_reference_ids.production_ids``, les ordres qu'une ligne de
+        commande a declenches par sa route. Depuis que les ordres naissent
+        du LOT, plus aucun ne passe par la : le compteur tombait a zero et
+        le bouton s'effacait, alors que l'affaire avait bien ses onze
+        ordres.
+
+        LE NOM DE LA METHODE EST CELUI DE LA v19, et c'est tout l'objet de
+        cette correction. La precedente surchargeait
+        ``_compute_mrp_production_count``, le nom des versions anterieures.
+        En 19.0, sale_mrp declare les DEUX champs sur le meme calcul,
+        ``_compute_mrp_production_ids`` ; la methode ecrite sous l'ancien
+        nom n'etait donc appelee par personne. Le code etait juste, il
+        n'etait jamais execute — un correctif muet, le pire genre.
+
+        On etend la liste plutot que le seul compteur : l'action du bouton
+        lit ``mrp_production_ids``, un compteur qui ne dit pas la meme chose
+        que la liste qu'il ouvre vaut mieux ne pas exister.
+        """
+        super()._compute_mrp_production_ids()
+        for order in self:
+            des_lots = order.lot_ids.production_ids.filtered(
+                lambda p: p.state != "cancel")
+            toutes = order.mrp_production_ids | des_lots
+            order.mrp_production_ids = toutes
+            order.mrp_production_count = len(toutes)
+
+    def action_view_mrp_production(self):
+        """Ajoute les OF des lots a la liste ouverte depuis la commande.
+
+        La liste native remonte les OF par les mouvements de stock issus des
+        lignes de commande. Les OF de DEBIT n'en ont pas : ils produisent le
+        sous-ensemble debite du lot, pas un article vendu. Ils etaient donc
+        absents de cet ecran alors qu'ils appartiennent bien a l'affaire —
+        trois OF visibles sur six.
+
+        On elargit le domaine plutot que de rattacher l'OF a une ligne de
+        commande : ce rattachement-la pilote la livraison, et un debit ne se
+        livre pas.
+        """
+        parent = super()
+        action = (
+            parent.action_view_mrp_production()
+            if hasattr(parent, "action_view_mrp_production")
+            else {
+                "type": "ir.actions.act_window",
+                "name": _("Ordres de fabrication"),
+                "res_model": "mrp.production",
+                "view_mode": "list,form",
+                "domain": [("id", "in", [])],
+            }
+        )
+
+        des_lots = self.lot_ids.production_ids
+        if not des_lots:
+            return action
+
+        deja = self._of_deja_dans_action(action)
+        toutes = deja | des_lots
+        action["domain"] = [("id", "in", toutes.ids)]
+        # La liste comptant desormais plusieurs OF, on ne peut plus ouvrir
+        # directement un formulaire.
+        action.pop("res_id", None)
+        if len(toutes) > 1 and action.get("view_mode", "").startswith("form"):
+            action["view_mode"] = "list,form"
+            action.pop("views", None)
+        return action
+
+    def action_open_lot_wizard(self):
+        """Ouvre le wizard de mise en lot pour cette commande."""
+        self.ensure_one()
+        if self.state in ("cancel",):
+            raise UserError(
+                _("La commande %s est annulee.", self.display_name)
+            )
+        lines = self.order_line.filtered("is_lotable")
+        if not lines:
+            raise UserError(
+                _(
+                    "La commande %s ne contient aucune ligne a lotir "
+                    "(articles stockables ou consommables).",
+                    self.display_name,
+                )
+            )
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Mise en lot - %s", self.name),
+            "res_model": "fma.lot.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_order_id": self.id},
+        }
+
+    def action_view_lots(self):
+        self.ensure_one()
+        action = self.env["ir.actions.act_window"]._for_xml_id(
+            "fma_lot_fabrication.action_fma_lot_fabrication"
+        )
+        lots = self.lot_ids
+        action["domain"] = [("id", "in", lots.ids)]
+        if len(lots) == 1:
+            action["views"] = [
+                (
+                    self.env.ref(
+                        "fma_lot_fabrication.view_fma_lot_fabrication_form"
+                    ).id,
+                    "form",
+                )
+            ]
+            action["res_id"] = lots.id
+        return action

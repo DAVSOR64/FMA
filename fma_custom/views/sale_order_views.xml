@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Ventilation du prix de revient par ligne : liste en lecture seule,
+         ouverte depuis l'onglet Analyse Financiere. -->
+    <record id="view_sale_order_line_pri_list" model="ir.ui.view">
+        <field name="name">sale.order.line.fma.pri.list</field>
+        <field name="model">sale.order.line</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Prix de revient par ligne" create="0" edit="0" delete="0">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="product_id"/>
+                <field name="name" optional="hide"/>
+                <field name="product_uom_qty" string="Qté"/>
+                <field name="price_subtotal" sum="Total HT"/>
+                <field name="fma_achat_matiere_reel" sum="Matière"/>
+                <field name="fma_achat_vitrage_reel" sum="Vitrage"/>
+                <field name="fma_pri_reel" sum="PRI"/>
+                <field name="fma_marge_brute_reelle" sum="Marge brute"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_order_form_pri" model="ir.ui.view">
+        <field name="name">sale.order.form.fma.pri</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="custom.view_order_form_custom"/>
+        <field name="arch" type="xml">
+
+            <!-- Le bouton d'achat du devis. Celui d'Odoo est masque par
+                 le code (cf. SaleOrder._get_view) : il remonte par les
+                 mouvements et ne voit ni un bon en brouillon, ni un bon qui
+                 sert les composants d'un ordre de fabrication. Celui-ci est
+                 bati sur fma_sale_order_id et repond a la question du
+                 metier : que faut-il imputer a cette commande. -->
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button name="action_pri_achats_rattaches" type="object"
+                        class="oe_stat_button" icon="fa-shopping-cart"
+                        invisible="fma_achats_rattaches_nb == 0">
+                    <field name="fma_achats_rattaches_nb" widget="statinfo"
+                           string="Achats"/>
+                </button>
+            </xpath>
+
+
+            <xpath expr="//field[@name='order_line']/list" position="inside">
+                <field name="fma_achat_matiere_reel" optional="hide" sum="Matière réel"/>
+                <field name="fma_achat_vitrage_reel" optional="hide" sum="Vitrage réel"/>
+                <field name="fma_pri_reel" optional="hide" sum="PRI réel"/>
+                <field name="fma_marge_brute_reelle" optional="hide" sum="Marge brute réelle"/>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

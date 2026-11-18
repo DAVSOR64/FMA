@@ -83,10 +83,10 @@ class KpiDeliveryBilling(models.Model):
         Gère la M2M Odoo 17+ (account_move_line__sale_line_ids) et legacy.
         Montant POSITIF pour factures, NÉGATIF pour avoirs.
         """
-        self._cr.execute(
+        self.env.cr.execute(
             "SELECT to_regclass('public.account_move_line__sale_line_ids')"
         )
-        has_new_rel = bool(self._cr.fetchone()[0])
+        has_new_rel = bool(self.env.cr.fetchone()[0])
 
         if has_new_rel:
             rel_table = "account_move_line__sale_line_ids"
@@ -130,17 +130,17 @@ class KpiDeliveryBilling(models.Model):
           1. sale_order_id direct sur purchase.order.line  (champ custom ou natif)
           2. sale_order_line_id sur purchase.order.line    (règle MTO Odoo)
         """
-        self._cr.execute("""
+        self.env.cr.execute("""
             SELECT column_name FROM information_schema.columns
             WHERE table_name='purchase_order_line' AND column_name='sale_order_id'
         """)
-        has_so_direct = bool(self._cr.fetchone())
+        has_so_direct = bool(self.env.cr.fetchone())
 
-        self._cr.execute("""
+        self.env.cr.execute("""
             SELECT column_name FROM information_schema.columns
             WHERE table_name='purchase_order_line' AND column_name='sale_order_line_id'
         """)
-        has_sol_link = bool(self._cr.fetchone())
+        has_sol_link = bool(self.env.cr.fetchone())
 
         if not has_so_direct and not has_sol_link:
             return """
@@ -199,19 +199,19 @@ class KpiDeliveryBilling(models.Model):
         sinon qty_done × coût standard (standard_price sur la variante).
         """
         # Vérifier l'existence de la table mrp_production
-        self._cr.execute("SELECT to_regclass('public.mrp_production')")
-        if not self._cr.fetchone()[0]:
+        self.env.cr.execute("SELECT to_regclass('public.mrp_production')")
+        if not self.env.cr.fetchone()[0]:
             return """
                 SELECT NULL::integer AS sale_order_id,
                        0::numeric   AS amt_stock_consumed
                 WHERE false
             """
 
-        self._cr.execute("""
+        self.env.cr.execute("""
             SELECT column_name FROM information_schema.columns
             WHERE table_name='mrp_production' AND column_name='sale_id'
         """)
-        has_sale_id = bool(self._cr.fetchone())
+        has_sale_id = bool(self.env.cr.fetchone())
 
         if has_sale_id:
             so_col = "mp.sale_id"
@@ -221,8 +221,8 @@ class KpiDeliveryBilling(models.Model):
                          WHERE so_fb.name = mp.origin LIMIT 1)"""
             so_where = "mp.origin IS NOT NULL"
 
-        self._cr.execute("SELECT to_regclass('public.stock_valuation_layer')")
-        has_svl = bool(self._cr.fetchone()[0])
+        self.env.cr.execute("SELECT to_regclass('public.stock_valuation_layer')")
+        has_svl = bool(self.env.cr.fetchone()[0])
 
         # En Odoo 17+, standard_price n'est plus une colonne SQL directe
         # (stockée via ir.property / product.price.history).
@@ -368,7 +368,7 @@ class KpiDeliveryBilling(models.Model):
 
     @api.model
     def init(self):
-        tools.drop_view_if_exists(self._cr, self._table)
-        self._cr.execute(
+        tools.drop_view_if_exists(self.env.cr, self._table)
+        self.env.cr.execute(
             f"CREATE OR REPLACE VIEW {self._table} AS ({self._select()})"
         )

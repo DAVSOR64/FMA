@@ -18,7 +18,7 @@
                 <field name="product_qty" string="Qté" optional="show"/>
                 <field name="date_start" string="Début fab." widget="date"/>
                 <field name="date_finished" string="Fin fab." widget="date"/>
-                <field name="macro_forced_end" string="Fin forcée" widget="date" optional="show"/>
+                <field name="macro_forced_end" string="Fin de fab" widget="date" optional="show"/>
                 <field name="date_deadline" string="Deadline" widget="date" optional="show"/>
                 <field name="state" string="État"
                        widget="badge"

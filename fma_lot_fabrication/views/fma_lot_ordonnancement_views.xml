@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Tableau de bord d'ordonnancement : une ligne par lot, regroupee par
+         affaire. Liste et non pivot : le metier doit pouvoir ouvrir les OF et
+         les achats d'un lot depuis la ligne, ce qu'un pivot ne permet pas. -->
+    <record id="view_fma_lot_ordonnancement_list" model="ir.ui.view">
+        <field name="name">fma.lot.fabrication.ordonnancement.list</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="arch" type="xml">
+            <list string="Ordonnancement des lots"
+                  create="false"
+                  editable="bottom"
+                  default_order="ordo_livraison asc, id asc"
+                  decoration-danger="ordo_statut == 'retard'"
+                  decoration-warning="ordo_statut == 'attention'"
+                  decoration-muted="ordo_statut == 'non_planifie'">
+                <!-- En premiere colonne : c'est celle que l'ordonnanceur
+                     coche en parcourant la liste. Modifiable par le seul
+                     groupe « Modif Ordo » — le champ reste VISIBLE pour les
+                     autres, un `groups` l'aurait masque au lieu de le
+                     verrouiller. -->
+                <field name="ordo_planifie" widget="boolean_toggle"
+                       readonly="not ordo_peut_modifier"/>
+                <field name="ordo_statut" widget="badge"
+                       decoration-danger="ordo_statut == 'retard'"
+                       decoration-warning="ordo_statut == 'attention'"
+                       decoration-success="ordo_statut == 'ok'"/>
+                <field name="name" string="Lot"/>
+                <field name="ordo_commande_id" optional="show"/>
+                <field name="ordo_chantier_id" optional="show"/>
+                <field name="partner_id" optional="show"/>
+                <field name="menuiserie_qty" string="Menuiseries" optional="show"/>
+
+                <!-- L'OF de debit, cliquable : c'est par lui qu'on entre
+                     dans la fabrication du lot, et la colonne suivante donne
+                     sa date. En lecture seule — le rattachement se fait a la
+                     generation des OF, jamais a la main.
+
+                     Le bouton « cle » plus loin reste : il ouvre la LISTE des
+                     ordres du lot, assemblages compris. Les deux ne repondent
+                     pas a la meme question — « ou en est le debit » d'un cote,
+                     « montre-moi tous les ordres » de l'autre — et le bouton
+                     seul obligeait a un detour par une autre liste pour
+                     atteindre l'ordre qu'on voulait. -->
+                <field name="production_debit_id" string="OF débit"
+                       readonly="1" optional="show"/>
+                <field name="ordo_date_debit"/>
+                <field name="ordo_assemblages_planifies"/>
+                <!-- L'avancement reel, a cote de la planification : « 1 / 8 »
+                     des que la premiere menuiserie est declaree. La colonne
+                     voisine ne dit que si les dates sont posees. -->
+                <field name="ordo_assemblages_declares"/>
+                <field name="ordo_date_sortie"/>
+
+                <field name="ordo_statut_profil" widget="badge"
+                       decoration-danger="ordo_statut_profil == 'none'"
+                       decoration-warning="ordo_statut_profil in ('pending', 'partial')"
+                       decoration-success="ordo_statut_profil == 'full'"/>
+                <field name="ordo_arrivee_profil" optional="show"/>
+                <field name="ordo_statut_vitrage" widget="badge"
+                       decoration-danger="ordo_statut_vitrage == 'none'"
+                       decoration-warning="ordo_statut_vitrage in ('pending', 'partial')"
+                       decoration-success="ordo_statut_vitrage == 'full'"/>
+                <field name="ordo_arrivee_vitrage" optional="show"/>
+                <field name="ordo_statut_quincaillerie" widget="badge"
+                       decoration-danger="ordo_statut_quincaillerie == 'none'"
+                       decoration-warning="ordo_statut_quincaillerie in ('pending', 'partial')"
+                       decoration-success="ordo_statut_quincaillerie == 'full'"/>
+                <field name="ordo_arrivee_quincaillerie" optional="hide"/>
+                <field name="ordo_matiere_le"/>
+
+                <field name="ordo_livraison"/>
+                <field name="ordo_commentaire" optional="show"
+                       readonly="not ordo_peut_modifier"/>
+                <field name="ordo_marge_jours"
+                       decoration-danger="ordo_marge_jours &lt; 0"/>
+
+                <!-- La charge, poste par poste. Affichee : c'est ce que
+                     l'ordonnanceur arbitre. Les colonnes se replient d'un
+                     clic pour qui ne veut que l'etat de l'affaire. -->
+                <field name="ordo_nb_reperes" optional="hide" sum="Repères"/>
+                <field name="ordo_heure_debit" optional="show" sum="H. Débit"/>
+                <field name="ordo_heure_banc" optional="show" sum="H. CU"/>
+                <field name="ordo_heure_usinage" optional="show" sum="H. Usinage"/>
+                <field name="ordo_heure_montage" optional="show" sum="H. Montage"/>
+                <field name="ordo_heure_vitrage" optional="show" sum="H. Vitrage"/>
+                <field name="ordo_heure_emballage" optional="show" sum="H. Emballage"/>
+                <field name="ordo_heure_totale" optional="show" sum="Heures"/>
+                <field name="ordo_score_complexite" optional="hide" sum="Complexité"/>
+                <!-- PAS de `sum` sur les scores : une note ne s'additionne
+                     pas, un total de notes n'aurait aucun sens. -->
+                <field name="ordo_score_debit" optional="hide"/>
+                <field name="ordo_score_banc" optional="hide"/>
+                <field name="ordo_score_usinage" optional="hide"/>
+                <field name="ordo_score_montage" optional="hide"/>
+
+                <field name="ordo_peut_modifier" column_invisible="1"/>
+
+                <!-- Les raccourcis. Un bouton et non un lien : depuis une
+                     liste, on veut la liste des OF du lot, pas le premier.
+
+                     Le premier ouvre le LOT lui-meme : la liste est editable
+                     en ligne — il le faut pour « Planifié » et le
+                     commentaire —, et une liste editable ne s'ouvre plus d'un
+                     clic sur la ligne. -->
+                <button name="action_ordo_ouvrir_lot" type="object"
+                        icon="fa-external-link" title="Ouvrir le lot"/>
+                <button name="action_ordo_voir_of" type="object"
+                        icon="fa-wrench" title="Ordres de fabrication"/>
+                <button name="action_ordo_voir_achats" type="object"
+                        icon="fa-shopping-cart" title="Bons d'achat"/>
+                <button name="action_ordo_voir_lignes_achat" type="object"
+                        icon="fa-list" title="Lignes d'achat, par famille"/>
+                <button name="action_recalculer_ordo" type="object"
+                        icon="fa-refresh" title="Recalculer cette ligne"/>
+
+                <field name="ordo_tout_planifie" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fma_lot_ordonnancement_search" model="ir.ui.view">
+        <field name="name">fma.lot.fabrication.ordonnancement.search</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="arch" type="xml">
+            <search string="Ordonnancement">
+                <field name="name" string="Lot"/>
+                <field name="partner_id"/>
+                <field name="ordo_commande_id" string="N° d'affaire"/>
+                <field name="ordo_chantier_id" string="Chantier"/>
+
+                <filter name="ordo_retard" string="En retard"
+                        domain="[('ordo_statut', '=', 'retard')]"/>
+                <filter name="ordo_attention" string="À surveiller"
+                        domain="[('ordo_statut', '=', 'attention')]"/>
+                <filter name="ordo_non_planifie" string="Non planifiés"
+                        domain="[('ordo_tout_planifie', '=', False)]"/>
+                <filter name="ordo_pas_marque" string="Non marqués « Planifié »"
+                        domain="[('ordo_planifie', '=', False)]"/>
+                <separator/>
+                <filter name="ordo_sans_profil" string="Profilés non commandés"
+                        domain="[('ordo_statut_profil', '=', 'none')]"/>
+                <filter name="ordo_sans_vitrage" string="Vitrage non commandé"
+                        domain="[('ordo_statut_vitrage', '=', 'none')]"/>
+                <filter name="ordo_sans_quincaillerie" string="Quincaillerie non commandée"
+                        domain="[('ordo_statut_quincaillerie', '=', 'none')]"/>
+
+                <!-- Le CHANTIER d'abord : son nom porte le numero ET le
+                     nom de l'affaire, la ou la commande seule n'affiche que
+                     le numero. C'est lui qui regroupe par defaut. -->
+                <filter name="group_chantier" string="Chantier"
+                        context="{'group_by': 'ordo_chantier_id'}"/>
+                <filter name="group_affaire" string="N° d'affaire"
+                        context="{'group_by': 'ordo_commande_id'}"/>
+                <filter name="group_client" string="Client"
+                        context="{'group_by': 'partner_id'}"/>
+                <filter name="group_statut" string="Statut"
+                        context="{'group_by': 'ordo_statut'}"/>
+                <filter name="group_livraison" string="Livraison client"
+                        context="{'group_by': 'ordo_livraison:month'}"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Le detail des lignes d'achat d'un lot.
+         La liste standard des bons affiche « Arrivee prevue » au niveau de
+         l'EN-TETE, qui vaut la date de la ligne la PLUS PROCHE. Le tableau
+         d'ordonnancement, lui, retient la plus TARDIVE : c'est elle qui
+         contraint le lancement. Les deux chiffres different donc
+         legitimement, et sans cette liste on ne peut pas le verifier. -->
+    <record id="view_fma_lot_lignes_achat_list" model="ir.ui.view">
+        <field name="name">purchase.order.line.lot.list</field>
+        <field name="model">purchase.order.line</field>
+        <field name="arch" type="xml">
+            <list string="Lignes d'achat du lot" create="false" edit="false"
+                  default_order="date_planned desc">
+                <field name="order_id"/>
+                <field name="partner_id" string="Fournisseur"/>
+                <field name="product_id"/>
+                <field name="fma_famille_appro" string="Famille"/>
+                <field name="date_planned" string="Arrivée de CETTE ligne"/>
+                <field name="product_qty" string="Commandé"/>
+                <field name="qty_received" string="Reçu"/>
+                <field name="price_subtotal" sum="Total"/>
+                <field name="state" widget="badge"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_fma_lot_ordonnancement" model="ir.actions.act_window">
+        <field name="name">Ordonnancement des lots</field>
+        <field name="res_model">fma.lot.fabrication</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_fma_lot_ordonnancement_search"/>
+        <field name="context">{'search_default_group_chantier': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Aucun lot à ordonnancer.</p>
+            <p>Ce tableau dit, affaire par affaire, si les lots sont planifiés
+               et si leur matière est commandée à temps pour tenir la date
+               promise au client.</p>
+        </field>
+    </record>
+
+    <record id="action_fma_lot_ordonnancement_list" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_fma_lot_ordonnancement_list"/>
+        <field name="act_window_id" ref="action_fma_lot_ordonnancement"/>
+    </record>
+
+    <!-- A cote du tableau d'ordonnancement existant : les deux repondent a
+         la meme preoccupation, l'un a la maille de l'ordre, l'autre a celle
+         du lot. Les separer dans deux rubriques obligerait a savoir laquelle
+         ouvrir avant de savoir ce qu'on cherche. -->
+    <menuitem id="menu_fma_lot_ordonnancement"
+              name="Lots par affaire"
+              parent="fma_mrp_ordonnancement.menu_fma_ordonnancement_root"
+              action="action_fma_lot_ordonnancement"
+              groups="mrp.group_mrp_user"
+              sequence="15"/>
+
+    <!-- « numbercall » n'existe plus sur ir.cron en Odoo 19 : un cron tourne
+         desormais sans compteur d'appels. Les champs retenus sont ceux du
+         cron d'ordonnancement existant, qui lui passe. -->
+    <record id="cron_fma_lot_ordonnancement" model="ir.cron">
+        <field name="name">FMA - Recalcul de l'ordonnancement des lots</field>
+        <field name="model_id" ref="fma_lot_fabrication.model_fma_lot_fabrication"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_ordonnancement()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active">True</field>
+    </record>
+
+</odoo>

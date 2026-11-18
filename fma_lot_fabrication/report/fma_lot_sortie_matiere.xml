@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Sortie matiere du lot, en deux temps : ce qui quitte le stock,
+         puis le detail article par article avec le casier servi.
+
+         Il y avait auparavant une page par casier. Meme contenu, lu dans
+         l'autre sens — et le magasin faisait un passage par casier la ou il
+         en fait maintenant un par article, ce qui est sa facon de travailler.
+         Le numero de casier reste sur chaque ligne : un casier vaut une
+         menuiserie, et porte son numero de serie.
+
+         Le detail ne porte que la QUINCAILLERIE. Le vitrage se livre a part,
+         les profiles passent par le debit : ni l'un ni l'autre ne se prend en
+         rayon. C'est le classement EXISTANT de l'article qui tranche
+         — categorie, famille, sous-famille : profiles (complementaires
+         compris), vitrages et panneaux sont ecartes, tout le reste est de la
+         quincaillerie. cf. product.product._fma_classe_matiere.
+
+         Le contenu est lu sur les composants REELS des ordres d'assemblage
+         des qu'ils existent : un composant ajoute sur un ordre sort ici. -->
+    <record id="action_report_lot_sortie_matiere" model="ir.actions.report">
+        <field name="name">Besoin matière</field>
+        <field name="model">fma.lot.fabrication</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">fma_lot_fabrication.report_lot_sortie_matiere</field>
+        <field name="report_file">fma_lot_fabrication.report_lot_sortie_matiere</field>
+        <field name="binding_model_id" ref="model_fma_lot_fabrication"/>
+        <field name="binding_type">report</field>
+        <field name="print_report_name">'Besoin matiere - %s' % object.display_name</field>
+    </record>
+
+    <template id="report_lot_sortie_matiere">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="lot">
+                <!-- internal_layout, et non external_layout : ceci est un
+                     document d'ATELIER, pas un document commercial. Le pied
+                     de page commercial y affichait le numero de TVA de la
+                     societe, qui n'a rien a faire sur un bon de sortie
+                     matiere. « o » et « company » restent lus pour l'en-tete. -->
+                <t t-set="o" t-value="lot"/>
+                <t t-set="company" t-value="lot.company_id"/>
+                <t t-set="besoin" t-value="lot._besoin_matiere()"/>
+                <t t-set="profiles" t-value="besoin[0]"/>
+                <t t-set="prefab" t-value="besoin[1]"/>
+                <t t-set="casiers" t-value="besoin[2]"/>
+                <t t-set="quincaillerie"
+                   t-value="lot._quincaillerie_par_article(casiers)"/>
+                <t t-set="besoin_complet"
+                   t-value="lot._besoin_matiere_complet(profiles, prefab)"/>
+                <t t-set="par_repere"
+                   t-value="lot._quincaillerie_par_repere(casiers)"/>
+
+                <!-- 1. Le besoin du lot, en entier : profiles, vitrages et
+                     quincaillerie. Tout vient des ORDRES du lot, pas du
+                     fichier LOGIKAL : une quincaillerie ajoutee a la main sur
+                     une nomenclature ou sur un ordre doit sortir ici, et le
+                     document se construit a l'impression, jamais d'avance. -->
+                <t t-call="web.internal_layout">
+                    <div class="page">
+                        <h2>
+                            Besoin matière
+                            <!-- La designation, celle de l'ecran : le numero
+                                 de sequence seul ne situe ni l'affaire ni le
+                                 rang du lot dedans. Le magasin et
+                                 l'ordonnanceur doivent lire la meme chose. -->
+                            <span t-field="lot.display_name"/>
+                        </h2>
+                        <div class="row mb-3">
+                            <div class="col-3">
+                                <strong>Client</strong><br/>
+                                <span t-field="lot.partner_id"/>
+                            </div>
+                            <div class="col-3">
+                                <strong>Référence LOGIKAL</strong><br/>
+                                <span t-field="lot.logikal_ref"/>
+                            </div>
+                            <div class="col-3">
+                                <strong>Menuiseries</strong><br/>
+                                <span t-field="lot.menuiserie_qty"/>
+                                en <span t-esc="len(lot.line_ids)"/> repère(s)
+                            </div>
+                            <div class="col-3">
+                                <strong>Casiers</strong><br/>
+                                <span t-esc="len(casiers)"/>
+                            </div>
+                        </div>
+
+                        <h4>1 — Besoin matière du lot</h4>
+                        <p class="text-muted">
+                            Tout ce que le lot consomme : profilés, vitrages et
+                            quincaillerie. Lu sur les composants réels des ordres de
+                            fabrication du lot — un article ajouté à la main sur une
+                            nomenclature ou sur un ordre y figure donc.
+                        </p>
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th style="width:16%">Type</th>
+                                    <th style="width:20%">Référence</th>
+                                    <th style="width:44%">Désignation</th>
+                                    <th class="text-end" style="width:10%">Quantité</th>
+                                    <th style="width:10%">Unité</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="besoin_complet" t-as="poste">
+                                    <td style="white-space:nowrap"><span t-esc="poste['libelle']"/></td>
+                                    <td style="white-space:nowrap"><span t-field="poste['product'].default_code"/></td>
+                                    <td><span t-field="poste['product'].name"/></td>
+                                    <td class="text-end"><span t-esc="'%.2f' % poste['qty']"/></td>
+                                    <td><span t-field="poste['uom'].name"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p t-if="not besoin_complet" class="text-muted">
+                            Aucun besoin : les ordres de fabrication du lot ne portent
+                            aucun composant.
+                        </p>
+
+                        <h4 class="mt-4">2 — Quincaillerie par repère</h4>
+                        <p class="text-muted">
+                            Un bloc par casier, dans l'ordre où le magasin les garnit.
+                            Les profilés et les vitrages n'y figurent pas : ils ne
+                            passent pas par le casier.
+                        </p>
+                        <t t-foreach="par_repere" t-as="bloc">
+                            <table class="table table-sm o_main_table mb-3"
+                                   style="page-break-inside:avoid">
+                                <thead>
+                                    <tr>
+                                        <th colspan="4" class="table-active">
+                                            Repère <span style="white-space:nowrap" t-esc="bloc['repere']"/>
+                                            — casier <span style="white-space:nowrap" t-esc="bloc['casier']"/>
+                                            <span class="float-end">
+                                                <span t-esc="bloc['rang']"/> / <span t-esc="bloc['sur']"/>
+                                            </span>
+                                        </th>
+                                    </tr>
+                                    <tr>
+                                        <th style="width:16%">Emplacement</th>
+                                        <th style="width:22%">Code article</th>
+                                        <th style="width:46%">Désignation</th>
+                                        <th class="text-end" style="width:16%">Qté</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="bloc['lignes']" t-as="l">
+                                        <td style="white-space:nowrap">
+                                            <span t-esc="l['emplacement'].name if l['emplacement'] else ''"/>
+                                        </td>
+                                        <td style="white-space:nowrap"><span t-field="l['product'].default_code"/></td>
+                                        <td><span t-field="l['product'].name"/></td>
+                                        <td class="text-end"><span t-esc="'%.2f' % l['qty']"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </t>
+                        <p t-if="not par_repere" class="text-muted">
+                            Aucune quincaillerie : les ordres du lot ne portent que des
+                            profilés, des vitrages ou des panneaux.
+                        </p>
+                    </div>
+                </t>
+
+                <!-- 2. Liste par article : ce que le magasin prend en
+                     rayon, et comment le repartir. Meme contenu que les pages
+                     de casier, lu dans l'autre sens — un passage par article
+                     au lieu d'un passage par casier. -->
+                <t t-if="quincaillerie">
+                    <t t-call="web.internal_layout">
+                        <div class="page">
+                            <h2>
+                                3 — Quincaillerie par article
+                                <span t-field="lot.display_name"/>
+                            </h2>
+                            <div class="row mb-3">
+                                <div class="col-4">
+                                    <strong>Client</strong><br/>
+                                    <span t-field="lot.partner_id"/>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Référence LOGIKAL</strong><br/>
+                                    <span t-field="lot.logikal_ref"/>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Casiers</strong><br/>
+                                    <span t-esc="len(casiers)"/>
+                                </div>
+                            </div>
+
+                            <table class="table table-sm o_main_table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:13%">Emplacement</th>
+                                        <th style="width:17%">Code article</th>
+                                        <th style="width:33%">Désignation</th>
+                                        <th class="text-end" style="width:9%">Qté&#160;totale</th>
+                                        <th class="text-end" style="width:8%">Qté</th>
+                                        <th style="width:8%">Casier</th>
+                                        <th style="width:12%">Repère</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="quincaillerie" t-as="poste">
+                                        <tr t-foreach="poste['detail']" t-as="det">
+                                            <t t-if="det_index == 0">
+                                                <td t-att-rowspan="poste['nb']">
+                                                    <span style="white-space:nowrap" t-esc="poste['emplacement'].name if poste['emplacement'] else ''"/>
+                                                </td>
+                                                <td t-att-rowspan="poste['nb']">
+                                                    <span t-field="poste['article'].default_code"/>
+                                                </td>
+                                                <td t-att-rowspan="poste['nb']">
+                                                    <span t-field="poste['article'].name"/>
+                                                </td>
+                                                <td t-att-rowspan="poste['nb']" class="text-end">
+                                                    <span t-esc="'%.2f' % poste['total']"/>
+                                                </td>
+                                            </t>
+                                            <td class="text-end">
+                                                <span t-esc="'%.2f' % det['qty']"/>
+                                            </td>
+                                            <td style="white-space:nowrap"><span t-esc="det['casier']"/></td>
+                                            <td style="white-space:nowrap"><span t-esc="det['repere']"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                            <p class="text-muted">
+                                Quincaillerie seule : les composants des ordres de
+                                fabrication, hors articles que leur catégorie range
+                                parmi les profilés (complémentaires compris), les
+                                vitrages ou les panneaux. Le vitrage se livre à part et
+                                les profilés passent par le débit. Les lignes suivent
+                                l'ordre des emplacements ; un emplacement vide signale
+                                un article sans stock.
+                            </p>
+                        </div>
+                    </t>
+                </t>
+
+            </t>
+        </t>
+    </template>
+
+</odoo>

@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Ventes -->
-    <menuitem id="menu_x_affaire" name="Affaire" parent="sale.sale_menu_root" action="action_x_affaire" sequence="90"/>
-    <menuitem id="menu_x_affaire_config" name="Configuration personnalisée" parent="sale.sale_menu_root" sequence="91"/>
-    <menuitem id="menu_x_affaire_stage" name="Affaire - Étapes" parent="menu_x_affaire_config" action="action_x_affaire_stage" sequence="10"/>
-    <menuitem id="menu_x_affaire_tag" name="Affaire - Étiquettes" parent="menu_x_affaire_config" action="action_x_affaire_tag" sequence="20"/>
-    <menuitem id="menu_x_gamme_mtn" name="Gamme mtn" parent="menu_x_affaire_config" action="action_x_gamme_mtn" sequence="30"/>
-    <menuitem id="menu_x_serie_mtn" name="Série mtn" parent="menu_x_affaire_config" action="action_x_serie_mtn" sequence="40"/>
-    <menuitem id="menu_x_reglements" name="Réglements" parent="menu_x_affaire_config" action="action_x_reglements" sequence="50"/>
+    <!-- « Affaire » retire des Ventes : la notion est reprise par le projet,
+         qui porte desormais le code affaire, le chiffrage et les tranches
+         (menu Ventes > Chantiers). L'action et le modele restent declares —
+         les donnees historiques de x_affaire ne sont pas perdues, seul
+         l'acces en doublon disparait. -->
+
+    <!-- « Configuration personnalisée » retire des Ventes : c'etait un second
+         menu de configuration a cote du menu standard, qui expose deja
+         Reglements, Gamme mtn et Serie mtn — les entrees Studio d'origine,
+         repointees vers nos actions par ir_ui_menu._register_hook.
+         Deux menus pour la meme chose, dont un qui ne contenait rien
+         d'exclusif sinon la configuration de x_affaire, modele que la notion
+         de projet remplace. Les actions restent declarees : ce sont elles que
+         les entrees du menu Configuration ouvrent. -->
 
     <!-- Achats -->
     <!-- Le menu racine "Remises" n'apparaît pas comme onglet/app à part
@@ -19,10 +26,18 @@
          ci-dessous restent déclarés (utilisés par ces entrées Configuration
          natives), seul l'accès en doublon disparaît. -->
 
-    <!-- Fabrication -->
-    <menuitem id="menu_x_delai_entre_operatio" name="Délai entre opérations" parent="mrp.menu_mrp_root" action="action_x_delai_entre_operatio" sequence="90"/>
-    <menuitem id="menu_x_delai_entre_operatio_config" name="Configuration personnalisée" parent="mrp.menu_mrp_root" sequence="91"/>
-    <menuitem id="menu_x_delai_entre_operatio_tag" name="Délai entre opérations - Étiquettes" parent="menu_x_delai_entre_operatio_config" action="action_x_delai_entre_operatio_tag" sequence="10"/>
-    <menuitem id="menu_x_capacite_par_poste" name="Capacité par poste" parent="mrp.menu_mrp_root" action="action_x_capacite_par_poste" sequence="92"/>
-    <menuitem id="menu_x_capacite_par_poste_tag" name="Capacité par poste - Étiquettes" parent="menu_x_delai_entre_operatio_config" action="action_x_capacite_par_poste_tag" sequence="20"/>
+    <!-- Fabrication
+
+         « Délai entre opérations » et ses étiquettes n'ont plus de menu :
+         AUCUN code du depot ne lit x_delai_entre_operatio. Ce referentiel ne
+         sert deja a aucune planification, et les cycles le rendent sans
+         objet. Le modele, ses vues et ses actions restent declares — une
+         automatisation Studio pourrait les lire, et ca ne se voit pas depuis
+         le depot. Seul l'acces par le menu disparait.
+
+         « Capacité par poste » rejoint la configuration specifique. Il est
+         encore lu, par _get_effective_duration_hours, tant que l'ancienne
+         chaine de planification tourne. Il partira avec elle. -->
+    <menuitem id="menu_x_capacite_par_poste" name="Capacité par poste" parent="fma_atelier.menu_fma_specifique" action="action_x_capacite_par_poste" sequence="70"/>
+    <menuitem id="menu_x_capacite_par_poste_tag" name="Capacité par poste - Étiquettes" parent="fma_atelier.menu_fma_specifique" action="action_x_capacite_par_poste_tag" sequence="71"/>
 </odoo>

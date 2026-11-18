@@ -7,7 +7,10 @@
         <field name="arch" type="xml">
             <xpath expr="//sheet/notebook" position="inside">
                 <page string="Analyse financière MOD" name="analyse_financiere_mod_odoo">
-                    <group string="Coût réel main d'œuvre Odoo">
+                    <!-- Le name est indispensable : un heritage ne peut pas s'ancrer
+                         sur @string, et fma_custom remplace ce groupe pour y
+                         loger le prix de revient complet. -->
+                    <group string="Coût réel main d'œuvre Odoo" name="mod_odoo">
                         <field name="so_heures_mod_reelles_odoo" widget="float_time" readonly="1"/>
                         <field name="so_cout_mod_reel_odoo" readonly="1"/>
                     </group>

@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_fma_poste_scan_mrp_user,fma.poste.scan.mrp.user,model_fma_poste_scan,mrp.group_mrp_user,1,1,1,1
+access_fma_poste_scan_helpdesk_user,fma.poste.scan.helpdesk.user,model_fma_poste_scan,helpdesk.group_helpdesk_user,1,1,1,1
+access_stock_lot_helpdesk_user,stock.lot.helpdesk.user,stock.model_stock_lot,helpdesk.group_helpdesk_user,1,0,0,0
+access_mrp_production_helpdesk_user,mrp.production.helpdesk.user,mrp.model_mrp_production,helpdesk.group_helpdesk_user,1,0,0,0
+access_fma_lot_fabrication_helpdesk_user,fma.lot.fabrication.helpdesk.user,fma_lot_fabrication.model_fma_lot_fabrication,helpdesk.group_helpdesk_user,1,0,0,0
+access_helpdesk_ticket_mrp_user,helpdesk.ticket.mrp.user,helpdesk.model_helpdesk_ticket,mrp.group_mrp_user,1,1,1,0

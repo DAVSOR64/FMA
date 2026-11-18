@@ -86,9 +86,47 @@ def repoint_studio_action_menus(env):
         )
 
 
+# Modeles pour lesquels le module fournit desormais toutes les vues. Toute
+# vue Studio restante sur ces modeles est desactivee : Studio genere ses
+# formulaires avec un fil de discussion, or ces modeles n'heritent pas de
+# mail.thread — la consultation d'un enregistrement plante alors sur
+# « 'x_...' object has no attribute '_get_thread_with_access' ».
+MODELES_VUES_PORTEES = ("x_reglements",)
+
+
+def desactiver_vues_studio(env):
+    """Desactive les vues Studio des modeles dont le module porte les vues.
+
+    On desactive plutot que de supprimer : le geste est reversible, et une
+    vue Studio peut contenir une mise en page que quelqu'un voudra relire
+    avant de la perdre.
+    """
+    IrUiView = env["ir.ui.view"]
+    IrModelData = env["ir.model.data"]
+
+    nos_vues = IrModelData.search([
+        ("module", "=", "fma_studio_models"),
+        ("model", "=", "ir.ui.view"),
+    ]).mapped("res_id")
+
+    intruses = IrUiView.search([
+        ("model", "in", list(MODELES_VUES_PORTEES)),
+        ("id", "not in", nos_vues),
+        ("active", "=", True),
+    ])
+    if intruses:
+        intruses.write({"active": False})
+        _logger.info(
+            "fma_studio_models: %d vue(s) desactivee(s) sur %s — le module "
+            "fournit desormais ses propres vues",
+            len(intruses), ", ".join(MODELES_VUES_PORTEES),
+        )
+
+
 class IrUiMenu(models.Model):
     _inherit = "ir.ui.menu"
 
     def _register_hook(self):
         super()._register_hook()
         repoint_studio_action_menus(self.env)
+        desactiver_vues_studio(self.env)

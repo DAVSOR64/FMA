@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Un bouton, en plus de l'entree du menu « Imprimer » : l'etiquette
+         se reimprime souvent — dechiree, salie —, et c'est depuis l'ordre
+         qu'on la cherche. -->
+    <record id="view_mrp_production_form_fma_etiquette" model="ir.ui.view">
+        <field name="name">mrp.production.form.fma.etiquette</field>
+        <field name="model">mrp.production</field>
+        <field name="inherit_id" ref="mrp.mrp_production_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='state']" position="before">
+                <button name="action_fma_imprimer_etiquettes" type="object"
+                        string="Étiquette menuiserie"
+                        invisible="state in ('draft', 'cancel') or not lot_fabrication_id"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

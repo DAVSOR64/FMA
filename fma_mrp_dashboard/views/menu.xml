@@ -1,47 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <menuitem id="menu_capacite_charge_root"
-              name="Macro Planning"
-              parent="mrp.menu_mrp_root"
-              sequence="50"/>
+    <!-- La racine « Macro Planning » vit desormais dans fma_atelier : c'est
+         le seul module que tous les autres ont en commun, donc le seul d'ou
+         les ecrans de mrp_capacity_planning et de fma_mrp_kpi peuvent s'y
+         accrocher. Ce module n'y pose plus que ses propres entrees. -->
+
+    <menuitem id="menu_mrp_workorder_planning_gantt"
+              name="Planning Atelier (Gantt)"
+              parent="fma_atelier.menu_fma_macro_planning"
+              action="action_mrp_workorder_planning_gantt"
+              sequence="5"/>
 
     <menuitem id="menu_capacite_charge"
               name="Capacité vs Charge"
-              parent="menu_capacite_charge_root"
+              parent="fma_atelier.menu_fma_macro_planning"
               action="action_capacite_charge"
               sequence="10"/>
 
     <menuitem id="menu_charge_operateur"
               name="Charge par opérateur"
-              parent="menu_capacite_charge_root"
+              parent="fma_atelier.menu_fma_macro_planning"
               action="action_capacite_charge_operateur"
-              sequence="20"/>
-
-    <menuitem id="menu_refresh_capacite"
-              name="⚙️ Recalculer capacité et charge"
-              parent="menu_capacite_charge_root"
-              action="action_refresh_wizard"
               sequence="30"/>
 
+    <menuitem id="menu_refresh_capacite"
+              name="Recalculer capacité et charge"
+              parent="fma_atelier.menu_fma_macro_planning"
+              action="action_refresh_wizard"
+              sequence="90"/>
+
+    <!-- Rapprochement roles / postes : on le regle une fois, on n'y revient
+         pas. Sa place est dans la configuration, pas dans un ecran de suivi
+         quotidien. -->
     <menuitem id="menu_planning_role_workcenter"
               name="Lier Rôles → Postes"
-              parent="menu_capacite_charge_root"
+              parent="fma_atelier.menu_fma_specifique"
               action="action_planning_role_workcenter"
-              sequence="40"/>
-
-    <menuitem id="menu_debug_cache_charge"
-              name="🔍 Debug cache charge"
-              parent="menu_capacite_charge_root"
-              action="action_workorder_charge_cache"
-              sequence="50"
-              groups="base.group_no_one"/>
-
-
-    <menuitem id="menu_mrp_workorder_planning_gantt"
-              name="📅 Planning Atelier (Gantt)"
-              parent="menu_capacite_charge_root"
-              action="action_mrp_workorder_planning_gantt"
-              sequence="5"/>
+              sequence="60"/>
 
 </odoo>

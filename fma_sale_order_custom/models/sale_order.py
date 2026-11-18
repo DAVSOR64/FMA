@@ -1,6 +1,7 @@
 from datetime import timedelta
 import logging
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -8,8 +9,22 @@ _logger = logging.getLogger(__name__)
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
+    # selection_add, et non selection : redefinir la liste entiere ecrase
+    # celle du standard, et Odoo le signale a chaque chargement du registre
+    # (« overrides existing selection; use selection_add instead »).
+    #
+    # Le resultat est strictement le meme : selection_add fusionne dans
+    # l'ordre donne ici, et un libelle fourni pour une valeur deja connue du
+    # standard (draft, sent, sale, cancel) REMPLACE le libelle standard. On
+    # garde donc « Devis envoyé » et « Bon de commande », la ou Odoo 19
+    # dirait « Envoyé » et « Commande client ».
+    #
+    # « validated » et « done » sont les deux valeurs propres a FMA (« done »
+    # a disparu du standard depuis Odoo 17, remplace par le booleen locked).
+    # ondelete ne joue qu'a la desinstallation du module : un devis valide
+    # redevient un devis, une commande verrouillee reste une commande.
     state = fields.Selection(
-        selection=[
+        selection_add=[
             ("draft", "Devis"),
             ("sent", "Devis envoyé"),
             ("validated", "Validé"),
@@ -17,7 +32,7 @@ class SaleOrder(models.Model):
             ("done", "Verrouillé"),
             ("cancel", "Annulé"),
         ],
-        ondelete={"validated": "set default"},
+        ondelete={"validated": "set default", "done": "set sale"},
         default="draft",
         string="Statut",
         tracking=True,
@@ -25,60 +40,41 @@ class SaleOrder(models.Model):
 
     date_bpe = fields.Date(string="Date BPE")
 
+    # Le « Vendeur » natif d'Odoo est, chez FMA, le deviseur : l'utilisateur
+    # qui etablit le devis. Le commercial, lui, est un employe sans licence,
+    # porte par commercial_id. On ne change que le libelle : le champ reste le
+    # user_id standard, avec ses filtres, ses droits et ses rapports.
+    user_id = fields.Many2one(string="Deviseur")
+
     # --- Champs migrés depuis Odoo Studio ---
     # Noms techniques conservés à l'identique, aucune migration de données.
     # Champs volontairement exclus de ce portage (voir STUDIO_AUDIT.md) :
-    # - x_studio_avancement, x_studio_bureau_etudes, x_studio_com,
-    #   x_studio_commercial_si_prospect, x_studio_deviseur_1,
-    #   x_studio_motif_annul, x_studio_nom_com_2 : sélections dont les
-    #   valeurs n'ont pas pu être vérifiées en base au moment du portage.
+    # - x_studio_bureau_etudes, x_studio_com, x_studio_deviseur_1,
+    #   x_studio_nom_com_2 : sélections dont les valeurs n'ont pas pu être
+    #   vérifiées en base au moment du portage. (x_studio_avancement,
+    #   x_studio_commercial_si_prospect et x_studio_motif_annul l'ont été
+    #   depuis, cf. plus bas.)
     # - x_studio_related_field_* (6 champs) : champs liés Studio dont la
     #   cible ("related=") n'a pas pu être vérifiée en base.
     # - x_studio_calcul_raf_ht : non stocké côté Studio (probablement un
     #   champ lié), pas porté tel quel pour éviter de figer sa valeur.
-    # - x_studio_commercial, x_studio_commercial_client_mtn,
-    #   x_studio_commercial_mtn_1, x_studio_montant_facturer_en_ht,
+    # - x_studio_commercial, x_studio_commercial_mtn_1,
+    #   x_studio_montant_facturer_en_ht,
     #   x_studio_mtt_facturer_en_ht, x_studio_mtt_facturer_ht_ : marqués
     #   "OLD"/déprécié par le métier lui-même côté Studio.
-    x_studio_ach_matire = fields.Monetary(string="Achat Matière (BE)", currency_field="currency_id")
-    x_studio_ach_vitrage = fields.Monetary(string="Achat Vitrage (BE)", currency_field="currency_id")
-    x_studio_achat_mat = fields.Monetary(string="Achat Matière (Réel)", currency_field="currency_id")
-    x_studio_achat_matire = fields.Monetary(string="Achat Matière (Devis)", currency_field="currency_id")
-    x_studio_achat_vit = fields.Monetary(string="Achat Vitrage (Réel)", currency_field="currency_id")
-    x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis)", currency_field="currency_id")
-    x_studio_avancement_crm = fields.Many2one("crm.stage", string="Avancement CRM")
-    x_studio_bureau_dtude = fields.Many2one("res.users", string="Bureau d'étude")
-
-    # --- Champs Studio portes en production ------------------------------
+    # --- Champs Studio portes le 2026-08-09 ------------------------------
     # Definitions relevees directement en base (ir_model_fields et
-    # ir_model_fields_selection), reprises a l'identique — y compris quand
-    # la valeur stockee et son libelle divergent : toute retouche rendrait
-    # invisibles les devis portant l'ancienne valeur.
+    # ir_model_fields_selection) : les valeurs sont reprises a l'identique,
+    # y compris quand la valeur stockee et son libelle divergent. Toute
+    # retouche ici rendrait invisibles les devis portant l'ancienne valeur.
     #
-    # Ce portage est le prealable a la refonte de la vue : un champ
-    # « manual » cree par Studio n'existe pas encore dans le registre au
-    # moment ou les vues des modules sont chargees, et une vue de module ne
-    # peut donc pas le placer.
-    x_studio_motif_annul = fields.Selection(
-        selection=[
-            # Valeurs telles quelles en base. Deux d'entre elles ont un
-            # libelle qui ne correspond pas a la valeur stockee ; c'est le
-            # cas en production, on ne le corrige pas ici.
-            ("KKJN?", "Dossier transmis - Pas de retour"),
-            ("Retard Travaux", "Retard Travaux"),
-            ("Projet ajourné", "En bonne voie"),
-            ("Changement Typologie", "Changement Typologie"),
-            ("Perdu par le client", "Perdu par le client"),
-            ("Perdu face à un concurrent", "Perdu face à un concurrent"),
-        ],
-        string="Statut Affaire",
-    )
-
+    # Ce portage est necessaire pour que les vues du depot puissent placer
+    # ces champs : un champ « manual » cree par Studio n'existe pas encore
+    # dans le registre au moment ou les vues des modules sont chargees.
     x_studio_avancement = fields.Selection(
         selection=[("1", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5", "5")],
         string="Avancement",
     )
-
     x_studio_commercial_si_prospect = fields.Selection(
         selection=[
             ("Adrien LAISNE", "Adrien LAISNE"),
@@ -119,26 +115,274 @@ class SaleOrder(models.Model):
         ],
         string="Commercial SI PROSPECT",
     )
+    x_studio_motif_annul = fields.Selection(
+        selection=[
+            # Valeurs telles quelles en base. Deux d'entre elles ont un
+            # libelle qui ne correspond pas a la valeur stockee ; c'est le
+            # cas en production, on ne le corrige pas ici.
+            ("KKJN?", "Dossier transmis - Pas de retour"),
+            ("Retard Travaux", "Retard Travaux"),
+            ("Projet ajourné", "En bonne voie"),
+            ("Changement Typologie", "Changement Typologie"),
+            ("Perdu par le client", "Perdu par le client"),
+            ("Perdu face à un concurrent", "Perdu face à un concurrent"),
+        ],
+        string="Statut Affaire",
+    )
+    # Marque « OLD » par le metier. Porte uniquement pour que les vues du
+    # depot puissent le retirer de l'ecran ; a supprimer le jour ou les
+    # donnees auront ete reprises.
+    x_studio_commercial_client_mtn = fields.Many2one(
+        "hr.employee",
+        string="OLD",
+    )
+
+    x_studio_ach_matire = fields.Monetary(string="Achat Matière (BE)", currency_field="currency_id")
+    x_studio_ach_vitrage = fields.Monetary(string="Achat Vitrage (BE)", currency_field="currency_id")
+    x_studio_achat_mat = fields.Monetary(string="Achat Matière (Réel) (Studio)", currency_field="currency_id")
+    x_studio_achat_matire = fields.Monetary(string="Achat Matière (Devis) (Studio)", currency_field="currency_id")
+    x_studio_achat_vit = fields.Monetary(string="Achat Vitrage (Réel) (Studio)", currency_field="currency_id")
+    x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis) (Studio)", currency_field="currency_id")
+    x_studio_avancement_crm = fields.Many2one("crm.stage", string="Avancement CRM")
+    # Le bureau d'etude est le responsable du projet. Mesure avant bascule :
+    # 6 348 devis renseignes, 6 348 identiques au responsable du projet,
+    # 0 divergent — et tout devis ayant un bureau d'etude a un projet. Le
+    # recalcul est donc sans perte.
+    #
+    # compute + store + readonly=False, comme commercial_id : la valeur est
+    # figee sur le devis. Changer le responsable d'un projet ne doit pas
+    # reecrire l'historique, notamment les destinataires des mails de retard
+    # deja envoyes.
+    #
+    # Domaine : le departement porte deux libelles selon la langue
+    # (« BEC-Ventes » en francais, « Sales » en anglais). On accepte les deux
+    # plutot que de filtrer sur un identifiant, qui differe d'un
+    # environnement a l'autre.
+    x_studio_bureau_dtude = fields.Many2one(
+        "res.users",
+        string="Bureau d'étude",
+        compute="_compute_x_studio_bureau_dtude",
+        store=True,
+        readonly=False,
+        domain="[('employee_ids.department_id.name', 'in', ['BEC-Ventes', 'Sales'])]",
+    )
+
+    # Depuis project_id et non x_studio_projet : le projet du devis est
+    # desormais porte par le champ natif. Voir la migration 19.0.1.0.26.
+    #
+    # LA DEPENDANCE PORTE SUR LE RESPONSABLE, PAS SEULEMENT SUR LE PROJET.
+    # Avec « project_id » seul, le bureau d'etudes n'etait repris qu'au
+    # moment ou l'on rattachait le devis a un chantier : changer ensuite le
+    # responsable du projet ne remontait nulle part, et le devis gardait un
+    # nom perime — ou restait vide quand le projet n'avait pas encore de
+    # responsable au rattachement, ce qui est le cas courant.
+    @api.depends("project_id", "project_id.user_id")
+    def _compute_x_studio_bureau_dtude(self):
+        for order in self:
+            order.x_studio_bureau_dtude = order.project_id.user_id
+
+    # La tranche est SAISIE, pas deduite. Le numero de devis doit etre connu
+    # du chiffreur pour ouvrir la meme affaire dans LOGIKAL : c'est donc lui
+    # qui porte la tranche, et l'utilisateur decide quand il la pose.
+    #
+    # Le devis est cree normalement, il recoit son numero de sequence ; on
+    # renseigne ensuite la tranche, et le numero devient « <code>/<tranche> ».
+    # Ces deux champs ont ete deployes puis remplaces par x_tranche. Ils sont
+    # conserves declares, et volontairement absents de toute vue.
+    #
+    # Raison : Odoo valide les vues UNE PAR UNE pendant la mise a jour d'un
+    # module. Quand il valide la premiere vue du fichier, les autres vues du
+    # meme module sont encore, en base, dans leur version precedente — celle
+    # qui reference ces champs. Supprimer un champ et sa reference dans la
+    # meme mise a jour fait donc echouer le deploiement sur « Field ... does
+    # not exist in model », alors que le code est coherent.
+    #
+    # On les supprimera dans une version ulterieure, quand les vues stockees
+    # ne les mentionneront plus.
+    x_ref_tranche = fields.Char(string="Référence affaire (obsolète)")
+    tranche_no = fields.Integer(string="Tranche (obsolète)")
+
+    x_tranche = fields.Integer(
+        string="Tranche",
+        copy=False,
+        help="Numero de tranche du chantier. Une fois renseigne, il suffixe "
+             "le numero du devis : A24-04-01435/2.",
+    )
+
+    @api.onchange("project_id")
+    def _onchange_project_id_tranche(self):
+        """Propose la tranche suivante — seulement sur un chantier a tranches.
+
+        La plupart des affaires n'en ont pas, et leur devis doit garder son
+        numero tel quel, sans suffixe. On ne propose donc rien tant qu'aucune
+        autre commande du chantier ne porte de tranche.
+
+        Ouvrir une affaire a tranches, c'est saisir 1 sur le premier devis.
+        C'est une decision de gestion, pas une deduction : elle appartient a
+        celui qui sait, des le chiffrage, que le chantier sera decoupe. Les
+        tranches suivantes s'enchainent ensuite d'elles-memes.
+        """
+        if not self.project_id or self.x_tranche:
+            return
+        autres = self.project_id.x_commande_ids.filtered(
+            lambda o: o.id != self._origin.id
+        )
+        deja = [t for t in autres.mapped("x_tranche") if t]
+        if deja:
+            self.x_tranche = max(deja) + 1
+
+    @api.onchange("project_id", "x_tranche")
+    def _onchange_numero_tranche(self):
+        """Pose le numero de tranche AVANT l'enregistrement, sur un devis neuf.
+
+        Sans cela, on saisit le chantier et la tranche, et le champ affiche
+        « Nouveau » jusqu'a la sauvegarde : rien ne dit quel numero on est en
+        train d'ouvrir, alors que c'est precisement ce que le chiffreur doit
+        connaitre pour retrouver l'affaire dans LOGIKAL.
+
+        Et cela evite de bruler un numero. Odoo ne consomme la sequence que si
+        le nom vaut encore « Nouveau » a la creation. Un devis de tranche qui
+        prenait A26-09-09877 avant d'etre renomme A26-09-09876/2 perdait le
+        premier definitivement : le compteur annuel se trouait d'autant. En
+        posant le nom ici, la sequence n'est pas appelee du tout.
+
+        Uniquement sur un devis NEUF. Sur un devis deja enregistre, le
+        renommage passe par write, qui verifie qu'aucune facture ni aucun bon
+        de livraison ne porte encore l'ancien numero.
+        """
+        for order in self:
+            if order._origin.id:
+                continue
+            code = order.project_id.x_code_affaire
+            if order.x_tranche and code:
+                order.name = "%s/%s" % (code, order.x_tranche)
+            elif "/" in (order.name or ""):
+                # La tranche vient d'etre effacee : on rend la main a la
+                # sequence. Le test sur « / » evite d'ecraser un numero
+                # saisi a la main, qui n'en contient pas.
+                order.name = _("New")
+
+    def _appliquer_suffixe_tranche(self, explicite=False):
+        """Renomme le devis en « <code affaire>/<tranche> ».
+
+        « explicite » distingue une saisie de tranche par l'utilisateur d'un
+        simple rattachement de chantier. Dans le premier cas, un empechement
+        merite un message : la personne attend un renumerotage. Dans le
+        second, elle ne demandait rien, et une exception serait deplacee.
+
+        Le code affaire vient du chantier, et le chantier tient le sien du
+        numero de son premier devis. La deuxieme tranche d'une affaire porte
+        donc « A24-04-01435/2 » et non un numero de sequence sans rapport :
+        le chiffreur retrouve son affaire dans LOGIKAL.
+
+        Trois garde-fous. On ne renomme qu'un devis encore modifiable : une
+        fois une facture ou un bon de livraison emis, ces documents portent
+        l'ancien numero en origine et le renommage creerait une incoherence
+        que rien ne rattrape. On refuse un numero deja pris. Et on ne fait
+        rien tant que le chantier n'a pas de code affaire.
+        """
+        for order in self:
+            if not order.x_tranche:
+                continue
+
+            code = order.project_id.x_code_affaire
+            if not code:
+                # Silencieux, ce cas est incomprehensible cote utilisateur :
+                # on saisit la tranche, on enregistre, et le numero ne bouge
+                # pas sans qu'aucun message n'explique pourquoi.
+                if not order.project_id:
+                    raise UserError(
+                        "Rattachez d'abord un chantier à ce devis : le numéro "
+                        "de tranche se construit sur le code de l'affaire."
+                    )
+                raise UserError(
+                    "Le chantier « %s » n'a pas de code affaire. Renseignez-le "
+                    "sur la fiche chantier — c'est lui qui sert de base au "
+                    "numéro : <code>/%s."
+                    % (order.project_id.display_name, order.x_tranche)
+                )
+
+            bloquants = []
+            if order.state not in ("draft", "sent", "validated"):
+                bloquants.append("la commande est confirmée")
+            if order.invoice_ids:
+                bloquants.append("une facture a été émise")
+            if "picking_ids" in order._fields and order.picking_ids:
+                bloquants.append("un bon de livraison existe")
+            if bloquants:
+                # Ces documents portent l'ancien numero en origine, et rien ne
+                # les met a jour. On refuse plutot que de creer une
+                # incoherence, mais on le dit.
+                if explicite:
+                    raise UserError(
+                        "Le numéro de ce devis ne peut plus être modifié : %s. "
+                        "La tranche n'a pas été appliquée au numéro."
+                        % ", ".join(bloquants)
+                    )
+                continue
+
+            nouveau = "%s/%s" % (code, order.x_tranche)
+            if order.name == nouveau:
+                continue
+            if self.search_count([("name", "=", nouveau), ("id", "!=", order.id)]):
+                raise UserError(
+                    "Le numéro %s est déjà utilisé par un autre devis. "
+                    "Vérifiez le numéro de tranche." % nouveau
+                )
+            order.name = nouveau
+
+    def action_creer_chantier(self):
+        """Ouvre la fiche chantier, deja numerotee depuis ce devis.
+
+        Le geste reste celui d'aujourd'hui : on part du devis, on tape le
+        libelle de l'affaire, et le chantier s'appelle « <numero du devis> -
+        <libelle> ». Seule la recopie du numero disparait.
+
+        On ouvre le formulaire au lieu de creer directement : le libelle
+        n'est pas devinable, et un projet cree puis renomme laisserait des
+        traces dans le suivi. L'utilisateur voit ce qu'il valide.
+        """
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "project.project",
+            "view_mode": "form",
+            "target": "new",
+            "name": "Nouveau chantier",
+            "context": {
+                "default_name": "%s - " % self.name,
+                "default_x_code_affaire": self.name,
+                "default_partner_id": self.partner_id.id,
+                "default_company_id": self.company_id.id,
+                # Rattache le devis des la sauvegarde du chantier : sans ca il
+                # faudrait revenir sur le devis pour le selectionner.
+                "fma_devis_a_rattacher": self.id,
+            },
+        }
+
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")
     x_studio_commentaire_supplmentaire = fields.Char(string="Commentaire Supplémentaire")
-    # Recopie le nom du commercial (employé) assigné au client sélectionné.
-    # FMA/Janneau n'utilise pas le "Commercial" natif d'Odoo (user_id, lié à
-    # une licence utilisateur) mais un employé (res.partner.x_studio_commercial_1,
-    # Many2one hr.employee) -- ce champ existait avant la migration mais sa
-    # synchronisation automatique avait été perdue au portage.
-    x_studio_commercial_1 = fields.Char(
-        string="Commercial", compute="_compute_x_studio_commercial_1", store=True, readonly=True
-    )
-    x_studio_date_bpe = fields.Date(string="Date BPE")
+    # Nom du commercial, HISTORIQUE. 13 494 devis le portent, herite de
+    # Studio. On le laisse volontairement fige : les commerciaux des devis
+    # deja etablis ne doivent pas etre reecrits.
+    #
+    # Il n'est donc PAS calcule depuis commercial_id : en faire un reflet
+    # aurait vide ou reecrit ces 13 494 valeurs des qu'on aurait alimente le
+    # nouveau champ. Les consommateurs (export PowerBI, mails de retard)
+    # lisent commercial_id en priorite et retombent sur celui-ci.
+    x_studio_commercial_1 = fields.Char(string="Commercial (historique)", readonly=True)
+    x_studio_date_bpe = fields.Date(string="Date BPE (Studio)")
     x_studio_date_de_modification = fields.Datetime(string="Date de Modification")
     x_studio_date_de_rception = fields.Date(string="Date de Réception")
     x_studio_date_de_relance_1 = fields.Datetime(string="Date de relance 1")
     x_studio_date_de_relance_2 = fields.Datetime(string="Date de relance 2")
     x_studio_date_field_IuGus = fields.Date(string="New Date")
     x_studio_datetime_field_22b_1jcrk40tn = fields.Datetime(string="Nouveau Datetime")
-    x_studio_deviseur = fields.Char(string="Deviseur")
+    # Ancien champ texte, 592 enregistrements, remplace par user_id.
+    # Libelle distinct pour ne pas le confondre avec le vrai deviseur.
+    x_studio_deviseur = fields.Char(string="Deviseur (ancien)")
     # Many2many auto-référencé sur sale.order lui-même : aucune table de
     # relation ni donnée existante côté Studio (champ probablement
     # abandonné/mal configuré, x_studio_etiquette_1 ci-dessous porte le
@@ -150,7 +394,7 @@ class SaleOrder(models.Model):
         relation="x_studio_etiquette_sale_order_rel",
         column1="sale_order_id1",
         column2="sale_order_id2",
-        string="Etiquette",
+        string="Etiquette (ancien)",
     )
     # Relation explicite requise : x_studio_many2many_field_7ae_1jshd7qf2
     # ci-dessous pointe aussi sale.order -> crm.tag sans nom de table
@@ -166,26 +410,26 @@ class SaleOrder(models.Model):
     x_studio_m_brute_en_ = fields.Monetary(string=" Marge Brute en € (BE)", currency_field="currency_id")
     x_studio_m_sur_cots_variables_ = fields.Float(string="M.C.V. en % (BE)")
     x_studio_m_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (BE)", currency_field="currency_id")
-    x_studio_many2many_field_2ee_1jsee0cpo = fields.Many2many("project.tags", string="Nouveau Many2Many")
-    x_studio_many2many_field_495_1jsedj4nk = fields.Many2many("documents.tag", string="Nouveau Many2Many")
+    x_studio_many2many_field_2ee_1jsee0cpo = fields.Many2many("project.tags", string="Nouveau Many2Many (étiquettes projet)")
+    x_studio_many2many_field_495_1jsedj4nk = fields.Many2many("documents.tag", string="Nouveau Many2Many (étiquettes documents)")
     x_studio_many2many_field_7ae_1jshd7qf2 = fields.Many2many(
         "crm.tag",
         relation="x_studio_m2m_7ae_1jshd7qf2_crm_tag_rel",
         string="Nouveau Étiquettes",
     )
-    x_studio_many2many_field_95p_1ilmrb25m = fields.Many2many("x_affaire", string="Nouveau Many2Many")
+    x_studio_many2many_field_95p_1ilmrb25m = fields.Many2many("x_affaire", string="Nouveau Many2Many (affaires)")
     x_studio_marge_b_ = fields.Float(string=" Marge Brute en % (Réel)")
     x_studio_marge_b_en_ = fields.Monetary(string=" Marge Brute en € (Réel)", currency_field="currency_id")
     x_studio_marge_brute_ = fields.Float(string=" Marge Brute en % (Devis)")
     x_studio_marge_brute_en_ = fields.Monetary(string=" Marge Brute en € (Devis)", currency_field="currency_id")
-    x_studio_marge_sur_cots_variables_ = fields.Float(string="M.C.V. en % (Devis)")
-    x_studio_marge_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (Devis)", currency_field="currency_id")
-    x_studio_mcv_ = fields.Float(string="M.C.V. en % (Réel)")
-    x_studio_mcv_en_ = fields.Monetary(string="M.C.V. en € (Réel)", currency_field="currency_id")
+    x_studio_marge_sur_cots_variables_ = fields.Float(string="M.C.V. en % (Devis) (Studio)")
+    x_studio_marge_sur_cots_variables_en_ = fields.Monetary(string="M.C.V. en € (Devis) (Studio)", currency_field="currency_id")
+    x_studio_mcv_ = fields.Float(string="M.C.V. en % (Réel) (Studio)")
+    x_studio_mcv_en_ = fields.Monetary(string="M.C.V. en € (Réel) (Studio)", currency_field="currency_id")
     x_studio_mo = fields.Monetary(string="Coûts MOD (Réel)", currency_field="currency_id")
-    x_studio_mo_vendue = fields.Monetary(string="Coût MOD (Devis)", currency_field="currency_id")
+    x_studio_mo_vendue = fields.Monetary(string="Coût MOD (Devis) (Studio)", currency_field="currency_id")
     x_studio_mo_vendue_1 = fields.Monetary(string="Coût MOD (BE)", currency_field="currency_id")
-    x_studio_mode_de_rglement = fields.Char(string="Mode de Règlement")
+    x_studio_mode_de_rglement = fields.Char(string="Mode de Règlement (ancien texte)")
     x_studio_montant_livr_factur = fields.Monetary(string="Montant livré facturé", currency_field="currency_id")
     x_studio_montant_livr_non_factur = fields.Monetary(string="Montant livré non facturé", currency_field="currency_id")
     x_studio_montant_non_livr_non_factur = fields.Monetary(string="Montant non livré non facturé", currency_field="currency_id")
@@ -193,7 +437,11 @@ class SaleOrder(models.Model):
     x_studio_nom_commercial = fields.Char(string="Sélection commercial", readonly=True)
     x_studio_numro_iziqo = fields.Char(string="Numéro Iziqo")
     x_studio_plannifier_en_prod = fields.Boolean(string="Planifié en Prod")
-    x_studio_projet = fields.Many2one("project.project", string="Projet mtn")
+    # « Projet » tout court : c'est ce champ qui pilote l'affaire chez FMA.
+    # Il est consomme par le tableau de bord MRP (jointures SQL directes sur
+    # so.x_studio_projet), la rentabilite projet, la propagation vers les
+    # achats et l'export PowerBI. Le nom technique ne bouge donc pas.
+    x_studio_projet = fields.Many2one("project.project", string="Projet")
     # RAF HT : le seul. Il y en avait deux, et ils ne pouvaient pas etre
     # d'accord — x_studio_calcul_raf_ht, calcule mais NON STOCKE cote Studio,
     # et celui-ci, stocke mais fige, qu'un bouton recopiait depuis le premier.
@@ -218,7 +466,7 @@ class SaleOrder(models.Model):
     fma_facture_ht = fields.Monetary(
         string="Facturé HT",
         currency_field="currency_id",
-        compute="_compute_raf_ht",
+        compute="_compute_fma_facture_ht",
         help="Total hors taxes des factures postées de cette commande, "
         "avoirs postés déduits.",
     )
@@ -263,22 +511,35 @@ class SaleOrder(models.Model):
         regarder, pas ici.
         """
         for order in self:
-            facture = 0.0
-            for move in order.invoice_ids.filtered(
-                    lambda m: m.state == "posted"):
-                signe = -1.0 if move.move_type == "out_refund" else 1.0
-                facture += signe * (move.amount_untaxed or 0.0)
-            order.fma_facture_ht = facture
             order.x_studio_restant_a_facturer_ht_pivot = (
-                order.amount_untaxed or 0.0) - facture
+                order.amount_untaxed or 0.0) - order._fma_total_facture_ht()
+
+    # Deux methodes de calcul et non une seule : le RAF est stocke (donc
+    # calcule en sudo), le facture ne l'est pas. Les faire sortir de la meme
+    # methode faisait dire a Odoo, a chaque chargement, « inconsistent
+    # 'compute_sudo' / 'store' for computed fields » — et afficher le facture
+    # recalculait au passage le RAF stocke. La formule, elle, reste unique :
+    # _fma_total_facture_ht.
+    @api.depends(
+        "invoice_ids.state",
+        "invoice_ids.move_type",
+        "invoice_ids.amount_untaxed",
+    )
+    def _compute_fma_facture_ht(self):
+        for order in self:
+            order.fma_facture_ht = order._fma_total_facture_ht()
+
+    def _fma_total_facture_ht(self):
+        """Total HT des factures postees de la commande, avoirs deduits."""
+        self.ensure_one()
+        facture = 0.0
+        for move in self.invoice_ids.filtered(lambda m: m.state == "posted"):
+            signe = -1.0 if move.move_type == "out_refund" else 1.0
+            facture += signe * (move.amount_untaxed or 0.0)
+        return facture
     x_studio_so_cout_appro_affaire = fields.Monetary(string="Appro Affaire", currency_field="currency_id")
     x_studio_so_cout_appro_stock = fields.Monetary(string="Appro Stock", currency_field="currency_id")
     x_studio_srie = fields.Many2one("x_serie_mtn", string="Série")
-
-    @api.depends("partner_id")
-    def _compute_x_studio_commercial_1(self):
-        for order in self:
-            order.x_studio_commercial_1 = order.partner_id.x_studio_commercial_1.name or False
 
     @api.onchange("so_date_de_livraison")
     def _onchange_so_date_de_livraison(self):
@@ -294,7 +555,11 @@ class SaleOrder(models.Model):
         for order in self:
             order.state = "validated"
             order.x_studio_date_de_la_commande = fields.Datetime.today()
-            # order.so_date_devis_valide = fields.Datetime.today()
+            # so_date_devis_valide est un fields.Date : on y met une date, pas
+            # un datetime. C'est ce champ qui alimente le taux de
+            # transformation (x_nb_valide / x_montant_valide) du tableau de
+            # bord : un devis validé compte comme commande.
+            order.so_date_devis_valide = fields.Date.context_today(order)
             order.x_studio_avancement = "5"  # Mettre x_studio_avancement à '5'
 
     # Extra: Allows confirmation from the custom 'validated' state as well.
@@ -434,7 +699,17 @@ class SaleOrder(models.Model):
                             if warehouse_remaudiere:
                                 vals["warehouse_id"] = warehouse_remaudiere.id
 
-        return super(SaleOrder, self).create(vals_list)
+        commandes = super(SaleOrder, self).create(vals_list)
+
+        # Numero de tranche pose des la creation : un devis cree d'un seul
+        # geste avec son chantier et sa tranche ne passe jamais par write, et
+        # le renommage n'avait donc pas lieu. L'appel vit ici, dans l'unique
+        # methode create de la classe — en ajouter une seconde la rendrait
+        # muette, la derniere definie ecrasant les precedentes.
+        if any(v.get("x_tranche") for v in vals_list):
+            commandes._appliquer_suffixe_tranche(explicite=True)
+
+        return commandes
 
     # Méthode write : mise à jour du mode de règlement et de la date de modification du devis
     def write(self, vals):
@@ -451,18 +726,27 @@ class SaleOrder(models.Model):
 
         # Appel de la méthode write parente
         res = super(SaleOrder, self).write(vals)
-        _logger.info("Devis mis à jour: %s", self.id)
+        # self.ids et non self.id : write s'applique a un ensemble, et self.id
+        # sur plus d'un enregistrement leve « Expected singleton ». Une simple
+        # trace rendait donc impossible toute ecriture groupee sur les devis.
+        _logger.info("Devis mis à jour: %s", self.ids)
 
         # Mise à jour de l'entrepôt si les tags sont modifiés
         if "tag_ids" in vals:
             _logger.info("Appel de _update_warehouse après mise à jour")
             self._update_warehouse()
 
+        # Numero de tranche : il suffixe le numero du devis. Cet appel vit ici
+        # et non dans une seconde methode write — la classe n'en accepte
+        # qu'une, la derniere definie ecrase silencieusement les precedentes.
+        if "x_tranche" in vals or "project_id" in vals:
+            self._appliquer_suffixe_tranche(explicite="x_tranche" in vals)
+
         return res
 
     # Mise à jour de l'entrepôt en fonction des tags
     def _update_warehouse(self):
-        _logger.info("Début de _update_warehouse pour le devis: %s", self.id)
+        _logger.info("Début de _update_warehouse pour le devis: %s", self.ids)
         fma_tag = self.env["crm.tag"].search([("name", "=", "FMA")], limit=1)
         f2m_tag = self.env["crm.tag"].search([("name", "=", "F2M")], limit=1)
         for order in self:
