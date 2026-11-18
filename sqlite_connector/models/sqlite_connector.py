@@ -17,6 +17,46 @@ from ..ref_logikal import destination_vitrage
 
 _logger = logging.getLogger(__name__)
 
+
+def _nombre_logikal(valeur):
+    """Le nombre que porte une etiquette d'unite, ou None.
+
+    POURQUOI ON NE COMPARE PLUS DU TEXTE.
+
+    Pour un profile, LOGIKAL donne la longueur de barre en metres sous forme
+    de nombre : AllProfiles.Units vaut 6.0, et str() en fait « 6.0 ». Cote
+    Odoo, la meme information est portee par x_studio_uom_logical, mais saisie
+    a la main : tantot « 6 », tantot « 6.0 », tantot « 6ML ». Comparees comme
+    du texte, ces ecritures ne se rencontrent jamais, et l'article tombait
+    alors sur le repli « Unites » — qu'heritaient ensuite sa nomenclature et
+    son ordre de debit.
+
+    C'est ainsi qu'une affaire en barres de 6 m echouait quand une affaire en
+    6,5 m fonctionnait : « 6.5 » ne s'ecrit que d'une seule facon.
+
+    On compare donc des nombres. 6, « 6 », « 6,0 », « 6ML » et « BARRE6ML »
+    valent tous 6,0 ; « 6.02 » reste 6,02 et ne se confond avec rien.
+
+    Le nombre est cherche OU QU'IL SE TROUVE dans l'etiquette, et non en tete
+    seulement : on ne sait pas si x_studio_uom_logical porte « 6 » ou le nom
+    de l'unite elle-meme, « BARRE6ML ». Le risque de fausse correspondance est
+    nul en pratique, l'egalite restant exigee sur le nombre.
+
+    Rendre None, et non 0.0, est volontaire : une etiquette qui ne porte aucun
+    nombre (« m », « stk », « pce » — celles des articles, pas des profiles)
+    ne doit correspondre a rien, pas s'egaler a une autre etiquette muette.
+    """
+    if valeur in (None, False, ""):
+        return None
+    trouve = re.search(r"(\d+(?:[.,]\d+)?)", str(valeur))
+    if not trouve:
+        return None
+    try:
+        return round(float(trouve.group(1).replace(",", ".")), 3)
+    except (TypeError, ValueError):
+        return None
+
+
 #: DEUX ECRITURES DU SUFFIXE DE LOT, DEUX TRAITEMENTS.
 #:
 #: « REP A LOT 1 » : le mot LOT est ecrit. Il ne peut rien designer d'autre
@@ -1120,8 +1160,19 @@ class SqliteConnector(models.Model):
                         prixB = float(prix) * float(row[6])
                 
                 uom = uom_uoms.filtered(lambda u: u.x_studio_uom_logical == unit)
+                if not uom:
+                    # Rien en comparaison exacte : on compare les nombres,
+                    # pour que « 6 », « 6.0 » et « 6ML » repondent tous a la
+                    # barre de 6 m. Voir _nombre_logikal.
+                    cible = _nombre_logikal(unit)
+                    if cible is not None:
+                        uom = uom_uoms.filtered(
+                            lambda u: _nombre_logikal(u.x_studio_uom_logical) == cible)
                 if uom:
-                    unit = uom.name
+                    # [0] : deux unites peuvent porter la meme etiquette, et
+                    # lire un champ sur plusieurs enregistrements leve une
+                    # erreur de singleton.
+                    unit = uom[0].name
                 
                 
                 trouve = 1
