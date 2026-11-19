@@ -3052,6 +3052,18 @@ class FmaLotFabrication(models.Model):
             for (article, uom), qty in cumul.items()
         ]
 
+    def _projet_du_lot(self):
+        """Le CHANTIER du lot : celui de ses commandes.
+
+        Le lot ne porte pas le chantier, il le tient de ses commandes — une
+        affaire a tranches en compte plusieurs, toutes sur le meme chantier.
+        Le document d'atelier ne portait que le numero d'affaire et le rang
+        du lot : « A26-06-02536 - Lot 1 » ne dit pas de quel chantier il
+        s'agit, et c'est par le nom que le magasin et la pose le reconnaissent.
+        """
+        self.ensure_one()
+        return self.sale_order_ids.project_id[:1]
+
     def _besoin_matiere(self):
         """Le besoin du lot, dans l'ordre ou il quitte le stock.
 
@@ -3088,12 +3100,31 @@ class FmaLotFabrication(models.Model):
             return lignes
 
         # Les barres : besoin du lot, pas d'une menuiserie.
+        #
+        # LUES SUR L'OF DE DEBIT des qu'il existe, sur le besoin matiere du
+        # lot avant lui. Le document est le reflet de ce que l'atelier va
+        # consommer : l'OF de debit pour les barres, les OF d'assemblage pour
+        # le reste. Le besoin matiere du lot, lui, est FIGE a l'import du
+        # fichier pricer et le lot ne se reimporte plus des qu'il quitte le
+        # brouillon : une barre ajoutee ou retiree sur l'OF, une quantite ou
+        # une unite corrigees, n'apparaissaient pas sur le document imprime.
         barres = {}
-        for materiel in self.material_line_ids:
-            if not materiel.product_id or not materiel.product_qty:
+        debit = self.production_ids.filtered(
+            lambda p: p.lot_production_type == "debit" and p.state != "cancel"
+        )[:1]
+        if debit:
+            source_barres = self._composants_reels(debit, 1)
+        else:
+            source_barres = [
+                (materiel.product_id, materiel.product_qty,
+                 materiel.product_uom_id)
+                for materiel in self.material_line_ids
+            ]
+        for article, qty, uom in source_barres:
+            if not article or not qty:
                 continue
-            cle = (materiel.product_id, materiel.product_uom_id)
-            barres[cle] = barres.get(cle, 0.0) + materiel.product_qty
+            cle = (article, uom)
+            barres[cle] = barres.get(cle, 0.0) + qty
 
         agrege = {}
         casiers = []
@@ -3168,11 +3199,18 @@ class FmaLotFabrication(models.Model):
         de la totalite de ce que le lot consomme — c'est la premiere page du
         besoin matiere, celle qui dit ce qui doit etre sorti.
 
-        Les deux sources ne se recouvrent pas : ``profiles`` vient des barres
-        du lot, dimensionnees pour l'optimisation du debit, et ``prefab`` des
-        COMPOSANTS REELS des ordres d'assemblage. Une quincaillerie ajoutee a
-        la main sur une nomenclature ou sur un ordre y figure donc, et c'est
-        tout l'interet de partir des ordres plutot que du fichier LOGIKAL.
+        Les deux sources ne se recouvrent pas : ``profiles`` vient des
+        composants de l'OF DE DEBIT, dimensionnes pour l'optimisation de la
+        coupe, et ``prefab`` des COMPOSANTS REELS des ordres d'assemblage.
+        Une quincaillerie ajoutee a la main sur une nomenclature ou sur un
+        ordre y figure donc, et c'est tout l'interet de partir des ordres
+        plutot que du fichier LOGIKAL.
+
+        La classe retenue est celle de l'ARTICLE ; « profile » n'est plus
+        qu'un repli pour la premiere source. L'OF de debit ne porte pas que
+        des barres des que les methodes y ajoutent une piece, et une
+        quincaillerie n'a pas a s'afficher « Profile » parce qu'elle est
+        passee par le debit.
 
         Chaque poste porte sa classe, pour que le document regroupe sans
         qu'on ait a la relire a l'impression.
@@ -3185,7 +3223,7 @@ class FmaLotFabrication(models.Model):
                 article = poste["product"]
                 if article.id not in classes:
                     classes[article.id] = article._fma_classe_matiere()
-                classe = classe_forcee or classes[article.id] or "quincaillerie"
+                classe = classes[article.id] or classe_forcee or "quincaillerie"
                 postes.append({
                     "product": article,
                     "qty": poste["qty"],

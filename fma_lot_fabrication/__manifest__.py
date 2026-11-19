@@ -97,7 +97,13 @@
     # les ordres affichaient pourtant. Numeros de serie, casiers et
     # etiquettes restent reserves aux menuiseries : rien ne change pour
     # l'atelier.
-    "version": "19.0.1.112.0",
+    # 1.113.0 : le besoin matiere est le reflet des ORDRES du lot et non
+    # du fichier importe — les barres se lisent sur l'OF de debit des qu'il
+    # existe, et non sur le besoin matiere du lot, fige a l'import et plus
+    # reimportable une fois le lot sorti du brouillon. La classe affichee
+    # est celle de l'article. Le document porte le nom du chantier, que le
+    # numero d'affaire et le rang du lot ne donnaient pas.
+    "version": "19.0.1.113.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

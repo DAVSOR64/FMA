@@ -31,6 +31,20 @@ ORIGINE_SEPARATEURS = re.compile(r"[,;\s]+")
 
 #: Champs dont l'ecriture peut reveler la commande d'un achat.
 DECLENCHEURS_EN_TETE = {"order_line", "origin", "x_studio_projet_du_so", "state"}
+
+#: Etiquette commerciale de l'affaire -> champ de societe qui porte
+#: l'acheteur. Les deux ateliers vivent dans la MEME societe : rien d'autre
+#: ne les departage. Doit rester aligne sur
+#: ``fma_lot_fabrication.ENTREPOT_PAR_ETIQUETTE``.
+ACHETEUR_PAR_ETIQUETTE = {
+    "FMA": "fma_acheteur_fma_id",
+    "F2M": "fma_acheteur_f2m_id",
+}
+
+#: Champs de la commande client ou peut vivre l'etiquette. Le second est un
+#: champ Studio, et aucun des deux n'est suppose exister : un champ absent ne
+#: doit pas faire tomber la creation d'un bon d'achat.
+CHAMPS_ETIQUETTE = ("tag_ids", "x_studio_etiquette_1")
 DECLENCHEURS_LIGNE = {"fma_sale_line_id", "lot_fabrication_id", "move_dest_ids"}
 
 
@@ -121,6 +135,61 @@ class PurchaseOrder(models.Model):
         help="Commandes proposees : celles du projet de l'achat s'il en a un.",
     )
 
+    def _fma_etiquette_commerciale(self):
+        """« FMA » ou « F2M » : l'etiquette de l'affaire de cet achat.
+
+        L'achat ne porte pas d'etiquette, l'AFFAIRE en porte une. On la lit
+        sur la commande deja rattachee — en-tete ou lignes, le rattachement
+        vit sur la ligne — et, a defaut, en remontant la chaine
+        d'approvisionnement comme le fait le rattachement lui-meme.
+
+        Le repli compte : un bon ne d'un approvisionnement est cree AVANT que
+        ses lignes ne soient rattachees, et c'est precisement celui-la qu'il
+        faut servir.
+        """
+        self.ensure_one()
+        commandes = self.fma_sale_order_id | self.order_line.fma_sale_order_id
+        if not commandes:
+            for ligne in self.order_line:
+                if ligne.display_type or not ligne.product_id:
+                    continue
+                commandes |= ligne._fma_commandes_fortes()
+        if not commandes:
+            return ""
+        for champ in CHAMPS_ETIQUETTE:
+            if champ not in commandes._fields:
+                continue
+            for tag in commandes.mapped(champ):
+                nom = (tag.name or "").strip().upper()
+                if nom in ACHETEUR_PAR_ETIQUETTE:
+                    return nom
+        return ""
+
+    def _fma_acheteur_par_etiquette(self):
+        """L'acheteur que l'etiquette de l'affaire designe.
+
+        Les deux ateliers n'achetent pas par la meme main. L'approvisionnement
+        ne sait rien de ce partage : il cree ses bons sans acheteur, et le
+        defaut de societe les envoyait tous au meme endroit — a charge pour
+        celui-la de les redistribuer.
+
+        NE S'APPLIQUE QU'AUX BONS QUE PERSONNE N'A SAISIS. Un acheteur choisi
+        a la main fait foi, et l'etiquette ne doit pas le reecrire : c'est la
+        meme regle que la propagation du projet juste en dessous, et elle a
+        deja ete apprise a ses depens.
+
+        Rien trouve, rien pose : le bon garde l'acheteur par defaut de la
+        societe, ce qui valait avant cette regle.
+        """
+        for achat in self:
+            champ = ACHETEUR_PAR_ETIQUETTE.get(
+                achat._fma_etiquette_commerciale())
+            if not champ:
+                continue
+            acheteur = achat.company_id.sudo()[champ]
+            if acheteur and achat.user_id != acheteur:
+                achat.user_id = acheteur
+
     @api.model
     def default_get(self, fields_list):
         """L'acheteur par defaut de la societe, quand Odoo n'en met pas.
@@ -168,14 +237,29 @@ class PurchaseOrder(models.Model):
         # l'interface ; l'approvisionnement appelle create() avec ses propres
         # valeurs — et c'est precisement le cas qui laissait les bons sans
         # responsable, donc dans la liste « Mes commandes » de personne.
+        #
+        # Releve AVANT d'y poser le defaut : les bons sans acheteur SAISI
+        # sont ceux que l'approvisionnement fabrique, et ce sont eux — et eux
+        # seuls — que l'etiquette de l'affaire redirigera plus bas.
         defaut = self.env.company.fma_acheteur_defaut_id
+        rangs_sans_acheteur = [
+            rang for rang, vals in enumerate(vals_list)
+            if not vals.get("user_id")
+        ]
         if defaut:
             for vals in vals_list:
                 if not vals.get("user_id"):
                     vals["user_id"] = defaut.id
         orders = super().create(vals_list)
         orders.with_context(skip_studio_sync=True)._apply_studio_automations()
+        # EN DERNIER, et dans cet ordre : l'etiquette se lit sur l'affaire de
+        # l'achat, que le rattachement vient tout juste de poser.
         orders.order_line._fma_rattacher_commande()
+        if rangs_sans_acheteur:
+            generes = orders.browse(
+                [orders[rang].id for rang in rangs_sans_acheteur
+                 if rang < len(orders)])
+            generes._fma_acheteur_par_etiquette()
         return orders
 
     def write(self, vals):
