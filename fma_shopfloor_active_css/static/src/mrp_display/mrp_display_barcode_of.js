@@ -17,6 +17,22 @@
  * passe la main a la methode d'origine des qu'un ordre porte ce nom : la
  * suite — la facette de recherche — reste celle d'Odoo, pour qu'un scan se
  * comporte pareil que l'ordre soit charge ou non.
+ *
+ * ---------------------------------------------------------------------------
+ * ET L'ETIQUETTE D'UNE MENUISERIE.
+ *
+ * L'Atelier ne sait chercher qu'un NUMERO D'ORDRE. L'etiquette d'une
+ * menuiserie porte, elle, son NUMERO DE SERIE : c'est la menuiserie que
+ * l'etiquette designe, pas le document qui la fabrique. Scannee ici, elle ne
+ * trouvait donc rien — alors que l'etiquette de DEBIT, qui n'a pas de numero
+ * de serie et porte celui de son ordre, marchait. D'ou l'impression qu'une
+ * des deux etiquettes seulement etait lisible.
+ *
+ * Le serveur sait relier les deux : fma_ordre_du_code accepte le numero de
+ * serie, le lien du QR code et le numero d'ordre, et rend le nom de l'ordre
+ * a ouvrir. On ne l'appelle qu'en dernier, quand aucun ordre ne porte ce
+ * nom, et un echec laisse le scan suivre son chemin d'origine : devant un
+ * operateur, un code mal lu ne doit pas lever une fenetre d'erreur.
  */
 import { patch } from "@web/core/utils/patch";
 import { MrpDisplay } from "@mrp_workorder/mrp_display/mrp_display";
@@ -40,6 +56,19 @@ patch(MrpDisplay.prototype, {
             );
             if (trouves.length) {
                 return this._onProductionBarcodeScanned(barcode);
+            }
+            let ordre = "";
+            try {
+                ordre = await this.orm.call(
+                    "mrp.production",
+                    "fma_ordre_du_code",
+                    [barcode]
+                );
+            } catch {
+                ordre = "";
+            }
+            if (ordre) {
+                return this._onProductionBarcodeScanned(ordre);
             }
         }
         return super._onBarcodeScanned(barcode);
