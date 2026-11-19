@@ -106,6 +106,16 @@ def color_of(outer, inner, internal, color):
 #: Correspondance ``LabourTimes.TimeType`` -> poste de charge, telle que
 #: ``sqlite_connector`` la pose sur la nomenclature de projet. La sequence
 #: reproduit l'ordre de l'atelier.
+#:
+#: UNE TABLE PAR SITE : LOGIKAL donne le meme numero a des travaux
+#: differents d'un atelier a l'autre. Le 11 est du montage chez FMA, du
+#: remontage chez F2M ; le 10, vitrage chez FMA, est du remontage chez F2M —
+#: ou le vitrage ne se pose pas en atelier. Lire une affaire F2M avec la
+#: table FMA fabriquait un vitrage qui n'existe pas, et perdait le debit du
+#: 12, que FMA n'emploie pas.
+#:
+#: Doit rester aligne sur
+#: ``sqlite_connector.models.sqlite_connector.POSTES_PAR_TIMETYPE``.
 TIME_TYPES = {
     0: ("Debit", 10),
     5: ("CU (banc)", 20),
@@ -115,19 +125,38 @@ TIME_TYPES = {
     10: ("Vitrage", 50),
 }
 
+TIME_TYPES_F2M = {
+    0: ("Debit", 10),
+    12: ("Debit", 10),
+    4: ("Usinage", 30),
+    5: ("Usinage", 30),
+    6: ("Assemblage", 60),
+    10: ("Remontage", 70),
+    11: ("Remontage", 70),
+}
 
-def _operations(con, menuiseries):
+
+def time_types(site):
+    """La table des temps du site qui a chiffre."""
+    return TIME_TYPES_F2M if (site or "").strip().upper() == "F2M" else TIME_TYPES
+
+
+def _operations(con, menuiseries, site=""):
     """Temps de main d'oeuvre par menuiserie, pour un exemplaire.
 
     ``LabourTimes.TotalMinutes`` est le temps d'un exemplaire ; le connecteur
     le multiplie par ``Elevations.Amount`` pour totaliser l'affaire. Une
     nomenclature raisonne a l'unite : on garde le temps unitaire.
+
+    Le SITE choisit la table des TimeType : les deux ateliers ne nomment pas
+    le meme travail avec le meme numero. cf. ``time_types``.
     """
+    table = time_types(site)
     agg = {}
     for eid, minutes, time_type in con.execute(
         "select ElevationId, TotalMinutes, TimeType from LabourTimes"
     ):
-        entry = TIME_TYPES.get(time_type)
+        entry = table.get(time_type)
         if entry is None or eid not in menuiseries:
             continue
         name, sequence = entry
@@ -178,11 +207,11 @@ def _suppliers(con):
     return names
 
 
-def parse(path, source=None):
+def parse(path, source=None, site_defaut=""):
     """Lit un export LOGIKAL et renvoie un :class:`~.schema.Quotation`."""
     con = _connect(path)
     try:
-        return _parse(con, source or os.path.basename(path))
+        return _parse(con, source or os.path.basename(path), site_defaut)
     finally:
         con.close()
 
@@ -212,7 +241,7 @@ def _site(con):
     return (row[0] or "").strip() if row else ""
 
 
-def _parse(con, source):
+def _parse(con, source, site_defaut=""):
     quo = Quotation(pricer="logikal", source=source)
 
     row = con.execute(
@@ -222,7 +251,12 @@ def _parse(con, source):
         quo.project = {"name": row[0] or "", "offer_no": row[1] or "",
                        "order_no": row[2] or ""}
 
-    quo.site = _site(con)
+    # A DEFAUT DE SITE DANS LE FICHIER, CELUI QUE L'APPELANT CONNAIT.
+    # REPORTVARIABLES manque a beaucoup d'exports — le site y est vide sur
+    # les fichiers releves — et le site ne departage pas seulement les postes
+    # de charge homonymes : il choisit la TABLE DES TEMPS. Lire une affaire
+    # F2M avec la table FMA lui fabrique un vitrage qu'elle n'a pas.
+    quo.site = _site(con) or (site_defaut or "")
 
     suppliers = _suppliers(con)
 
@@ -354,7 +388,7 @@ def _parse(con, source):
         )
 
     # --- operations : temps de main d'oeuvre par menuiserie ------------------
-    _operations(con, menuiseries)
+    _operations(con, menuiseries, quo.site)
 
     # --- barres : rattachement au lot, via les coupes ------------------------
     _attach_bars(con, quo, lots, suppliers)

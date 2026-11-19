@@ -108,11 +108,17 @@ class FmaPricerEngine(models.AbstractModel):
         Le format est reconnu au contenu et non a l'extension : le wizard
         recoit un televersement, dont le nom ne garantit rien.
         """
-        quotation = self.read_file(path, source=source)
+        # L'ETIQUETTE DE LA COMMANDE EST PASSEE A LA LECTURE, et pas
+        # seulement a l'application : le site ne departage pas que les postes
+        # de charge homonymes, il choisit la table des TimeType. Un fichier
+        # sans REPORTVARIABLES — le cas courant — etait lu avec la table FMA,
+        # qui donne du vitrage a une affaire F2M qui n'en a pas.
+        quotation = self.read_file(
+            path, source=source, site_defaut=self._etiquette_site(order))
         return self.apply(order, quotation)
 
     @api.model
-    def read_file(self, path, source=None):
+    def read_file(self, path, source=None, site_defaut=""):
         """Choisit l'adaptateur selon le format du fichier.
 
         Un export LOGIKAL est une base SQLite, un export TechDesign un
@@ -123,7 +129,8 @@ class FmaPricerEngine(models.AbstractModel):
             entete = fichier.read(16)
 
         if entete.startswith(b"SQLite format 3"):
-            return logikal.parse(path, source=source)
+            return logikal.parse(
+                path, source=source, site_defaut=site_defaut)
 
         racine = self._xml_root(path)
         if racine == "JobExport":

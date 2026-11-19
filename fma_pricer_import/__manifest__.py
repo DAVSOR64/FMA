@@ -62,7 +62,12 @@
     # semi-finis se nomment « Débit – ... » et « Quincaillerie – ... », et
     # leurs nomenclatures recoivent une reference. Reprise de l'existant en
     # post-migrate (sqlite_connector/noms_articles.py).
-    "version": "19.0.1.52.0",
+    # 1.53.0 : les temps de main d'oeuvre se lisent avec la table du SITE.
+    # LOGIKAL donne le meme TimeType a des travaux differents d'un atelier a
+    # l'autre : le 11 est du montage chez FMA, du remontage chez F2M, et le
+    # 10 — vitrage chez FMA — est du remontage chez F2M, ou le vitrage ne se
+    # pose pas en atelier.
+    "version": "19.0.1.53.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

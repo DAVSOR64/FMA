@@ -35,7 +35,13 @@
     # (nouvelle colonne product_template.fma_nom_importe). Reprise en
     # post-migrate des articles deja crees sans nom, d'apres leur ligne de
     # commande.
-    "version": "19.0.1.19.0",
+    # 1.20.0 : le poste de charge d'un temps vient d'une TABLE PAR SITE, et
+    # non d'une cascade de tests sans cas final : un TimeType inconnu du
+    # site — le 10 chez F2M, le 12 chez FMA — laissait le poste de la ligne
+    # precedente, et les minutes grossissaient en silence la mauvaise
+    # operation. Un TimeType inconnu, comme un poste de charge absent du
+    # referentiel, est desormais trace.
+    "version": "19.0.1.20.0",
     "description": """
 
     """,

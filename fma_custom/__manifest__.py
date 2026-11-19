@@ -22,7 +22,12 @@
     # 1.0.25 : la colonne SIRET du fichier clients lit le SIRET (fma_siret)
     # et se replie sur le SIREN.
     # 1.0.26 : la colonne SIRET relit company_registry, comme en production.
-    "version": "19.0.1.7.0",
+    # 1.8.0 : l'acheteur d'un bon ne de l'approvisionnement suit
+    # l'etiquette de l'affaire — les affaires FMA et les affaires F2M
+    # n'achetent pas par la meme main, et les deux ateliers vivent dans la
+    # meme societe, ou l'acheteur par defaut les envoyait tous au meme
+    # endroit. Deux reglages de societe, renseignes en post-migrate.
+    "version": "19.0.1.8.0",
     # « custom_sale_order » : il pose l'onglet du cout MOD reel, ou le
     # prix de revient vient se loger. On herite de la vue qui CREE
     # l'onglet, jamais d'une vue sœur.

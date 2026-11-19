@@ -16,6 +16,27 @@
                         <field name="fma_acheteur_defaut_id"
                                options="{'no_create': True}"/>
                     </setting>
+                    <!-- Un acheteur par atelier : les deux vivent dans la
+                         meme societe, le defaut ci-dessus ne les departage
+                         pas. C'est l'etiquette de l'affaire qui tranche. -->
+                    <setting id="fma_acheteur_par_etiquette_setting"
+                             string="Acheteur par atelier"
+                             help="Responsable porté sur les bons d'achat nés de l'approvisionnement, selon l'étiquette de l'affaire. Vide : l'acheteur par défaut s'applique.">
+                        <div class="content-group">
+                            <div class="row mt8">
+                                <label for="fma_acheteur_fma_id" string="Affaires FMA"
+                                       class="col-lg-4 o_light_label"/>
+                                <field name="fma_acheteur_fma_id"
+                                       options="{'no_create': True}"/>
+                            </div>
+                            <div class="row">
+                                <label for="fma_acheteur_f2m_id" string="Affaires F2M"
+                                       class="col-lg-4 o_light_label"/>
+                                <field name="fma_acheteur_f2m_id"
+                                       options="{'no_create': True}"/>
+                            </div>
+                        </div>
+                    </setting>
                 </block>
             </xpath>
         </field>
