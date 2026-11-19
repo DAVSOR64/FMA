@@ -47,7 +47,30 @@ class SaleOrder(models.Model):
     x_studio_achat_vit = fields.Monetary(string="Achat Vitrage (Réel)", currency_field="currency_id")
     x_studio_achat_vitrage = fields.Monetary(string="Achat Vitrage (Devis)", currency_field="currency_id")
     x_studio_avancement_crm = fields.Many2one("crm.stage", string="Avancement CRM")
-    x_studio_bureau_dtude = fields.Many2one("res.users", string="Bureau d'étude")
+    # Domaine : les DEUX bureaux d'etudes, le BEC (ventes) ET le BET
+    # (methodes), pour aligner cet environnement sur la production — ou le
+    # filtre ne retenait que le BEC. ATTENTION : sur cette branche le champ
+    # ne portait AUCUN domaine ; on en ajoute donc un, l'ecran se ferme aux
+    # deux bureaux d'etudes au lieu d'accepter n'importe quel utilisateur.
+    #
+    # Comparaison par « ilike » sur le radical, et non par une liste de
+    # libelles exacts : « BET-Méthodes » s'ecrit avec ou sans trait d'union
+    # selon l'environnement et l'accent ne survit pas a toutes les saisies.
+    # Pas d'identifiant de departement non plus : il differe d'une base a
+    # l'autre.
+    #
+    # hr.department.name EST UN CHAMP TRADUIT : le filtre porte sur le
+    # libelle vu dans la langue de l'utilisateur, et « BEC-Ventes »
+    # s'affiche « Sales » en anglais — d'ou l'ancienne liste a deux
+    # entrees. Tous les comptes FMA sont en francais.
+    x_studio_bureau_dtude = fields.Many2one(
+        "res.users",
+        string="Bureau d'étude",
+        domain=(
+            "['|', ('employee_ids.department_id.name', 'ilike', 'BEC'),"
+            " ('employee_ids.department_id.name', 'ilike', 'BET')]"
+        ),
+    )
     x_studio_bureau_etude = fields.Char(string="Bureau Etudes")
     x_studio_char_field_4c7_1jfiimqpn = fields.Char(string="X Studio Char Field 4C7 1Jfiimqpn")
     x_studio_commande_client = fields.Boolean(string="Commande Client?")

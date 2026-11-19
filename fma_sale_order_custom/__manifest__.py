@@ -9,7 +9,7 @@
             Task: 4098688
         """,
     "author": "Odoo PS",
-    "version": "19.0.1.0.7",
+    "version": "19.0.1.0.8",
     "depends": [
         "sale_management",
         "custom",
