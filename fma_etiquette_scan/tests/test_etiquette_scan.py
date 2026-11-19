@@ -36,6 +36,12 @@ class EtiquetteScanCommon:
         })
         env["stock.quant"]._update_available_quantity(
             cls.poignee, cls.entrepot.lot_stock_id, 100)
+        # Ce que l'ordre de debit produit : un article generique, le meme
+        # pour tout le lot. Il n'est suivi par aucun numero de serie.
+        cls.debit = Produit.create({
+            "name": "Débit du lot", "default_code": "A26-00-00099_DEB",
+            "type": "consu", "is_storable": True,
+        })
         cls.poste = env["mrp.workcenter"].create({"name": "Assemblage"})
         cls.nomenclature = env["mrp.bom"].create({
             "product_tmpl_id": cls.menuiserie.product_tmpl_id.id,
@@ -148,6 +154,36 @@ class TestEtiquetteScan(EtiquetteScanCommon, TransactionCase):
         self.assertIn(self.serie2.name, html)
         self.assertNotIn(self.serie1.name, html)
 
+    def test_12_etiquette_de_debit(self):
+        """L'etiquette de debit porte le MEME en-tete que l'assemblage.
+
+        L'ordre de debit n'a pas de ligne de vente — il coupe pour le lot
+        entier —, et son « origin » vaut « <lot> - <commande> ». La premiere
+        ligne y repetait donc le lot et perdait le client, alors que les deux
+        etiquettes se posent cote a cote sur le meme casier.
+        """
+        debit = self.env["mrp.production"].create({
+            "product_id": self.debit.id,
+            "product_qty": 2,
+            "lot_fabrication_id": self.lot.id,
+            "lot_production_type": "debit",
+            "origin": "%s - %s" % (self.lot.name, self.commande.name),
+        })
+        etiquette = debit._fma_etiquettes()[0]
+        reference = self.ordre1._fma_etiquettes()[0]
+        self.assertEqual(etiquette["affaire_ligne"], reference["affaire_ligne"])
+        self.assertEqual(etiquette["lot_court"], reference["lot_court"])
+        self.assertEqual(etiquette["client"], self.client.display_name)
+        self.assertEqual(etiquette["commande"], self.commande.name)
+        # Ce qui ne se partage pas : le debit coupe pour tout le lot, il n'a
+        # ni repere, ni complexite, ni exemplaire, et son code-barres porte
+        # son propre numero d'ordre, faute de numero de serie.
+        self.assertEqual(etiquette["repere"], "DÉBIT")
+        self.assertEqual(etiquette["complexite"], "")
+        self.assertEqual(etiquette["exemplaire"], "")
+        self.assertEqual(etiquette["serie"], debit.name)
+        self.assertEqual(etiquette["of"], debit.name)
+
     # --- Lecture du code --------------------------------------------------
     def test_20_trouver(self):
         Serie = self.env["stock.lot"]
@@ -172,6 +208,20 @@ class TestEtiquetteScan(EtiquetteScanCommon, TransactionCase):
         self.assertNotEqual(tape, self.serie1.name)
         self.assertEqual(Serie._fma_trouver(tape)[0], self.serie1)
         self.assertFalse(Serie._fma_trouver("INCONNU")[0])
+
+    def test_21_ordre_du_code_pour_l_atelier(self):
+        """L'ecran Atelier ne cherche qu'un numero d'ORDRE : le serveur lui
+        traduit le numero de serie de l'etiquette."""
+        Ordre = self.env["mrp.production"]
+        self.assertEqual(
+            Ordre.fma_ordre_du_code(self.serie1.name), self.ordre1.name)
+        self.assertEqual(
+            Ordre.fma_ordre_du_code(self.serie2._fma_url_sav()),
+            self.ordre2.name)
+        self.assertEqual(
+            Ordre.fma_ordre_du_code(self.ordre2.name), self.ordre2.name)
+        self.assertEqual(Ordre.fma_ordre_du_code("INCONNU"), "")
+        self.assertEqual(Ordre.fma_ordre_du_code(""), "")
 
     # --- Declaration ------------------------------------------------------
     def test_30_scan_puis_bouton_terminer(self):

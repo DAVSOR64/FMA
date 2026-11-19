@@ -12,7 +12,7 @@ et note dans le fil de l'ordre. Rien n'est force.
 """
 import logging
 
-from odoo import _, models
+from odoo import _, api, models
 from odoo.exceptions import UserError
 
 from .stock_lot import (
@@ -27,6 +27,77 @@ _logger = logging.getLogger(__name__)
 
 class MrpProduction(models.Model):
     _inherit = "mrp.production"
+
+    # ------------------------------------------------------------------
+    # L'en-tete de l'etiquette : le meme pour tout le lot
+    # ------------------------------------------------------------------
+    #: Les champs ou la commande peut se trouver sur un ordre, du plus sur au
+    #: plus lointain. lot_sale_line_id n'existe que sur un ordre PAR LIGNE —
+    #: assemblage, quincaillerie. Le DEBIT n'en a pas, et c'est voulu : y
+    #: poser une ligne de vente ferait croire a l'approvisionnement que le
+    #: besoin de la ligne est couvert, et l'ordre d'assemblage ne naitrait
+    #: plus (cf. _common_production_vals).
+    FMA_CHAMPS_COMMANDE = (
+        "lot_sale_order_id",
+        "x_studio_mtn_mrp_sale_order",
+        "fma_sale_order_id",
+    )
+
+    #: Ou le chantier se trouve sur la commande, selon les modules installes.
+    FMA_CHAMPS_PROJET = (
+        "project_id", "x_studio_projet", "x_studio_projet_de_la_vente")
+
+    def _fma_commande_etiquette(self):
+        """La commande que l'etiquette doit nommer.
+
+        Le LOT est le dernier recours, et il suffit la ou les champs d'ordre
+        sont vides : un lot ne se monte que sur des lignes de vente.
+
+        En sudo, comme tout ce que l'etiquette imprime : elle sort au poste
+        de scan, et un operateur d'atelier ne lit pas les commandes.
+        """
+        self.ensure_one()
+        ordre = self.sudo()
+        for nom in self.FMA_CHAMPS_COMMANDE:
+            if nom in ordre._fields and ordre[nom]:
+                return ordre[nom]
+        return ordre.lot_fabrication_id.sale_order_ids.sorted("id")[:1]
+
+    def _fma_projet_etiquette(self, commande=None):
+        """Le chantier a imprimer : celui de l'ordre, sinon celui de sa
+        commande."""
+        self.ensure_one()
+        ordre = self.sudo()
+        champ = "x_studio_projet_de_la_vente"
+        if champ in ordre._fields and ordre[champ]:
+            return ordre[champ]
+        if commande is None:
+            commande = ordre._fma_commande_etiquette()
+        for nom in self.FMA_CHAMPS_PROJET:
+            if commande and nom in commande._fields and commande[nom]:
+                return commande[nom]
+        return self.env["project.project"]
+
+    # ------------------------------------------------------------------
+    # Lecture d'une etiquette depuis l'ecran Atelier
+    # ------------------------------------------------------------------
+    @api.model
+    def fma_ordre_du_code(self, code):
+        """Le nom de l'ordre designe par un code scanne, ou une chaine vide.
+
+        L'ecran Atelier ne sait chercher qu'un NUMERO D'ORDRE. L'etiquette
+        d'une menuiserie, elle, porte son NUMERO DE SERIE — c'est la
+        menuiserie que l'etiquette designe, pas le document qui la fabrique.
+        Le scan ne trouvait donc rien, et l'operateur en concluait que la
+        douchette etait cassee. L'etiquette de debit, qui n'a pas de numero
+        de serie et porte celui de son ordre, marchait : d'ou l'impression
+        que seule une des deux etiquettes etait lisible.
+
+        PUBLIQUE A DESSEIN : l'ecran l'appelle par RPC, et le protocole
+        refuse les methodes privees. Elle ne rend qu'un nom d'ordre.
+        """
+        _serie, ordre = self.env["stock.lot"]._fma_trouver(code)
+        return ordre.name or ""
 
     # ------------------------------------------------------------------
     # Etiquettes
@@ -54,13 +125,19 @@ class MrpProduction(models.Model):
                 for serie in ordre.lot_producing_ids:
                     etiquettes.append(serie._fma_etiquette_vals(ordre))
                 continue
-            commande = ordre.lot_sale_order_id
             produit = ordre.product_id
             Serie = self.env["stock.lot"]
-            projet = (
-                ordre.x_studio_projet_de_la_vente.display_name
-                if "x_studio_projet_de_la_vente" in ordre._fields
-                and ordre.x_studio_projet_de_la_vente else "")
+            # L'EN-TETE EST CELUI DE L'ETIQUETTE D'ASSEMBLAGE, au mot pres :
+            # les deux etiquettes se posent cote a cote sur le meme casier,
+            # et l'atelier doit y lire la meme affaire.
+            #
+            # L'ordre de debit n'a pas de ligne de vente : lot_sale_order_id
+            # etait vide, la premiere ligne retombait sur « origin » — qui
+            # vaut « <lot> - <commande> » —, le lot s'y repetait et le client
+            # manquait. On resout donc la commande comme pour une menuiserie.
+            commande = ordre._fma_commande_etiquette()
+            projet_rec = ordre._fma_projet_etiquette(commande)
+            projet = projet_rec.display_name or ""
             etiquettes.append({
                 "serie": ordre.name,
                 "casier": "",
@@ -86,10 +163,13 @@ class MrpProduction(models.Model):
                 else fma_complexite_etiquette(ordre, produit),
                 "designation": (produit.display_name or "")[:90],
                 "dimensions": "",
-                "affaire": "",
+                "affaire": (
+                    commande.x_studio_ref_affaire
+                    if commande and "x_studio_ref_affaire" in commande._fields
+                    else "") or "",
                 "commande": commande.name or ordre.origin or "",
                 "client": commande.partner_id.display_name or "",
-                "chantier": "",
+                "chantier": projet,
                 "lot": ordre.lot_fabrication_id.display_name or "",
                 "of": ordre.name,
                 "societe": ordre.company_id.name,
