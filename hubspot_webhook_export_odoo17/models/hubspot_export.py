@@ -140,10 +140,13 @@ class HubspotWebhookExport(models.AbstractModel):
 
     @api.model
     def action_export_devis_complet_par_lots(self):
-        """Premier envoi : TOUS les devis/commandes, par lots.
+        """Premier envoi : TOUS les devis chiffres, par lots.
 
         Pendant du complet entreprises. A lancer une fois pour la reprise de
         l'historique ; le quotidien passe ensuite par cron_export_devis_du_jour.
+
+        « Tous » s'entend dans le perimetre de _domaine_devis : les devis qui
+        ne sont pas des commandes et dont « Devis fait le » est renseignee.
         """
         orders = self._get_sale_orders_to_export(force_full=True)
         nb = self._envoyer_par_lots("quotes", "data", self._devis_depuis(orders))
@@ -152,19 +155,26 @@ class HubspotWebhookExport(models.AbstractModel):
 
     @api.model
     def cron_export_devis_du_jour(self):
-        """Devis/commandes crees ou modifies DANS LA JOURNEE.
+        """Devis chiffres crees ou modifies DANS LA JOURNEE.
 
         Meme fenetre que pour les clients : depuis minuit, et non les vingt-
-        quatre dernieres heures. Un changement d'etat, de montant ou de ligne
-        touche write_date, donc un devis confirme dans la journee repart.
+        quatre dernieres heures. Un changement de montant, de chantier ou de
+        ligne touche write_date, donc un devis rechiffre dans la journee
+        repart.
+
+        Un devis CONFIRME dans la journee, en revanche, ne repart plus : il
+        est devenu une commande, et le perimetre s'arrete au devis. HubSpot
+        garde donc la transaction telle qu'elle etait la veille, au montant
+        du chiffrage.
         """
         debut = fields.Datetime.to_datetime(fields.Date.context_today(self))
-        orders = self.env["sale.order"].sudo().search([
-            ("state", "in", ["draft", "sent", "sale", "done", "cancel"]),
-            "|",
-            ("create_date", ">=", debut),
-            ("write_date", ">=", debut),
-        ])
+        orders = self.env["sale.order"].sudo().search(
+            self._domaine_devis() + [
+                "|",
+                ("create_date", ">=", debut),
+                ("write_date", ">=", debut),
+            ]
+        )
         if not orders:
             _logger.info("HubSpot : aucun devis cree ou modifie aujourd'hui.")
             return True
@@ -173,21 +183,21 @@ class HubspotWebhookExport(models.AbstractModel):
 
     @api.model
     def action_export_complet_par_lots(self):
-        """Reprise complete : entreprises puis devis/commandes."""
+        """Reprise complete : entreprises puis devis chiffres."""
         self.action_export_entreprises_complet_par_lots()
         self.action_export_devis_complet_par_lots()
         return True
 
     @api.model
     def cron_export_du_jour(self):
-        """Quotidien complet : clients puis devis/commandes de la journee."""
+        """Quotidien complet : clients puis devis chiffres de la journee."""
         self.cron_export_clients_du_jour()
         self.cron_export_devis_du_jour()
         return True
 
     @api.model
     def action_export_all_full(self):
-        """Premier envoi complet : entreprises + devis/commandes."""
+        """Premier envoi complet : entreprises + devis chiffres."""
         self.action_export_entreprises(force_full=True)
         self.action_export_quotes(force_full=True)
         return True
@@ -326,24 +336,23 @@ class HubspotWebhookExport(models.AbstractModel):
                 "Commande": order.name if order.state in ["sale", "done"] else "",
                 "statut_chiffrage": self._map_order_status(order),
                 "statut_odoo": order.state or "",
-                # LE PRIX, ET POURQUOI IL ARRIVAIT A ZERO.
+                # LE PRIX EST LE CHIFFRAGE, ET RIEN D'AUTRE.
                 #
-                # « Prix » porte le total de la commande. Sur un devis non
-                # confirme, ce total est souvent nul : chez FMA le chiffrage
-                # ne vit pas dans les lignes mais dans « Montant a Facturer
-                # H.T. (Devis) », saisi par le deviseur. HubSpot recevait donc
-                # des transactions a zero tant que la commande n'etait pas
-                # prise.
+                # Chez FMA le montant d'un devis ne vit pas dans ses lignes
+                # mais dans « Montant a Facturer H.T. (Devis) », saisi par le
+                # deviseur : le total des lignes d'un devis non confirme est
+                # presque toujours nul, d'ou les transactions a zero.
                 #
-                # « Prix » garde donc sa valeur quand elle existe, et retombe
-                # sur le chiffrage sinon : rien ne change pour les commandes
-                # deja remontees, et un devis cesse de valoir zero. Attention
-                # a la base : le total de commande est TTC, le chiffrage est
-                # HT. Un repli ne porte pas de taxe de toute facon.
+                # Le total de commande ne sert PLUS de repli. Il est TTC la ou
+                # le chiffrage est HT : les deux ne se comparent pas, et une
+                # transaction qui changeait de base le jour de la
+                # confirmation ne voulait rien dire. Le perimetre s'arrete
+                # d'ailleurs au devis (cf. _domaine_devis).
                 #
-                # « Prix_devis » porte le chiffrage seul, toujours, pour qui
-                # veut la valeur sans avoir a deviner d'ou elle vient.
-                "Prix": self._montant_commande(order),
+                # Les deux cles portent donc la meme valeur. « Prix_devis »
+                # reste envoyee : c'est elle que la correspondance n8n
+                # connait, et une cle retiree casse un mapping sans bruit.
+                "Prix": self._montant_devis(order),
                 "Prix_devis": self._montant_devis(order),
                 # Les deux relances du devis, au format attendu par HubSpot —
                 # « 11/11/2026 », et vide quand la relance n'a pas eu lieu.
@@ -385,11 +394,6 @@ class HubspotWebhookExport(models.AbstractModel):
         if champ not in order._fields:
             return 0.0
         return order[champ] or 0.0
-
-    @api.model
-    def _montant_commande(self, order):
-        """Ce que porte « Prix » : le total de la commande, le chiffrage sinon."""
-        return order.amount_total or self._montant_devis(order)
 
     # -- Dates -------------------------------------------------------------
     @api.model
@@ -478,9 +482,47 @@ class HubspotWebhookExport(models.AbstractModel):
             return ""
         return "%s%s" % (base.rstrip("/"), chemin)
 
+    #: LES ETATS D'UN DEVIS — ceux qui ne sont pas une commande.
+    #:
+    #: « validated » est propre a FMA : c'est le bouton « Validé » de l'ADV,
+    #: avant « Confirmer ». Il manquait aux deux domaines de ce module, et un
+    #: devis valide ne partait donc JAMAIS vers HubSpot.
+    #:
+    #: Un devis ANNULE part, lui : c'est une affaire perdue, et le pipeline
+    #: doit le savoir. « sale » et « done » sortent du perimetre : ce sont
+    #: des commandes.
+    ETATS_DEVIS = ("draft", "sent", "validated", "cancel")
+
+    #: « Devis fait le » : la date que le deviseur pose quand il chiffre.
+    #: Elle vient du module « custom », dont celui-ci ne depend pas.
+    CHAMP_DATE_DEVIS = "so_date_du_devis"
+
+    @api.model
+    def _domaine_devis(self):
+        """Perimetre des devis envoyes a HubSpot : les devis CHIFFRES.
+
+        DEUX CONDITIONS, et chacune a sa raison.
+
+        - PAS DE COMMANDE. HubSpot suit le pipeline des devis, en montant HT
+          chiffre. Une commande n'y entre plus : son total est TTC, il ne se
+          compare pas au chiffrage, et l'affaire se suit ensuite dans Odoo.
+
+        - « DEVIS FAIT LE » RENSEIGNEE. Le chiffrage et sa date se saisissent
+          ensemble : un devis sans date n'a pas de montant, et HubSpot
+          recevait une transaction a zero. C'est la cause des « devis sans
+          commande tous a zero ».
+
+        La condition de date ne s'applique que si le champ existe : une base
+        sans le module « custom » continue d'exporter ses devis.
+        """
+        domaine = [("state", "in", list(self.ETATS_DEVIS))]
+        if self.CHAMP_DATE_DEVIS in self.env["sale.order"]._fields:
+            domaine.append((self.CHAMP_DATE_DEVIS, "!=", False))
+        return domaine
+
     @api.model
     def _get_sale_orders_to_export(self, force_full=False):
-        domain = [("state", "in", ["draft", "sent", "sale", "done", "cancel"])]
+        domain = self._domaine_devis()
         if self._export_only_updated() and not force_full:
             since = fields.Datetime.now() - timedelta(days=1)
             domain.append(("write_date", ">=", since))
@@ -513,6 +555,9 @@ class HubspotWebhookExport(models.AbstractModel):
         mapping = {
             "draft": "devis brouillon",
             "sent": "devis envoyé",
+            # L'etat propre a FMA, entre « Devis envoyé » et « Bon de
+            # commande » : sans libelle, HubSpot recevait le mot technique.
+            "validated": "devis validé",
             "sale": "commande confirmée",
             "done": "commande terminée",
             "cancel": "annulé",
@@ -559,7 +604,11 @@ class HubspotWebhookExport(models.AbstractModel):
         fin = datetime(int(annee_fin) + 1, 1, 1)
         return self.env["sale.order"].sudo().search(
             [
-                ("state", "in", ["draft", "sent", "sale", "done", "cancel"]),
+                # TOUS les etats, commandes comprises : le classeur sert a
+                # recouper ce que HubSpot a recu, pas a le reproduire. Son
+                # « Prix » est en revanche le chiffrage, comme l'envoi.
+                ("state", "in", ["draft", "sent", "validated", "sale",
+                                 "done", "cancel"]),
                 ("create_date", ">=", fields.Datetime.to_string(debut)),
                 ("create_date", "<", fields.Datetime.to_string(fin)),
             ],
