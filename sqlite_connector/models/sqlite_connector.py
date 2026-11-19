@@ -103,6 +103,36 @@ def base_position(name, phase):
     return name
 
 
+#: ``LabourTimes.TimeType`` -> poste de charge, PAR SITE COMMERCIAL.
+#:
+#: LOGIKAL DONNE LE MEME NUMERO A DES TRAVAUX DIFFERENTS D'UN ATELIER A
+#: L'AUTRE. Le 11 est du montage chez FMA et du remontage chez F2M ; le 10,
+#: qui vaut vitrage chez FMA, est du remontage chez F2M — ou le vitrage ne se
+#: pose pas en atelier, les ouvrants partent nus et reviennent vitres. Une
+#: affaire F2M portant du 10 n'a donc pas de vitrage a produire, et son temps
+#: doit rejoindre le remontage.
+#:
+#: Doit rester aligne sur ``fma_pricer_import.pivot.logikal.TIME_TYPES``.
+POSTES_PAR_TIMETYPE = {
+    'FMA': {
+        0: u'Débit',
+        4: u'Usinage',
+        5: u'CU (banc)',
+        6: u'Montage',
+        10: u'Vitrage',
+        11: u'Montage',
+    },
+    'F2M': {
+        0: u'Débit',
+        4: u'Usinage',
+        5: u'Usinage',
+        6: u'Assemblage',
+        10: u'Remontage',
+        11: u'Remontage',
+        12: u'Débit',
+    },
+}
+
 #: Categorie d'article posee par le connecteur, et nature LOGIKAL qui va avec.
 #:
 #: La distinction profile / article / vitrage n'existe que dans le FICHIER :
@@ -1956,34 +1986,27 @@ class SqliteConnector(models.Model):
             #                name = 'Débit'  + ' ' + eticom													  
             #            else :
             #                name = rowOpe[2].strip() + ' ' + eticom
-            if eticom == 'FMA' :
-                if rowOpe[6] is not None and rowOpe[6] == 0 :
-                    name = 'Débit'  + ' ' + eticom
-                else:
-                    if rowOpe[6] is not None and rowOpe[6] == 5 :
-                            name = 'CU (banc)'  + ' ' + eticom
-                    else :
-                        if rowOpe[6] is not None and rowOpe[6] == 4 :
-                            name = 'Usinage'  + ' ' + eticom
-                        else:
-                            if rowOpe[6] is not None and rowOpe[6] in (6, 11):
-                                name = 'Montage'  + ' ' + eticom
-                            else:
-                                if rowOpe[6] is not None and rowOpe[6] == 10 :
-                                    name = 'Vitrage'  + ' ' + eticom
-            else :
-                if rowOpe[6] is not None and rowOpe[6] == 11 :
-                    name = 'Remontage'  + ' ' + eticom
-                else:
-                    if rowOpe[6] is not None and rowOpe[6] in (4, 5) :
-                        name = 'Usinage'  + ' ' + eticom
-                    else :
-                        if rowOpe[6] is not None and rowOpe[6] in (0, 12) :
-                            name = 'Débit'  + ' ' + eticom
-                        else:
-                            if rowOpe[6] is not None and rowOpe[6] == 6:
-                                name = 'Assemblage'  + ' ' + eticom
-                            
+            # Le poste vient de la TABLE du site, et non d'une cascade de
+            # tests. L'ancienne cascade n'avait pas de cas final : un
+            # TimeType qu'elle ne connaissait pas — le 10 chez F2M, le 12
+            # chez FMA — laissait « name » sur la valeur du TOUR PRECEDENT,
+            # et les minutes allaient grossir en silence le poste de la
+            # ligne d'avant. Un TimeType inconnu est desormais trace et
+            # ecarte.
+            poste = POSTES_PAR_TIMETYPE.get(eticom, {}).get(rowOpe[6])
+            if not poste:
+                # LOGIKAL ecrit une ligne pour CHACUN de ses vingt TimeType,
+                # la plupart a zero minute : seul un temps reel qu'on ne sait
+                # pas ranger merite une trace.
+                if temps:
+                    self.log_request(
+                        'TimeType inconnu pour le site %s : temps ignore'
+                        % eticom,
+                        'TimeType %s - %s min' % (rowOpe[6], temps),
+                        'Operations Creation')
+                continue
+            name = poste + ' ' + eticom
+
             _logger.warning("**********Qty ********* %s " % str(Qty) )
             _logger.warning("**********Name ********* %s " % str(name) )
             _logger.warning("**********Elevation******** %s " % str(rowOpe[5]) )
@@ -2009,6 +2032,12 @@ class SqliteConnector(models.Model):
         for ope, data in aggregated_data.items():
             workcenter = self.env['mrp.workcenter'].search([('name', '=', data['name'])], limit=1)
             if not workcenter:
+                # Trace, et non silence : un poste de charge absent du
+                # referentiel faisait disparaitre le temps sans rien dire.
+                self.log_request(
+                    'Poste de charge introuvable : operation non creee',
+                    '%s - %s min' % (data['name'], data['temps']),
+                    'Operations Creation')
                 continue
         
             base_name = data['name'].replace(' FMA', '').replace(' F2M', '').strip()

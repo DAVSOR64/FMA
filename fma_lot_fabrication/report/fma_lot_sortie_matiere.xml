@@ -50,6 +50,9 @@
                    t-value="lot._besoin_matiere_complet(profiles, prefab)"/>
                 <t t-set="par_repere"
                    t-value="lot._quincaillerie_par_repere(casiers)"/>
+                <!-- Le chantier : le numero d'affaire et le rang du lot ne
+                     disent pas de quel chantier il s'agit. -->
+                <t t-set="projet" t-value="lot._projet_du_lot()"/>
 
                 <!-- 1. Le besoin du lot, en entier : profiles, vitrages et
                      quincaillerie. Tout vient des ORDRES du lot, pas du
@@ -72,15 +75,20 @@
                                 <span t-field="lot.partner_id"/>
                             </div>
                             <div class="col-3">
+                                <strong>Chantier</strong><br/>
+                                <span t-if="projet" t-field="projet.name"/>
+                                <span t-if="not projet" class="text-muted">—</span>
+                            </div>
+                            <div class="col-2">
                                 <strong>Référence LOGIKAL</strong><br/>
                                 <span t-field="lot.logikal_ref"/>
                             </div>
-                            <div class="col-3">
+                            <div class="col-2">
                                 <strong>Menuiseries</strong><br/>
                                 <span t-field="lot.menuiserie_qty"/>
                                 en <span t-esc="len(lot.line_ids)"/> repère(s)
                             </div>
-                            <div class="col-3">
+                            <div class="col-2">
                                 <strong>Casiers</strong><br/>
                                 <span t-esc="len(casiers)"/>
                             </div>
@@ -175,15 +183,20 @@
                                 <span t-field="lot.display_name"/>
                             </h2>
                             <div class="row mb-3">
-                                <div class="col-4">
+                                <div class="col-3">
                                     <strong>Client</strong><br/>
                                     <span t-field="lot.partner_id"/>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-3">
+                                    <strong>Chantier</strong><br/>
+                                    <span t-if="projet" t-field="projet.name"/>
+                                    <span t-if="not projet" class="text-muted">—</span>
+                                </div>
+                                <div class="col-3">
                                     <strong>Référence LOGIKAL</strong><br/>
                                     <span t-field="lot.logikal_ref"/>
                                 </div>
-                                <div class="col-4">
+                                <div class="col-3">
                                     <strong>Casiers</strong><br/>
                                     <span t-esc="len(casiers)"/>
                                 </div>
