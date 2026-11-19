@@ -235,14 +235,15 @@ class StockLot(models.Model):
         ordre = (ordre or self.env["mrp.production"]).sudo()
         ligne_lot = ordre.lot_line_id
         ligne = ordre.lot_sale_line_id or ligne_lot.sale_line_id
-        commande = ligne.order_id or ordre.lot_sale_order_id
-        if not commande and "fma_sale_order_id" in ordre._fields:
-            commande = ordre.fma_sale_order_id
-        projet = self.env["project.project"].sudo()
-        if ordre and "x_studio_projet_de_la_vente" in ordre._fields:
-            projet = ordre.x_studio_projet_de_la_vente
-        if not projet and commande and "x_studio_projet" in commande._fields:
-            projet = commande.x_studio_projet
+        # La ligne de vente d'abord — c'est elle qui designe LA menuiserie —,
+        # puis la meme resolution que l'etiquette de debit : les deux
+        # etiquettes d'un lot doivent porter le MEME en-tete.
+        commande = ligne.order_id or (
+            ordre._fma_commande_etiquette() if ordre
+            else self.env["sale.order"].sudo())
+        projet = (
+            ordre._fma_projet_etiquette(commande) if ordre
+            else self.env["project.project"].sudo())
         return {
             "ordre": ordre,
             "lot": ordre.lot_fabrication_id or ligne_lot.lot_id,
