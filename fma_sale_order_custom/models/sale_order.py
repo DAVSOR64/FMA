@@ -154,17 +154,30 @@ class SaleOrder(models.Model):
     # reecrire l'historique, notamment les destinataires des mails de retard
     # deja envoyes.
     #
-    # Domaine : le departement porte deux libelles selon la langue
-    # (« BEC-Ventes » en francais, « Sales » en anglais). On accepte les deux
-    # plutot que de filtrer sur un identifiant, qui differe d'un
-    # environnement a l'autre.
+    # Domaine : les DEUX bureaux d'etudes, le BEC (ventes) ET le BET
+    # (methodes). Le BET manquait, et l'ecran se fermait sur les seules
+    # ventes alors que c'est bien le BET que Power BI exporte sous ce champ.
+    #
+    # Comparaison par « ilike » sur le radical, et non par une liste de
+    # libelles exacts : « BET-Méthodes » s'ecrit avec ou sans trait d'union
+    # selon l'environnement et l'accent ne survit pas a toutes les saisies.
+    # Pas d'identifiant de departement non plus : il differe d'une base a
+    # l'autre.
+    #
+    # hr.department.name EST UN CHAMP TRADUIT : le filtre porte sur le
+    # libelle vu dans la langue de l'utilisateur, et « BEC-Ventes »
+    # s'affiche « Sales » en anglais — d'ou l'ancienne liste a deux
+    # entrees. Tous les comptes FMA sont en francais.
     x_studio_bureau_dtude = fields.Many2one(
         "res.users",
         string="Bureau d'étude",
         compute="_compute_x_studio_bureau_dtude",
         store=True,
         readonly=False,
-        domain="[('employee_ids.department_id.name', 'in', ['BEC-Ventes', 'Sales'])]",
+        domain=(
+            "['|', ('employee_ids.department_id.name', 'ilike', 'BEC'),"
+            " ('employee_ids.department_id.name', 'ilike', 'BET')]"
+        ),
     )
 
     # Depuis project_id et non x_studio_projet : le projet du devis est
