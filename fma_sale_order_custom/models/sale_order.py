@@ -244,6 +244,47 @@ class SaleOrder(models.Model):
         if deja:
             self.x_tranche = max(deja) + 1
 
+    def action_view_project_ids(self):
+        """Le bouton intelligent « Projet » ouvre LE CHANTIER.
+
+        Odoo raisonne en projet de SERVICE : son bouton ouvre, selon les
+        droits et le nombre de projets, soit la LISTE des projets nes des
+        lignes de service, soit les TACHES de l'unique projet trouve. Jamais
+        la fiche du projet.
+
+        Chez FMA le projet est le CHANTIER, pose a la main sur l'affaire. Il
+        ne nait d'aucune ligne et ne porte pas de tache : le bouton ouvrait
+        donc une liste d'un seul element, ou une liste de taches vide. Vu de
+        l'ecran, « il n'ouvre pas le projet » — alors que le many2one juste
+        au-dessus y menait.
+
+        Un seul chantier : sa fiche. Plusieurs : la liste de ceux-la, et rien
+        d'autre. Aucun : on laisse Odoo repondre, c'est lui qui sait proposer
+        la creation.
+        """
+        self.ensure_one()
+        projets = self.project_ids | self.project_id
+        if len(projets) == 1:
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Chantier"),
+                "res_model": "project.project",
+                "res_id": projets.id,
+                "view_mode": "form",
+                "views": [(False, "form")],
+                "target": "current",
+            }
+        if projets:
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Chantiers"),
+                "res_model": "project.project",
+                "domain": [("id", "in", projets.ids)],
+                "view_mode": "kanban,list,form",
+                "target": "current",
+            }
+        return super().action_view_project_ids()
+
     @api.onchange("project_id", "x_tranche")
     def _onchange_numero_tranche(self):
         """Pose le numero de tranche AVANT l'enregistrement, sur un devis neuf.
