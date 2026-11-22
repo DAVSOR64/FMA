@@ -55,7 +55,7 @@ patch(MrpDisplay.prototype, {
                 { limit: 1 }
             );
             if (trouves.length) {
-                return this._onProductionBarcodeScanned(barcode);
+                return this.fmaOuvrirOrdreScanne(barcode);
             }
             let ordre = "";
             try {
@@ -68,9 +68,39 @@ patch(MrpDisplay.prototype, {
                 ordre = "";
             }
             if (ordre) {
-                return this._onProductionBarcodeScanned(ordre);
+                return this.fmaOuvrirOrdreScanne(ordre);
             }
         }
         return super._onBarcodeScanned(barcode);
+    },
+
+    /**
+     * Ouvre un ordre que l'ecran ne connaissait pas, en revenant d'abord a la
+     * vue d'ensemble.
+     *
+     * C'EST LA MOITIE QUI MANQUAIT. Trouver l'ordre ne suffit pas : la suite
+     * est une FACETTE DE RECHERCHE, et une facette s'applique a l'onglet
+     * courant. Or l'onglet d'un poste de charge ne charge que les ordres de
+     * ce poste (cf. mrp_display_mes_ordres.js, qui pose le domaine cote
+     * serveur). Scanner l'etiquette d'une menuiserie depuis l'onglet « Debit »
+     * filtrait donc le Debit sur un ordre d'ASSEMBLAGE : zero resultat, et un
+     * ecran qui ne bouge pas.
+     *
+     * D'ou l'etiquette de debit qui marchait et celle de la menuiserie qui ne
+     * marchait pas : la premiere designe justement l'ordre du poste ou se
+     * trouve l'operateur.
+     *
+     * Si l'on est arrive ici, c'est que l'ordre n'etait pas dans la liste
+     * chargee : hors de l'onglet, ou au-dela de la page. Dans les deux cas la
+     * vue d'ensemble est le seul endroit ou l'operateur le verra. Le
+     * rechargement, lui, n'est pas declenche a la main : le changement
+     * d'onglet est une donnee reactive, et fmaSurveillerOnglet s'en charge au
+     * rendu suivant.
+     */
+    fmaOuvrirOrdreScanne(nom) {
+        if (this.state && Number(this.state.activeWorkcenter)) {
+            this.state.activeWorkcenter = 0;
+        }
+        return this._onProductionBarcodeScanned(nom);
     },
 });
