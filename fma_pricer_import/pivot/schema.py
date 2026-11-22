@@ -47,6 +47,12 @@ class Component:
     price: float = 0.0
     width_mm: float = 0.0
     height_mm: float = 0.0
+    #: Longueur d'UNE piece, en millimetres, quand LOGIKAL decoupe cet
+    #: article comme une barre : plaque d'isolation, insert coupe-feu, joint
+    #: livre en longueur. Le besoin s'ecrit alors en LONGUEUR — qty fois
+    #: length_mm — et non en nombre de pieces. Zero pour un article
+    #: ordinaire, compte a la piece.
+    length_mm: float = 0.0
     #: ``Glass.Info2``, texte libre ou le deviseur ecrit CHARIOT ou PALETTE.
     #: Conserve BRUT : c'est destination_vitrage() qui l'interprete, et lui
     #: seul connait les ecritures reellement rencontrees (« SUR CHARIOT »,
