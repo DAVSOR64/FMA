@@ -27,7 +27,7 @@
     # n'achetent pas par la meme main, et les deux ateliers vivent dans la
     # meme societe, ou l'acheteur par defaut les envoyait tous au meme
     # endroit. Deux reglages de societe, renseignes en post-migrate.
-    "version": "19.0.1.8.0",
+    "version": "19.0.1.9.0",
     # « custom_sale_order » : il pose l'onglet du cout MOD reel, ou le
     # prix de revient vient se loger. On herite de la vue qui CREE
     # l'onglet, jamais d'une vue sœur.

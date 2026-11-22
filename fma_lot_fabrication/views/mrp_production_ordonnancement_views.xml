@@ -28,6 +28,17 @@
                      ne se lit qu'ensuite. -->
                 <field name="lot_fabrication_id" string="Lot"
                        readonly="1" optional="show"/>
+                <!-- UN BOUTON, ET NON LE NUMERO LUI-MEME. La liste
+                     d'ordonnancement est EDITABLE : cliquer une cellule y
+                     ouvre l'editeur de la ligne, pas la fiche visee. C'est
+                     deja pour cela qu'existe la colonne « Ouvrir l'OF »
+                     (fma_mrp_ordonnancement, champ fma_of_id) et son
+                     commentaire. L'icone se pose donc juste a droite du
+                     numero et ouvre le lot en un clic, par l'action qui
+                     existe deja sur l'ordre. -->
+                <button name="action_view_lot_fabrication" type="object"
+                        icon="fa-external-link" title="Ouvrir le lot"
+                        invisible="not lot_fabrication_id"/>
                 <field name="lot_production_type" string="Type OF"
                        readonly="1" optional="show"/>
             </xpath>

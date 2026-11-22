@@ -165,6 +165,35 @@ class PurchaseOrder(models.Model):
                     return nom
         return ""
 
+    def _fma_acheteur_est_automatique(self):
+        """Vrai quand l'acheteur du bon n'a ete choisi par AUCUNE main.
+
+        Trois valeurs disent « personne » :
+
+        - le vide ;
+        - l'acheteur par defaut de la societe, que create() pose sur les bons
+          de l'approvisionnement ;
+        - le responsable du PROJET, que _sync_responsible_from_project pose a
+          la creation. C'est le cas qui faisait echouer la regle : un bon
+          d'appro nait sur un projet, en recoit le responsable, et l'etiquette
+          — lue plus tard, quand les lignes arrivent — n'osait plus y toucher
+          en croyant trouver une saisie manuelle.
+
+        Un bon confirme n'est jamais automatique : l'acheteur y est acquis,
+        et le recalcul du prix de revient rejoue ce code sur tout
+        l'historique.
+        """
+        self.ensure_one()
+        if self.state not in ("draft", "sent"):
+            return False
+        societe = self.company_id.sudo()
+        poseurs = societe.fma_acheteur_defaut_id
+        projet = self.x_studio_projet_du_so if (
+            "x_studio_projet_du_so" in self._fields) else False
+        if projet:
+            poseurs |= projet.user_id
+        return not self.user_id or self.user_id in poseurs
+
     def _fma_acheteur_par_etiquette(self):
         """L'acheteur que l'etiquette de l'affaire designe.
 
@@ -529,4 +558,18 @@ class PurchaseOrderLine(models.Model):
             if (articles and len(commandes) == 1
                     and all(l.fma_sale_order_id for l in articles)):
                 achat.fma_sale_order_id = commandes.id
+
+        # L'ACHETEUR, MAINTENANT QUE L'AFFAIRE EST CONNUE.
+        #
+        # L'approvisionnement cree le bon VIDE, puis ses lignes dans un second
+        # appel, et ne relie les mouvements qu'ensuite : a la creation de
+        # l'en-tete il n'y a aucune ligne, donc aucune affaire, donc aucune
+        # etiquette — et l'acheteur restait celui du projet ou le defaut de
+        # societe. C'est ici le seul endroit par ou TOUS les chemins passent :
+        # creation de ligne, ecriture de move_dest_ids, et le rattrapage du
+        # prix de revient sur l'historique.
+        automatiques = lignes.order_id.filtered(
+            lambda a: a._fma_acheteur_est_automatique())
+        if automatiques:
+            automatiques._fma_acheteur_par_etiquette()
         return True
