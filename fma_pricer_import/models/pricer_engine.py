@@ -1005,8 +1005,27 @@ class FmaPricerEngine(models.AbstractModel):
                 continue
             if comp.kind == "glass":
                 components.append((found, comp.qty))
+            elif comp.length_mm:
+                # ARTICLE LIVRE EN LONGUEUR, que LOGIKAL decoupe comme une
+                # barre sans que ce soit un profile : plaque d'isolation,
+                # insert coupe-feu. Il va au casier, pas sur la table de
+                # debit, et son besoin s'ecrit donc en LONGUEUR — par la meme
+                # conversion que le debit, pour qu'une barre de 6,50 m et un
+                # insert de 1,20 m se comptent de la meme facon.
+                total_mm = (comp.qty or 1.0) * comp.length_mm
+                uom, quantite, probleme = self._quantite_debit(
+                    found, total_mm, (comp.code, comp.color))
+                if uom:
+                    quincaillerie.append((found, quantite, uom))
+                else:
+                    # Aucune unite de longueur praticable : on compte les
+                    # pieces. Une quantite juste dans une unite discutable
+                    # vaut mieux qu'une ligne absente — et le manque est dit.
+                    if probleme and probleme not in issues:
+                        issues.append(probleme)
+                    quincaillerie.append((found, comp.qty, None))
             else:
-                quincaillerie.append((found, comp.qty))
+                quincaillerie.append((found, comp.qty, None))
 
         Bom = self.env["mrp.bom"].sudo()
         bom = Bom.search(
@@ -1400,16 +1419,21 @@ class FmaPricerEngine(models.AbstractModel):
         survit comme regroupement nomme, ce qui reste utile aux editions du
         magasin, mais plus rien ne le fabrique.
         """
+        # Une UNITE PAR LIGNE, et non l'unite de stock de l'article : un
+        # article livre en longueur entre ici en metres quand l'article se
+        # stocke a la barre, et les deux ne se cumulent pas sans conversion.
+        # None veut dire « l'unite de l'article », le cas courant.
         merged = {}
-        for item, qty in composants:
-            merged[item] = merged.get(item, 0.0) + qty
+        for item, qty, uom in composants:
+            cle = (item, uom or item.uom_id)
+            merged[cle] = merged.get(cle, 0.0) + qty
         lignes = [
             (0, 0, {
                 "product_id": item.id,
                 "product_qty": qty,
-                "product_uom_id": item.uom_id.id,
+                "product_uom_id": uom.id,
             })
-            for item, qty in merged.items()
+            for (item, uom), qty in merged.items()
             if qty
         ]
         Bom = self.env["mrp.bom"].sudo()

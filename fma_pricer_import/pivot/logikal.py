@@ -241,6 +241,34 @@ def _site(con):
     return (row[0] or "").strip() if row else ""
 
 
+def _profils_connus(con):
+    """Les codes que LOGIKAL declare PROFILES pour cette affaire.
+
+    « AllProfiles » est la liste des profiles de l'affaire, et elle fait foi.
+    Les tables « Profiles » et « ProfileBars », elles, portent tout ce que le
+    logiciel DECOUPE : les profiles, mais aussi les articles livres en
+    longueur — plaques d'isolation, inserts coupe-feu, joints a bourrer. Rien,
+    dans ces deux tables, ne les distingue.
+
+    Mesure faite sur A25-10-09731 : douze barres pour DEUX profiles seulement
+    (W1311073, W3090200, les deux seuls presents dans AllProfiles). Les dix
+    autres barres sont trois articles — W4090033, W4090037, W4090112 — que
+    AllArticles compte par ailleurs, au metre, et qui n'apparaissent dans
+    aucun AllProfiles. Faute de ce depart, ces trois articles partaient sur la
+    table de debit, ou personne ne les scie, et manquaient au casier.
+
+    Un ensemble VIDE ne filtre rien : un fichier sans cette table verrait
+    sinon tout son debit disparaitre.
+    """
+    try:
+        lignes = con.execute("select ArticleCode_Number from AllProfiles")
+    except Exception:  # noqa: BLE001 — table absente : on ne filtre pas
+        return frozenset()
+    return frozenset(
+        (code or "").strip() for (code,) in lignes if (code or "").strip()
+    )
+
+
 def _parse(con, source, site_defaut=""):
     quo = Quotation(pricer="logikal", source=source)
 
@@ -357,6 +385,9 @@ def _parse(con, source, site_defaut=""):
         )
 
     # --- debit : les coupes de profiles, par exemplaire ----------------------
+    profils = _profils_connus(con)
+    #: Ce que LOGIKAL coupe sans que ce soit un profile : {code: description}.
+    reclasses = {}
     for (
         eid, code, ref_fichier, base_code, code_supplier, desc, length,
         amount, sid, outer, inner, internal, color,
@@ -372,6 +403,31 @@ def _parse(con, source, site_defaut=""):
     ):
         men = menuiseries.get(eid)
         if men is None:
+            continue
+        code_net = (code or "").strip()
+        if profils and code_net not in profils:
+            # COUPE, MAIS PAS UN PROFILE. L'article part avec la
+            # quincaillerie, dans la LONGUEUR que ses coupes totalisent :
+            # c'est ainsi que LOGIKAL lui-meme le compte dans AllArticles
+            # (Units = 4,592 m pour W4090033, soit exactement ses 4 592 mm de
+            # coupes). Il rejoint donc les joints et bandes livres en
+            # longueur, que le fichier ne fait pas passer par le debit.
+            reclasses.setdefault(code_net, (desc or "").strip())
+            men.components.append(
+                Component(
+                    kind="article",
+                    code=code_net,
+                    ref_fichier=(ref_fichier or "").strip(),
+                    base_code=(base_code or "").strip(),
+                    code_supplier=(code_supplier or "").strip(),
+                    description=(desc or "").strip(),
+                    supplier=suppliers.get(sid, ""),
+                    color=teinte_profile(
+                        quo.site, outer, inner, internal, color),
+                    qty=amount or 1.0,
+                    length_mm=length or 0.0,
+                )
+            )
             continue
         men.debit.append(
             Cut(
@@ -390,8 +446,22 @@ def _parse(con, source, site_defaut=""):
     # --- operations : temps de main d'oeuvre par menuiserie ------------------
     _operations(con, menuiseries, quo.site)
 
+    if reclasses:
+        quo.warnings.append(
+            "%d article(s) livre(s) en longueur sont ranges avec la "
+            "QUINCAILLERIE et non avec le debit : %s. LOGIKAL les decoupe "
+            "comme des barres, mais AllProfiles ne les declare pas profiles."
+            % (
+                len(reclasses),
+                ", ".join(
+                    "%s (%s)" % (code, desc) if desc else code
+                    for code, desc in sorted(reclasses.items())
+                ),
+            )
+        )
+
     # --- barres : rattachement au lot, via les coupes ------------------------
-    _attach_bars(con, quo, lots, suppliers)
+    _attach_bars(con, quo, lots, suppliers, profils)
 
     quo.lots = [lot for lot in lots.values() if lot.menuiseries or lot.bars]
     _reconcile(con, quo)
@@ -424,7 +494,16 @@ def _reconcile(con, quo):
             for comp in men.components:
                 if comp.kind != "article":
                     continue
-                ventile[comp.code] = ventile.get(comp.code, 0.0) + comp.qty * men.qty
+                # EN LONGUEUR POUR CE QUI SE COUPE. LOGIKAL compte ces
+                # articles-la en METRES dans AllArticles.Units — 4,592 pour
+                # les 4 592 mm de coupes de W4090033 —, pas en nombre de
+                # pieces. Comparer six coupes a 4,592 m faisait echouer la
+                # reconciliation sur un faux ecart.
+                quantite = comp.qty
+                if getattr(comp, "length_mm", 0.0):
+                    quantite = comp.qty * comp.length_mm / 1000.0
+                ventile[comp.code] = (
+                    ventile.get(comp.code, 0.0) + quantite * men.qty)
 
     ecarts = [
         (code, besoin.get(code, 0.0), ventile.get(code, 0.0))
@@ -444,8 +523,13 @@ def _reconcile(con, quo):
         )
 
 
-def _attach_bars(con, quo, lots, suppliers):
+def _attach_bars(con, quo, lots, suppliers, profils=frozenset()):
     """Rattache chaque barre a son lot et controle qu'elle n'en sert qu'un.
+
+    Les barres qui ne sont pas des PROFILES sont ecartees : ce sont les
+    articles livres en longueur, deja comptes avec la quincaillerie (cf.
+    _profils_connus). Les laisser ici les faisait sortir du magasin comme des
+    barres, pour la table de debit.
 
     Une barre appartient au lot de ses coupes. Si ses coupes relevent de
     plusieurs lots, l'optimisation du fichier est faite au niveau projet : le
@@ -491,6 +575,8 @@ def _attach_bars(con, quo, lots, suppliers):
                   ColorInfoInternal, Color
              from ProfileBars"""
     ):
+        if profils and (code or "").strip() not in profils:
+            continue
         phases = bar_phases.get(bar_id) or set()
         if len(phases) != 1:
             # Barre non rattachable (saisie manuelle, longueur speciale) ou

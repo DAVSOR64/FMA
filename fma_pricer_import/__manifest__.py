@@ -67,7 +67,7 @@
     # l'autre : le 11 est du montage chez FMA, du remontage chez F2M, et le
     # 10 — vitrage chez FMA — est du remontage chez F2M, ou le vitrage ne se
     # pose pas en atelier.
-    "version": "19.0.1.53.0",
+    "version": "19.0.1.54.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
