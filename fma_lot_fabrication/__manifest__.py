@@ -103,7 +103,7 @@
     # reimportable une fois le lot sorti du brouillon. La classe affichee
     # est celle de l'article. Le document porte le nom du chantier, que le
     # numero d'affaire et le rang du lot ne donnaient pas.
-    "version": "19.0.1.113.0",
+    "version": "19.0.1.114.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
