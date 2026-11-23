@@ -323,6 +323,40 @@ def _unites_declarees(con):
     return unites
 
 
+def _longueurs_unitaires(con):
+    """La longueur d'UNE piece d'article, par reference, en mm.
+
+    LA CONVERSION PIECE <-> METRE, ET ELLE EST DANS LE FICHIER. Les articles
+    livres en longueur que LOGIKAL decoupe sans les declarer profiles
+    (plaques d'isolation, inserts) sont comptes en METRES dans
+    AllArticles.Units — 4,592 pour les six coupes de W4090033 — alors
+    qu'Odoo les tient en pieces. Il manquait de quoi passer de l'un a
+    l'autre, et le besoin devenait inexprimable.
+
+    AllArticles.Length le donne : 1,2 m pour W4090033, dont la designation
+    dit « 12x26x1200 mm », 1,2 m aussi pour W4090037, « L=120 ». Le nombre de
+    pieces, c'est le besoin en metres divise par cette longueur.
+
+    Pas AllProfiles : la longueur d'un profile n'a rien d'unitaire, c'est
+    celle de sa barre, et un profile se compte en metres de toute facon.
+    """
+    longueurs = {}
+    try:
+        lignes = con.execute(
+            "select ArticleCode_Number, Length, Length_Output, Length_Unit"
+            " from AllArticles").fetchall()
+    except Exception:  # noqa: BLE001 — table ou colonne absente
+        return longueurs
+    for code, brut, sortie, unite in lignes:
+        code = (code or "").strip()
+        if not code:
+            continue
+        taille = _mm(brut, sortie, unite)
+        if taille > 0:
+            longueurs[code] = taille
+    return longueurs
+
+
 def _conditionnements(con):
     """Ce qu'UNE unite d'achat contient de longueur, par reference, en mm.
 
@@ -555,6 +589,7 @@ def _parse(con, source, site_defaut=""):
     _attach_bars(con, quo, lots, suppliers, profils)
     quo.conditionnements = _conditionnements(con)
     quo.unites = _unites_declarees(con)
+    quo.longueurs_unitaires = _longueurs_unitaires(con)
 
     quo.lots = [lot for lot in lots.values() if lot.menuiseries or lot.bars]
     _reconcile(con, quo)

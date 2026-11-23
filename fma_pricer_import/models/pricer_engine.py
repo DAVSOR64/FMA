@@ -223,6 +223,10 @@ class FmaPricerEngine(models.AbstractModel):
             # longueur, la ou le moteur le devinait du fait que LOGIKAL
             # l'avait decoupe.
             fma_unites_fichier=dict(quotation.unites or {}),
+            # La longueur d'UNE piece, pour les articles livres en longueur
+            # qu'Odoo tient a la piece : c'est la conversion piece <-> metre,
+            # et elle est propre a chaque article.
+            fma_longueurs_unitaires=dict(quotation.longueurs_unitaires or {}),
         )
         self._check_offer_matches(order, quotation)
         self._check_bars_usable(order, quotation)
@@ -1521,6 +1525,31 @@ class FmaPricerEngine(models.AbstractModel):
         unite = self._unite_metre(produit, longueur_mm, conditionnement_mm)
         if unite:
             return unite, metres, None
+
+        # A DEFAUT DE METRES, DES PIECES — mais seulement si le fichier dit
+        # ce que vaut une piece.
+        #
+        # Les plaques d'isolation et les inserts que LOGIKAL decoupe sans les
+        # declarer profiles partent en QUINCAILLERIE (cf. _profils_connus),
+        # et Odoo les tient a la piece. Leur besoin, lui, arrive en metres :
+        # 4,592 m pour les six coupes de W4090033. Il n'y avait rien pour
+        # passer de l'un a l'autre, et la ligne bloquait un lot entier.
+        #
+        # AllArticles.Length donne la longueur d'une piece — 1,2 m pour cette
+        # plaque, que sa designation ecrit « 12x26x1200 mm ». Le besoin en
+        # pieces, c'est le besoin en metres divise par elle. On ne devine
+        # rien : la division n'a lieu que si le fichier porte cette longueur,
+        # et l'article reste bloque sinon.
+        #
+        # PAS D'ARRONDI. La quantite est celle d'UN exemplaire de menuiserie,
+        # et arrondir ici multiplierait l'erreur par le nombre d'exemplaires.
+        # Le magasin arrondit au moment de sortir la matiere, pas la
+        # nomenclature.
+        unitaire_mm = (
+            self.env.context.get("fma_longueurs_unitaires") or {}
+        ).get(reference) or 0.0
+        if unitaire_mm > 0 and produit.uom_id:
+            return produit.uom_id, total_mm / unitaire_mm, None
 
         # LE MESSAGE DIT CE QUI MANQUE, ET CE QU'IL FAUT FAIRE. « Ca ne se
         # convertit pas » envoie le methodiste verifier que l'unite existe —
