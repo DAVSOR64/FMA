@@ -103,7 +103,12 @@
     # reimportable une fois le lot sorti du brouillon. La classe affichee
     # est celle de l'article. Le document porte le nom du chantier, que le
     # numero d'affaire et le rang du lot ne donnaient pas.
-    "version": "19.0.1.114.0",
+    # 1.115.0 : une colonne « Ouvrir » sur le tableau d'ordonnancement des
+    # lots. La liste est editable -- l'ordonnanceur y coche « Planifie » --
+    # donc cliquer sur le nom du lot ouvrait une cellule en saisie au lieu du
+    # lot, alors que c'est le premier reflexe devant une liste. Le nom passe
+    # en lecture seule : un lot ne se renomme pas depuis un tableau de bord.
+    "version": "19.0.1.115.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

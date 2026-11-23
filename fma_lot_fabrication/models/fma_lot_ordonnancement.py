@@ -64,6 +64,30 @@ STATUT_LOT = [
 class FmaLotFabrication(models.Model):
     _inherit = "fma.lot.fabrication"
 
+    # --- Ouvrir le lot depuis la liste --------------------------------------
+    #
+    # LA LISTE EST EDITABLE, et c'est voulu : l'ordonnanceur coche « Planifie »
+    # en parcourant ses lignes. Mais du coup, cliquer sur le nom du lot ouvre
+    # une cellule en saisie au lieu d'ouvrir le lot — et le premier reflexe
+    # devant une liste est de cliquer sur ce qui identifie la ligne.
+    #
+    # On donne donc un lien explicite, du meme type que celui des OF
+    # (fma_mrp_ordonnancement.mrp.production.fma_of_id) : un pointeur sur soi,
+    # non stocke, aucune colonne a creer. Le nom, lui, passe en lecture seule
+    # dans la vue : un lot ne se renomme pas depuis un tableau de bord.
+    ordo_lot_id = fields.Many2one(
+        "fma.lot.fabrication",
+        string="Ouvrir le lot",
+        compute="_compute_ordo_lot_id",
+    )
+
+    def _compute_ordo_lot_id(self):
+        for lot in self:
+            # _origin : dans une liste editable, la ligne en cours de saisie
+            # est un enregistrement virtuel, sans identifiant. Le lien doit
+            # pointer l'enregistrement reel, pas son brouillon.
+            lot.ordo_lot_id = lot._origin or lot
+
     # --- L'affaire ----------------------------------------------------------
     ordo_commande_id = fields.Many2one(
         "sale.order",
