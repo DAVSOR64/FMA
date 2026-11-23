@@ -82,7 +82,19 @@
     # modele fma.lot.cut.line, en lecture seule, lu des deux bouts : onglet
     # « Coupes » sur le lot a cote du besoin matiere, et sur la fiche de
     # l'ensemble debite a cote de sa nomenclature.
-    "version": "19.0.1.57.0",
+    # 1.58.0 : « ML » est reconnue comme unite de longueur. Le releve du
+    # 23/11/2026 a montre que c'est une unite de REFERENCE dans la base --
+    # 2 827 articles, 46 unites de barre rattachees, 63 816 mouvements de
+    # stock -- qu'Odoo ne sait pas convertir vers son metre standard, et que
+    # la demonstration par la longueur de barre ne pouvait pas sauver : une
+    # unite de reference n'a aucun rattachement a mesurer. La version
+    # precedente bloquait donc l'unite la plus employee de la maison. Un
+    # metre lineaire EST un metre ; la liste UNITES_LONGUEUR, deja tenue a la
+    # main pour lire le fichier, sert desormais aussi a reconnaitre l'unite
+    # de reference cote Odoo. Au passage, un rapport de rattachement de 1 ne
+    # vaut plus demonstration : « Piece » vaut 1 « Unites » et un profile
+    # ordinaire se conditionne au metre, de quoi se prouver tout seul.
+    "version": "19.0.1.58.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
