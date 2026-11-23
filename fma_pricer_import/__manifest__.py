@@ -67,7 +67,15 @@
     # l'autre : le 11 est du montage chez FMA, du remontage chez F2M, et le
     # 10 — vitrage chez FMA — est du remontage chez F2M, ou le vitrage ne se
     # pose pas en atelier.
-    "version": "19.0.1.55.0",
+    # 1.56.0 : les unites viennent du FICHIER et non plus d'une deduction.
+    # AllProfiles.Units_Unit vaut « m » sur les 111 profiles des dix-huit
+    # exports releves, Articles.Units_Unit departe « pce » et « m » article
+    # par article, et chaque longueur se lit avec son unite d'affichage au
+    # lieu d'etre supposee en millimetres. Le besoin de debit s'ecrit donc
+    # toujours en METRES — la meme grandeur que le besoin matiere du lot — et
+    # le repli en fraction de barre disparait : une unite qu'on ne sait pas
+    # rapporter au metre fait remonter un manque qui NOMME l'article.
+    "version": "19.0.1.56.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
