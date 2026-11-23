@@ -50,6 +50,35 @@
                        invisible="not purchased_length"/>
             </xpath>
 
+            <!--
+                LES COUPES, juste apres le besoin matiere, et c'est voulu :
+                les deux disent la meme matiere a deux echelles. Le besoin
+                matiere dit les BARRES a sortir — ce que le magasin prepare et
+                ce que l'achat commande — les coupes disent ce que la scie en
+                fait. La colonne « Besoin debit (m) » de l'une est la somme de
+                la colonne « Total (m) » de l'autre : les deux ecrans parlent
+                la meme langue depuis le 23/11/2026, et le rapprochement se
+                fait a l'oeil, ligne a ligne.
+
+                En lecture seule, sans bouton d'ajout : ce n'est pas une
+                saisie, c'est le plan de coupe du fichier.
+            -->
+            <xpath expr="//page[@name='materials']" position="after">
+                <page string="Coupes" name="cuts" invisible="not cut_line_ids">
+                    <field name="cut_line_ids" readonly="1">
+                        <list>
+                            <field name="product_id"/>
+                            <field name="color" optional="show"/>
+                            <field name="menuiserie" optional="show"/>
+                            <field name="length"/>
+                            <field name="qty"/>
+                            <field name="total_length" sum="Total"/>
+                            <field name="product_debit_id" optional="hide"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+
             <xpath expr="//field[@name='material_line_ids']/list/field[@name='product_qty']"
                    position="after">
                 <field name="bar_length" optional="show"/>

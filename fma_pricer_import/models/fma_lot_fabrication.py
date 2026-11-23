@@ -7,6 +7,15 @@ from odoo.exceptions import UserError
 class FmaLotFabrication(models.Model):
     _inherit = "fma.lot.fabrication"
 
+    # LE DETAIL DES COUPES, que la nomenclature ne sait pas porter : elle dit
+    # un besoin cumule par reference et teinte, la scie veut des longueurs.
+    cut_line_ids = fields.One2many(
+        "fma.lot.cut.line",
+        "lot_id",
+        string="Coupes",
+        readonly=True,
+    )
+
     pricer_lot_key = fields.Char(
         string="Cle du lot pricer",
         index=True,

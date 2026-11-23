@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ==========================================================
+         Les coupes sur la fiche de l'ensemble debite.
+
+         L'onglet n'apparait QUE sur les articles qui en ont : il est
+         invisible partout ailleurs, et la fiche d'un profile ou d'une
+         vis reste ce qu'elle etait. C'est la meme information que sur
+         le lot, lue de l'autre bout — ici les coupes expliquent la
+         ligne de nomenclature de CETTE menuiserie, la-bas elles
+         completent le plan de debit du lot.
+         ========================================================== -->
+    <record id="view_product_template_form_coupes" model="ir.ui.view">
+        <field name="name">product.template.form.coupes</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Coupes" name="fma_coupes"
+                      invisible="not fma_cut_ids">
+                    <field name="fma_cut_ids" readonly="1">
+                        <list>
+                            <field name="lot_id"/>
+                            <field name="product_id"/>
+                            <field name="color" optional="show"/>
+                            <field name="length"/>
+                            <field name="qty"/>
+                            <field name="total_length" sum="Total"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
