@@ -276,6 +276,53 @@ def _profils_connus(con):
 _VERS_MM = {"mm": 1.0, "cm": 10.0, "dm": 100.0, "m": 1000.0}
 
 
+def _mm(brut, sortie, unite):
+    """Une longueur en millimetres, quelle que soit l'unite d'AFFICHAGE.
+
+    Le fichier porte chaque longueur deux fois : la colonne brute, toujours en
+    metres, et la colonne « _Output » exprimee dans l'unite que l'utilisateur
+    a choisie — « _Unit ». Lire la seconde en supposant des millimetres marche
+    sur les dix-huit exports releves, ou Profiles.Length_Unit vaut « mm » sans
+    exception. Mais c'est un REGLAGE D'AFFICHAGE, pas une loi : un export en
+    metres ferait lire 2,19 mm la ou il y a 2,19 m, et personne ne verrait
+    rien — le debit serait simplement mille fois trop petit.
+
+    On lit donc l'unite a cote de la valeur, et la colonne brute sert de
+    recours quand elle manque.
+    """
+    facteur = _VERS_MM.get((unite or "").strip().lower())
+    if facteur and sortie is not None:
+        return sortie * facteur
+    return (brut or 0.0) * 1000.0
+
+
+def _unites_declarees(con):
+    """L'unite de mesure que le fichier donne a chaque reference.
+
+    C'EST LA DONNEE QUI MANQUAIT, et elle etait ecrite depuis le debut.
+    AllProfiles.Units_Unit vaut « m » sur les 111 profiles des dix-huit
+    exports releves : un profile se mesure en metres, le fichier le dit, et
+    il n'y a rien a deduire. AllArticles.Units_Unit, lui, departage « pce »
+    (382 fois) et « m » (75 fois) : c'est lui qui dit si un article se compte
+    en pieces ou en longueur, la ou le moteur le devinait au fait que LOGIKAL
+    l'avait decoupe.
+    """
+    unites = {}
+    for table in ("AllArticles", "AllProfiles"):
+        try:
+            lignes = con.execute(
+                "select ArticleCode_Number, Units_Unit from %s" % table
+            ).fetchall()
+        except Exception:  # noqa: BLE001 — table absente
+            continue
+        for code, unite in lignes:
+            code = (code or "").strip()
+            unite = (unite or "").strip().lower()
+            if code and unite:
+                unites[code] = unite
+    return unites
+
+
 def _conditionnements(con):
     """Ce qu'UNE unite d'achat contient de longueur, par reference, en mm.
 
@@ -430,13 +477,15 @@ def _parse(con, source, site_defaut=""):
     #: Ce que LOGIKAL coupe sans que ce soit un profile : {code: description}.
     reclasses = {}
     for (
-        eid, code, ref_fichier, base_code, code_supplier, desc, length,
+        eid, code, ref_fichier, base_code, code_supplier, desc,
+        length_sortie, length_unite, length_brute,
         amount, sid, outer, inner, internal, color,
     ) in con.execute(
         """select i.ElevationId, p.ArticleCode_Number, p.ArticleCode,
                   p.ArticleCode_BaseNumber, p.ArticleCode_Supplier,
                   p.Description,
-                  p.Length_Output, p.Amount, p.LK_SupplierID,
+                  p.Length_Output, p.Length_Unit, p.Length,
+                  p.Amount, p.LK_SupplierID,
                   p.OuterColorInfoInternal, p.InnerColorInfoInternal,
                   p.ColorInfoInternal, p.Color
              from Profiles p
@@ -446,6 +495,7 @@ def _parse(con, source, site_defaut=""):
         if men is None:
             continue
         code_net = (code or "").strip()
+        length = _mm(length_brute, length_sortie, length_unite)
         if profils and code_net not in profils:
             # COUPE, MAIS PAS UN PROFILE. L'article part avec la
             # quincaillerie, dans la LONGUEUR que ses coupes totalisent :
@@ -504,6 +554,7 @@ def _parse(con, source, site_defaut=""):
     # --- barres : rattachement au lot, via les coupes ------------------------
     _attach_bars(con, quo, lots, suppliers, profils)
     quo.conditionnements = _conditionnements(con)
+    quo.unites = _unites_declarees(con)
 
     quo.lots = [lot for lot in lots.values() if lot.menuiseries or lot.bars]
     _reconcile(con, quo)
@@ -605,14 +656,18 @@ def _attach_bars(con, quo, lots, suppliers, profils=frozenset()):
 
     orphans = 0
     for (
-        bar_id, code, base_code, ref_fichier, code_supplier,
-        desc, length, used, amount, sid,
+        bar_id, code, base_code, ref_fichier, code_supplier, desc,
+        length_sortie, length_unite, length_brute,
+        used_sortie, used_unite, used_brute,
+        amount, sid,
         outer, inner, internal, color,
     ) in con.execute(
         """select ProfileBarID, ArticleCode_Number, ArticleCode_BaseNumber,
                   ArticleCode, ArticleCode_Supplier,
                   Description,
-                  Length_Output, UsedLength_Output, Amount, SupplierId,
+                  Length_Output, Length_Unit, Length,
+                  UsedLength_Output, UsedLength_Unit, UsedLength,
+                  Amount, SupplierId,
                   OuterColorInfoInternal, InnerColorInfoInternal,
                   ColorInfoInternal, Color
              from ProfileBars"""
@@ -639,8 +694,8 @@ def _attach_bars(con, quo, lots, suppliers, profils=frozenset()):
                 description=(desc or "").strip(),
                 supplier=suppliers.get(sid, ""),
                 color=teinte_profile(quo.site, outer, inner, internal, color),
-                length_mm=length or 0.0,
-                used_mm=used or 0.0,
+                length_mm=_mm(length_brute, length_sortie, length_unite),
+                used_mm=_mm(used_brute, used_sortie, used_unite),
                 qty=amount or 1.0,
             )
         )

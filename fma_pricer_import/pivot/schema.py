@@ -321,6 +321,12 @@ class Quotation:
     #: ProfileBars). Sans cette valeur, son besoin de debit n'est exprimable
     #: dans aucune unite.
     conditionnements: dict = field(default_factory=dict)
+    #: Unite de mesure declaree par le fichier, par reference : « m » ou
+    #: « pce ». AllProfiles la donne pour les profiles (« m », sans exception
+    #: sur les exports releves), AllArticles pour tout le reste. C'est elle qui
+    #: dit si un article se compte en pieces ou en longueur — information que
+    #: le moteur deduisait jusqu'ici du fait que LOGIKAL l'avait decoupe.
+    unites: dict = field(default_factory=dict)
 
     @property
     def debit_mm(self):
@@ -361,6 +367,7 @@ class Quotation:
         # ils se cumulent sans se remplacer, et un second fichier complete ce
         # que le premier ne portait pas.
         self.conditionnements.update(other.conditionnements or {})
+        self.unites.update(other.unites or {})
         return self
 
     def sale_lines(self):
