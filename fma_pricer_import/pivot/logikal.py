@@ -269,6 +269,47 @@ def _profils_connus(con):
     )
 
 
+#: De quoi ramener une taille a des millimetres. Le fichier exprime les
+#: longueurs dans l'unite que l'utilisateur a choisie, et elle varie d'une
+#: colonne a l'autre DANS LA MEME TABLE : ProfileBars.Length vient en mm,
+#: AllProfiles.Length en m.
+_VERS_MM = {"mm": 1.0, "cm": 10.0, "dm": 100.0, "m": 1000.0}
+
+
+def _conditionnements(con):
+    """Ce qu'UNE unite d'achat contient de longueur, par reference, en mm.
+
+    « PUSize » : la taille du conditionnement. Pour un profile ordinaire elle
+    vaut 1 m — il se vend au metre — et n'a donc rien a voir avec la longueur
+    de ses barres. Pour un article vendu en longueur FIXE, en revanche, elle
+    est la seule donnee qui dise sa taille : le tube « Lg 2.5ml » de
+    A26-11-10280 porte PUSize = 2,5 m, IsSpecialLength = 1, et LOGIKAL ne lui
+    fait aucun plan de coupe — aucune ligne dans ProfileBars. Sans PUSize, son
+    besoin de debit n'est exprimable ni en metres ni en barres, et le lot
+    remonte un manque que personne ne peut lever.
+
+    ON EXIGE L'UNITE. AllProfiles porte PUSize sans PUSize_Unit (mesure faite
+    sur l'affaire ci-dessus : la colonne y est vide pour les dix profiles),
+    et un nombre sans unite ne se convertit pas. AllArticles, lui, la porte :
+    c'est de la que vient la valeur exploitable. Une taille sans unite est
+    ignoree plutot que supposee en metres.
+    """
+    tailles = {}
+    for table in ("AllArticles", "AllProfiles"):
+        try:
+            lignes = con.execute(
+                "select ArticleCode_Number, PUSize, PUSize_Unit from %s"
+                % table).fetchall()
+        except Exception:  # noqa: BLE001 — table ou colonne absente
+            continue
+        for code, taille, unite in lignes:
+            code = (code or "").strip()
+            facteur = _VERS_MM.get((unite or "").strip().lower())
+            if code and taille and facteur:
+                tailles[code] = taille * facteur
+    return tailles
+
+
 def _parse(con, source, site_defaut=""):
     quo = Quotation(pricer="logikal", source=source)
 
@@ -462,6 +503,7 @@ def _parse(con, source, site_defaut=""):
 
     # --- barres : rattachement au lot, via les coupes ------------------------
     _attach_bars(con, quo, lots, suppliers, profils)
+    quo.conditionnements = _conditionnements(con)
 
     quo.lots = [lot for lot in lots.values() if lot.menuiseries or lot.bars]
     _reconcile(con, quo)
