@@ -208,6 +208,17 @@ class FmaPricerEngine(models.AbstractModel):
             # l'affaire. C'est elle qui permet d'exprimer un besoin en metres
             # dans une unite qui compte des barres.
             fma_longueurs_barres=self._longueurs_de_barre(quotation),
+            # Seconde source de longueur, pour les articles que LOGIKAL ne
+            # decoupe pas : le conditionnement d'achat. Cf. _quantite_debit,
+            # qui ne s'en sert que pour CONFRONTER l'unite de l'article, et
+            # jamais pour diviser un besoin.
+            fma_conditionnements=dict(quotation.conditionnements or {}),
+            # Les references que le fichier SCIE vraiment. Elles disent quand
+            # le conditionnement est utilisable comme taille : un article que
+            # le plan de coupe ignore n'est pas debite, il s'achete entier.
+            fma_codes_debites=frozenset(
+                barre.code for lot in quotation.lots for barre in lot.bars
+                if barre.code),
         )
         self._check_offer_matches(order, quotation)
         self._check_bars_usable(order, quotation)
@@ -1381,12 +1392,29 @@ class FmaPricerEngine(models.AbstractModel):
             longueur_m = getattr(produit, "x_studio_longueur_m", 0.0) or 0.0
             longueur_mm = longueur_m * 1000.0
 
+        # LE CONDITIONNEMENT D'ACHAT, seconde source et sous conditions. Un
+        # article vendu en longueur fixe n'a pas de plan de coupe : LOGIKAL ne
+        # le scie pas, donc ProfileBars ne le connait pas, et la longueur qui
+        # manque ici est ecrite ailleurs — « PUSize ».
+        #
+        # Il ne remplace PAS la longueur de barre, il s'ajoute : pour un
+        # profile ordinaire PUSize vaut 1 m quand la barre en fait 6,50, et le
+        # confondre avec une barre multiplierait le besoin par six et demi. Il
+        # ne sert donc QU'A la confrontation ci-dessous, qui echoue d'elle-meme
+        # quand les deux donnees se contredisent.
+        conditionnement_mm = 0.0
+        if cle:
+            conditionnement_mm = (
+                self.env.context.get("fma_conditionnements") or {}
+            ).get(cle[0] if isinstance(cle, tuple) else cle) or 0.0
+
         # 1. L'unite de longueur de l'article lui-meme. « BARRE6.5ML » se
         #    convertit en « ML » : c'est en ML qu'il faut ecrire, c'est la
         #    mesure du besoin et elle se lit.
-        unite = self._unite_de_longueur(produit, longueur_mm)
-        if unite:
-            return unite, metres, None
+        for candidate in (longueur_mm, conditionnement_mm):
+            unite = self._unite_de_longueur(produit, candidate)
+            if unite:
+                return unite, metres, None
 
         # 2. Le metre standard d'Odoo, pour les bases qui l'utilisent.
         metre = self.env.ref("uom.product_uom_meter", raise_if_not_found=False)
@@ -1394,15 +1422,44 @@ class FmaPricerEngine(models.AbstractModel):
             return metre, metres, None
 
         # 3. A defaut, la fraction de barre, dans l'unite de l'article.
+        #
+        # LE CONDITIONNEMENT N'Y ENTRE QUE SOUS CONDITION. Diviser un besoin
+        # par une taille fausse ne produit pas une erreur, mais un nombre
+        # credible et faux — le pire des resultats. On ne s'y risque donc que
+        # si le fichier ne scie JAMAIS cette reference : un article absent du
+        # plan de coupe n'est pas debite, il s'achete entier, et sa taille de
+        # conditionnement est alors sa seule taille. Un profile ordinaire,
+        # lui, est toujours scie quelque part — son conditionnement d'un metre
+        # ne servira donc jamais ici.
+        reference = cle[0] if isinstance(cle, tuple) else cle
+        if not longueur_mm and conditionnement_mm and reference not in (
+                self.env.context.get("fma_codes_debites") or frozenset()):
+            longueur_mm = conditionnement_mm
+
         if longueur_mm:
             return produit.uom_id, total_mm / longueur_mm, None
 
+        # LE MESSAGE DIT CE QUI MANQUE. « Ca ne se convertit pas » envoie le
+        # methodiste chercher au hasard : il verifie que l'unite existe — elle
+        # existe toujours — et conclut que le moteur se trompe. On nomme donc
+        # les trois faits qui ont ete cherches, et celui qui a manque.
+        racine = self._racine_uom(produit.uom_id)
         return None, 0.0, _(
-            "profile %(code)s : son unite « %(uom)s » ne se convertit pas en "
-            "metres et sa longueur de barre est inconnue — le besoin de debit "
-            "ne peut etre exprime ni en longueur ni en barres",
+            "profile %(code)s : besoin de %(metres).3f m inexprimable. Son "
+            "unite « %(uom)s » se rattache a %(racine)s ; longueur de barre "
+            "du plan de coupe : %(barre)s ; conditionnement d'achat du "
+            "fichier : %(cond)s. Il faut soit rattacher l'unite a une unite de "
+            "longueur dans la bonne proportion, soit renseigner la longueur de "
+            "barre sur l'article",
             code=produit.default_code or produit.display_name,
+            metres=metres,
             uom=produit.uom_id.display_name,
+            racine=(racine.display_name if racine and racine != produit.uom_id
+                    else _("aucune unite de rattachement")),
+            barre=("%.3f m" % (longueur_mm / 1000.0)) if longueur_mm
+                  else _("absente"),
+            cond=("%.3f m" % (conditionnement_mm / 1000.0))
+                 if conditionnement_mm else _("absent"),
         )
 
     def _sync_quincaillerie_bom(self, kit, composants):

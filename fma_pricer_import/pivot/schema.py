@@ -306,6 +306,21 @@ class Quotation:
     #: une barre porte des coupes de plusieurs lots : les barres du fichier ne
     #: sont alors exploitables ni en achat ni en production.
     bars_per_lot: bool = True
+    #: Conditionnement d'achat par reference, en millimetres : ce qu'UNE unite
+    #: d'achat contient de longueur. « PUSize » dans le fichier.
+    #:
+    #: CE N'EST PAS UNE LONGUEUR DE BARRE, et il ne faut surtout pas le lire
+    #: comme telle : mesure faite sur A26-11-10280, les neuf profiles ordinaires
+    #: y portent PUSize = 1 m — ils se vendent au metre — alors que leurs barres
+    #: font 6,50 m. Diviser un besoin par ce chiffre donnerait quarante-six
+    #: « barres » la ou il en faut sept.
+    #:
+    #: Il vaut en revanche exactement ce qu'il faut pour les articles vendus en
+    #: longueur fixe : le tube « Lg 2.5ml » y porte PUSize = 2,5 m, et LOGIKAL
+    #: ne lui fait AUCUN plan de coupe (IsSpecialLength = 1, zero ligne dans
+    #: ProfileBars). Sans cette valeur, son besoin de debit n'est exprimable
+    #: dans aucune unite.
+    conditionnements: dict = field(default_factory=dict)
 
     @property
     def debit_mm(self):
@@ -342,6 +357,10 @@ class Quotation:
                 self.purchases.append(achat)
         self.warnings.extend(other.warnings)
         self.bars_per_lot = self.bars_per_lot and other.bars_per_lot
+        # Les conditionnements sont une propriete de l'ARTICLE, pas du lot :
+        # ils se cumulent sans se remplacer, et un second fichier complete ce
+        # que le premier ne portait pas.
+        self.conditionnements.update(other.conditionnements or {})
         return self
 
     def sale_lines(self):
