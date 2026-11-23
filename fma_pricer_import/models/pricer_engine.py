@@ -1313,12 +1313,62 @@ class FmaPricerEngine(models.AbstractModel):
                 1.0, racine, round=False)
         except Exception:  # noqa: BLE001 — une unite qui refuse se tait
             return None
+        # UN RAPPORT DE 1 NE DEMONTRE RIEN, et le laisser passer ecrirait des
+        # metres dans une unite de piece. « Piece » se rattache a « Unites »
+        # avec un rapport de 1 -- 74 000 articles chez FMA -- et le
+        # conditionnement d'achat d'un profile ordinaire vaut 1 m dans le
+        # fichier LOGIKAL : le controle « 1 unite de rattachement pour 1 m »
+        # se verifierait alors tout seul, 1,00 contre 1,00, sans rien prouver.
+        # Une unite de longueur qui vaut exactement son unite de reference est
+        # reconnue par son nom (cf. _unite_reference_de_longueur), pas ici.
+        if abs(par_barre - 1.0) <= 0.01:
+            return None
         attendu = longueur_barre_mm / 1000.0
         # Un pour cent de tolerance : le fichier arrondit les longueurs, et
         # une barre de 6500 mm declaree 6,5 ne doit pas echouer au controle.
         if attendu and abs(par_barre - attendu) <= max(0.01, attendu * 0.01):
             return racine
         return None
+
+    def _unite_reference_de_longueur(self, uom):
+        """L'unite de REFERENCE de l'article, quand son nom dit une longueur.
+
+        « ML » est une unite de reference dans la base de FMA : id 69,
+        rattachee a rien, 2 827 articles, 46 unites de barre qui s'y
+        rattachent, 63 816 mouvements de stock. Odoo ne sait pas la convertir
+        vers son metre standard -- ce sont deux racines distinctes -- et la
+        demonstration par la longueur de barre ne la sauve pas davantage,
+        puisqu'une unite de reference n'a aucun rattachement a mesurer.
+
+        Elle bloquait donc l'import, alors que c'est l'unite la plus employee
+        de la maison et que son nom dit exactement ce qu'elle est. Un metre
+        lineaire EST un metre : « lineaire » ne dit pas une autre grandeur, il
+        dit la facon d'acheter la matiere.
+
+        C'EST UNE CONVENTION DECLAREE, PAS UNE DEDUCTION. Le reste du module
+        se refuse a juger une unite sur son nom, et avec raison -- « BARRE6.50 »
+        ne dit rien a personne. Mais UNITES_LONGUEUR est une liste tenue a la
+        main, qui servait deja a lire l'unite annoncee par le fichier : la
+        maison y declare les ecritures du metre. On s'y fie une seconde fois,
+        du cote d'Odoo.
+
+        Deux garanties : la liste ne contient que des ecritures du metre, et on
+        ne regarde QUE l'unite de reference -- jamais le nom de l'unite de
+        l'article, qui peut etre n'importe quoi. Un article en BARRE6.5ML
+        passe parce que sa reference est ML, et Odoo convertit ensuite ses 6,5.
+
+        Reserve, et elle est reelle : une base ou « ml » designerait des
+        millilitres se tromperait. Chez FMA les volumes sont en « L », sans
+        rattachement a « ml », et le releve du 23/11/2026 a confirme que ML
+        comme ml y sont le metre lineaire. Ailleurs, cette liste serait a
+        revoir -- c'est pourquoi elle est declaree en tete de fichier et non
+        dispersee dans le code.
+        """
+        racine = self._racine_uom(uom)
+        if not racine:
+            return None
+        return racine if (racine.name or "").strip().lower() in UNITES_LONGUEUR \
+            else None
 
     def _unites_convertibles(self, source, cible):
         """Odoo sait-il passer de l'une a l'autre ?
@@ -1407,7 +1457,13 @@ class FmaPricerEngine(models.AbstractModel):
            C'est le cas propre, et le seul qui ne demande aucune donnee du
            fichier.
 
-        2. A defaut, l'unite de rattachement de l'article, DEMONTREE metre par
+        2. L'unite de REFERENCE de l'article porte un nom de longueur declare
+           par la maison -- « ML », qui est une unite de reference a part
+           entiere chez FMA et qu'Odoo ne sait pas convertir vers son metre
+           standard. C'est une convention assumee, bornee a l'unite de
+           reference (cf. _unite_reference_de_longueur).
+
+        3. A defaut, l'unite de rattachement de l'article, DEMONTREE metre par
            les donnees : si une barre vaut 6,5 unites de rattachement et que le
            plan de coupe dit que cette barre fait 6,50 m, alors l'unite de
            rattachement est le metre. Les donnees se repondent a elles-memes.
@@ -1420,6 +1476,9 @@ class FmaPricerEngine(models.AbstractModel):
         metre = self.env.ref("uom.product_uom_meter", raise_if_not_found=False)
         if metre and self._unites_convertibles(metre, produit.uom_id):
             return metre
+        reference = self._unite_reference_de_longueur(produit.uom_id)
+        if reference:
+            return reference
         for candidate in (longueur_mm, conditionnement_mm):
             unite = self._unite_de_longueur(produit, candidate)
             if unite:
@@ -1471,14 +1530,18 @@ class FmaPricerEngine(models.AbstractModel):
             "%(code)s : besoin de %(metres).3f m inexprimable. Son unite "
             "« %(uom)s » se rattache a %(racine)s, et rien ne permet de la "
             "rapporter au metre (longueur de barre : %(barre)s ; "
-            "conditionnement du fichier : %(cond)s). Rattachez cette unite a "
-            "l'unite de longueur standard, ou renseignez la longueur de barre "
-            "sur l'article",
+            "conditionnement du fichier : %(cond)s). Mettez l'article dans une "
+            "unite dont l'unite de reference est une longueur (ML, m), ou "
+            "renseignez la longueur de barre sur l'article",
             code=produit.default_code or produit.display_name,
             metres=metres,
             uom=produit.uom_id.display_name,
             racine=(racine.display_name if racine and racine != produit.uom_id
-                    else _("aucune unite de rattachement")),
+                    # « se rattache a aucune unite de rattachement » : la
+                    # phrase ne voulait rien dire. Une unite sans
+                    # rattachement EST une unite de reference, et c'est la
+                    # premiere chose a dire au methodiste.
+                    else _("elle-meme : c'est une unite de reference")),
             barre=("%.3f m" % (longueur_mm / 1000.0)) if longueur_mm
                   else _("absente"),
             cond=("%.3f m" % (conditionnement_mm / 1000.0))
