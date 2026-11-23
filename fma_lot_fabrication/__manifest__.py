@@ -113,7 +113,11 @@
     # une colonne ajoutee apres coup, meme en optional="show", n'apparait pas
     # chez qui a deja regle les siennes -- c'est-a-dire chez tous ceux qui se
     # servent du tableau.
-    "version": "19.0.1.116.0",
+    # 1.117.0 : la colonne « Lot » EST le lien. Deux colonnes cote a cote --
+    # le nom en texte, puis « Ouvrir » -- affichaient deux fois la meme chose
+    # et laissaient le piege en place : on clique sur « Lot », on tombe dans
+    # la cellule.
+    "version": "19.0.1.117.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
