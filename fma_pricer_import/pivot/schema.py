@@ -327,6 +327,12 @@ class Quotation:
     #: dit si un article se compte en pieces ou en longueur — information que
     #: le moteur deduisait jusqu'ici du fait que LOGIKAL l'avait decoupe.
     unites: dict = field(default_factory=dict)
+    #: Longueur d'UNE piece d'article, par reference, en mm — la conversion
+    #: piece <-> metre, que rien ne donnait jusqu'ici. AllArticles.Length :
+    #: 1,2 m pour la plaque d'isolation « 12x26x1200 mm » de A25-10-09731,
+    #: dont LOGIKAL compte le besoin en metres (4,592) alors qu'Odoo la tient
+    #: en pieces. Sans elle, ces articles-la bloquaient l'import.
+    longueurs_unitaires: dict = field(default_factory=dict)
 
     @property
     def debit_mm(self):
@@ -368,6 +374,7 @@ class Quotation:
         # que le premier ne portait pas.
         self.conditionnements.update(other.conditionnements or {})
         self.unites.update(other.unites or {})
+        self.longueurs_unitaires.update(other.longueurs_unitaires or {})
         return self
 
     def sale_lines(self):

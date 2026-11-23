@@ -94,7 +94,17 @@
     # de reference cote Odoo. Au passage, un rapport de rattachement de 1 ne
     # vaut plus demonstration : « Piece » vaut 1 « Unites » et un profile
     # ordinaire se conditionne au metre, de quoi se prouver tout seul.
-    "version": "19.0.1.58.0",
+    # 1.59.0 : la conversion piece <-> metre vient du fichier, article par
+    # article. Les plaques d'isolation et les inserts que LOGIKAL decoupe
+    # sans les declarer profiles sont deja ranges en QUINCAILLERIE et non sur
+    # le debit (cf. _profils_connus), mais leur besoin arrivait en metres --
+    # 4,592 m pour les six coupes de W4090033 -- quand Odoo les tient a la
+    # piece : la ligne bloquait un lot entier. AllArticles.Length donne la
+    # longueur d'une piece, 1,2 m pour cette plaque que sa designation ecrit
+    # « 12x26x1200 mm ». Le besoin en pieces, c'est le besoin en metres
+    # divise par elle. Mesure sur A25-10-09731 : 4,592 m -> 3,827 pieces,
+    # 0,800 m -> 0,667, au millieme de ce que le fichier annonce.
+    "version": "19.0.1.59.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
