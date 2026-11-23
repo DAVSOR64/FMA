@@ -27,8 +27,7 @@
                        decoration-warning="ordo_statut == 'attention'"
                        decoration-success="ordo_statut == 'ok'"/>
                 <field name="name" string="Lot" readonly="1"/>
-                <field name="ordo_lot_id" string="Ouvrir" readonly="1"
-                       optional="show"/>
+                <field name="ordo_lot_id" string="Ouvrir" readonly="1"/>
                 <field name="ordo_commande_id" optional="show"/>
                 <field name="ordo_chantier_id" optional="show"/>
                 <field name="partner_id" optional="show"/>

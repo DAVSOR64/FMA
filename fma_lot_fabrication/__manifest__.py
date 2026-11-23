@@ -108,7 +108,12 @@
     # donc cliquer sur le nom du lot ouvrait une cellule en saisie au lieu du
     # lot, alors que c'est le premier reflexe devant une liste. Le nom passe
     # en lecture seule : un lot ne se renomme pas depuis un tableau de bord.
-    "version": "19.0.1.115.0",
+    # 1.116.0 : la colonne « Ouvrir » n'est plus optionnelle. Odoo garde dans
+    # le NAVIGATEUR la liste des colonnes optionnelles cochees sur un ecran :
+    # une colonne ajoutee apres coup, meme en optional="show", n'apparait pas
+    # chez qui a deja regle les siennes -- c'est-a-dire chez tous ceux qui se
+    # servent du tableau.
+    "version": "19.0.1.116.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """
