@@ -75,7 +75,14 @@
     # toujours en METRES — la meme grandeur que le besoin matiere du lot — et
     # le repli en fraction de barre disparait : une unite qu'on ne sait pas
     # rapporter au metre fait remonter un manque qui NOMME l'article.
-    "version": "19.0.1.56.0",
+    # 1.57.0 : le detail des coupes survit a l'import. Une nomenclature dit
+    # un besoin cumule — « 11,076 m de T591007 » — et c'est inutilisable a la
+    # scie : il faut savoir que ce sont huit coupes, de 2,092 m a 0,316 m. Le
+    # fichier le disait, le cumul par (reference, teinte) le perdait. Nouveau
+    # modele fma.lot.cut.line, en lecture seule, lu des deux bouts : onglet
+    # « Coupes » sur le lot a cote du besoin matiere, et sur la fiche de
+    # l'ensemble debite a cote de sa nomenclature.
+    "version": "19.0.1.57.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """
@@ -111,6 +118,7 @@ enregistrement, avec ses logs, pour consultation.
         "views/sale_order_views.xml",
         "views/mrp_workcenter_views.xml",
         "views/fma_lot_fabrication_views.xml",
+        "views/product_template_views.xml",
     ],
     "installable": True,
     "application": False,

@@ -1883,10 +1883,13 @@ class FmaPricerEngine(models.AbstractModel):
             # en lecture seule pour lui (cf. ir.model.access de
             # fma_lot_fabrication). C'est une donnee derivee du fichier.
             lot.material_line_ids.sudo().unlink()
+            if "cut_line_ids" in lot._fields:
+                lot.cut_line_ids.sudo().unlink()
             lot.logikal_ref = lot_pivot.ref
 
         issues = self._sync_lot_lines(lot, lot_pivot, sale_lines, missing_lines)
         issues += self._sync_lot_materials(lot, lot_pivot)
+        self._sync_lot_cuts(lot, lot_pivot, sale_lines)
         self._set_lot_debit_product(lot)
         lot.import_issues = "\n".join("- %s" % i for i in issues) or False
         if issues:
@@ -1951,6 +1954,62 @@ class FmaPricerEngine(models.AbstractModel):
         if par_ligne:
             self.env["fma.lot.fabrication.line"].create(list(par_ligne.values()))
         return issues
+
+    def _sync_lot_cuts(self, lot, lot_pivot, sale_lines):
+        """Enregistre le detail des coupes du lot, en metres.
+
+        CE QUE LA NOMENCLATURE NE PEUT PAS DIRE. La ligne de debit d'une
+        menuiserie porte « 11,076 m de T591007 » : c'est le besoin, et c'est
+        ce qu'il faut acheter et valoriser. A la scie, cela ne sert a rien —
+        il faut savoir que ce sont huit coupes, de 2,092 m a 0,316 m. Le
+        fichier le dit, le cumul par (reference, teinte) le perdait.
+
+        Ces lignes ne nourrissent AUCUN ordre de fabrication et ne sont
+        consommees par personne : elles sont la pour etre lues, sur le lot
+        comme sur l'article de debit de chaque menuiserie.
+
+        Un profile introuvable ne fait rien echouer et n'ajoute pas de manque :
+        le besoin, lui, l'a deja signale par _sync_lot_materials. Un second
+        message pour la meme cause n'apprendrait rien a personne.
+        """
+        if "cut_line_ids" not in lot._fields:
+            return
+        Cut = self.env["fma.lot.cut.line"].sudo()
+        vals = []
+        # Une recherche par COUPLE (reference, teinte), pas par coupe : huit
+        # coupes du meme profile, c'est une recherche et non huit.
+        trouves = {}
+        for men in lot_pivot.menuiseries:
+            ligne_devis = sale_lines.get(signature_hash(men))
+            debit = (self._debit_product(ligne_devis.product_id)
+                     if ligne_devis else self.env["product.product"])
+            for cut in men.debit:
+                cle = (cut.code, cut.color)
+                if cle not in trouves:
+                    trouves[cle] = self._find_product(
+                        cut.code, cut.color, _("coupe du plan de debit"),
+                        ref_fichier=getattr(cut, "ref_fichier", ""),
+                        base_code=getattr(cut, "base_code", ""),
+                        supplier=getattr(cut, "supplier", ""),
+                        code_supplier=getattr(cut, "code_supplier", ""))[0]
+                produit = trouves[cle]
+                if not produit or not cut.length_mm:
+                    continue
+                vals.append({
+                    "lot_id": lot.id,
+                    "product_debit_id": debit.id or False,
+                    "menuiserie": men.position or men.ref,
+                    "product_id": produit.id,
+                    "color": cut.color or "",
+                    # EN METRES, comme le besoin matiere et comme la
+                    # nomenclature : une seule grandeur partout.
+                    "length": cut.length_mm / 1000.0,
+                    # La quantite du fichier est celle d'UN exemplaire ; le
+                    # lot en fabrique men.qty.
+                    "qty": (cut.qty or 1.0) * (men.qty or 1.0),
+                })
+        if vals:
+            Cut.create(vals)
 
     def _set_lot_debit_product(self, lot):
         """Fait produire a l'OF de debit le sous-ensemble de *cette* menuiserie.
