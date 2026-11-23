@@ -26,8 +26,16 @@
                        decoration-danger="ordo_statut == 'retard'"
                        decoration-warning="ordo_statut == 'attention'"
                        decoration-success="ordo_statut == 'ok'"/>
-                <field name="name" string="Lot" readonly="1"/>
-                <field name="ordo_lot_id" string="Ouvrir" readonly="1"/>
+                <!-- UNE SEULE COLONNE, et c'est le lien. « name » est un
+                     texte : dans une liste editable, cliquer dessus ouvre la
+                     cellule, et c'est pourtant la colonne qu'on clique en
+                     premier. En livrer une deuxieme a cote, « Ouvrir »,
+                     affichait deux fois la meme chose et laissait le piege en
+                     place. Le many2one porte le nom complet du lot,
+                     « A26-10-09731 - Lot 1 », et ouvre la fiche.
+                     (Pas de double tiret dans un commentaire XML : interdit
+                     par la norme, et le build tombe au chargement.) -->
+                <field name="ordo_lot_id" string="Lot" readonly="1"/>
                 <field name="ordo_commande_id" optional="show"/>
                 <field name="ordo_chantier_id" optional="show"/>
                 <field name="partner_id" optional="show"/>
