@@ -104,7 +104,14 @@
     # « 12x26x1200 mm ». Le besoin en pieces, c'est le besoin en metres
     # divise par elle. Mesure sur A25-10-09731 : 4,592 m -> 3,827 pieces,
     # 0,800 m -> 0,667, au millieme de ce que le fichier annonce.
-    "version": "19.0.1.59.0",
+    # 1.60.0 : le pivot applique la meme regle de destination que le
+    # connecteur historique. La table Glass de LOGIKAL porte le vitrage mais
+    # aussi les panneaux (AreaOffer « Panels »), et la destination ne se
+    # decide que pour le vitrage : un panneau est systematiquement pose en
+    # atelier. Le connecteur l'imposait, le pivot lisait Info2 sans
+    # distinction -- deux lecteurs du meme fichier qui pouvaient conclure
+    # l'inverse l'un de l'autre sur le meme panneau.
+    "version": "19.0.1.60.0",
     "category": "Sales",
     "summary": "Importer un chiffrage LOGIKAL / Pricer directement depuis un devis",
     "description": """

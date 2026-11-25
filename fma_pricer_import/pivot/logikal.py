@@ -481,13 +481,21 @@ def _parse(con, source, site_defaut=""):
     # decide si le vitrage se commande avec son lot (atelier) ou pour
     # l'affaire entiere (chantier). Sans lui, tout le remplissage importe par
     # le pricer restait sans destination.
-    for eid, name, desc, width, height, price, sid, info2 in con.execute(
+    for eid, name, desc, width, height, price, sid, info2, nature in con.execute(
         """select i.ElevationId, g.Name, g.Description,
                   g.Width_Output, g.Height_Output, g.Price, g.LK_SupplierId,
-                  g.Info2
+                  g.Info2, g.AreaOffer
              from Glass g
              join Insertions i on i.InsertionID = g.InsertionId"""
     ):
+        # AreaOffer DIT CE QU'EST LE REMPLISSAGE. La table Glass porte le
+        # vitrage (« Glass ») mais aussi les panneaux (« Panels »), et la
+        # destination ne se decide que pour le vitrage : un panneau est
+        # systematiquement pose en atelier. On impose donc CHARIOT sans lire
+        # Info2, comme le fait le connecteur historique — les deux lecteurs
+        # du meme fichier doivent dire la meme chose.
+        if (nature or "").strip() != "Glass":
+            info2 = "CHARIOT"
         men = menuiseries.get(eid)
         if men is None:
             continue
