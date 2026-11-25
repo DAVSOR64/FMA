@@ -41,7 +41,19 @@
     # precedente, et les minutes grossissaient en silence la mauvaise
     # operation. Un TimeType inconnu, comme un poste de charge absent du
     # referentiel, est desormais trace.
-    "version": "19.0.1.20.0",
+    # 1.21.0 : la destination du vitrage s'AFFICHE. Elle etait lue dans
+    # Glass.Info2, ecrite sur l'article, recopiee sur la ligne d'achat,
+    # elle decoupait les bons et sortait le vitrage de chantier du lot --
+    # sans apparaitre sur un seul ecran. Impossible de verifier qu'une
+    # affaire avait bien ete reprise : releve sur PETIFILS (A25-09-03010),
+    # dont les huit vitrages portent PALETTE. Elle est desormais sur la
+    # fiche article, avec deux filtres et un regroupement.
+    # Au passage : un remplissage qui n'est pas du vitrage recoit CHARIOT en
+    # clair au lieu d'un Info2 vide. La destination ne se decide que pour le
+    # vitrage, un panneau est systematiquement pose en atelier. Le repli
+    # donnait deja chariot, mais en journalisant une non-conformite
+    # « (vide) » par panneau et par import, la ou le vide est la norme.
+    "version": "19.0.1.21.0",
     "description": """
 
     """,
