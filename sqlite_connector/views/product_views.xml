@@ -27,6 +27,13 @@
                         domain="[('fma_nature_logikal', '=', 'article')]"/>
                 <filter string="Vitrages" name="fma_nature_glass"
                         domain="[('fma_nature_logikal', '=', 'glass')]"/>
+                <separator/>
+                <filter string="Vitrage sur palette (chantier)"
+                        name="fma_vitrage_palette"
+                        domain="[('fma_destination_vitrage', '=', 'palette')]"/>
+                <filter string="Vitrage sur chariot (atelier)"
+                        name="fma_vitrage_chariot"
+                        domain="[('fma_destination_vitrage', '=', 'chariot')]"/>
                 <group name="fma_groupby_article_libre">
                     <filter string="Article libre LOGIKAL"
                             name="groupby_fma_article_libre"
@@ -34,6 +41,9 @@
                     <filter string="Nature LOGIKAL"
                             name="groupby_fma_nature_logikal"
                             context="{'group_by': 'fma_nature_logikal'}"/>
+                    <filter string="Destination du vitrage"
+                            name="groupby_fma_destination_vitrage"
+                            context="{'group_by': 'fma_destination_vitrage'}"/>
                 </group>
             </search>
         </field>
@@ -53,6 +63,15 @@
             <xpath expr="//field[@name='categ_id']" position="after">
                 <field name="fma_conditionnement"
                        invisible="not fma_conditionnement"/>
+                <!-- La destination etait LUE, ECRITE et EXPLOITEE (elle
+                     decoupe les bons d'achat et sort le vitrage de chantier
+                     du lot) sans apparaitre sur aucun ecran. On ne pouvait
+                     donc pas verifier qu'une affaire avait bien ete reprise,
+                     ni corriger une saisie. Affichee seulement quand elle est
+                     renseignee : les profiles et la quincaillerie n'en ont
+                     pas. -->
+                <field name="fma_destination_vitrage"
+                       invisible="not fma_destination_vitrage"/>
             </xpath>
         </field>
     </record>

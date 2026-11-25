@@ -1378,7 +1378,17 @@ class SqliteConnector(models.Model):
             resultg = cursor.fetchall()
             for row in resultg:
                 if row[13] != 'Glass' :
-                    Info2 = ''
+                    # CHARIOT, ET NON LA CHAINE VIDE. La destination ne se
+                    # decide que pour le VITRAGE : un panneau est
+                    # systematiquement pose en atelier, quoi que le deviseur
+                    # ait saisi. Vider Info2 donnait bien chariot par le repli
+                    # de destination_vitrage(), mais en journalisant une
+                    # non-conformite « (vide) » a chaque import et pour chaque
+                    # panneau — alors que le vide est la norme ici. On ecrit
+                    # donc la consigne elle-meme : la regle devient lisible,
+                    # et le journal ne signale plus que les vrais manques,
+                    # ceux du vitrage.
+                    Info2 = 'CHARIOT'
                     spacer = ''
                     delai = 21
                 else :
