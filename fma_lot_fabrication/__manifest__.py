@@ -117,7 +117,21 @@
     # le nom en texte, puis « Ouvrir » -- affichaient deux fois la meme chose
     # et laissaient le piege en place : on clique sur « Lot », on tombe dans
     # la cellule.
-    "version": "19.0.1.117.0",
+    # 1.118.0 : une ligne d'achat partagee entre plusieurs lots est coupee
+    # avant d'etre deplacee. L'appro natif fusionne les besoins qu'il ne sait
+    # pas distinguer -- au moment ou les ordres sont confirmes, les lots d'une
+    # affaire portent des besoins identiques, la planification n'intervenant
+    # qu'apres -- et sortait UNE ligne pour trois lots, posee sur le bon du
+    # premier. Mesure sur A26-11-10613 : 22 pieces servant 6 + 8 + 8. Les
+    # profiles se repartissaient, la quincaillerie et le vitrage non.
+    # En 19.0 il n'y a plus de levier natif : procurement.group a disparu et
+    # stock.move.group_id avec lui. On coupe donc la ligne nous-memes, au
+    # besoin pres, en ne touchant qu'a l'achat a la commande -- un article
+    # suivi en stock est servi depuis le stock et n'appartient a aucun lot.
+    # Le mouvement de collecte, lui, reste mutualise : les morceaux partagent
+    # son chainage. Le total achete ne bouge pas, chaque lot arrondissant sa
+    # part au-dessus sur ce qui RESTE de la ligne.
+    "version": "19.0.1.118.0",
     "category": "Manufacturing",
     "summary": "Mise en lot des menuiseries : commerce (devis) -> production (OF debit + OF assemblage)",
     "description": """

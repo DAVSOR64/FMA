@@ -36,6 +36,7 @@ non par le chainage parent/enfant natif d'Odoo.
 import base64
 import io
 import logging
+import math
 import re
 from datetime import timedelta
 
@@ -623,6 +624,142 @@ class FmaLotFabrication(models.Model):
         return self.env["purchase.order"].create(
             candidats[0]._fma_vals_bon_lot())
 
+    def _parts_par_lot(self, ligne):
+        """``{id de lot: quantite}`` du besoin que cette ligne d'achat sert.
+
+        On descend le chainage depuis les mouvements que l'appro a designes
+        sur la ligne, jusqu'aux composants des ordres de fabrication — c'est
+        eux, et eux seuls, qui disent a quel lot un besoin appartient.
+
+        La profondeur est celle de ``_lignes_achat_du_lot`` : en fabrication a
+        deux etapes, l'achat vise la COLLECTE, qui alimente ensuite les
+        composants de chaque ordre.
+        """
+        self.ensure_one()
+        parts = {}
+        vus = set()
+        a_voir = ligne.move_dest_ids
+        for _niveau in range(self.PROFONDEUR_ACHAT):
+            a_voir = a_voir.filtered(lambda m: m.id not in vus)
+            if not a_voir:
+                break
+            vus |= set(a_voir.ids)
+            for move in a_voir:
+                ordre = move.raw_material_production_id
+                lot = ordre.lot_fabrication_id if ordre else False
+                if lot:
+                    parts[lot.id] = parts.get(lot.id, 0.0) + move.product_uom_qty
+            a_voir = a_voir.move_dest_ids
+        return parts
+
+    def _scinder_achats_partages(self, lignes):
+        """Extrait de chaque ligne d'achat partagee la part de CE lot.
+
+        LE PROBLEME. L'appro natif fusionne les besoins qu'il ne sait pas
+        distinguer : meme article, meme fournisseur, meme date. Or au moment
+        ou les ordres sont confirmes, les trois lots d'une affaire portent des
+        besoins rigoureusement identiques — la planification n'intervient
+        qu'APRES. Odoo les fond donc en UNE ligne d'achat et UN mouvement de
+        collecte. Mesure sur A26-11-10613 : une ligne de 22 pieces servant
+        6 + 8 + 8 sur trois lots, posee sur le bon du premier lot.
+        ``_fusionner_achats_du_lot`` deplace des lignes entre bons, il ne sait
+        pas en couper une en trois : la quincaillerie restait groupee quand
+        les profiles, eux, se repartissaient.
+
+        EN 19.0 IL N'Y A PAS DE LEVIER NATIF. ``procurement.group`` a disparu,
+        et ``stock.move.group_id`` avec lui (cf. _fusionner_sorties_matiere) :
+        on ne peut plus demander a Odoo d'ouvrir un bon par lot. On coupe donc
+        nous-memes.
+
+        CE QUI EST COUPE, ET CE QUI NE L'EST PAS. La ligne d'achat, oui. Le
+        mouvement de collecte, non : il est unique et mutualise, et le
+        decouper serait de la chirurgie sur la chaine d'appro. Les morceaux
+        gardent donc le meme mouvement aval — plusieurs receptions alimentant
+        un besoin commun, ce qu'Odoo sait faire.
+
+        SEUL L'ACHAT A LA COMMANDE EST CONCERNE. Un article suivi en stock est
+        servi depuis le stock ; son bon d'achat est un reapprovisionnement, et
+        il n'appartient a aucun lot. Meme test que ``_verifier_appro_debit`` :
+        la route MTO sur l'article, et ``procure_method`` sur le mouvement.
+
+        LE TOTAL ACHETE NE BOUGE PAS. Chaque lot arrondit sa part au-dessus
+        sur ce qui RESTE de la ligne, et le dernier emporte le reliquat :
+        6 pieces reparties sur 6/8/8 donnent 2, 2 et 2 — des entiers, et
+        toujours six. Arrondir chaque part independamment aurait fait acheter
+        huit pieces pour en servir six.
+        """
+        self.ensure_one()
+        Ligne = self.env["purchase.order.line"]
+        retenues = Ligne.browse()
+        for ligne in lignes:
+            try:
+                retenues |= self._scinder_une_ligne_achat(ligne)
+            except Exception:  # noqa: BLE001 — trace, pas de blocage
+                _logger.exception(
+                    "Scission de la ligne d'achat %s pour le lot %s",
+                    ligne.id, self.name)
+                retenues |= ligne
+        return retenues
+
+    def _scinder_une_ligne_achat(self, ligne):
+        """La part de CE lot sur ``ligne``, extraite si elle est partagee."""
+        self.ensure_one()
+        if ligne.order_id.state not in ("draft", "sent"):
+            return ligne
+        if not ligne.move_dest_ids:
+            return ligne
+
+        # Achat a la commande seulement — cf. l'en-tete.
+        mto = self.env.ref(
+            "stock.route_warehouse0_mto", raise_if_not_found=False)
+        if not mto or mto not in ligne.product_id.route_ids:
+            return ligne
+        if not ligne.move_dest_ids.filtered(
+                lambda m: m.procure_method == "make_to_order"):
+            return ligne
+
+        parts = self._parts_par_lot(ligne)
+        total = sum(parts.values())
+        if len(parts) < 2 or self.id not in parts or not total:
+            # Un seul lot derriere cette ligne : elle lui revient entiere.
+            return ligne
+
+        quantite = ligne.product_qty * parts[self.id] / total
+        # Au-dessus, et en entier : une fraction de piece ne se commande pas.
+        # Le 1e-6 evite qu'une part exactement ronde — 2.0 — ne monte a 3.
+        quantite = float(math.ceil(quantite - 1e-6))
+        if quantite <= 0:
+            return ligne
+        if float_compare(
+                quantite, ligne.product_qty,
+                precision_rounding=0.01) >= 0:
+            # Ma part absorbe toute la ligne : rien a couper, elle est a moi.
+            return ligne
+
+        reste = ligne.product_qty - quantite
+        # LE PRIX ET LA DATE SONT REPOSES EXPLICITEMENT. Changer la quantite
+        # d'une ligne d'achat rejoue le calcul du prix depuis le tarif
+        # fournisseur : une tranche de remise franchie, et les trois morceaux
+        # ne couteraient plus ce que l'acheteur avait negocie. On copie ce
+        # qui etait en place.
+        nouvelle = ligne.copy({
+            "order_id": ligne.order_id.id,
+            "product_qty": quantite,
+            "price_unit": ligne.price_unit,
+            "date_planned": ligne.date_planned,
+            "move_dest_ids": [Command.set(ligne.move_dest_ids.ids)],
+        })
+        ligne.write({"product_qty": reste})
+        self.message_post(body=_(
+            "Achat partagé : %(article)s était commandé en une ligne de "
+            "%(total)s pour %(nb)s lots. %(part)s revient à ce lot, "
+            "%(reste)s reste à répartir sur les autres.",
+            article=ligne.product_id.display_name,
+            total=quantite + reste, nb=len(parts),
+            part=quantite, reste=reste,
+        ))
+        return nouvelle
+
     def _fusionner_achats_du_lot(self):
         """Un bon de commande par lot ET par fournisseur.
 
@@ -681,6 +818,11 @@ class FmaLotFabrication(models.Model):
 
             toutes = self._lignes_achat_du_lot()
             lignes = toutes.filtered(dans_le_lot)
+            # AVANT DE DEPLACER, COUPER. Une ligne qui sert plusieurs lots ne
+            # peut pas etre deplacee vers l'un d'eux sans priver les autres :
+            # on en extrait d'abord la part de ce lot. Le regroupement qui
+            # suit ne voit plus que des lignes qui lui appartiennent.
+            lignes = self._scinder_achats_partages(lignes)
             commandes = lignes.order_id
             if not lignes:
                 self._fma_regrouper_vitrage_chantier(toutes - lignes)
