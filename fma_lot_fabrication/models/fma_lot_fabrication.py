@@ -728,10 +728,30 @@ class FmaLotFabrication(models.Model):
             return ligne
 
         parts = self._parts_par_lot(ligne)
-        total = sum(parts.values())
-        if len(parts) < 2 or self.id not in parts or not total:
-            # Un seul lot derriere cette ligne : elle lui revient entiere.
+        if self.id not in parts:
             return ligne
+
+        # LE PRORATA SE CALCULE SUR LES LOTS QUI RESTENT A SERVIR, et non sur
+        # tous. Les morceaux deja decoupes gardent le meme mouvement aval :
+        # _parts_par_lot continue donc de voir les trois lots, meme quand deux
+        # ont deja leur part. En divisant par le besoin total, le dernier lot
+        # ne prenait qu'une fraction de ce qui restait et laissait derriere
+        # lui un reliquat que plus personne ne revendiquait.
+        #
+        # Un lot est servi s'il existe deja une part a son nom sur ce meme
+        # besoin. Quand je suis le dernier, la ligne me revient ENTIERE : il
+        # n'y a plus personne avec qui la partager.
+        Ligne = self.env["purchase.order.line"]
+        servis = set(Ligne.search([
+            ("product_id", "=", ligne.product_id.id),
+            ("move_dest_ids", "in", ligne.move_dest_ids.ids),
+            ("lot_fabrication_id", "!=", False),
+        ]).mapped("lot_fabrication_id").ids) - {self.id}
+        restants = {k: v for k, v in parts.items() if k not in servis}
+        total = sum(restants.values())
+        if len(restants) < 2 or not total:
+            return ligne
+        parts = restants
 
         quantite = ligne.product_qty * parts[self.id] / total
         # Au-dessus, et en entier : une fraction de piece ne se commande pas.
