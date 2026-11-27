@@ -709,6 +709,15 @@ class FmaLotFabrication(models.Model):
         if not ligne.move_dest_ids:
             return ligne
 
+        # DEJA ATTRIBUEE A UN AUTRE LOT : c'est une part qu'on a deja
+        # decoupee, et elle ne se recoupe pas. Sans cette garde le deuxieme
+        # lot taillait dans la part du premier : les morceaux gardent le meme
+        # mouvement aval, donc chaque lot les revendique tous. On la rend
+        # VIDE, et non telle quelle : elle n'appartient pas a ce lot, elle n'a
+        # rien a faire sur son bon.
+        if ligne.lot_fabrication_id and ligne.lot_fabrication_id != self:
+            return self.env["purchase.order.line"].browse()
+
         # Achat a la commande seulement — cf. l'en-tete.
         mto = self.env.ref(
             "stock.route_warehouse0_mto", raise_if_not_found=False)
@@ -745,11 +754,15 @@ class FmaLotFabrication(models.Model):
         nouvelle = ligne.copy({
             "order_id": ligne.order_id.id,
             "product_qty": quantite,
+            "lot_fabrication_id": self.id,
             "price_unit": ligne.price_unit,
             "date_planned": ligne.date_planned,
             "move_dest_ids": [Command.set(ligne.move_dest_ids.ids)],
         })
-        ligne.write({"product_qty": reste})
+        # LE RELIQUAT REDEVIENT LIBRE. Il revient aux lots suivants, et
+        # c'est _rattacher_achats qui le leur donnera a leur tour. Le laisser
+        # au nom de ce lot-ci l'aurait fige sur son bon.
+        ligne.write({"product_qty": reste, "lot_fabrication_id": False})
         self.message_post(body=_(
             "Achat partagé : %(article)s était commandé en une ligne de "
             "%(total)s pour %(nb)s lots. %(part)s revient à ce lot, "
